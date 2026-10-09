@@ -2,7 +2,7 @@ import {readFileSync,readdirSync,existsSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';
 const root=resolve(new URL('../',import.meta.url).pathname);
-for(const dir of ['public/js','scripts','tests'])for(const file of readdirSync(resolve(root,dir))){if(!/\.(m?js)$/.test(file))continue;const r=spawnSync(process.execPath,['--check',resolve(root,dir,file)],{encoding:'utf8'});if(r.status){console.error(r.stderr);process.exit(r.status);}}
+for(const dir of ['public/js','scripts','tests','worker'])for(const file of readdirSync(resolve(root,dir))){if(!/\.(m?js)$/.test(file))continue;const r=spawnSync(process.execPath,['--check',resolve(root,dir,file)],{encoding:'utf8'});if(r.status){console.error(r.stderr);process.exit(r.status);}}
 const html=readFileSync(resolve(root,'public/index.html'),'utf8'),app=readFileSync(resolve(root,'public/js/app.js'),'utf8');
 const ids=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]));
 if(ids.size!==[...html.matchAll(/\bid="([^"]+)"/g)].length)throw Error('HTMLに重複するIDがあります。');
