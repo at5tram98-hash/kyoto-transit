@@ -8,10 +8,10 @@ export const LINKS={
   bus:'https://www2.city.kyoto.lg.jp/kotsu/busdia/keitou/keitou.htm'
 };
 export function yahooURL(request,network,from=request.from,to=request.to,start=request.start,via=request.via){
-  const stop=id=>{const s=network.stops.get(id);return s?.name??'';};
+  const stop=id=>{const s=network.stops.get(id);if(!s)return '';return s.type==='citybus'?`${s.name}/京都市営バス`:s.type==='kyotobus'?`${s.name}/京都バス`:s.name;};
   const [y,m,d]=request.date.split('-');
   const minute=Math.round(start)%1440;
-  const p=new URLSearchParams({from:stop(from),to:stop(to),y,m,d,hh:String(Math.floor(minute/60)),m1:String(Math.floor(minute%60/10)),m2:String(minute%10),type:'1',ticket:'ic',expkind:'1',ws:'3'});
+  const p=new URLSearchParams({from:stop(from),to:stop(to),y,m,d,hh:String(Math.floor(minute/60)),m1:String(Math.floor(minute%60/10)),m2:String(minute%10),type:'1',ticket:'ic',expkind:'1',ws:'3',al:'0',shin:'0',ex:'0',hb:'0',lb:'1',sr:'0'});
   // Yahoo!の検索フォームは、経由地点を同名のviaパラメーターで順に送る。
   (via??[]).slice(0,3).forEach(v=>p.append('via',stop(v.stop)));
   return `https://transit.yahoo.co.jp/search/result?${p}`;
