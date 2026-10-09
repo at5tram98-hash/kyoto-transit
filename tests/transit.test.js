@@ -90,7 +90,7 @@ test('複数比較案の各時間に逆転がない',()=>{
 });
 test('Yahooリンクに全経由地・日時を安全にエンコード',()=>{
   const url=new URL(yahooURL(request({from:'K07',to:'K01',start:637,via:[{stop:'B07',dwell:3},{stop:'B24',dwell:10}]}),network));
-  assert.equal(url.origin,'https://transit.yahoo.co.jp');assert.equal(url.searchParams.get('from'),'丸太町');assert.equal(url.searchParams.get('via1'),'近鉄丹波橋');assert.equal(url.searchParams.get('via2'),'高の原');assert.equal(url.searchParams.get('hh'),'10');assert.equal(url.searchParams.get('m1'),'3');assert.equal(url.searchParams.get('m2'),'7');assert.equal(url.searchParams.get('type'),'1');
+  assert.equal(url.origin,'https://transit.yahoo.co.jp');assert.equal(url.searchParams.get('from'),'丸太町');assert.deepEqual(url.searchParams.getAll('via'),['近鉄丹波橋','高の原']);assert.equal(url.searchParams.has('via1'),false);assert.equal(url.searchParams.get('hh'),'10');assert.equal(url.searchParams.get('m1'),'3');assert.equal(url.searchParams.get('m2'),'7');assert.equal(url.searchParams.get('type'),'1');
 });
 test('Yahoo検索の補助運賃で市バスの通常230円・定期0円を併記',()=>{
   const f=estimateDirectFare(network.busIds.get('祇園'),network.busIds.get('清水道'),network,DEFAULT_PASSES,date);

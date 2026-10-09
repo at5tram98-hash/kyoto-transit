@@ -12,7 +12,8 @@ export function yahooURL(request,network,from=request.from,to=request.to,start=r
   const [y,m,d]=request.date.split('-');
   const minute=Math.round(start)%1440;
   const p=new URLSearchParams({from:stop(from),to:stop(to),y,m,d,hh:String(Math.floor(minute/60)),m1:String(Math.floor(minute%60/10)),m2:String(minute%10),type:'1',ticket:'ic',expkind:'1',ws:'3'});
-  (via??[]).slice(0,3).forEach((v,i)=>p.set(`via${i+1}`,stop(v.stop)));
+  // Yahoo!の検索フォームは、経由地点を同名のviaパラメーターで順に送る。
+  (via??[]).slice(0,3).forEach(v=>p.append('via',stop(v.stop)));
   return `https://transit.yahoo.co.jp/search/result?${p}`;
 }
 export function departureAfterDwell(arrival,dwell){
