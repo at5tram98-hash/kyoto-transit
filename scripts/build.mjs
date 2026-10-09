@@ -25,7 +25,7 @@ for(const filename of await readdir(new URL('node_modules/tesseract.js-core/',ro
 // 入口だけでなく全モジュールも更新し、依存ファイルの古いキャッシュを避ける。
 for(const file of files.filter(file=>file.path.startsWith('js/')&&file.path.endsWith('.js'))){
   let content=file.content.toString().replace(/from (['"])(\.\/.+?\.js)\1/g,(_,quote,path)=>`from ${quote}${path}?v=${version}${quote}`);
-  content=content.replace("fetch('data/bus-catalog.json')",`fetch('data/bus-catalog.json?v=${version}')`);
+  content=content.replace(/fetch\('data\/([\w-]+\.json)'\)/g,(_,path)=>`fetch('data/${path}?v=${version}')`);
   await writeFile(new URL(file.path,output),content);
 }
 const html=(await readFile(new URL('index.html',output),'utf8')).replace('href="styles.css"',`href="styles.css?v=${version}"`).replace('src="js/app.js"',`src="js/app.js?v=${version}"`);

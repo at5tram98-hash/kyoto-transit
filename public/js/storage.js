@@ -1,9 +1,10 @@
 import {DEFAULT_PASSES} from './fares.js';
 const KEY='kyonori.v1';
-export const defaultState=()=>({version:1,passes:{...DEFAULT_PASSES},favorites:['K07','K01','K11','ksu'],savedRoutes:[],buffer:3,theme:'system',feedLabel:null});
+export const defaultState=()=>({version:1,passes:{...DEFAULT_PASSES},favorites:['K07','K01','K11','ksu'],savedRoutes:[],buffer:3,theme:'system',feedLabel:null,destinations:{muji:{label:'',stop:null},gu:{label:'',stop:null}}});
 export function loadState(){
   try{const s=JSON.parse(localStorage.getItem(KEY));if(s?.version!==1)return defaultState();
-    return {...defaultState(),...s,passes:{...DEFAULT_PASSES,...s.passes},favorites:Array.isArray(s.favorites)?s.favorites.filter(x=>typeof x==='string'):[]};
+    const defaults=defaultState(),destinations={};for(const k of ['muji','gu']){const d=s.destinations?.[k];destinations[k]={label:typeof d?.label==='string'?d.label.slice(0,80):'',stop:typeof d?.stop==='string'?d.stop:null};}
+    return {...defaults,...s,destinations,passes:{...DEFAULT_PASSES,...s.passes},favorites:Array.isArray(s.favorites)?s.favorites.filter(x=>typeof x==='string'):[]};
   }catch{return defaultState();}
 }
 export function saveState(s){localStorage.setItem(KEY,JSON.stringify(s));}

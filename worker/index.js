@@ -1,6 +1,7 @@
 // Public transport pages only. Browser credentials and arbitrary URLs are never accepted.
 import {boundedText,searchJourney,validateJourneyRequest} from './journeys.js';
 import {parseApproach} from './bus.js';
+import {findMeeting,validateMeeting} from './meeting.js';
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const RAIL='https://www.kintetsu.jp/unkou/unkou.html';
 const ROUTES=new Set(['10','13','43','78','202','204','205','206','208']);
@@ -63,13 +64,17 @@ export default {
     const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN;
     const cors={'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Expose-Headers':'X-Captured-At, X-Source-URL','Vary':'Origin','Cache-Control':'no-store'};
     const url=new URL(request.url);
-    if(url.pathname==='/health')return Response.json({service:'My Map 乗換・接近情報',version:2,browser:Boolean(env.BROWSER)});
+    if(url.pathname==='/health')return Response.json({service:'My Map 乗換・接近情報',version:3,browser:Boolean(env.BROWSER)});
     if(!allowed)return error('My Mapからご利用ください。',403);
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
     let response;
     try{
       if(request.method!=='GET')response=error('GETのみ利用できます。',405);
       else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。1分ほど待ってください。',429);
+      else if(url.pathname==='/meeting'){
+        const raw=url.searchParams.get('request');if(!raw||raw.length>4000)response=error('合流条件を確認してください。');
+        else{let r;try{r=validateMeeting(JSON.parse(raw));}catch(e){response=error(e.message??'合流条件を確認してください。');}if(r)response=Response.json(await findMeeting(r));}
+      }
       else if(url.pathname==='/journeys'){
         const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');
         else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}

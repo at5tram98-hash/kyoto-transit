@@ -2,6 +2,7 @@ import {load} from 'cheerio/slim';
 import {createNetwork,normalize} from '../public/js/network.js';
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import {yahooURL} from '../public/js/providers.js';
+import {schoolRequest} from '../public/js/mobility.js';
 
 const network=createNetwork(catalog);
 const routes=new Set(['10','13','43','78','202','204','205','206','208']);
@@ -82,11 +83,11 @@ export function validateJourneyRequest(r){
 export function matchesConditions(plan,r){
   if(plan.walk>r.maxWalk)return false;
   if(r.trainType!=='all'&&plan.legs.some(l=>l.operator==='kintetsu'&&l.category!==r.trainType))return false;
-  for(let i=1;i<plan.legs.length;i++){const a=plan.legs[i-1],b=plan.legs[i];if(b.kind==='ride'&&!b.through&&b.depart-a.arrive<r.buffer)return false;}
+  for(let i=1;i<plan.legs.length;i++){const a=plan.legs[i-1],b=plan.legs[i],isTransfer=plan.legs.slice(0,i).some(l=>l.kind==='ride');if(isTransfer&&b.kind==='ride'&&!b.through&&b.depart-a.arrive<r.buffer)return false;}
   return true;
 }
 export async function searchJourney(r,fetcher=fetch){
-  validateJourneyRequest(r);const places=[r.from,...r.via.map(v=>v.stop),r.to],cache=new Map();let beams=[{legs:[],fareGroups:[],normal:0,transfers:0,walk:0,wait:0,time:r.start}];
+  r=schoolRequest(r);validateJourneyRequest(r);const places=[r.from,...r.via.map(v=>v.stop),r.to],cache=new Map();let beams=[{legs:[],fareGroups:[],normal:0,transfers:0,walk:0,wait:0,time:r.start}];
   const read=async(from,to,start)=>{
     const date=new Date(Date.parse(`${r.date}T00:00:00Z`)+Math.floor(start/1440)*86400000).toISOString().slice(0,10),minute=start%1440;
     const key=`${from}:${to}:${start}`;if(cache.has(key))return cache.get(key);

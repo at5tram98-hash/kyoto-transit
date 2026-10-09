@@ -6,6 +6,8 @@ import {yahooURL,departureAfterDwell,applyFeed,validateFeed} from './providers.j
 import {recognizeImage,cancelOCR,freshness,summarizeOCR} from './ocr.js';
 import {getBusChoices,getOfficialImage,getBusData} from './live.js';
 import {getJourneys,journeyHTML,journeyFare,busHTML} from './journey.js';
+import {schoolRequest} from './mobility.js';
+import {mountMobility} from './assistant.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -16,6 +18,7 @@ let state=loadState(),base,network,query={from:'K07',to:'K01',via:[]},currentReq
 const names={search:'乗換検索',live:'接近・運行情報',favorites:'お気に入り',settings:'定期・設定'};
 let liveStop='烏丸丸太町（地下鉄丸太町駅）',choices=[],choicesController,ocrController,ocrBusy=false,ocrJob=0;
 let routeMode='real',searchController,searchJob=0,routeUpdatedAt,routeNotice='';
+let mobility;
 const name=id=>network?.stops.get(id)?.name??'場所を選択';
 const line=id=>network?.stops.get(id)?.lines?.join('・')??'';
 const yen=v=>v===null?'要確認':`${Math.round(v).toLocaleString('ja-JP')}円`;
@@ -49,7 +52,8 @@ function renderPicker(){
 function selectStop(id){
   if(!network.stops.has(id))return;
   if(pickerTarget==='favorite'){if(state.favorites.includes(id))toast('すでに登録されています');else if(commit(s=>s.favorites.push(id)))toast('お気に入りに追加しました');renderFavorites();}
-  else if(pickerTarget==='live'){liveStop=name(id);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';loadLiveChoices();}
+  else if(pickerTarget==='live'){liveStop=base.stops.get(id)?.fullName??name(id);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';loadLiveChoices();}
+  else if(mobility?.selectStop(pickerTarget,id)){}
   else if(pickerTarget==='via-add')query.via.push({stop:id,dwell:5,exitGate:false});
   else if(pickerTarget?.startsWith('via-'))query.via[+pickerTarget.slice(4)].stop=id;
   else query[pickerTarget]=id;
@@ -60,7 +64,7 @@ function request(){
   if(!$('#date').value||!Number.isFinite(h)||!Number.isFinite(m))throw new Error('日付と出発時刻を入力してください。');
   if(query.from===query.to&&!query.via.length)throw new Error('出発地と到着地が同じです。折り返す場合は経由地を追加してください。');
   if(query.via.some(v=>!Number.isFinite(v.dwell)||v.dwell<0||v.dwell>180))throw new Error('滞在時間は0〜180分で入力してください。');
-  return {...structuredClone(query),date:$('#date').value,start:h*60+m,trainType:$('#train-type').value,buffer:+$('#buffer').value,maxWalk:+$('#max-walk').value};
+  return schoolRequest({...structuredClone(query),date:$('#date').value,start:h*60+m,trainType:$('#train-type').value,buffer:+$('#buffer').value,maxWalk:+$('#max-walk').value});
 }
 function launchURL(url){window.open(url,'_blank','noopener,noreferrer');}
 async function searchYahoo(event){
@@ -69,7 +73,7 @@ async function searchYahoo(event){
   currentRequest=r;routeMode='real';results=[];$('#search-submit').disabled=true;$('#demo-search').disabled=true;
   $('#results-section').innerHTML='<div class="loading-card" role="status"><span class="spinner"></span>実際の経路を取得しています…<p class="fine">経由地がある場合は、到着と滞在をつないで検索します。</p><button class="plain" data-cancel-search>中止</button></div>';
   const timeout=setTimeout(()=>controller.abort(),90000);
-  try{const data=await getJourneys(r,controller.signal);if(job!==searchJob)return;results=data.routes;routeUpdatedAt=data.updatedAt;routeNotice=data.notice;openRoute=0;sort='fast';renderResults();}
+  try{const data=await getJourneys(r,controller.signal);if(job!==searchJob)return;results=data.routes;routeUpdatedAt=data.updatedAt;routeNotice=data.notice;openRoute=0;sort='fast';renderResults();mobility?.routesChanged(results,r);}
   catch(e){if(job!==searchJob)return;$('#form-error').textContent=e.name==='AbortError'?'検索を中止しました。または時間切れです。再検索してください。':e.message;$('#results-section').innerHTML='';}
   finally{clearTimeout(timeout);if(job===searchJob){$('#search-submit').disabled=false;$('#demo-search').disabled=false;}}
 }
@@ -203,7 +207,7 @@ async function importSettings(file){
     if(!['system','light','dark'].includes(s.theme)||![1,3,5,10].includes(s.buffer)||!subwayIds.includes(s.passes?.subwayFrom)||!subwayIds.includes(s.passes?.subwayTo))throw Error('定期区間・表示設定を確認してください。');
     if(!['citybus','kyotobus','subway'].every(k=>typeof s.passes[k]==='boolean')||typeof s.passes.expires!=='string'||(s.passes.expires&&!/^\d{4}-\d{2}-\d{2}$/.test(s.passes.expires)))throw Error('定期券の形式が正しくありません。');
     if(!s.favorites.every(id=>network.stops.has(id))||!s.savedRoutes.every(r=>network.stops.has(r.from)&&network.stops.has(r.to)&&Array.isArray(r.via)&&r.via.length<=3&&r.via.every(v=>network.stops.has(v.stop)&&Number.isFinite(v.dwell)&&v.dwell>=0&&v.dwell<=180)))throw Error('未対応の場所が含まれています。');
-    saveState(s);state=s;renderSettings();renderFavorites();renderPasses();toast('設定を復元しました');
+    saveState(s);state=loadState();renderSettings();renderFavorites();renderPasses();mobility?.refreshSettings();toast('設定を復元しました');
   }catch(e){toast(e.message||'設定を読み込めませんでした');}
 }
 async function importFeed(file){try{if(!file||file.size>40*1024*1024)throw Error('40MB以下のデータを選択してください。');const data=validateFeed(JSON.parse(await file.text()));await putFile('feed',data);network=applyFeed(base,data);updateFeedStatus();toast('時刻データを読み込みました');renderPasses();}catch(e){toast(e.message||'時刻データを読み込めませんでした');}}
@@ -218,6 +222,11 @@ async function init(){
   const response=await fetch('data/bus-catalog.json');if(!response.ok)throw Error('停留所データを読み込めませんでした。');base=createNetwork(await response.json());network=base;
   try{const feed=await getFile('feed');if(feed)network=applyFeed(base,feed);}catch{/* データがない環境でもYahoo検索を利用できる。 */}
   renderSettings();renderLocations();renderPasses();updateFeedStatus();updateConditions();readScreenshot();readLiveReports();setTab('search');window.addEventListener('resize',moveTabSelection);
+  mobility=mountMobility({network:base,getState:()=>state,commit,openPicker,toast,setTab,now:tokyoNow,
+    navigate:(from,to)=>{query=schoolRequest({from,to,via:[]});setNow();renderLocations();setTab('search');searchYahoo();},
+    showBus:async(id,route)=>{liveStop=base.stops.get(id)?.fullName??name(id);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';setTab('live');await loadLiveChoices();const c=choices.find(c=>c.route===route)??choices[0];if(c){$('#live-choice').value=c.value;await updateBus();}},
+    showMeeting:(journey,r,updatedAt,notice)=>{query={from:r.from,to:journey.schoolAvailable?'ksu':'K01',via:[]};currentRequest={...r,to:query.to,via:[],trainType:'all',maxWalk:30};results=[journey.journey];routeUpdatedAt=updatedAt;routeNotice=notice;routeMode='real';openRoute=0;sort='fast';renderResults();$('#results-section').scrollIntoView({behavior:'smooth',block:'start'});}
+  });
   setInterval(()=>{$$('[data-freshness]').forEach(e=>{e.textContent=freshness(e.dataset.freshness);e.classList.toggle('orange',e.textContent!=='取得から2分以内');});},30000);
   document.addEventListener('click',e=>{
     const b=e.target.closest('button,a');if(!b)return;const d=b.dataset;
@@ -251,8 +260,8 @@ async function init(){
   $('#waypoints').addEventListener('change',e=>{if(e.target.dataset.dwell!==undefined)query.via[+e.target.dataset.dwell].dwell=+e.target.value;if(e.target.dataset.exit!==undefined)query.via[+e.target.dataset.exit].exitGate=e.target.checked;});
   $('#date').addEventListener('change',renderPasses);
   for(const id of ['train-type','buffer'])$(`#${id}`).addEventListener('change',()=>{updateConditions();if(id==='buffer')commit(s=>{s.buffer=+$('#buffer').value;});});
-  $('#example-commute').addEventListener('click',()=>{query={from:'K07',to:'ksu',via:[]};renderLocations();toast('通学ルートを入力しました');});
-  $('#example-return').addEventListener('click',()=>{query={from:'K07',to:'K01',via:[{stop:'B07',dwell:3,exitGate:false},{stop:'B24',dwell:10,exitGate:false}]};renderLocations();toast('丹波橋で下車・高の原で10分待つ設定です');});
+  $('#example-commute').addEventListener('click',()=>{query=schoolRequest({from:'K07',to:'ksu',via:[]});renderLocations();toast('国際会館経由の通学ルートを入力しました');});
+  $('#example-return').addEventListener('click',()=>mobility.openMeeting());
   for(const id of ['pass-citybus','pass-kyotobus','pass-subway','pass-from','pass-to','pass-expires'])$(`#${id}`).addEventListener('change',updatePasses);
   $('#theme').addEventListener('change',()=>{commit(s=>{s.theme=$('#theme').value;});setTheme();});
   $('#export-settings').addEventListener('click',exportSettings);

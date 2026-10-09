@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createNetwork} from '../public/js/network.js';
+import {locate,meetingPoints,feasibleMeeting,nextStop,schoolRequest,trainKey,trainCandidates} from '../public/js/mobility.js';
+import {findMeeting,joinRoutes} from '../worker/meeting.js';
+import {busHTML} from '../public/js/journey.js';
+import catalog from '../public/data/bus-catalog.json' with {type:'json'};
+import geo from '../public/data/locations.json' with {type:'json'};
+const net=createNetwork(catalog),now=Date.parse('2026-10-10T00:00:00Z'),fix=(id,accuracy=10)=>({...geo.stops.find(s=>s.id===id),accuracy,timestamp:now});
+const leg=(from,to,depart,arrive,intermediate=[])=>({kind:'ride',operator:'kintetsu',category:'express',from,to,depart,arrive,minutes:arrive-depart,label:'近鉄京都線急行',destination:'京都行',intermediate,path:[from,to],platform:null});
+const route=legs=>({legs,start:legs[0].depart,time:legs.at(-1).arrive,duration:legs.at(-1).arrive-legs[0].depart,normal:500,transfers:0,walk:0,wait:0,fareGroups:[{normal:500,indices:legs.map((_,i)=>i)}]});
+const friend=route([leg('B24','K15',570,600,[{name:'新祝園',time:575},{name:'新田辺',time:583},{name:'大久保',time:590},{name:'近鉄丹波橋',time:597}]),{...leg('K15','K01',600,628,[{name:'丸太町',time:616}]),operator:'subway',category:'local',label:'京都市営烏丸線',destination:'国際会館行'}]);
+test('全対応駅・市バス停の代表位置を収録し重複IDなし',()=>{assert.equal(geo.stops.length,net.stops.size);assert.equal(new Set(geo.stops.map(s=>s.id)).size,net.stops.size);assert.ok(geo.stops.every(s=>Number.isFinite(s.lat)&&Number.isFinite(s.lng)));});
+test('線路付近と市バス停付近を区別する',()=>{assert.equal(locate(fix('B24'),geo,net,now).status,'rail');assert.equal(locate(fix('bus-1'),geo,net,now).status,'bus');});
+test('古い位置・精度不良・エリア外を自動案内に使わない',()=>{assert.equal(locate({...fix('K07'),timestamp:now-46000},geo,net,now).status,'unavailable');assert.equal(locate(fix('K07',500),geo,net,now).status,'uncertain');assert.equal(locate({lat:35.6,lng:139.7,accuracy:10,timestamp:now},geo,net,now).status,'outside');});
+test('京産大へは必ず国際会館を最後に経由する',()=>{const r={from:'K07',to:'ksu',via:[]};assert.equal(schoolRequest(r).via.at(-1).stop,'K01');assert.equal(schoolRequest({...r,from:'K01'}).via.length,0);assert.throws(()=>schoolRequest({...r,via:[{stop:'B01'},{stop:'B24'},{stop:'K04'}]}));});
+test('友達の実停車時刻を南から並べ、通過駅を合流候補にしない',()=>{const p=meetingPoints(friend,net);assert.equal(p[0].id,'B24');assert.equal(p[1].id,'B21');assert.ok(!p.some(p=>p.id==='B22'));assert.equal(p[0].sharedMinutes,58);assert.equal(p.find(p=>p.id==='B07').sharedMinutes,31);});
+test('待ち時間と乗換余裕の両方を満たす地点だけ可',()=>{const p={id:'B07',time:597};assert.equal(feasibleMeeting(p,{time:595},3),null);assert.equal(feasibleMeeting(p,{time:591},3,10),null);const c=feasibleMeeting(p,{time:590},3,5);assert.equal(c.available,7);assert.equal(c.slack,2);});
+test('次駅は実際の停車駅で、急行の通過駅を表示しない',()=>{assert.equal(nextStop(friend.legs[0],net,574).id,'B21');assert.equal(nextStop(friend.legs[0],net,601),null);});
+test('GPSが古い場合に列車を自動推定しない',()=>assert.deepEqual(trainCandidates([friend],{...fix('B24'),timestamp:now-60000},null,geo,net,570,now),[]));
+test('合流探索は最南地点と余裕を検証し、別の列車に置き換えない',async()=>{
+  const requests=[],r={from:'K07',date:'2026-10-10',start:540,buffer:3,wait:0,friendStart:570,friendType:'express',friendKey:trainKey(friend)};
+  const read=async q=>{requests.push(q);if(q.from==='B24'&&q.to==='K01')return {routes:[friend]};if(q.from==='K01')return {routes:[]};if(q.from==='K07')return {routes:[route([leg('K07',q.to,543,q.to==='B24'?585:q.to==='B21'?578:578)])]};const point=meetingPoints(friend,net).find(p=>p.id===q.from),original=friend.legs[point.legIndex];const suffix={...original,from:point.id,depart:point.time,minutes:original.arrive-point.time,intermediate:original.intermediate.filter(s=>s.time>point.time)};return {routes:[route([suffix,...friend.legs.slice(point.legIndex+1)])]};};
+  const data=await findMeeting(r,read);assert.equal(data.plans[0].point.id,'B16');assert.equal(data.plans[0].slack,2);assert.equal(data.checked.find(p=>p.id==='B24').possible,false);assert.ok(data.plans.every(p=>p.journey.legs.some(l=>l.kind==='dwell')));await assert.rejects(findMeeting({...r,friendKey:'unknown'},read));
+});
+test('合流した経路は運賃を合算し索引を維持する',()=>{const a=route([leg('K07','B07',540,560)]),b=route([leg('B07','K15',565,580)]),p=joinRoutes(a,b,{id:'B07',time:565});assert.equal(p.normal,1000);assert.equal(p.fareGroups[1].indices[0],2);assert.equal(p.wait,5);assert.equal(p.transfers,1);});
+test('接近図のバスマークは公式の停留所前に置き、混雑と取得時刻を残す',()=>{const html=busHTML({capturedAt:'2026-10-10T00:00:00Z',route:'204',stop:'丸太町',destination:'円町',boarding:'B',buses:[{stopsAway:2,congestion:'空席あり'},{stopsAway:5,congestion:'混雑'}]});assert.equal((html.match(/class="bus-marker"/g)||[]).length,2);assert.match(html,/title="2停留所前・空席あり"/);assert.match(html,/data-freshness/);assert.doesNotMatch(html,/あと\d+分/);});
