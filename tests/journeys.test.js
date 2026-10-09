@@ -23,6 +23,9 @@ test('厳密な列車種別・乗換余裕・徒歩上限で取得候補を絞�
   const p={walk:4,legs:[{kind:'ride',operator:'subway',arrive:550},{kind:'ride',operator:'kintetsu',category:'express',depart:551}]};assert.equal(matchesConditions(p,req),false);p.legs[1].through=true;assert.equal(matchesConditions(p,req),true);assert.equal(matchesConditions(p,{...req,trainType:'local'}),false);
 });
 test('不正な地点・滞在・日付・条件をサーバーで拒否',()=>{for(const bad of [{from:'https://example.com'},{date:'2026-02-31'},{via:[{stop:'K01',dwell:181,exitGate:false}]},{buffer:0}])assert.throws(()=>validateJourneyRequest({...req,...bad}));});
+test('同名の地下鉄京都駅を近鉄京都駅の結果として採用しない',async()=>{const r=await searchJourney({...req,from:'B01'},async()=>new Response(page({from:'京都',fare:290})));assert.equal(r.routes.length,0);});
+test('徒歩後の乗換余裕も確保する',()=>assert.equal(matchesConditions({walk:4,legs:[{kind:'walk',arrive:550},{kind:'ride',operator:'subway',depart:551}]},req),false));
+test('翌日の区間には期限切れの定期を適用しない',()=>{const p=parseJourneys(page({depart:'00:03',arrive:'00:15'}),{...req,start:1439})[0];assert.equal(journeyFare(p,network,{...DEFAULT_PASSES,expires:req.date},req.date).additional,260);});
 test('上流データのサイズをストリーム中に制限',async()=>{await assert.rejects(boundedText(new Response('x'.repeat(100)),10));assert.equal(await boundedText(new Response('実データ')), '実データ');});
 test('接近表の画像altを使い、凡例をバスと誤認しない',()=>{const p=parseApproach('<table id="approach_table"><td id="vehicle-position-data_1"><img alt="３つまえ 空席あり"></td></table><img alt="1つまえ 満員">');assert.deepEqual(p.buses.map(b=>[b.stopsAway,b.congestion]),[[3,'空席あり']]);});
 test('接近なしは公式の明示メッセージがある場合だけ',()=>{assert.throws(()=>parseApproach('<table id="approach_table"></table>'));assert.equal(parseApproach('<table id="approach_table"></table><div class="modal in">現在、６停留所以内に接近しているバスはありません。</div>').noBus,true);});

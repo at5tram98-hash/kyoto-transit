@@ -13,7 +13,9 @@ export async function getJourneys(request,signal){
 export function journeyFare(route,network,passes,date){
   let estimated=false;
   const details=route.fareGroups.map(g=>{
-    const legs=g.indices.map(i=>route.legs[i]),calc=summarizeFares(legs,network,passes,date);
+    const legs=g.indices.map(i=>route.legs[i]);
+    const groupDate=new Date(Date.parse(`${date}T00:00:00Z`)+Math.floor(legs[0].depart/1440)*86400000).toISOString().slice(0,10);
+    const calc=summarizeFares(legs,network,passes,groupDate);
     const unchanged=calc.details.every(d=>d.additional===d.normal),covered=calc.details.length>0&&calc.details.every(d=>d.covered);
     const additional=covered?0:unchanged?g.normal:calc.additional;
     if(!covered&&!unchanged)estimated=true;

@@ -82,7 +82,7 @@ export function validateJourneyRequest(r){
 export function matchesConditions(plan,r){
   if(plan.walk>r.maxWalk)return false;
   if(r.trainType!=='all'&&plan.legs.some(l=>l.operator==='kintetsu'&&l.category!==r.trainType))return false;
-  for(let i=1;i<plan.legs.length;i++){const a=plan.legs[i-1],b=plan.legs[i];if(b.kind==='ride'&&a.kind==='ride'&&!b.through&&b.depart-a.arrive<r.buffer)return false;}
+  for(let i=1;i<plan.legs.length;i++){const a=plan.legs[i-1],b=plan.legs[i];if(b.kind==='ride'&&!b.through&&b.depart-a.arrive<r.buffer)return false;}
   return true;
 }
 export async function searchJourney(r,fetcher=fetch){
@@ -92,7 +92,7 @@ export async function searchJourney(r,fetcher=fetch){
     const key=`${from}:${to}:${start}`;if(cache.has(key))return cache.get(key);
     if(cache.size>=12)throw Error('経由地の候補が多すぎます。区間を分けて検索してください。');
     const url=yahooURL({...r,date,start:minute,via:[]},network,from,to,minute,[]);
-    const task=(async()=>{const res=await fetcher(url,{headers:{Accept:'text/html','User-Agent':'My Map/2.0 (authorized journey reader)'},signal:AbortSignal.timeout(15000)});if(!res.ok){await res.body?.cancel();throw Error(`Yahoo!の検索を取得できませんでした（HTTP ${res.status}）。`);}const plans=parseJourneys(await boundedText(res),{start:minute});const offset=Math.floor(start/1440)*1440;return plans.map(p=>({...p,start:p.start+offset,time:p.time+offset,legs:p.legs.map(l=>({...l,depart:l.depart+offset,arrive:l.arrive+offset,intermediate:l.intermediate.map(s=>({...s,time:s.time===null?null:s.time+offset}))}))})).filter(p=>matchesConditions(p,r));})();cache.set(key,task);return task;
+    const task=(async()=>{const res=await fetcher(url,{headers:{Accept:'text/html','User-Agent':'My Map/2.0 (authorized journey reader)'},signal:AbortSignal.timeout(15000)});if(!res.ok){await res.body?.cancel();throw Error(`Yahoo!の検索を取得できませんでした（HTTP ${res.status}）。`);}const plans=parseJourneys(await boundedText(res),{start:minute});const offset=Math.floor(start/1440)*1440;return plans.map(p=>({...p,start:p.start+offset,time:p.time+offset,legs:p.legs.map(l=>({...l,depart:l.depart+offset,arrive:l.arrive+offset,intermediate:l.intermediate.map(s=>({...s,time:s.time===null?null:s.time+offset}))}))})).filter(p=>p.legs[0].from===from&&p.legs.at(-1).to===to&&matchesConditions(p,r));})();cache.set(key,task);return task;
   };
   for(let stage=0;stage<places.length-1;stage++){
     const next=[];
