@@ -4,7 +4,8 @@ import {activePasses,summarizeFares,estimateDirectFare} from './fares.js';
 import {loadState,saveState,getFile,putFile,deleteFile} from './storage.js';
 import {yahooURL,departureAfterDwell,applyFeed,validateFeed} from './providers.js';
 import {recognizeImage,cancelOCR,freshness,summarizeOCR} from './ocr.js';
-import {getBusChoices,getOfficialImage} from './live.js';
+import {getBusChoices,getOfficialImage,getBusData} from './live.js';
+import {getJourneys,journeyHTML,journeyFare,busHTML} from './journey.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -14,6 +15,7 @@ function paintIcons(root=document){root.querySelectorAll('[data-icon]').forEach(
 let state=loadState(),base,network,query={from:'K07',to:'K01',via:[]},currentRequest=null,results=[],sort='fast',openRoute=0,pickerTarget=null,pickerFilter='all',toastTimer,cropImage;
 const names={search:'乗換検索',live:'接近・運行情報',favorites:'お気に入り',settings:'定期・設定'};
 let liveStop='烏丸丸太町（地下鉄丸太町駅）',choices=[],choicesController,ocrController,ocrBusy=false,ocrJob=0;
+let routeMode='real',searchController,searchJob=0,routeUpdatedAt,routeNotice='';
 const name=id=>network?.stops.get(id)?.name??'場所を選択';
 const line=id=>network?.stops.get(id)?.lines?.join('・')??'';
 const yen=v=>v===null?'要確認':`${Math.round(v).toLocaleString('ja-JP')}円`;
@@ -23,7 +25,7 @@ function tokyoNow(){const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/
 function setNow(){const n=tokyoNow();$('#date').value=n.date;$('#time').value=n.time;}
 function setTab(tab){if(!names[tab])return;$$('.view').forEach(e=>{e.hidden=e.id!==`${tab}-view`;});$$('[data-tab]').forEach(e=>{e.classList.toggle('active',e.dataset.tab===tab);if(e.closest('nav'))e.setAttribute('aria-current',e.dataset.tab===tab?'page':'false');});$('#screen-title').textContent=tab==='search'?'My Map':names[tab];$('#tab-label').textContent=tab==='search'?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'long',day:'numeric',weekday:'long'}).format(new Date())+'・京都': 'My Map・京都のいつもの移動に';if(tab==='favorites')renderFavorites();if(tab==='live'&&!choices.length)loadLiveChoices();$('.scroll').scrollTo({top:0,behavior:'instant'});moveTabSelection();}
 function moveTabSelection(){const active=$('.tabbar .tab.active'),nav=$('.tabbar'),pill=$('.tab-selection');if(!active)return;const rect=active.getBoundingClientRect(),parent=nav.getBoundingClientRect();pill.style.width=`${rect.width}px`;pill.style.transform=`translate3d(${rect.left-parent.left}px,0,0)`;nav.classList.add('tab-ready');}
-function renderFarePreview(){if(!network)return;const fare=query.via.length?null:estimateDirectFare(query.from,query.to,network,state.passes,$('#date').value),el=$('#fare-preview');el.classList.toggle('free',fare?.additional===0);el.classList.toggle('small',!fare);el.innerHTML=fare?`${Math.round(fare.additional).toLocaleString('ja-JP')}<span>円</span>`:query.via.length?'経由地あり':'経路を確認';$('#fare-preview-note').textContent=fare?`通常 ${yen(fare.normal)} ・ ${fare.additional===0?'定期券を適用':'大人運賃の目安'}`:'Yahoo!の経路を確認して区間ごとに精算してください';}
+function renderFarePreview(){if(!network)return;const fare=query.via.length?null:estimateDirectFare(query.from,query.to,network,state.passes,$('#date').value),el=$('#fare-preview');el.classList.toggle('free',fare?.additional===0);el.classList.toggle('small',!fare);el.innerHTML=fare?`${Math.round(fare.additional).toLocaleString('ja-JP')}<span>円</span>`:query.via.length?'経由地あり':'経路を確認';$('#fare-preview-note').textContent=fare?`通常 ${yen(fare.normal)} ・ ${fare.additional===0?'定期券を適用':'大人運賃の目安'}`:'検索すると実際の経路と運賃を表示します';}
 function renderLocations(){
   for(const role of ['from','to']){$(`#${role}-name`).textContent=name(query[role]);$(`#${role}-line`).textContent=line(query[role]);}
   $('#waypoints').innerHTML=query.via.map((v,i)=>`<div class="waypoint"><div class="waypoint-top"><span class="waypoint-index">${i+1}</span><button type="button" class="waypoint-place" data-pick="via-${i}">${esc(name(v.stop))}</button><div class="waypoint-tools"><button type="button" data-via-up="${i}" aria-label="経由地を上へ移動" ${i?'':'disabled'}>${icon('swap')}</button><button type="button" data-via-remove="${i}" aria-label="経由地を削除">${icon('close')}</button></div></div><div class="waypoint-bottom"><label>滞在・折り返し<input type="number" min="0" max="180" step="1" value="${v.dwell}" data-dwell="${i}">分</label><label><input type="checkbox" data-exit="${i}" ${v.exitGate?'checked':''}>改札を出る</label><span>必ずこの場所で下車</span></div></div>`).join('');
@@ -61,7 +63,16 @@ function request(){
   return {...structuredClone(query),date:$('#date').value,start:h*60+m,trainType:$('#train-type').value,buffer:+$('#buffer').value,maxWalk:+$('#max-walk').value};
 }
 function launchURL(url){window.open(url,'_blank','noopener,noreferrer');}
-function searchYahoo(event){event?.preventDefault();$('#form-error').textContent='';try{const r=request();currentRequest=r;results=[];renderYahoo(r);launchURL(yahooURL(r,network));}catch(e){$('#form-error').textContent=e.message;}}
+async function searchYahoo(event){
+  event?.preventDefault();$('#form-error').textContent='';let r;try{r=request();}catch(e){$('#form-error').textContent=e.message;return;}
+  searchController?.abort();searchController=new AbortController();const controller=searchController,job=++searchJob;
+  currentRequest=r;routeMode='real';results=[];$('#search-submit').disabled=true;$('#demo-search').disabled=true;
+  $('#results-section').innerHTML='<div class="loading-card" role="status"><span class="spinner"></span>実際の経路を取得しています…<p class="fine">経由地がある場合は、到着と滞在をつないで検索します。</p><button class="plain" data-cancel-search>中止</button></div>';
+  const timeout=setTimeout(()=>controller.abort(),90000);
+  try{const data=await getJourneys(r,controller.signal);if(job!==searchJob)return;results=data.routes;routeUpdatedAt=data.updatedAt;routeNotice=data.notice;openRoute=0;sort='fast';renderResults();}
+  catch(e){if(job!==searchJob)return;$('#form-error').textContent=e.name==='AbortError'?'検索を中止しました。または時間切れです。再検索してください。':e.message;$('#results-section').innerHTML='';}
+  finally{clearTimeout(timeout);if(job===searchJob){$('#search-submit').disabled=false;$('#demo-search').disabled=false;}}
+}
 function directFare(from,to,date){
   const f=estimateDirectFare(from,to,network,state.passes,date);
   if(!f)return '';
@@ -84,12 +95,13 @@ async function searchDemo(){
   $('#search-submit').disabled=true;$('#demo-search').disabled=true;
   $('#results-section').innerHTML='<div class="loading-card"><span class="spinner"></span>試作データで比較しています…</div>';
   await new Promise(resolve=>setTimeout(resolve,35));
-  try{currentRequest=r;results=planRoutes(network,r,state.passes);openRoute=0;sort='fast';renderResults();}
+  try{routeMode='demo';currentRequest=r;results=planRoutes(network,r,state.passes);openRoute=0;sort='fast';renderResults();}
   catch(e){$('#form-error').textContent=e.message;$('#results-section').innerHTML='';}
   finally{$('#search-submit').disabled=false;$('#demo-search').disabled=false;}
 }
 function orderedResults(){return results.map((r,i)=>({...r,index:i})).sort((a,b)=>sort==='transfers'?a.transfers-b.transfers||a.time-b.time:sort==='wait'?a.wait-b.wait||a.time-b.time:sort==='walk'?a.walk-b.walk||a.time-b.time:a.time-b.time);}
 function renderResults(){
+  if(routeMode==='real'){$('#results-section').innerHTML=journeyHTML({routes:results,request:currentRequest,sort,openRoute,network:base,passes:state.passes,updatedAt:routeUpdatedAt,notice:routeNotice});return;}
   if(!results.length){$('#results-section').innerHTML=`<div class="card no-routes"><h2>試作条件でルートが見つかりませんでした</h2><p>急行が停まらない駅や対象日のデータ不足が考えられます。実際の経路はYahoo!でご確認ください。</p><a class="secondary" target="_blank" rel="noopener" href="${esc(yahooURL(currentRequest,network))}">Yahoo!で検索</a></div>`;return;}
   const labels={fast:'早い',transfers:'乗換が少ない',wait:'待ちが少ない',walk:'歩きが少ない'};
   $('#results-section').innerHTML=`<div class="results-title"><h2>試作データの比較 <span class="badge orange">実ダイヤではありません</span></h2><small>${results.length}案</small></div><div class="segmented">${Object.entries(labels).map(([v,l])=>`<button data-sort="${v}" class="${sort===v?'active':''}">${l}</button>`).join('')}</div>`+orderedResults().map((r,i)=>{
@@ -121,7 +133,7 @@ function renderSettings(){
 function setTheme(){if(state.theme==='system')delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=state.theme;}
 function updatePasses(){
   if(commit(s=>{s.passes={citybus:$('#pass-citybus').checked,kyotobus:$('#pass-kyotobus').checked,subway:$('#pass-subway').checked,subwayFrom:$('#pass-from').value,subwayTo:$('#pass-to').value,expires:$('#pass-expires').value};})){
-    renderPasses();if(currentRequest&&!results.length)renderYahoo(currentRequest);else if(results.length){results=results.map(r=>({...r,fare:summarizeFares(r.legs,network,state.passes,r.date)}));renderResults();}toast('定期設定を保存しました');
+    renderPasses();if(currentRequest&&routeMode==='real'&&routeUpdatedAt)renderResults();else if(results.length){results=results.map(r=>({...r,fare:summarizeFares(r.legs,network,state.passes,r.date)}));renderResults();}toast('定期設定を保存しました');
   }
 }
 async function readScreenshot(){try{const stored=await getFile('screenshot');renderScreenshot(stored);}catch{toast('保存画像を読み込めませんでした');}}
@@ -135,13 +147,21 @@ async function loadLiveChoices(){
   }catch(e){if(stop!==liveStop)return;$('#live-choice').innerHTML='<option>情報を取得できませんでした</option>';$('#bus-choice-note').textContent=e.name==='AbortError'?'取得が時間切れになりました。再取得してください。':e.message;}
   finally{clearTimeout(timeout);}
 }
-function setOCRBusy(busy){ocrBusy=busy;$('#ocr-progress').hidden=!busy;$('#capture-rail').disabled=busy;$('#capture-bus').disabled=busy||!choices.length;$('#live-choice').disabled=busy||!choices.length;$('#live-stop-button').disabled=busy;$('#reload-choices').disabled=busy;$('#save-screenshot').disabled=busy;$('#screenshot-file').disabled=busy;}
+function setOCRBusy(busy){ocrBusy=busy;$('#ocr-progress').hidden=!busy;$('#capture-rail').disabled=busy;$('#capture-bus').disabled=busy||!choices.length;$('#live-choice').disabled=busy||!choices.length;$('#live-stop-button').disabled=busy;$('#reload-choices').disabled=busy;$('#capture-bus-image').disabled=busy||!choices.length;$('#save-screenshot').disabled=busy;$('#screenshot-file').disabled=busy;}
 function ocrProgress(label,ratio=0){$('#ocr-progress-label').textContent=label;$('#ocr-progress-percent').textContent=ratio?`${Math.round(ratio*100)}%`:'';$('#ocr-progress-bar').value=ratio;}
 function reportHTML(s){
   const fresh=freshness(s.capturedAt),summary=s.ocr?summarizeOCR(s.ocr.rowText||s.ocr.text,s.source):[];
   return `<div class="live-report"><div class="report-meta"><span class="badge ${fresh==='取得から2分以内'?'blue':'orange'}" data-freshness="${esc(s.capturedAt??'')}">${esc(fresh)}</span><span class="report-time">${s.capturedAt?esc(new Date(s.capturedAt).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'})):'取得日時不明'}</span></div><p class="ocr-note">${esc(s.memo??'公式画面')} ${s.ocr?`・ OCR認識信頼度 ${Math.round(s.ocr.confidence)}%`:''}</p>${s.ocr?`<div class="ocr-summary">${summary.length?summary.map(line=>`<p>${esc(line)}</p>`).join(''):'文字を読み取りました。原文と画像で接近状況を確認できます。'}</div><p class="ocr-note">OCRには読み間違いがあります。乗る前に原画像を確認してください。</p><details><summary>読み取った原文</summary><div class="ocr-text">${esc(s.ocr.text)}</div></details>`:'<p class="ocr-note">画像を取得しました。文字の読み取りは未完了です。</p>'}<details ${!s.ocr||s.source==='bus'?'open':''}><summary>取得した画面を見る</summary><img src="${esc(s.image)}" alt="${esc(s.memo??'取得した公式画面')}"></details>${s.sourceURL?`<a class="plain source-link" href="${esc(s.sourceURL)}" target="_blank" rel="noopener noreferrer">この公式画面を開く${icon('external')}</a>`:''}</div>`;
 }
-async function readLiveReports(){for(const source of ['bus','rail'])try{const s=await getFile(`live-${source}`);if(s)$(`#${source}-live-result`).innerHTML=reportHTML(s);}catch{/* 保存がない場合は更新ボタンを利用。 */}}
+async function readLiveReports(){for(const source of ['bus','rail'])try{const s=await getFile(`live-${source}`);if(s)$(`#${source}-live-result`).innerHTML=s.kind==='bus-data'?busHTML(s):reportHTML(s);}catch{/* 保存がない場合は更新ボタンを利用。 */}}
+async function updateBus(){
+  if(ocrBusy)return;const choice=choices.find(c=>c.value===$('#live-choice').value);if(!choice)return;
+  const job=++ocrJob;ocrController=new AbortController();const controller=ocrController;setOCRBusy(true);$('#ocr-error').textContent='';ocrProgress('公式の接近表を読み取り中');
+  const timeout=setTimeout(()=>controller.abort(),45000);
+  try{const s=await getBusData(liveStop,choice.value,controller.signal);if(job!==ocrJob)return;$('#bus-live-result').innerHTML=busHTML(s);await putFile('live-bus',s);toast('接近情報を更新しました');}
+  catch(e){if(job===ocrJob)$('#ocr-error').textContent=e.name==='AbortError'?'接近情報の取得を中止しました。または時間切れです。':e.message;}
+  finally{clearTimeout(timeout);if(job===ocrJob)setOCRBusy(false);}
+}
 async function runOCR(imageValue,target,key,job){
   try{imageValue.ocr=await recognizeImage(imageValue.image,(label,ratio)=>{if(job===ocrJob)ocrProgress(label,ratio);});}catch(e){if(job!==ocrJob)return;$('#ocr-error').textContent=`画像は取得できましたが、${e.message||'OCRに失敗しました。'}`;}
   if(job!==ocrJob)return;
@@ -211,12 +231,14 @@ async function init(){
     else if(d.sort){sort=d.sort;renderResults();}
     else if(d.openRoute!==undefined){openRoute=openRoute===+d.openRoute?-1:+d.openRoute;renderResults();}
     else if(d.saveQuery!==undefined)saveQuery();
+    else if(d.cancelSearch!==undefined)searchController?.abort();
+    else if(d.routeBus){liveStop=base.stops.get(d.routeBus)?.fullName??name(d.routeBus);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';loadLiveChoices().then(()=>{const choice=choices.find(c=>c.route===d.routeNumber);if(choice)$('#live-choice').value=choice.value;setTab('live');});}
     else if(d.yahooLeg!==undefined)launchLeg(+d.yahooLeg);
     else if(d.favFrom||d.favTo){query[d.favFrom?'from':'to']=d.favFrom||d.favTo;renderLocations();setTab('search');}
     else if(d.favRemove){commit(s=>{s.favorites=s.favorites.filter(id=>id!==d.favRemove);});renderFavorites();renderPasses();}
     else if(d.loadRoute!==undefined){const r=state.savedRoutes[+d.loadRoute];query=structuredClone({from:r.from,to:r.to,via:r.via});$('#train-type').value=r.trainType??'all';renderLocations();updateConditions();setTab('search');}
     else if(d.deleteRoute!==undefined){commit(s=>s.savedRoutes.splice(+d.deleteRoute,1));renderFavorites();}
-    else if(d.copyRoute!==undefined){const r=results[+d.copyRoute],text=`【試作・推定時刻】${name(currentRequest.from)}→${name(currentRequest.to)}\n${formatTime(r.start)}→${formatTime(r.time)} 約${r.duration}分\n追加運賃目安 ${yen(r.fare.additional)}（通常 ${yen(r.fare.normal)}）\n${yahooURL(currentRequest,network)}`;navigator.clipboard?.writeText(text).then(()=>toast('コピーしました')).catch(()=>toast('コピーを利用できませんでした'));}
+    else if(d.copyRoute!==undefined){const r=results[+d.copyRoute],fare=routeMode==='real'?journeyFare(r,base,state.passes,currentRequest.date):r.fare,text=`${routeMode==='demo'?'【試作・推定時刻】':'My Map '}${name(currentRequest.from)}→${name(currentRequest.to)}\n${formatTime(r.start)}→${formatTime(r.time)} ${r.duration}分\n追加 ${yen(fare.additional)}（通常 ${yen(fare.normal)}）\n${r.legs.filter(l=>l.kind==='ride').map(l=>`${formatTime(l.depart)} ${name(l.from)} ${l.label} → ${name(l.to)} ${formatTime(l.arrive)}`).join('\n')}`;navigator.clipboard?.writeText(text).then(()=>toast('コピーしました')).catch(()=>toast('コピーを利用できませんでした'));}
   });
   $('#search-form').addEventListener('submit',searchYahoo);
   $('#demo-search').addEventListener('click',searchDemo);
@@ -240,7 +262,8 @@ async function init(){
   $('#screenshot-file').addEventListener('change',e=>chooseScreenshot(e.target.files[0]));
   $('#save-screenshot').addEventListener('click',saveScreenshot);
   $('#reload-choices').addEventListener('click',loadLiveChoices);
-  $('#capture-bus').addEventListener('click',()=>captureOfficial('bus'));
+  $('#capture-bus').addEventListener('click',updateBus);
+  $('#capture-bus-image').addEventListener('click',()=>captureOfficial('bus'));
   $('#capture-rail').addEventListener('click',()=>captureOfficial('rail'));
   $('#ocr-cancel').addEventListener('click',async()=>{ocrJob++;ocrController?.abort();await cancelOCR();setOCRBusy(false);$('#ocr-error').textContent='読み取りを中止しました。';});
   $('#remove-screenshot').addEventListener('click',async()=>{try{await deleteFile('screenshot');renderScreenshot(null);toast('保存画像を削除しました');}catch{toast('削除できませんでした');}});

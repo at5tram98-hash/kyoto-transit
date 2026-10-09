@@ -1,4 +1,6 @@
 // Public transport pages only. Browser credentials and arbitrary URLs are never accepted.
+import {boundedText,searchJourney,validateJourneyRequest} from './journeys.js';
+import {parseApproach} from './bus.js';
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const RAIL='https://www.kintetsu.jp/unkou/unkou.html';
 const ROUTES=new Set(['10','13','43','78','202','204','205','206','208']);
@@ -37,7 +39,15 @@ export function parseBusChoices(html){
 async function options(stop){
   const response=await fetch(selectionURL(stop),{headers:{'User-Agent':'My Map/1.0 (transport page reader)','Accept':'text/html'},signal:AbortSignal.timeout(15000)});
   if(!response.ok){await response.body?.cancel();throw Error(`ポケロケの停留所検索を取得できませんでした（HTTP ${response.status}）。`);}
-  const html=await response.text();if(html.length>3*1024*1024)throw Error('停留所のデータが大きすぎます。');return parseBusChoices(html);
+  return parseBusChoices(await boundedText(response));
+}
+async function busData(env,stop,choice){
+  const url=approachURL(stop,choice.value);
+  const response=await env.BROWSER.quickAction('content',{url,gotoOptions:{waitUntil:'networkidle2',timeout:20000},waitForSelector:{selector:'#approach_table',visible:true,timeout:10000},actionTimeout:12000});
+  if(!response.ok){await response.body?.cancel();throw Error('公式の接近情報を取得できませんでした。時間をおいて再度お試しください。');}
+  let html=await boundedText(response);
+  if(response.headers.get('content-type')?.includes('json')){const body=JSON.parse(html);html=typeof body.result==='string'?body.result:typeof body.content==='string'?body.content:'';}
+  return Response.json({kind:'bus-data',stop,...choice,...parseApproach(html),capturedAt:new Date().toISOString(),sourceURL:url});
 }
 async function capture(env,url,source){
   const params={url,viewport:{width:480,height:1000,deviceScaleFactor:2},gotoOptions:{waitUntil:'networkidle2',timeout:20000},screenshotOptions:{type:'png',fullPage:true},actionTimeout:12000};
@@ -53,14 +63,18 @@ export default {
     const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN;
     const cors={'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Expose-Headers':'X-Captured-At, X-Source-URL','Vary':'Origin','Cache-Control':'no-store'};
     const url=new URL(request.url);
-    if(url.pathname==='/health')return Response.json({service:'My Map 公式画面取得',version:1,browser:Boolean(env.BROWSER)});
+    if(url.pathname==='/health')return Response.json({service:'My Map 乗換・接近情報',version:2,browser:Boolean(env.BROWSER)});
     if(!allowed)return error('My Mapからご利用ください。',403);
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
     let response;
     try{
       if(request.method!=='GET')response=error('GETのみ利用できます。',405);
       else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。1分ほど待ってください。',429);
-      else if(url.pathname==='/bus/options'||url.pathname==='/bus/capture'){
+      else if(url.pathname==='/journeys'){
+        const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');
+        else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}
+      }
+      else if(['/bus/options','/bus/capture','/bus/data'].includes(url.pathname)){
         const stop=url.searchParams.get('stop');
         if(!env.STOP_NAMES.includes(stop))response=error('対象の停留所を選択してください。');
         else{
@@ -68,8 +82,9 @@ export default {
           if(url.pathname==='/bus/options')response=Response.json({stop,choices});
           else{
             const value=url.searchParams.get('choice');
-            if(!choices.some(c=>c.value===value))response=error('現在の系統・行先を選び直してください。');
-            else response=await capture(env,approachURL(stop,value),'bus');
+            const choice=choices.find(c=>c.value===value);
+            if(!choice)response=error('現在の系統・行先を選び直してください。');
+            else response=url.pathname==='/bus/data'?await busData(env,stop,choice):await capture(env,approachURL(stop,value),'bus');
           }
         }
       }else if(url.pathname==='/rail/capture')response=await capture(env,RAIL,'rail');
