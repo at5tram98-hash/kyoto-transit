@@ -11,6 +11,7 @@ test('路線の文字がないOCRから正常運行を捏造しない',()=>{
  assert.deepEqual(summarizeOCR('奈 良 線 ｜ 一 部 運 休\n京 都 線 ｜ 一 部 運 休 ｜ 奈 良 線 の 影 響','rail'),['奈良線 | 一部運休','京都線 | 一部運休 | 奈良線の影響']);
 });
 test('バスの全角接近表示をOCR結果から拾う',()=>{assert.deepEqual(summarizeOCR('２０４\n３つまえ 空席あり\n円町・金閣寺','bus'),['3つまえ空席あり']);});
+test('混雑度の凡例を実際のバスの状況として表示しない',()=>{assert.deepEqual(summarizeOCR('204 円町・金閣寺\n混雑度の凡例\nたいへん混雑しています\n空席があります\n1つ前の停留所','bus'),[]);});
 test('ポケロケの省略されたli終端でものりばを対応させる',()=>{
  const row=(value,dest)=>`<li class="route-row-data"><input name="rowCheckDataItem" value="${value}"><p id="destinationAbbreviation_data"><font>${dest}</font></p></li>`;
  const html='<li value="1">Aのりば'+row('204010003;10153:28271:21','銀閣寺・高野')+'<li value="2">Bのりば'+row('204020004;9990:28272:27','円町・金閣寺')+row('065010003;9898:28273:28','祇園');

@@ -56,5 +56,7 @@ export function summarizeOCR(text,source){
     const noMajorDelay=lines.find(l=>/15分以上/.test(l)&&/ございません|ありません/.test(l));
     return noMajorDelay?[noMajorDelay]:['京都線・奈良線の状況は読み取った原文と公式画面で確認してください。'];
   }
-  return lines.filter(l=>/\d\s*つ\s*まえ|\d\s*つ\s*前|\d\s*分|空席|混雑|接近|運休|終発|始発/.test(l)).slice(0,8);
+  const legend=lines.findIndex(l=>/凡例|マークの説明/.test(l));
+  const active=legend<0?lines:lines.slice(0,legend);
+  return active.filter(l=>/接近しているバスはありません|運休|終発|始発|\d\s*つ\s*まえ/.test(l)&&!/凡例|マークの説明|つ前の停留所/.test(l)).slice(0,8);
 }

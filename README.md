@@ -79,7 +79,7 @@ npm run build
 python3 -m http.server 8080 --directory dist
 ```
 
-`http://localhost:8080` を開いてください。HTMLを直接開く `file://` ではモジュールとJSON読込が動作しません。36件の自動テスト、JavaScript構文、HTML ID・静的参照、ビルドを検証しました。GitHub Pagesの公開、公開画面からのYahoo!検索、丸太町→国際会館の通常260円・定期適用後0円、京都バスの通常230円・定期適用後0円をクラウドブラウザで確認しました。スマートフォン実機での検証は未実施です。
+`http://localhost:8080` を開いてください。HTMLを直接開く `file://` ではモジュールとJSON読込が動作しません。37件の自動テスト、JavaScript構文、HTML ID・静的参照、ビルドを検証しました。GitHub Pagesの公開、公開画面からのYahoo!検索、丸太町→国際会館の通常260円・定期適用後0円、京都バスの通常230円・定期適用後0円をクラウドブラウザで確認しました。公開版でポケロケの204系統・Bのりばの画面取得と日本語OCR、近鉄の京都線・奈良線のOCR表示も確認しました。スマートフォン実機での検証は未実施です。
 
 ## GitHub Pages公開
 
@@ -133,7 +133,7 @@ Yahoo!へ検索条件を渡す方式は継続しています。Yahoo!の検索�
 
 ## 参考にした公式情報
 
-確認日：2026年10月9日。時刻表や接近データ本体の収録は行っていません。
+確認日：2026年10月9日。時刻表は収録せず、接近・運行画面は利用時に取得します。
 
 - [Yahoo! リンク・二次利用](https://support.yahoo-net.jp/PccTransit/s/article/H000007493)
 - [京都市交通局 市バス系統一覧](https://www2.city.kyoto.lg.jp/kotsu/busdia/keitou/keitou.htm)
