@@ -10,9 +10,17 @@ export function validateMeeting(r){
   return r;
 }
 export function joinRoutes(a,b,point){
-  const hold={kind:'dwell',from:point.id,to:point.id,depart:a.time,arrive:point.time,minutes:point.time-a.time,requestedMinutes:point.time-a.time,exitGate:false};
+  const hold={kind:'dwell',from:point.id,to:point.id,depart:a.time,arrive:point.time,minutes:point.time-a.time,requestedMinutes:point.time-a.time,exitGate:false,purpose:point.id==='K01'?'transfer':'meeting'};
   const offset=a.legs.length+1,legs=[...a.legs,hold,...b.legs];
   return {start:a.start,time:b.time,duration:b.time-a.start,normal:a.normal+b.normal,transfers:a.transfers+b.transfers+(a.legs.length?1:0),walk:a.walk+b.walk,wait:a.wait+b.wait+hold.minutes,legs,fareGroups:[...a.fareGroups,...b.fareGroups.map(g=>({...g,indices:g.indices.map(i=>i+offset)}))]};
+}
+export function boardingBuffer(plan,ready,buffer){
+  const walk=plan.legs[0],ride=plan.legs[1];
+  if(walk?.kind!=='walk'||ride?.kind!=='ride')return plan;
+  const depart=Math.min(walk.depart,ride.depart-buffer-walk.minutes);
+  if(depart<ready)return null;
+  const change=walk.depart-depart;if(!change)return plan;
+  return {...plan,start:depart,duration:plan.time-depart,wait:plan.wait+change,legs:[{...walk,depart,arrive:depart+walk.minutes,scheduleAdjusted:true},...plan.legs.slice(1)]};
 }
 export async function findMeeting(r,read=searchJourney){
   validateMeeting(r);
@@ -47,7 +55,7 @@ export async function findMeeting(r,read=searchJourney){
   }
   // School arrival is always KokusaiKaikan -> Kyoto Bus, using live search results.
   if(plans.length){
-    let school;try{const after=await read(schoolRequest({...request,from:'K01',to:'ksu',start:friend.time+r.buffer}));school=after.routes.find(p=>p.legs.some(l=>l.operator==='kyotobus'&&l.from==='kyotobus-kokusai'&&l.to==='ksu'));}catch{/* Confirmed rail rendezvous remains usable when the bus search fails. */}
+    let school;try{const ready=friend.time+r.buffer,after=await read(schoolRequest({...request,from:'K01',to:'ksu',start:ready}));school=after.routes.map(p=>boardingBuffer(p,ready,r.buffer)).find(p=>p&&p.legs.some(l=>l.operator==='kyotobus'&&l.from==='kyotobus-kokusai'&&l.to==='ksu'));}catch{/* Confirmed rail rendezvous remains usable when the bus search fails. */}
     for(const p of plans){p.schoolAvailable=!!school;if(school)p.journey=joinRoutes(p.journey,school,{id:'K01',time:school.start});}
   }
   return {plans,checked,friend,updatedAt:new Date().toISOString(),notice:'最大地点は、選択した友達の経路とYahoo!が返した自分の移動候補の中で比較しています。全ダイヤの最適解ではありません。時刻は予定時刻です。番線と実際の運行を確認してください。'};

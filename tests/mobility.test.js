@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createNetwork} from '../public/js/network.js';
 import {locate,meetingPoints,feasibleMeeting,nextStop,schoolRequest,trainKey,trainCandidates} from '../public/js/mobility.js';
-import {findMeeting,joinRoutes} from '../worker/meeting.js';
+import {findMeeting,joinRoutes,boardingBuffer} from '../worker/meeting.js';
 import {busHTML} from '../public/js/journey.js';
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import geo from '../public/data/locations.json' with {type:'json'};
@@ -25,4 +25,5 @@ test('合流探索は最南地点と余裕を検証し、別の列車に置き�
   const data=await findMeeting(r,read);assert.equal(data.plans[0].point.id,'B16');assert.equal(data.plans[0].slack,2);assert.equal(data.checked.find(p=>p.id==='B24').possible,false);assert.ok(data.plans.every(p=>p.journey.legs.some(l=>l.kind==='dwell')));await assert.rejects(findMeeting({...r,friendKey:'unknown'},read));
 });
 test('合流した経路は運賃を合算し索引を維持する',()=>{const a=route([leg('K07','B07',540,560)]),b=route([leg('B07','K15',565,580)]),p=joinRoutes(a,b,{id:'B07',time:565});assert.equal(p.normal,1000);assert.equal(p.fareGroups[1].indices[0],2);assert.equal(p.wait,5);assert.equal(p.transfers,1);});
+test('国際会館の徒歩を前倒ししてバス乗車前の余裕を確保し、列車・バスの時刻は変えない',()=>{const p=route([{kind:'walk',from:'K01',to:'kyotobus-kokusai',depart:654,arrive:658,minutes:4},leg('kyotobus-kokusai','ksu',660,671)]);p.wait=2;const a=boardingBuffer(p,651,3);assert.equal(a.start,653);assert.equal(a.legs[0].arrive,657);assert.equal(a.legs[1].depart,660);assert.equal(a.wait,3);assert.equal(boardingBuffer(p,655,3),null);});
 test('接近図のバスマークは公式の停留所前に置き、混雑と取得時刻を残す',()=>{const html=busHTML({capturedAt:'2026-10-10T00:00:00Z',route:'204',stop:'丸太町',destination:'円町',boarding:'B',buses:[{stopsAway:2,congestion:'空席あり'},{stopsAway:5,congestion:'混雑'}]});assert.equal((html.match(/class="bus-marker"/g)||[]).length,2);assert.match(html,/title="2停留所前・空席あり"/);assert.match(html,/data-freshness/);assert.doesNotMatch(html,/あと\d+分/);});
