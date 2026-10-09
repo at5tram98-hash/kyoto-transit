@@ -40,7 +40,8 @@
         <button class="location-field live-place" id="live-stop-button" data-pick="live"><span>乗車する停留所</span><strong id="live-stop-name">烏丸丸太町（地下鉄丸太町駅）</strong><small>停留所を変更</small></button>
         <label class="block-label">系統・行先・のりば<select id="live-choice" disabled><option>停留所の情報を取得します</option></select></label>
         <div class="button-row"><button class="primary" id="capture-bus" disabled><span data-icon="bus"></span>接近情報を更新</button><button class="icon-button" id="reload-choices" aria-label="行先の候補を再取得"><span data-icon="return"></span></button></div>
-        <p class="fine" id="bus-choice-note" role="status"></p><div id="bus-live-result"></div>
+        <label class="bus-auto"><input type="checkbox" id="bus-auto-refresh">1分ごとに更新<small>この画面を見ている間だけ</small></label>
+        <p class="fine" id="bus-choice-note" role="status"></p><div id="bus-live-result" aria-live="polite"></div>
         <details><summary>画像とOCRで確認する</summary><p class="fine">接近表を読み取れないときに利用できます。取得した画面とOCR原文をアプリ内に表示します。</p><button class="secondary" id="capture-bus-image">公式画面を取得してOCR</button></details>
         <a class="plain source-link" href="https://kyotocity.bus-navigation.jp/" target="_blank" rel="noopener noreferrer">公式サイトを開く<span data-icon="external"></span></a>
       </section><div class="section-head">近鉄 京都線・奈良線</div>

@@ -8,6 +8,7 @@ import {getBusChoices,getOfficialImage,getBusData} from './live.js';
 import {getJourneys,journeyHTML,journeyFare,busHTML} from './journey.js';
 import {schoolRequest} from './mobility.js';
 import {mountMobility} from './assistant.js';
+import {createRefreshLoop} from './refresh.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,6 +20,7 @@ const names={search:'乗換検索',live:'接近・運行情報',favorites:'お�
 let liveStop='烏丸丸太町（地下鉄丸太町駅）',choices=[],choicesController,ocrController,ocrBusy=false,ocrJob=0;
 let routeMode='real',searchController,searchJob=0,routeUpdatedAt,routeNotice='';
 let mobility;
+let choicesBusy=false,savedBusReport,busRefresh;
 const name=id=>network?.stops.get(id)?.name??'場所を選択';
 const line=id=>network?.stops.get(id)?.lines?.join('・')??'';
 const yen=v=>v===null?'要確認':`${Math.round(v).toLocaleString('ja-JP')}円`;
@@ -143,13 +145,16 @@ function updatePasses(){
 async function readScreenshot(){try{const stored=await getFile('screenshot');renderScreenshot(stored);}catch{toast('保存画像を読み込めませんでした');}}
 async function loadLiveChoices(){
   choicesController?.abort();choicesController=new AbortController();const stop=liveStop,controller=choicesController;
-  choices=[];$('#live-choice').disabled=true;$('#capture-bus').disabled=true;$('#bus-choice-note').textContent='系統・行先を取得中…';
+  const previousChoice=$('#live-choice').value;choicesBusy=true;busRefresh?.touch();
+  choices=[];$('#live-choice').disabled=true;$('#capture-bus').disabled=true;$('#capture-bus-image').disabled=true;$('#bus-live-result').innerHTML='';$('#bus-choice-note').textContent='系統・行先を取得中…';
   const timeout=setTimeout(()=>controller.abort(),25000);
-  try{const data=await getBusChoices(stop,controller.signal);if(stop!==liveStop||controller.signal.aborted)return;choices=data.choices;
+  try{const data=await getBusChoices(stop,controller.signal);if(controller!==choicesController||stop!==liveStop||controller.signal.aborted)return;choices=data.choices;
     $('#live-choice').innerHTML=choices.length?choices.map(c=>`<option value="${esc(c.value)}">${esc(c.route)}系統・${esc(c.destination)}・${esc(c.boarding)}</option>`).join(''):'<option>対象の系統が見つかりません</option>';
+    if(choices.some(c=>c.value===previousChoice))$('#live-choice').value=previousChoice;
     $('#live-choice').disabled=!choices.length||ocrBusy;$('#capture-bus').disabled=!choices.length||ocrBusy;$('#bus-choice-note').textContent=choices.length?'行先とのりばを確認して更新してください。':'対象の系統がない、または公式画面の形式が変わっています。';
-  }catch(e){if(stop!==liveStop)return;$('#live-choice').innerHTML='<option>情報を取得できませんでした</option>';$('#bus-choice-note').textContent=e.name==='AbortError'?'取得が時間切れになりました。再取得してください。':e.message;}
-  finally{clearTimeout(timeout);}
+    restoreBusReport();
+  }catch(e){if(controller!==choicesController||stop!==liveStop)return;$('#live-choice').innerHTML='<option>情報を取得できませんでした</option>';$('#bus-choice-note').textContent=e.name==='AbortError'?'取得が時間切れになりました。再取得してください。':e.message;}
+  finally{clearTimeout(timeout);if(controller===choicesController){choicesBusy=false;$('#capture-bus-image').disabled=!choices.length||ocrBusy;}}
 }
 function setOCRBusy(busy){ocrBusy=busy;$('#ocr-progress').hidden=!busy;$('#capture-rail').disabled=busy;$('#capture-bus').disabled=busy||!choices.length;$('#live-choice').disabled=busy||!choices.length;$('#live-stop-button').disabled=busy;$('#reload-choices').disabled=busy;$('#capture-bus-image').disabled=busy||!choices.length;$('#save-screenshot').disabled=busy;$('#screenshot-file').disabled=busy;}
 function ocrProgress(label,ratio=0){$('#ocr-progress-label').textContent=label;$('#ocr-progress-percent').textContent=ratio?`${Math.round(ratio*100)}%`:'';$('#ocr-progress-bar').value=ratio;}
@@ -157,13 +162,17 @@ function reportHTML(s){
   const fresh=freshness(s.capturedAt),summary=s.ocr?summarizeOCR(s.ocr.rowText||s.ocr.text,s.source):[];
   return `<div class="live-report"><div class="report-meta"><span class="badge ${fresh==='取得から2分以内'?'blue':'orange'}" data-freshness="${esc(s.capturedAt??'')}">${esc(fresh)}</span><span class="report-time">${s.capturedAt?esc(new Date(s.capturedAt).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit'})):'取得日時不明'}</span></div><p class="ocr-note">${esc(s.memo??'公式画面')} ${s.ocr?`・ OCR認識信頼度 ${Math.round(s.ocr.confidence)}%`:''}</p>${s.ocr?`<div class="ocr-summary">${summary.length?summary.map(line=>`<p>${esc(line)}</p>`).join(''):'文字を読み取りました。原文と画像で接近状況を確認できます。'}</div><p class="ocr-note">OCRには読み間違いがあります。乗る前に原画像を確認してください。</p><details><summary>読み取った原文</summary><div class="ocr-text">${esc(s.ocr.text)}</div></details>`:'<p class="ocr-note">画像を取得しました。文字の読み取りは未完了です。</p>'}<details ${!s.ocr||s.source==='bus'?'open':''}><summary>取得した画面を見る</summary><img src="${esc(s.image)}" alt="${esc(s.memo??'取得した公式画面')}"></details>${s.sourceURL?`<a class="plain source-link" href="${esc(s.sourceURL)}" target="_blank" rel="noopener noreferrer">この公式画面を開く${icon('external')}</a>`:''}</div>`;
 }
-async function readLiveReports(){for(const source of ['bus','rail'])try{const s=await getFile(`live-${source}`);if(s)$(`#${source}-live-result`).innerHTML=s.kind==='bus-data'?busHTML(s):reportHTML(s);}catch{/* 保存がない場合は更新ボタンを利用。 */}}
-async function updateBus(){
+function restoreBusReport(){
+  const s=savedBusReport,selection=s?.selection??s;
+  if(s&&selection.stop===liveStop&&selection.value===$('#live-choice').value)$('#bus-live-result').innerHTML=s.kind==='bus-data'?busHTML(s):reportHTML(s);
+}
+async function readLiveReports(){for(const source of ['bus','rail'])try{const s=await getFile(`live-${source}`);if(source==='bus'){savedBusReport=s;restoreBusReport();}else if(s)$('#rail-live-result').innerHTML=reportHTML(s);}catch{/* 保存がない場合は更新ボタンを利用。 */}}
+async function updateBus(automatic=false){
   if(ocrBusy)return;const choice=choices.find(c=>c.value===$('#live-choice').value);if(!choice)return;
-  const job=++ocrJob;ocrController=new AbortController();const controller=ocrController;setOCRBusy(true);$('#ocr-error').textContent='';ocrProgress('公式の接近表を読み取り中');
+  const stop=liveStop,job=++ocrJob;busRefresh?.touch();ocrController=new AbortController();const controller=ocrController;setOCRBusy(true);$('#ocr-error').textContent='';$('#bus-choice-note').textContent='選択した行先の接近情報を取得中…';ocrProgress('公式の接近表を読み取り中');
   const timeout=setTimeout(()=>controller.abort(),45000);
-  try{const s=await getBusData(liveStop,choice.value,controller.signal);if(job!==ocrJob)return;$('#bus-live-result').innerHTML=busHTML(s);await putFile('live-bus',s);toast('接近情報を更新しました');}
-  catch(e){if(job===ocrJob)$('#ocr-error').textContent=e.name==='AbortError'?'接近情報の取得を中止しました。または時間切れです。':e.message;}
+  try{const s=await getBusData(stop,choice.value,controller.signal);if(job!==ocrJob||stop!==liveStop||choice.value!==$('#live-choice').value)return;savedBusReport=s;$('#bus-live-result').innerHTML=busHTML(s);$('#bus-choice-note').textContent='選択した行先・のりばの接近情報です。';try{await putFile('live-bus',s);}catch{toast('接近情報は取得しましたが、端末に保存できませんでした');}if(!automatic)toast('接近情報を更新しました');}
+  catch(e){if(job===ocrJob){$('#ocr-error').textContent=e.name==='AbortError'?'接近情報の取得を中止しました。または時間切れです。':e.message;$('#bus-choice-note').textContent='更新できませんでした。取得時刻を確認して再取得してください。';}}
   finally{clearTimeout(timeout);if(job===ocrJob)setOCRBusy(false);}
 }
 async function runOCR(imageValue,target,key,job){
@@ -177,6 +186,7 @@ async function captureOfficial(source){
   const timeout=setTimeout(()=>controller.abort(),45000);
   try{const s=await getOfficialImage(source,{stop,choice:choice?.value},controller.signal);clearTimeout(timeout);if(job!==ocrJob)return;
     s.memo=source==='bus'?`${stop}・${choice.route}系統・${choice.destination}・${choice.boarding}`:'近鉄列車運行情報';
+    if(source==='bus'){s.selection={stop,value:choice.value};savedBusReport=s;}
     $(`#${source}-live-result`).innerHTML=reportHTML(s);await runOCR(s,`#${source}-live-result`,`live-${source}`,job);if(job===ocrJob)toast('公式画面を更新しました');
   }catch(e){if(job===ocrJob)$('#ocr-error').textContent=e.name==='AbortError'?'取得が時間切れになりました。公式画面をご確認ください。':e.message;}
   finally{clearTimeout(timeout);if(job===ocrJob)setOCRBusy(false);}
@@ -271,7 +281,13 @@ async function init(){
   $('#screenshot-file').addEventListener('change',e=>chooseScreenshot(e.target.files[0]));
   $('#save-screenshot').addEventListener('click',saveScreenshot);
   $('#reload-choices').addEventListener('click',loadLiveChoices);
-  $('#capture-bus').addEventListener('click',updateBus);
+  $('#capture-bus').addEventListener('click',()=>updateBus());
+  $('#live-choice').addEventListener('change',()=>{$('#bus-live-result').innerHTML='';restoreBusReport();updateBus();});
+  busRefresh=createRefreshLoop({refresh:()=>updateBus(true),canRefresh:()=>!document.hidden&&!$('#live-view').hidden&&!ocrBusy&&!choicesBusy&&choices.length>0});
+  $('#bus-auto-refresh').addEventListener('change',e=>{busRefresh.touch();busRefresh.setEnabled(e.target.checked);});
+  document.addEventListener('visibilitychange',()=>busRefresh.tick());
+  window.addEventListener('pagehide',()=>busRefresh.dispose());
+  window.addEventListener('pageshow',()=>busRefresh.setEnabled($('#bus-auto-refresh').checked));
   $('#capture-bus-image').addEventListener('click',()=>captureOfficial('bus'));
   $('#capture-rail').addEventListener('click',()=>captureOfficial('rail'));
   $('#ocr-cancel').addEventListener('click',async()=>{ocrJob++;ocrController?.abort();await cancelOCR();setOCRBusy(false);$('#ocr-error').textContent='読み取りを中止しました。';});

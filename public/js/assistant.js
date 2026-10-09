@@ -4,6 +4,7 @@ import {CAPTURE_API,getBusChoices,getBusData} from './live.js';
 import {formatTime} from './router.js';
 import {subwayIds,kintetsuIds} from './network.js';
 import {distance} from './mobility.js';
+import {createRefreshLoop} from './refresh.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const minute=time=>time.split(':').map(Number).reduce((h,m)=>h*60+m);
 const symbol=n=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${n==='location'?'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/>':n==='school'?'<path d="m2 8 10-5 10 5-10 5Z"/><path d="M5 10v7q7 5 14 0v-7M22 8v9"/>':n==='friends'?'<path d="M3 18v-5a4 4 0 0 1 8 0v5m2 0v-5a4 4 0 0 1 8 0v5M5 21l2-3m12 3-2-3"/><circle cx="7" cy="5" r="2"/><circle cx="17" cy="5" r="2"/>':'<path d="M3 8h18l-2-5H5Zm1 0v12h16V8M9 20v-7h6v7"/>'}</svg>`;
@@ -23,7 +24,10 @@ export function mountMobility(api){
   document.querySelector('#destination-settings').addEventListener('change',e=>{const k=e.target.dataset.workLabel;if(!k)return;commit(s=>{s.destinations??={muji:{label:'',stop:null},gu:{label:'',stop:null}};s.destinations[k].label=e.target.value.trim().slice(0,80);});refreshSettings();});
   function setOrigin(id){origin=id;$('#assist-origin').textContent=name(id);if(['subway','kintetsu'].includes(network.stops.get(id)?.type)){meetOrigin=id;trackOrigin=id;$('#meet-origin').textContent=name(id);$('#track-origin').textContent=name(id);}}
   const nearby=document.createElement('div');nearby.id='nearby-approach';$('#nearest-place').after(nearby);
-  function stopGeo(){geoJob++;if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;fix=null;previous=null;location=null;nearController?.abort();$('#nearest-place').hidden=true;nearby.innerHTML='';$('#geo-start').textContent='取得';}
+  let nearBusy=false,nearSelected=null,nearAuto=false;
+  const nearRefresh=createRefreshLoop({refresh:()=>loadNearby(nearStop,nearSelected),canRefresh:()=>!document.hidden&&!root.closest('.view').hidden&&!nearBusy&&!!nearStop});
+  function clearNearby(){nearController?.abort();nearJob++;nearBusy=false;nearStop=null;nearSelected=null;nearChoices=[];lastAutoStop=null;nearby.innerHTML='';nearRefresh.setEnabled(false);}
+  function stopGeo(){geoJob++;if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;fix=null;previous=null;location=null;clearNearby();lastAutoStop=null;lastBusFetch=0;$('#nearest-place').hidden=true;$('#position-heading').textContent='現在地から案内';$('#assist-origin-note').textContent='手動で変更できます';$('#geo-start').textContent='取得';}
   async function startGeo(){
     if(watch!==null){stopGeo();$('#position-status').textContent='現在地の更新を停止しました';return;}
     if(!navigator.geolocation){$('#position-status').textContent='位置情報を利用できません。駅・バス停を指定してください。';return;}
@@ -36,26 +40,34 @@ export function mountMobility(api){
   }
   function renderLocation(){
     const {status,rail,bus}=location;$('#nearest-place').hidden=true;
-    if(['outside','unavailable'].includes(status)){$('#position-status').textContent=status==='outside'?'対応エリア付近にいません。出発地を指定してください。':'現在地が古くなりました。駅・バス停を指定してください。';return;}
+    if(['outside','unavailable'].includes(status)){clearNearby();$('#position-heading').textContent='現在地から案内';$('#position-status').textContent=status==='outside'?'対応エリア付近にいません。出発地を指定してください。':'現在地が古くなりました。駅・バス停を指定してください。';return;}
     $('#position-heading').textContent=status==='rail'?'路線付近にいます':status==='bus'?'近くのバス停から':'現在地の精度を確認';
     $('#position-status').textContent=`位置の精度 約${Math.round(fix.accuracy)}m${status==='uncertain'?'・自動選択を保留':''}`;
     if(status!=='uncertain'){setOrigin(status==='rail'?rail.id:bus.id);$('#assist-origin-note').textContent=`直線距離 約${Math.round((status==='rail'?rail:bus).meters)}m・のりばを確認`;}
-    const stop=network.stops.get(bus.id);$('#nearest-place').hidden=false;$('#nearest-place').innerHTML=`<div class="nearest-row"><span class="round-symbol">${symbol('location')}</span><div><small>最寄りの対応市バス停</small><b>${esc(stop.name)}</b><small>約${Math.round(bus.meters)}m（直線距離）</small></div><button class="plain" id="nearest-bus">接近を見る</button></div>`;
-    if(status==='bus'&&lastAutoStop!==bus.id&&Date.now()-lastBusFetch>60000){lastAutoStop=bus.id;lastBusFetch=Date.now();$('#position-status').textContent+='・接近情報を取得';loadNearby(bus.id);}
-    if(status==='rail'){$('#train-details').open=true;if(!confirmed&&Date.now()-lastRailFetch>60000&&$('#track-search').disabled===false){lastRailFetch=Date.now();loadTrack(true);}}
+    if(nearStop&&(status!=='bus'||nearStop!==bus.id))clearNearby();
+    if(bus.meters<=5000){const stop=network.stops.get(bus.id);$('#nearest-place').hidden=false;$('#nearest-place').innerHTML=`<div class="nearest-row"><span class="round-symbol">${symbol('location')}</span><div><small>最寄りの対応市バス停</small><b>${esc(stop.name)}</b><small>約${Math.round(bus.meters)}m（直線距離）</small></div><button class="plain" id="nearest-bus">接近を見る</button></div>`;}
+    const visible=!document.hidden&&!root.closest('.view').hidden;
+    if(status==='bus'&&visible&&lastAutoStop!==bus.id&&Date.now()-lastBusFetch>60000){lastAutoStop=bus.id;lastBusFetch=Date.now();$('#position-status').textContent+='・接近情報を取得';loadNearby(bus.id);}
+    if(status==='rail'){$('#train-details').open=true;if(visible&&!confirmed&&Date.now()-lastRailFetch>60000&&$('#track-search').disabled===false){lastRailFetch=Date.now();loadTrack(true);}}
   }
   async function loadNearby(id,value){
-    nearController?.abort();nearController=new AbortController();const active=++nearJob,signal=nearController.signal,stop=network.stops.get(id);nearStop=id;
-    nearby.innerHTML='<p class="fine" role="status">最寄りの市バス接近情報を取得中…</p>';const activeController=nearController,timeout=setTimeout(()=>activeController.abort(),45000);
+    const stop=network.stops.get(id);if(stop?.type!=='citybus')return;
+    nearController?.abort();nearController=new AbortController();const active=++nearJob,signal=nearController.signal;
+    const same=nearStop===id&&nearSelected===value&&nearby.querySelector('.bus-native');nearStop=id;nearBusy=true;lastBusFetch=Date.now();nearRefresh.touch();
+    if(same){$('#nearby-status').textContent='接近情報を更新中…';$('#nearby-refresh').disabled=true;$('#nearby-choice').disabled=true;}
+    else nearby.innerHTML='<p class="fine" role="status">市バス接近情報を取得中…</p>';
+    let timedOut=false;const activeController=nearController,timeout=setTimeout(()=>{timedOut=true;activeController.abort();},45000);
     try{
-      if(!value)nearChoices=(await getBusChoices(stop.fullName??stop.name,signal)).choices;
+      const choices=value?nearChoices:(await getBusChoices(stop.fullName??stop.name,signal)).choices;
       if(active!==nearJob||signal.aborted)return;
+      nearChoices=choices;
       const choice=nearChoices.find(c=>c.value===value)??nearChoices[0];
-      if(!choice){nearby.innerHTML='<p class="fine">この停留所で対象の系統を取得できませんでした。</p>';return;}
+      if(!choice){nearby.innerHTML='<p class="fine">この停留所で対象の系統を取得できませんでした。</p><button class="plain" id="nearby-refresh">再取得</button>';return;}
       const data=await getBusData(stop.fullName??stop.name,choice.value,signal);if(active!==nearJob||signal.aborted)return;
-      nearby.innerHTML=`<label class="block-label">接近を見る行先・のりば<select id="nearby-choice">${nearChoices.map(c=>`<option value="${esc(c.value)}" ${c.value===choice.value?'selected':''}>${esc(c.route)}・${esc(c.destination)}・${esc(c.boarding)}</option>`).join('')}</select></label>${busHTML(data)}<button class="plain" id="nearby-refresh">接近情報を更新</button><p class="fine">この行先の接近情報です。目的地への経路は下のボタンで検索できます。</p>`;
-    }catch(e){if(active===nearJob&&!signal.aborted)nearby.innerHTML=`<p class="fine" role="status">${esc(e.message)}</p><button class="plain" id="nearby-refresh">再取得</button>`;}
-    finally{clearTimeout(timeout);}
+      nearSelected=choice.value;nearby.innerHTML=`<label class="block-label">接近を見る行先・のりば<select id="nearby-choice">${nearChoices.map(c=>`<option value="${esc(c.value)}" ${c.value===choice.value?'selected':''}>${esc(c.route)}・${esc(c.destination)}・${esc(c.boarding)}</option>`).join('')}</select></label>${busHTML(data)}<div class="nearby-controls"><button class="plain" id="nearby-refresh">接近情報を更新</button><label class="bus-auto"><input type="checkbox" id="nearby-auto" ${nearAuto?'checked':''}>1分ごとに更新</label></div><p class="fine" role="status" id="nearby-status">この行先の接近情報です。目的地への経路は下のボタンで検索できます。</p>`;
+      nearRefresh.setEnabled(nearAuto);
+    }catch(e){if(active===nearJob&&(!signal.aborted||timedOut)){const message=timedOut?'接近情報の取得が時間切れになりました。再取得してください。':e.message;if(same){$('#nearby-status').textContent=message;$('#nearby-refresh').disabled=false;$('#nearby-choice').disabled=false;}else nearby.innerHTML=`<p class="fine" role="status">${esc(message)}</p><button class="plain" id="nearby-refresh">再取得</button>`;}}
+    finally{clearTimeout(timeout);if(active===nearJob)nearBusy=false;}
   }
   function busy(label){controller?.abort();controller=new AbortController();job++;$('#friend-search').disabled=true;$('#meet-search').disabled=true;$('#track-search').disabled=true;$('#assist-cancel').hidden=false;$('#meeting-status').textContent=label;$('#meeting-error').textContent='';return {id:job,signal:controller.signal};}
   function done(id){if(id!==job)return;$('#friend-search').disabled=false;$('#track-search').disabled=false;$('#meet-search').disabled=!friendRoutes.length;$('#assist-cancel').hidden=true;}
@@ -103,7 +115,7 @@ export function mountMobility(api){
   }
   root.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;const d=b.dataset;
-    if(b.id==='geo-start')startGeo();else if(b.id==='nearest-bus'&&location?.bus)api.showBus(location.bus.id);else if(b.id==='nearby-refresh'&&nearStop)loadNearby(nearStop,$('#nearby-choice')?.value);else if(b.id==='open-meeting')openMeeting();else if(b.id==='close-meeting')$('#meeting-panel').hidden=true;
+    if(b.id==='geo-start')startGeo();else if(b.id==='nearest-bus'&&location?.bus)loadNearby(location.bus.id);else if(b.id==='nearby-refresh'&&nearStop)loadNearby(nearStop,nearSelected);else if(b.id==='open-meeting')openMeeting();else if(b.id==='close-meeting')$('#meeting-panel').hidden=true;
     else if(b.id==='friend-search')loadFriends();else if(b.id==='meet-search')searchMeeting();else if(b.id==='track-search')loadTrack();else if(b.id==='assist-cancel')controller?.abort();
     else if(d.destination){if(d.destination==='ksu')api.navigate(origin,'ksu');else{const target=getState().destinations?.[d.destination]?.stop;if(network.stops.has(target))api.navigate(origin,target);else{api.setTab('settings');toast('勤務地の最寄り駅・バス停を登録してください');}}}
     else if(d.meetingPlan!==undefined){const p=meetingData.plans[+d.meetingPlan];api.showMeeting(p,meetingRequest,meetingData.updatedAt,meetingData.notice);}
@@ -113,12 +125,13 @@ export function mountMobility(api){
   for(const id of ['meeting-date','friend-time','friend-type'])$(`#${id}`).addEventListener('change',invalidateFriend);
   for(const id of ['self-time','meet-buffer','meet-wait'])$(`#${id}`).addEventListener('change',()=>{controller?.abort();job++;meetingData=null;$('#meeting-results').innerHTML='';done(job);});
   $('#friend-choices').addEventListener('change',()=>{controller?.abort();job++;meetingData=null;$('#meeting-results').innerHTML='';done(job);});
-  root.addEventListener('change',e=>{if(e.target.id==='nearby-choice'&&nearStop)loadNearby(nearStop,e.target.value);});
+  root.addEventListener('change',e=>{if(e.target.id==='nearby-choice'&&nearStop)loadNearby(nearStop,e.target.value);else if(e.target.id==='nearby-auto'){nearAuto=e.target.checked;nearRefresh.touch();nearRefresh.setEnabled(nearAuto);}});
   const timer=setInterval(()=>{if(fix&&Date.now()-fix.timestamp>45000){$('#position-status').textContent='現在地の更新が止まっています。地下では駅を指定してください。';location={status:'unavailable'};$('#nearest-place').hidden=true;}if(trackRoutes.length)renderTracking();},15000);
-  window.addEventListener('pagehide',()=>{stopGeo();controller?.abort();nearController?.abort();clearInterval(timer);});
+  document.addEventListener('visibilitychange',()=>nearRefresh.tick());
+  window.addEventListener('pagehide',()=>{stopGeo();controller?.abort();nearRefresh.dispose();clearInterval(timer);});
   refreshSettings();
   return {openMeeting,refreshSettings,routesChanged:(routes,r)=>{trackRoutes=routes;trackRequest=r;confirmed=null;renderTracking();},selectStop:(target,id)=>{
-    if(target==='assist-from'){setOrigin(id);return true;}
+    if(target==='assist-from'){stopGeo();setOrigin(id);$('#position-status').textContent='指定した駅・バス停から案内します。';if(network.stops.get(id)?.type==='citybus')loadNearby(id);return true;}
     if(['meet-from','track-from'].includes(target)){if(!['subway','kintetsu'].includes(network.stops.get(id)?.type)){toast('列車に乗る駅を選んでください');return true;}if(target==='meet-from'){meetOrigin=id;$('#meet-origin').textContent=name(id);meetingData=null;$('#meeting-results').innerHTML='';}else{trackOrigin=id;$('#track-origin').textContent=name(id);confirmed=null;trackRoutes=[];renderTracking();}return true;}
     if(target?.startsWith('work-')){const k=target.slice(5);commit(s=>{s.destinations??={muji:{label:'',stop:null},gu:{label:'',stop:null}};s.destinations[k].stop=id;});refreshSettings();toast('勤務地の行先を保存しました');return true;}return false;
   }};
