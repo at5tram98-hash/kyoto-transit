@@ -43,7 +43,11 @@ function renderPasses(){
   $('#quick-favorites').innerHTML=state.favorites.filter(id=>network.stops.has(id)).slice(0,5).map(id=>`<button class="quick-stop" data-quick="${esc(id)}"><span>${esc(name(id))}<small>${esc(line(id))}</small></span>${icon('arrow')}</button>`).join('')||'<p class="fine">お気に入りから場所を追加できます。</p>';
   renderFarePreview();
 }
-function openPicker(target){pickerTarget=target;pickerFilter=target==='live'?'bus':'all';$('#picker-title').textContent=target==='from'?'出発地を選択':target==='to'?'到着地を選択':target==='favorite'?'お気に入りを追加':target==='live'?'接近情報の停留所':'経由・折り返しの場所';$('#picker-search').value='';$('#picker-filters').hidden=target==='live';$$('#picker-filters button').forEach(e=>e.classList.toggle('active',e.dataset.filter===pickerFilter));renderPicker();$('#stop-dialog').showModal();$('#picker-search').focus();}
+function openPicker(target){
+  pickerTarget=target;const railOnly=['meet-from','track-from'].includes(target);pickerFilter=target==='live'?'bus':railOnly?'rail':'all';
+  const titles={from:'出発地を選択',to:'到着地を選択',favorite:'お気に入りを追加',live:'接近情報の停留所','assist-from':'出発する駅・バス停','meet-from':'自分が出発する駅','track-from':'乗った駅を選択','work-muji':'無印良品の最寄り駅・バス停','work-gu':'GUの最寄り駅・バス停'};
+  $('#picker-title').textContent=titles[target]??'経由・折り返しの場所';$('#picker-search').value='';$('#picker-filters').hidden=target==='live'||railOnly;$$('#picker-filters button').forEach(e=>e.classList.toggle('active',e.dataset.filter===pickerFilter));renderPicker();$('#stop-dialog').showModal();$('#picker-search').focus();
+}
 function renderPicker(){
   const q=$('#picker-search').value,all=searchStops(network,q,pickerFilter).filter(s=>pickerTarget!=='live'||s.type==='citybus');
   const favorites=q?[]:state.favorites.map(id=>network.stops.get(id)).filter(s=>s&&all.some(a=>a.id===s.id));
