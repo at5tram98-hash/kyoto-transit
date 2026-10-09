@@ -17,6 +17,7 @@ export function locate(fix,geo,network,now=Date.now()){
   if(!rail||!bus||Math.min(rail.meters,bus.meters)>5000)return {status:'outside',rail,bus};
   if(fix.accuracy>100)return {status:'uncertain',rail,bus,accuracy:fix.accuracy};
   const nearLine=geo.lines.some(l=>l.points.some((p,i)=>i&&segmentDistance(fix,{lat:l.points[i-1][1],lng:l.points[i-1][0]},{lat:p[1],lng:p[0]})<Math.max(70,fix.accuracy)));
+  if(!nearLine&&bus.meters>5000)return {status:'outside',rail,bus};
   return {status:nearLine?'rail':'bus',rail,bus,accuracy:fix.accuracy};
 }
 const simplified=n=>normalize(String(n).replace(/\([^)]*\)|（[^）]*）|駅前$/g,'').replaceAll('松ケ崎','松ヶ崎'));
