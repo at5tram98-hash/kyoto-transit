@@ -13,8 +13,8 @@ test('同じ系統・方面の複数接近車は1行へまとめる',()=>{
     {key:'a:0',route:'204',dest:'銀閣寺・高野',minutes:3,source:'live',confidence:.96},
     {key:'a:1',route:'204',dest:'銀閣寺・高野',minutes:11,source:'live',confidence:.96},
     {key:'b:0',route:'204',dest:'円町・金閣寺',minutes:6,source:'live',confidence:.96}
-  ]);
-  assert.equal(rows.length,2);assert.equal(rows[0].arrivals.length,2);assert.equal(busArrivalText(rows[0]),'あと3・11分');
+  ]),ginkaku=rows.find(r=>r.dest==='銀閣寺・高野');
+  assert.equal(rows.length,2);assert.equal(ginkaku.arrivals.length,2);assert.equal(busArrivalText(ginkaku),'あと3・11分');
 });
 
 test('実測停留所位置から算出したETAは表示上liveとして扱う',()=>{
