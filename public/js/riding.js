@@ -14,7 +14,7 @@ export function nearbyStops(f,geo,network,limit=3,now=Date.now()){
   if(!freshFix(f,now))return [];
   return geo.stops.filter(s=>network.stops.get(s.id)?.type==='citybus').map(s=>({...s,meters:distance(f,s)})).filter(s=>s.meters<=5000).sort((a,b)=>a.meters-b.meters).slice(0,limit);
 }
-const simple=s=>normalize(String(s??'').replace(/\([^)]*\)|（[^）]*）|駅前$/g,'').replaceAll('近鉄奈良','奈良').replaceAll('大和西大寺','西大寺'));
+const simple=s=>normalize(String(s??'').replace(/行き?$|方面$/g,'').replace(/\([^)]*\)|（[^）]*）|駅前$/g,'').replaceAll('近鉄奈良','奈良').replaceAll('大和西大寺','西大寺'));
 export function matchRail(leg,feed,network,minute,fix,geo,now=Date.now()){
   if(leg.operator!=='kintetsu'||!feed||now-Date.parse(feed.sourceUpdatedAt)>120000||now-Date.parse(feed.capturedAt)>120000||Date.parse(feed.sourceUpdatedAt)>now+60000)return [];
   const stops=timedStops(leg,network),start=kintetsuIds.indexOf(leg.from),end=kintetsuIds.indexOf(leg.to);if(start<0||end<0||start===end)return [];

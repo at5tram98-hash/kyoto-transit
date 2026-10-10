@@ -237,6 +237,7 @@ async function init(){
   try{const feed=await getFile('feed');if(feed)network=applyFeed(base,feed);}catch{/* データがない環境でもYahoo検索を利用できる。 */}
   renderSettings();renderLocations();renderPasses();updateFeedStatus();updateConditions();readScreenshot();readLiveReports();setTab('search');window.addEventListener('resize',moveTabSelection);
   mobility=mountMobility({network:base,getState:()=>state,commit,openPicker,toast,setTab,now:tokyoNow,
+    showOperations:()=>{setTab('live',false);$('#capture-rail').closest('.card').scrollIntoView({behavior:'smooth',block:'start'});},
     setSearchFrom:from=>{query.from=from;renderLocations();setTab('search');$('#from-name').scrollIntoView({behavior:'smooth',block:'center'});},
     navigate:(from,to)=>{query=schoolRequest({from,to,via:[]});setNow();renderLocations();setTab('search');searchYahoo();},
     showBus:async(id,route)=>{liveStop=base.stops.get(id)?.fullName??name(id);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';setTab('live',false);await loadLiveChoices();const c=choices.find(c=>c.route===route)??choices[0];if(c){$('#live-choice').value=c.value;await updateBus();}},
