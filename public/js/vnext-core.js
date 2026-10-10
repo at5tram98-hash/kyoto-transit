@@ -8,9 +8,9 @@ export const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 export const normalizeMinute=n=>{let v=Number(n);while(v<0)v+=1440;return v;};
 export const formatMinute=n=>{if(!Number.isFinite(n))return '—';const day=Math.floor(n/1440),m=((Math.round(n)%1440)+1440)%1440,h=Math.floor(m/60),mm=String(m%60).padStart(2,'0');return `${day>0?'翌日 ':''}${String(h).padStart(2,'0')}:${mm}`;};
 
-export function chooseNearbyGuide({rail,bus},railLimit=350){
+export function chooseNearbyGuide({rail,bus},railLimit=350,busLimit=350){
   const railOk=rail&&Number.isFinite(rail.meters)&&rail.meters<=railLimit;
-  const busOk=bus&&Number.isFinite(bus.meters);
+  const busOk=bus&&Number.isFinite(bus.meters)&&bus.meters<=busLimit;
   if(!railOk)return busOk?{kind:'bus',...bus}:null;
   if(!busOk)return {kind:'rail',...rail};
   return rail.meters<=bus.meters?{kind:'rail',...rail}:{kind:'bus',...bus};
