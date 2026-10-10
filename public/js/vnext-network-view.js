@@ -1,5 +1,6 @@
 import {subwayIds,kintetsuIds} from './network.js';
 import {projectSubwayTrains,CITY_ROUTES,KYOTO_ROUTES} from './vnext-core.js';
+import {mergeTimetableFeeds} from './search-core.js';
 import {$,esc,icon,state,settings,saveSettings,tokyoNow,rideKey,ensureRailFeed,ensureSubwayFeed,official} from './vnext-state.js';
 import {realtimeLog,ARRIVAL_INTERVAL} from './realtime.js';
 
@@ -7,7 +8,7 @@ const dot=source=>`<i class="source-dot ${source==='live'?'live':'prediction'}" 
 async function ensureSubwayStatic(){
   const now=tokyoNow();
   if(state.subwayStaticFeed&&state.subwayStaticFeedDate===now.date&&Date.now()-(state.subwayStaticFeedAt??0)<15*60*1000)return state.subwayStaticFeed;
-  try{state.subwayStaticFeed=await official('/api/static/feed',{operator:'subway',date:now.date});state.subwayStaticFeedDate=now.date;state.subwayStaticFeedAt=Date.now();return state.subwayStaticFeed;}catch{return null;}
+  try{const raw=await official('/api/static/feed',{operator:'subway',date:now.date}),mapped=mergeTimetableFeeds({...state.network,services:[]},[raw]);state.subwayStaticFeed={...raw,services:mapped.services};state.subwayStaticFeedDate=now.date;state.subwayStaticFeedAt=Date.now();return state.subwayStaticFeed;}catch{return null;}
 }
 export async function renderNetworkPanel(panel,ride,now){
   const token=rideKey(ride);panel.dataset.token=token;panel.innerHTML=`<section class="section-block"><div class="section-heading"><div><span class="section-label">走行位置</span><h3>同じ路線の列車</h3></div><button class="round-action" id="network-refresh" aria-label="更新">${icon('refresh')}</button></div><div id="network-live"><p class="loading-line">更新中…</p></div></section>`;
