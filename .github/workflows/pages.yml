@@ -21,6 +21,13 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Worker dry-run bundle
+        run: npx wrangler deploy --dry-run --outdir worker-dist --config worker/wrangler.jsonc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker-bundle
+          path: worker-dist
+          retention-days: 3
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
