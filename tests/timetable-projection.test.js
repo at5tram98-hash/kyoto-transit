@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {projectSubwayTrains,railTimetableEta,subwayRideCandidates} from '../public/js/vnext-core.js';
+import {buildRailArrivalRows} from '../public/js/rail-arrivals-core.js';
 import {mergeTimetableFeeds} from '../public/js/search-core.js';
 
 const network={stops:new Map([
@@ -60,4 +61,14 @@ test('Kintetsu ETA is matched to the official timetable and live delay',()=>{
   assert.equal(eta.scheduledArrival,610);
   assert.equal(eta.delay,2);
   assert.ok(eta.matchError<1);
+});
+
+test('Kintetsu arrival UI never invents minutes when timetable matching fails',()=>{
+  const data={trains:[{position:5,direction:'south',category:'express',dest:'近鉄奈良',delay:0,label:'急行'}]};
+  const rows=buildRailArrivalRows(data,{services:[]},'K15',607);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].minutes,null);
+  assert.equal(rows[0].status,'時刻未確定');
+  assert.equal(rows[0].etaSource,null);
+  assert.equal(rows[0].source,'live');
 });
