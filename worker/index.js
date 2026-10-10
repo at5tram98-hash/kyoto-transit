@@ -72,7 +72,25 @@ async function kyotoBusRealtime(request,env){
   return cachedJSON(request,env,'rt:kyotobus',async()=>{const [vehicleBytes,tripBytes]=await Promise.all([fetchProto(KYOTO_BUS_VEHICLE,env.ODPT_CONSUMER_KEY),fetchProto(KYOTO_BUS_TRIP,env.ODPT_CONSUMER_KEY).catch(()=>null)]),vehicleFeed=decodeGtfsRealtime(vehicleBytes),tripFeed=tripBytes?decodeGtfsRealtime(tripBytes):{tripUpdates:[]},filtered=filterKyotoBusVehicles(vehicleFeed.vehicles,tripFeed.tripUpdates),timestamps=filtered.vehicles.map(v=>v.timestamp).filter(Number.isFinite),latest=timestamps.length?Math.max(...timestamps)*1000:Date.now(),hasFresh=filtered.vehicles.some(v=>v.fresh);return {kind:'kyotobus-rt',source:hasFresh?'live':'prediction',stale:!hasFresh,asOf:iso(latest),vehicles:filtered.vehicles.map(v=>({id:v.id,trip:v.trip,route:v.route,lat:v.lat,lon:v.lon,bearing:v.bearing,speed:v.speed,timestamp:v.timestamp,stop:v.stop,stopSequence:v.stopSequence,congestion:v.congestion,occupancy:v.occupancy,occupancyPct:v.occupancyPct,delay:v.delay})),meta:{tripUpdates:tripFeed.tripUpdates.length,unmapped:filtered.unmapped}};},12);
 }
 function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),minutes=direct?bus.minutes:Number.isFinite(bus?.stopsAway)?Math.max(1,bus.stopsAway*2):null;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,minutes,status:minutes===null?(item.noBus?'接近なし':null):null,delay:null,eta:Number.isFinite(minutes)?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:Number.isFinite(bus?.stopsAway)?0.62:0.45,source:direct?'live':Number.isFinite(minutes)?'prediction':'schedule'};}
-async function cityBusArrivals(request,env,url){const stop=url.searchParams.get('stop');if(!env.STOP_NAMES.includes(stop))return error('対象の停留所を選択してください。');return cachedJSON(request,env,`citybus:${stop}`,async()=>{const choices=await options(stop),unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),items=new Array(unique.length);let cursor=0;async function run(){while(true){const i=cursor++;if(i>=unique.length)return;try{items[i]=await busDataObject(env,stop,unique[i]);}catch{items[i]={...unique[i],buses:[],capturedAt:new Date().toISOString()};}}await Promise.all(Array.from({length:Math.min(3,unique.length)},()=>run()));const now=Date.now(),results=items.flatMap(item=>item.buses?.length?item.buses.slice(0,2).map((b,i)=>normalizedCityRow(item,b,i,now)):[normalizedCityRow(item,null,0,now)]).slice(0,40),asOf=results.map(r=>Date.parse(r.asOf)).filter(Number.isFinite).sort((a,b)=>b-a)[0]??now;return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results};},12);}
+async function cityBusArrivals(request,env,url){
+  const stop=url.searchParams.get('stop');
+  if(!env.STOP_NAMES.includes(stop))return error('対象の停留所を選択してください。');
+  return cachedJSON(request,env,`citybus:${stop}`,async()=>{
+    const choices=await options(stop),unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),items=new Array(unique.length);
+    let cursor=0;
+    async function run(){
+      while(true){
+        const i=cursor++;
+        if(i>=unique.length)return;
+        try{items[i]=await busDataObject(env,stop,unique[i]);}
+        catch{items[i]={...unique[i],buses:[],capturedAt:new Date().toISOString()};}
+      }
+    }
+    await Promise.all(Array.from({length:Math.min(3,unique.length)},()=>run()));
+    const now=Date.now(),results=items.flatMap(item=>item.buses?.length?item.buses.slice(0,2).map((b,i)=>normalizedCityRow(item,b,i,now)):[normalizedCityRow(item,null,0,now)]).slice(0,40),asOf=results.map(r=>Date.parse(r.asOf)).filter(Number.isFinite).sort((a,b)=>b-a)[0]??now;
+    return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results};
+  },12);
+}
 async function railSnapshot(env){const r=await env.BROWSER.quickAction('content',{url:LOCATION_URL,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#stations .station-name',visible:true,timeout:4000},actionTimeout:4000});if(!r.ok){await r.body?.cancel();throw Error('近鉄の列車位置を取得できませんでした。');}let html=await boundedText(r);if(r.headers.get('content-type')?.includes('json')){const b=JSON.parse(html);html=typeof b.result==='string'?b.result:typeof b.content==='string'?b.content:'';}return parseRailLocation(html);}
 async function railLive(request,env){return cachedJSON(request,env,'rail:kintetsu',async()=>{const d=await railSnapshot(env),asOf=d.sourceUpdatedAt??new Date().toISOString();return {kind:'rail-live',source:'live',stale:false,asOf,trains:d.trains.map((t,i)=>({key:`${t.direction}:${t.position}:${t.destination}:${t.label}:${i}`,position:t.position,from:t.from,to:t.to,atStation:t.atStation,direction:t.direction,dest:t.destination,category:t.category,label:t.label,delay:t.delay}))};},12);}
 
