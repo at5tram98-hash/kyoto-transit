@@ -63,9 +63,16 @@ export function createNetwork(catalog) {
   for(const [id,name] of [['kyotobus-kokusai','国際会館駅前'],['ksu','京都産業大学前']])
     stops.set(id,{id,name,type:'kyotobus',officialId:id==='ksu'?'7475_1':'91_1',lines:['40','特40','直行40'],aliases:id==='ksu'?['京都産業大学','京産大']:[]});
   pairService('kyotobus-40','京都バス40系統','kyotobus',['kyotobus-kokusai','ksu'],[0,15],15,{route:'40'});
+
+  // 京都バス「臨時」丸太町線。公式停留所IDを持たせ、Workerの公式時刻表・便詳細取得でも利用する。
+  stops.set('kyotobus-karasuma-marutamachi',{id:'kyotobus-karasuma-marutamachi',name:'烏丸丸太町',fullName:'烏丸丸太町（地下鉄丸太町駅）',type:'kyotobus',officialId:'51_1',lines:['臨時'],aliases:['地下鉄丸太町駅','烏丸丸太町（地下鉄丸太町駅）']});
+  stops.set('kyotobus-senbon-marutamachi',{id:'kyotobus-senbon-marutamachi',name:'千本丸太町',type:'kyotobus',officialId:'152_2',lines:['臨時'],aliases:[]});
+  pairService('kyotobus-marutamachi-temp','京都バス臨時','kyotobus',['kyotobus-karasuma-marutamachi','kyotobus-senbon-marutamachi'],[0,7],30,{route:'臨時'});
+
   const connect=(a,b,minutes)=>{if(a&&b){walks.push({from:a,to:b,minutes},{from:b,to:a,minutes});}};
   connect('K11','B01',8);
   connect('K01','kyotobus-kokusai',5);
+  connect('K07','kyotobus-karasuma-marutamachi',2);
   for(const [a,name,mins] of [
     ['K04','北大路バスターミナル',4],['K04','烏丸北大路',5],['K07','烏丸丸太町',4],
     ['K09','四条烏丸',4],['K10','烏丸五条',4],['K11','京都駅前',5],

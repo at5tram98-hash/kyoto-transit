@@ -1,63 +1,60 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#F2F2F7"><meta name="description" content="京都のいつもの移動と折り返しを、一つの乗換案内に。定期券を使った追加運賃も確認。">
-  <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="My Map"><meta name="color-scheme" content="light dark"><title>My Map</title><link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="native.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F2F2F7">
+  <meta name="description" content="京都の地下鉄・近鉄・バスを、現在地と公式運行情報から自動で案内する My Map。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="My Map">
+  <meta name="color-scheme" content="light dark">
+  <title>My Map</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="vnext.css">
+  <link rel="stylesheet" href="vnext-ui.css">
+  <link rel="stylesheet" href="vnext-sheets.css">
 </head>
-<body><div id="app"><header class="topbar"><div class="topbar-main"><h1 class="large-title" id="screen-title">My Map</h1><div class="date-line" id="tab-label">京都のいつもの移動に</div></div><div class="nav-actions"><button class="icon-button" data-tab="favorites" aria-label="お気に入り"><span data-icon="star"></span></button><button class="icon-button" data-tab="settings" aria-label="定期券の設定"><span data-icon="ticket"></span></button></div></header><main class="scroll">    <section id="today-view" class="view"><section id="mobility-root" aria-label="いまの移動案内"></section><button class="home-pass" data-tab="settings"><span class="pass-icon" data-icon="ticket"></span><span><b>定期券の設定</b><small>通常運賃と定期適用後を両方表示</small></span><span data-icon="arrow"></span></button></section>
-    <section id="search-view" class="view" hidden>
-      <div class="hero fare-strip"><div class="hero-kicker">この区間の支払い目安</div><div class="hero-value" id="fare-preview">0<span>円</span></div><div class="hero-sub" id="fare-preview-note">定期券を適用・通常運賃も表示</div></div><div class="search-grid">
-        <div class="search-main">
-          <form id="search-form" class="card search-card">
-            <div class="location-pair"><div class="location-track"><i></i><span></span><i></i></div><div class="location-fields">
-              <button type="button" class="location-field" id="from-button" data-pick="from"><span>出発</span><strong id="from-name">丸太町</strong><small id="from-line">地下鉄烏丸線</small></button>
-              <button type="button" class="location-field" id="to-button" data-pick="to"><span>到着</span><strong id="to-name">国際会館</strong><small id="to-line">地下鉄烏丸線</small></button>
-            </div><button type="button" id="swap" class="icon-button swap" aria-label="出発地と到着地を入れ替える"><span data-icon="swap"></span></button></div>
-            <div id="waypoints"></div>
-            <button type="button" id="add-via" class="add-via"><span data-icon="plus"></span>経由地・折り返しを追加</button>
-            <div class="form-divider"></div>
-            <div class="date-row"><label>日付<input type="date" id="date" required></label><label>出発時刻<input type="time" id="time" required></label><button type="button" class="now-button" id="now">いま</button></div>
-            <details class="search-options"><summary>検索条件<span id="condition-summary">種別指定なし・乗換余裕3分</span><span data-icon="chevron"></span></summary><div class="option-grid"><label>近鉄の列車種別<select id="train-type"><option value="all">普通・急行を比較</option><option value="local">普通のみ</option><option value="express">急行のみ</option></select></label><label>乗換の余裕<select id="buffer"><option value="1">1分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="10">10分</option></select></label><label>徒歩の合計上限<select id="max-walk"><option value="10">10分まで</option><option value="20">20分まで</option><option value="30" selected>30分まで</option></select></label></div></details>
-            <button class="primary search-submit" id="search-submit"><span data-icon="search"></span>経路を検索</button>
-            <details class="search-source"><summary>検索データについて</summary><p class="fine" id="yahoo-condition-note">Yahoo!の実際の結果を、このアプリ内で表示。列車種別・乗換余裕・徒歩上限で絞り込みます。</p></details>
-            <p class="form-error" id="form-error" role="alert"></p>
-          </form>
-          <div class="examples"><span>すぐに試す</span><button id="example-commute">丸太町 → 京産大</button><button id="example-return"><span data-icon="return"></span>高の原で折り返し</button></div>
-          <p class="fine search-note" id="data-note">下車・折り返し・滞在を含めて、実際の時刻で検索します。</p>
-          <section id="results-section" aria-live="polite"></section>
-          <details class="demo-disclosure"><summary>試作のルート比較を試す</summary><p class="fine">普通・急行の条件指定や複数案を確認するためのシミュレーションです。実際の時刻表ではありません。</p><button type="button" id="demo-search" class="secondary">試作データで比較</button></details>
-        </div>
-        <aside class="search-aside"><details class="saved-search-info"><summary>定期券・よく使う場所</summary><section class="card pass-summary"><div class="section-title"><span data-icon="ticket"></span><h2>あなたの定期券</h2><button class="plain" data-tab="settings">変更</button></div><div id="pass-summary"></div><div class="pass-benefit"><span data-icon="check"></span>通常運賃と追加支払額を両方表示</div></section><section class="card quick-card"><h2>よく使う場所</h2><div id="quick-favorites"></div></section><section class="coverage-note"><h2>対応エリア</h2><p>地下鉄烏丸線 全駅<br>近鉄 京都〜近鉄奈良・直通<br>京都バス 40・特40・直行40・臨時</p><div class="route-numbers">202 · 204 · 205 · 206<br>10 · 13 · 43 · 46 · 78 · 93 · 208</div><p class="fine">202八条口を含む。96系統は現行路線を要確認。</p></section></details></aside>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-copy">
+        <p class="eyebrow" id="view-subtitle">現在地に合わせて自動案内</p>
+        <h1 id="view-title">今</h1>
       </div>
-    </section>
-    <section id="timetable-view" class="view" hidden><div id="timetable-root"></div></section>
-    <section id="live-view" class="view" hidden><div id="operations-root" aria-live="polite"></div><details class="advanced-live"><summary>接近情報・画像の詳細</summary>
-      
-      <div class="section-head">京都市バス</div>
-      <section class="card live-card"><div class="section-title"><span class="service-icon" data-icon="bus"></span><h2>市バスの接近情報</h2><span class="badge blue">ポケロケ plus+</span></div>
-        <button class="location-field live-place" id="live-stop-button" data-pick="live"><span>乗車する停留所</span><strong id="live-stop-name">烏丸丸太町（地下鉄丸太町駅）</strong><small>停留所を変更</small></button>
-        <label class="block-label">系統・行先・のりば<select id="live-choice" disabled><option>停留所の情報を取得します</option></select></label>
-        <div class="button-row"><button class="primary" id="capture-bus" disabled><span data-icon="bus"></span>接近情報を更新</button><button class="icon-button" id="reload-choices" aria-label="行先の候補を再取得"><span data-icon="return"></span></button></div>
-        <label class="bus-auto"><input type="checkbox" id="bus-auto-refresh">1分ごとに更新<small>この画面を見ている間だけ</small></label>
-        <p class="fine" id="bus-choice-note" role="status"></p><div id="bus-live-result" aria-live="polite"></div>
-        <details><summary>画像とOCRで確認する</summary><p class="fine">接近表を読み取れないときに利用できます。取得した画面とOCR原文をアプリ内に表示します。</p><button class="secondary" id="capture-bus-image">公式画面を取得してOCR</button></details>
-        <a class="plain source-link" href="https://kyotocity.bus-navigation.jp/" target="_blank" rel="noopener noreferrer">公式サイトを開く<span data-icon="external"></span></a>
-      </section><div class="section-head">近鉄 京都線・奈良線</div>
-      <section class="card live-card"><div class="section-title"><span class="service-icon" data-icon="train"></span><h2>近鉄の運行情報</h2><span class="badge blue">OCR接続</span></div><p class="muted">公式の運行画面を取得して、文字を読み取ります。</p><button class="primary" id="capture-rail"><span data-icon="image"></span>運行画面を更新</button><div id="rail-live-result"></div><a class="plain source-link" href="https://www.kintetsu.jp/unkou/unkou.html" target="_blank" rel="noopener noreferrer">公式サイトを開く<span data-icon="external"></span></a><p class="fine">近鉄は15分以上の遅れを案内します。掲載がない場合も、定刻を保証するものではありません。</p></section>
-      <div id="ocr-progress" class="ocr-progress" hidden role="status"><div><span class="spinner"></span><b id="ocr-progress-label">画像を取得中</b><span id="ocr-progress-percent"></span></div><progress id="ocr-progress-bar" max="1" value="0"></progress><button id="ocr-cancel" class="plain">中止</button></div><p id="ocr-error" class="form-error" role="alert"></p>
-      <div class="section-head">手元の画像を読み取る</div>
-      <section class="card screenshot-card"><div class="section-title"><span data-icon="image"></span><h2>接近画面を取り込む</h2><span class="badge blue">日本語OCR</span></div><p class="muted">画像を切り取り、日本語の文字を読み取って保存します。画像の処理はこの端末内で行います。</p><div class="screenshot-controls"><label class="secondary upload-button">画像を選択<input type="file" id="screenshot-file" accept="image/png,image/jpeg,image/webp"></label><button class="plain" id="remove-screenshot" hidden>保存画像を削除</button></div><div id="crop-editor" hidden><label class="block-label">画像の種類<select id="screenshot-source"><option value="bus">バス接近情報</option><option value="rail">近鉄運行情報</option></select></label><div class="crop-preview"><img id="crop-image" alt="取り込む画像のプレビュー"></div><div class="crop-grid"><label>上から切る<input id="crop-top" type="range" min="0" max="80" value="0"></label><label>下から切る<input id="crop-bottom" type="range" min="0" max="80" value="0"></label></div><label class="block-label">画像を取得した日時（分かる場合）<input type="datetime-local" id="captured-at"></label><label class="block-label">停留所・系統のメモ<input type="text" id="screenshot-memo" maxlength="150" placeholder="例：烏丸丸太町 204系統 円町方面"></label><button id="save-screenshot" class="primary">切り取ってOCRで読み取る</button></div><div id="saved-screenshot" class="saved-screenshot"></div></section>
-    </details></section>
-    <section id="favorites-view" class="view" hidden><button class="secondary add-place" data-pick="favorite"><span data-icon="plus"></span>場所を追加</button><div class="card" id="favorites-list"></div><h2 class="subheading">保存したルート</h2><div id="saved-routes"></div></section>
-    <section id="settings-view" class="view" hidden>
-      <section id="destination-settings" class="card"></section>
-      <div class="settings-grid"><section class="card"><h2>定期券の適用</h2><p class="muted">定期区間は追加支払額を0円とし、通常運賃も併記します。</p><label class="toggle-row"><span><b>市バスフリー</b><small>対象の市バス系統は追加0円</small></span><input type="checkbox" id="pass-citybus" role="switch" checked></label><label class="toggle-row"><span><b>京都バス</b><small>国際会館駅前〜京都産業大学前</small></span><input type="checkbox" id="pass-kyotobus" role="switch" checked></label><label class="toggle-row"><span><b>地下鉄の区間定期</b><small>区間外には別途運賃が必要です</small></span><input type="checkbox" id="pass-subway" role="switch" checked></label><div class="option-grid"><label>定期の出発駅<select id="pass-from"></select></label><label>定期の到着駅<select id="pass-to"></select></label></div><label class="block-label">定期券の有効期限（任意）<input type="date" id="pass-expires"></label><p class="fine">京都バスの対象区間も有効、という申告に基づく設定です。近鉄には適用しません。期限を入力すると、その翌日以降の検索では適用を解除します。</p></section>
-      <section class="card"><h2>表示と保存</h2><label class="block-label">外観<select id="theme"><option value="system">端末に合わせる</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label><p class="muted">お気に入り・定期設定はこの端末に保存されます。</p><button class="secondary" id="export-settings">設定をバックアップ</button><label class="secondary upload-button">設定を復元<input type="file" id="import-settings" accept="application/json,.json"></label><div class="form-divider"></div><h2>試作比較用の時刻データ</h2><p class="muted" id="feed-status">試作の計算用データを使用中</p><label class="secondary upload-button">時刻JSONを読み込む<input type="file" id="import-feed" accept="application/json,.json"></label><button id="reset-feed" class="plain">試作データに戻す</button><p class="fine">主検索はYahoo!の実結果をアプリ内に表示します。この取込は試作比較用です。JSONの仕様は同梱のREADMEをご覧ください。</p></section></div>
-      <section class="card sources-card"><h2>データについて</h2><dl><dt>主検索</dt><dd>Yahoo!の実際の検索結果を取得し、My Map独自の経路カードで表示します。経由地は区間に分け、到着＋指定滞在後の出発を自動検索します。</dd><dt>駅・停留所名</dt><dd>京都市交通局・近鉄・京都バスの公式案内を参考に登録。2026年10月9日確認。</dd><dt>試作の比較</dt><dd>折りたたまれた試作機能の時刻は架空です。未確認の番線は「未取得」と表示します。</dd><dt>普通運賃</dt><dd>大人の目安。乗継割引・途中下車・折り返しの精算条件により異なる場合があります。</dd><dt>接近画面</dt><dd>市バスは公式の接近表を読み取り、停留所前・混雑・接近なしを表示します。読み取れない場合は画像OCRでも確認できます。近鉄は日本語OCRを使用。</dd><dt>位置データ</dt><dd>国土交通省「国土数値情報」鉄道2025・バス停留所2022を加工（CC BY 4.0）。駅とバス停は代表点のため、実際ののりばを確認してください。<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N02-2025.html" target="_blank" rel="noopener">鉄道データ</a>・<a href="https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P11-2022.html" target="_blank" rel="noopener">バス停データ</a></dd><dt>今回の途中版</dt><dd>46・93系統は検索・時刻表に追加。新しい37停留所のGPS案内は調整中です。京都バス臨時系統と奈良線の時刻表接続、乗車便の自動特定は引き続き整備しています。</dd><dt>96系統</dt><dd>現行の公式系統一覧で確認できていません。検索データには登録していません。</dd></dl><div class="sources-links"><a href="https://www2.city.kyoto.lg.jp/kotsu/busdia/keitou/keitou.htm" target="_blank" rel="noopener">京都市交通局<span data-icon="external"></span></a><a href="https://www.kintetsu.co.jp/station/" target="_blank" rel="noopener">近鉄<span data-icon="external"></span></a><a href="https://www.kyotobus.jp/" target="_blank" rel="noopener">京都バス<span data-icon="external"></span></a></div></section>
-    </section>
-<footer class="page-footer">My Map <span>京都の移動を、自然に。</span></footer></main><nav class="mobile-nav tabbar" aria-label="メインナビゲーション"><span class="tab-selection" aria-hidden="true"></span><button class="tab active" data-tab="today"><span data-icon="location"></span><span class="tab-label">今</span></button><button class="tab" data-tab="timetable"><span data-icon="clock"></span><span class="tab-label">時刻表</span></button><button class="tab" data-tab="live"><span data-icon="info"></span><span class="tab-label">運行情報</span></button><button class="tab" data-tab="settings"><span data-icon="settings"></span><span class="tab-label">設定</span></button></nav></div><dialog id="stop-dialog" class="sheet"><div class="sheet-handle"></div><div class="sheet-heading"><h2 id="picker-title">場所を選択</h2><button class="icon-button" id="close-picker" aria-label="閉じる"><span data-icon="close"></span></button></div><div class="picker-input"><span data-icon="search"></span><input id="picker-search" type="search" placeholder="駅名・停留所名・系統で検索" autocomplete="off"></div><div class="segmented" id="picker-filters"><button data-filter="all" class="active">すべて</button><button data-filter="rail">駅</button><button data-filter="bus">バス停</button></div><div id="picker-results" class="picker-results"></div></dialog>
-<div id="toast" class="toast" role="status"></div>
-<script type="module" src="js/app.js"></script>
-</body></html>
+      <button class="location-pill" id="location-indicator" type="button" aria-label="位置情報を確認">位置情報</button>
+    </header>
+
+    <main>
+      <section class="view" data-view="now" aria-label="今">
+        <div id="now-hero" aria-live="polite"></div>
+        <div id="vehicle-panel"></div>
+        <div id="network-panel"></div>
+        <div id="nearby-panel"></div>
+      </section>
+      <section class="view" data-view="timetable" aria-label="時刻表" hidden>
+        <div id="timetable-root"></div>
+      </section>
+      <section class="view" data-view="operations" aria-label="運行情報" hidden>
+        <div id="operations-root" aria-live="polite"></div>
+      </section>
+      <section class="view" data-view="settings" aria-label="設定" hidden>
+        <div id="settings-content"></div>
+      </section>
+    </main>
+
+    <nav class="tabbar" aria-label="メインナビゲーション"></nav>
+  </div>
+
+  <dialog class="sheet" id="foldback-sheet">
+    <div class="sheet-header">
+      <h2>折り返し乗車</h2>
+      <button class="sheet-close" type="button" data-sheet-close aria-label="閉じる">×</button>
+    </div>
+    <div class="sheet-body" id="foldback-body"></div>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="js/vnext.js"></script>
+</body>
+</html>
