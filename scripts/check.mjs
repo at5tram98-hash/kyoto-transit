@@ -2,26 +2,12 @@ import {readFileSync,readdirSync,existsSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';
 const root=resolve(new URL('../',import.meta.url).pathname);
-for(const dir of ['public/js','scripts','tests','worker'])for(const file of readdirSync(resolve(root,dir))){
-  if(!/\.(m?js)$/.test(file))continue;
-  const r=spawnSync(process.execPath,['--check',resolve(root,dir,file)],{encoding:'utf8'});
-  if(r.status){console.error(r.stderr);process.exit(r.status);}
-}
-const html=readFileSync(resolve(root,'public/index.html'),'utf8');
-const rawIds=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]),ids=new Set(rawIds);
-if(ids.size!==rawIds.length)throw Error('HTMLに重複するIDがあります。');
+for(const dir of ['public/js','scripts','tests','worker'])for(const file of readdirSync(resolve(root,dir))){if(!/\.(m?js)$/.test(file))continue;const r=spawnSync(process.execPath,['--check',resolve(root,dir,file)],{encoding:'utf8'});if(r.status){console.error(r.stderr);process.exit(r.status);}}
+const html=readFileSync(resolve(root,'public/index.html'),'utf8'),rawIds=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]),ids=new Set(rawIds);if(ids.size!==rawIds.length)throw Error('HTMLに重複するIDがあります。');
 for(const required of ['view-title','view-subtitle','location-indicator','now-hero','vehicle-panel','network-panel','nearby-panel','timetable-root','arrivals-root','operations-root','settings-content','foldback-sheet','foldback-body','toast'])if(!ids.has(required))throw Error(`公開UIの必須IDがありません：${required}`);
-const views=[...html.matchAll(/data-view="([^"]+)"/g)].map(x=>x[1]);
-if(JSON.stringify(views)!==JSON.stringify(['now','timetable','operations','settings']))throw Error('公開タブは 今・時刻表・運行情報・設定 の4つにしてください。');
-const nowStart=html.indexOf('data-view="now"'),timetableStart=html.indexOf('data-view="timetable"'),arrivalsAt=html.indexOf('id="arrivals-root"');
-if(!(nowStart<arrivalsAt&&arrivalsAt<timetableStart))throw Error('接近情報は「今」タブ内に配置してください。');
-if(!html.includes('vnext-tabbar.css'))throw Error('旧型アニメーション付きタブバーCSSが読み込まれていません。');
-for(const m of html.matchAll(/(?:src|href)="([^"]+)"/g)){
-  if(/^(?:https?:|#|data:|\.\/$)/.test(m[1]))continue;
-  const file=m[1].split(/[?#]/)[0];if(!existsSync(resolve(root,'public',file)))throw Error(`ファイルがありません：${file}`);
-}
-const arrivals=readFileSync(resolve(root,'public/js/vnext-arrivals.js'),'utf8'),worker=readFileSync(resolve(root,'worker/index.js'),'utf8');
-if(!/REFRESH_MS\s*=\s*20000/.test(arrivals)||!arrivals.includes('getBusAll'))throw Error('接近情報は20秒更新・全系統一括取得にしてください。');
-if(!worker.includes("'/bus/all'"))throw Error('Workerに市バス全接近情報APIがありません。');
-JSON.parse(readFileSync(resolve(root,'public/manifest.webmanifest'),'utf8'));
-console.log('JavaScript構文・4タブUI・今タブ接近情報・20秒更新・全系統接近API・アニメーションタブバーを検証しました。');
+const views=[...html.matchAll(/data-view="([^"]+)"/g)].map(x=>x[1]);if(JSON.stringify(views)!==JSON.stringify(['now','timetable','operations','settings']))throw Error('公開タブは 今・時刻表・運行情報・設定 の4つにしてください。');
+const nowStart=html.indexOf('data-view="now"'),timetableStart=html.indexOf('data-view="timetable"'),arrivalsAt=html.indexOf('id="arrivals-root"');if(!(nowStart<arrivalsAt&&arrivalsAt<timetableStart))throw Error('接近情報は「今」タブ内に配置してください。');if(!html.includes('vnext-tabbar.css'))throw Error('アニメーション付きタブバーCSSが読み込まれていません。');
+for(const m of html.matchAll(/(?:src|href)="([^"]+)"/g)){if(/^(?:https?:|#|data:|\.\/$)/.test(m[1]))continue;const file=m[1].split(/[?#]/)[0];if(!existsSync(resolve(root,'public',file)))throw Error(`ファイルがありません：${file}`);}
+const activeFiles=['public/index.html','public/js/vnext.js','public/js/vnext-arrivals.js','public/js/vnext-view.js','public/js/vnext-network-view.js'];const active=activeFiles.map(f=>readFileSync(resolve(root,f),'utf8')).join('\n');for(const word of ['OCR→図','OCR確認','画像取込','接近画面を取り込む','試作','シミュレーション','Yahoo!','一番近い乗り場へ'])if(active.includes(word))throw Error(`公開UIに禁止文言が残っています：${word}`);
+const arrivals=readFileSync(resolve(root,'public/js/vnext-arrivals.js'),'utf8'),realtime=readFileSync(resolve(root,'public/js/realtime.js'),'utf8'),worker=readFileSync(resolve(root,'worker/index.js'),'utf8');if(!/ARRIVAL_INTERVAL\s*=\s*15000/.test(realtime))throw Error('接近情報の更新間隔は15秒にしてください。');if(!/FETCH_TIMEOUT\s*=\s*4000/.test(realtime))throw Error('リアルタイム通信のタイムアウトは4秒にしてください。');if(arrivals.includes('recognizeImage')||arrivals.includes('getOfficialImage'))throw Error('接近画面から画像取得処理を分離してください。');for(const path of ["'/api/bus/rt'","'/api/citybus/arrivals'","'/api/rail/live'"])if(!worker.includes(path))throw Error(`Worker APIがありません：${path}`);if(!worker.includes('ODPT_CONSUMER_KEY')||!worker.includes('LIVE_KV'))throw Error('ODPT secret/KVフォールバックが構成されていません。');
+JSON.parse(readFileSync(resolve(root,'public/manifest.webmanifest'),'utf8'));console.log('構文・4タブUI・15秒更新・4秒timeout・リアルタイムAPI・公開文言を検証しました。');

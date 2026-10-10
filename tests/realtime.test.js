@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {Backoff,isFresh,decayDelay,predictedMinutes,predictCityBus,predictRail,ARRIVAL_INTERVAL,FETCH_TIMEOUT} from '../public/js/realtime.js';
+
+test('接近情報は15秒更新・通信は4秒で打ち切る',()=>{assert.equal(ARRIVAL_INTERVAL,15000);assert.equal(FETCH_TIMEOUT,4000);});
+test('実測は90秒を超えると新鮮扱いしない',()=>{const now=1_000_000;assert.equal(isFresh(now-89_000,90_000,now),true);assert.equal(isFresh(now-91_000,90_000,now),false);});
+test('遅延は後続便ごとに半減する',()=>{assert.equal(decayDelay(8,0),8);assert.equal(decayDelay(8,1),4);assert.equal(decayDelay(8,2),2);});
+test('指数バックオフは2→4→8→30秒で上限になる',()=>{const b=new Backoff();assert.deepEqual([b.fail(),b.fail(),b.fail(),b.fail(),b.fail()],[2000,4000,8000,30000,30000]);b.success();assert.equal(b.fail(),2000);});
+test('キャッシュ値は時刻経過で予測到着分へ更新する',()=>{const now=1_000_000,data={asOf:new Date(now-60_000).toISOString(),results:[{key:'a',route:'40',dest:'京産大',minutes:5,eta:new Date(now+120_000).toISOString(),source:'live'}]};const p=predictCityBus(data,now);assert.equal(p.source,'prediction');assert.equal(p.results[0].minutes,2);assert.equal(p.results[0].source,'prediction');});
+test('列車スナップショットは古い時に位置を予測側へ進める',()=>{const now=1_000_000,data={asOf:new Date(now-180_000).toISOString(),trains:[{key:'t',position:10,direction:'south'}]};const p=predictRail(data,now);assert.equal(p.source,'prediction');assert.ok(p.trains[0].position>10);assert.equal(p.trains[0].predicted,true);});
+test('到着時刻から残り分を算出する',()=>{assert.equal(predictedMinutes(new Date(1_120_000).toISOString(),1_000_000),2);});
