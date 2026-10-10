@@ -1,28 +1,21 @@
 import {subwayIds,kintetsuIds} from './network.js';
 import {projectSubwayTrains,CITY_ROUTES,KYOTO_ROUTES} from './vnext-core.js';
-import {mergeTimetableFeeds} from './search-core.js';
-import {$,esc,icon,state,settings,saveSettings,tokyoNow,rideKey,ensureRailFeed,ensureSubwayFeed,official} from './vnext-state.js';
+import {$,esc,icon,state,settings,saveSettings,tokyoNow,rideKey,ensureRailFeed,ensureSubwayFeed} from './vnext-state.js';
 import {realtimeLog,ARRIVAL_INTERVAL} from './realtime.js';
 
 const dot=source=>`<i class="source-dot ${source==='live'?'live':'prediction'}" aria-hidden="true"></i>`;
-async function ensureSubwayStatic(){
-  const now=tokyoNow();
-  if(state.subwayStaticFeed&&state.subwayStaticFeedDate===now.date&&Date.now()-(state.subwayStaticFeedAt??0)<15*60*1000)return state.subwayStaticFeed;
-  try{const raw=await official('/api/static/feed',{operator:'subway',date:now.date}),mapped=mergeTimetableFeeds({...state.network,services:[]},[raw]);state.subwayStaticFeed={...raw,services:mapped.services};state.subwayStaticFeedDate=now.date;state.subwayStaticFeedAt=Date.now();return state.subwayStaticFeed;}catch{return null;}
-}
 export async function renderNetworkPanel(panel,ride,now){
   const token=rideKey(ride);panel.dataset.token=token;panel.innerHTML=`<section class="section-block"><div class="section-heading"><div><span class="section-label">走行位置</span><h3>同じ路線の列車</h3></div><button class="round-action" id="network-refresh" aria-label="更新">${icon('refresh')}</button></div><div id="network-live"><p class="loading-line">更新中…</p></div></section>`;
-  if(['kintetsu','through'].includes(ride.operator))await ensureRailFeed();else if(ride.operator==='subway'){const staticFeed=await ensureSubwayStatic();if(!staticFeed)await ensureSubwayFeed();}if(panel.dataset.token!==token)return;
+  if(['kintetsu','through'].includes(ride.operator))await ensureRailFeed();else if(ride.operator==='subway')await ensureSubwayFeed();if(panel.dataset.token!==token)return;
   const container=panel.querySelector('#network-live');if(!container)return;let trains=[];
   if(['kintetsu','through'].includes(ride.operator)&&state.railFeed)trains=state.railFeed.trains.filter(t=>['local','express','other'].includes(t.category)).slice(0,30);
-  else if(ride.operator==='subway'&&state.subwayStaticFeed?.services?.length)trains=projectSubwayTrains({feed:state.subwayStaticFeed,nowMinute:now.minute,network:state.network});
-  else if(ride.operator==='subway'&&state.subwayFeed)trains=projectSubwayTrains({southEntries:state.subwayFeed.south.entries,northEntries:state.subwayFeed.north.entries,nowMinute:now.minute,network:state.network});
+  else if(ride.operator==='subway'&&state.subwayFeed?.services?.length)trains=projectSubwayTrains({feed:state.subwayFeed,nowMinute:now.minute,network:state.network});
   if(!trains.length){container.innerHTML='<p class="empty-state">表示できる列車がありません。</p>';return;}
   const rideDirection=ride.direction??(()=>{const ids=ride.operator==='subway'?subwayIds:kintetsuIds,a=ids.indexOf(ride.from),b=ids.indexOf(ride.to);return b>a?'south':'north';})(),opposite=trains.filter(t=>t.direction!==rideDirection).slice(0,8),same=trains.filter(t=>t.direction===rideDirection).slice(0,8);
   container.innerHTML=`<div class="train-group"><span>進行方向</span>${trainRows(same)}</div><div class="train-group"><span>反対方向</span>${trainRows(opposite)}</div>`;
 }
 function trainRows(trains){if(!trains.length)return '<p class="fine-empty">表示中の列車はありません</p>';return `<div class="train-rows">${trains.map(t=>`<div class="train-row"><span class="train-arrow">${t.direction==='north'?'←':'→'}</span><div><b>${dot(t.estimated?'prediction':'live')}${esc(t.label??(t.category==='express'?'急行':'普通'))}</b><small>${esc(state.network.stops.get(t.from)?.name??t.from)} ${t.atStation?'停車中':'〜'} ${esc(state.network.stops.get(t.to)?.name??t.to)}</small></div><span class="delay ${t.delay?'late':''}">${t.delay===null?'—':t.delay?`+${t.delay}分`:'定刻'}</span></div>`).join('')}</div>`;}
-export async function refreshNetwork(){if(!state.ride)return;const panel=$('#network-panel');if(['kintetsu','through'].includes(state.ride.operator))await ensureRailFeed(true);else if(state.ride.operator==='subway'){state.subwayStaticFeedAt=0;const staticFeed=await ensureSubwayStatic();if(!staticFeed)await ensureSubwayFeed(true);}renderNetworkPanel(panel,state.ride,tokyoNow());}
+export async function refreshNetwork(){if(!state.ride)return;const panel=$('#network-panel');if(['kintetsu','through'].includes(state.ride.operator))await ensureRailFeed(true);else if(state.ride.operator==='subway')await ensureSubwayFeed(true);renderNetworkPanel(panel,state.ride,tokyoNow());}
 
 function logHTML(){const rows=realtimeLog();return `<div class="debug-live" ${settings.debugLive?'':'hidden'}><div><b>更新間隔</b><span>${ARRIVAL_INTERVAL/1000}秒</span></div>${rows.map(r=>`<div><b>${esc(r.key)}</b><span>${esc(r.source??'—')} · ${r.freshness?new Date(r.freshness).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'}${r.error?` · ${esc(r.error)}`:''}</span></div>`).join('')||'<div><b>ログ</b><span>まだありません</span></div>'}</div>`;}
 const subwayOptions=()=>subwayIds.map(id=>`<option value="${id}">${esc(state.network?.stops.get(id)?.name??id)}</option>`).join('');
