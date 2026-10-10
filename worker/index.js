@@ -7,9 +7,9 @@ import {timetableOptions,readTimetable,readOfficialTrip,officialFetcher} from '.
 import {operationInformation} from './operations.js';
 import {riderCandidates} from './rider-candidates.js';
 import {decodeGtfsRealtime,filterKyotoBusVehicles} from './gtfs-rt.js';
+import {layoutChanged,requireRows,shouldExpectRail,fallbackDiagnostic} from './layout.js';
 
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
-const RAIL='https://www.kintetsu.jp/unkou/unkou.html';
 const KYOTO_BUS_VEHICLE='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_vehicle';
 const KYOTO_BUS_TRIP='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_trip_update';
 const ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208']);
@@ -44,17 +44,18 @@ export function parseBusChoices(html){
 }
 async function options(stop){
   const response=await fetch(selectionURL(stop),{headers:{'User-Agent':'My Map/1.0 (transport page reader)','Accept':'text/html'},signal:AbortSignal.timeout(4000)});
-  if(!response.ok){await response.body?.cancel();throw Error(`停留所情報を取得できませんでした（HTTP ${response.status}）。`);}return parseBusChoices(await boundedText(response));
+  if(!response.ok){await response.body?.cancel();throw Error(`停留所情報を取得できませんでした（HTTP ${response.status}）。`);}
+  return requireRows('citybus',parseBusChoices(await boundedText(response)),'市バスの系統選択要素が見つかりません。');
 }
 async function busDataObject(env,stop,choice){
   const url=approachURL(stop,choice.value),response=await env.BROWSER.quickAction('content',{url,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#approach_table',visible:true,timeout:4000},actionTimeout:4000});
   if(!response.ok){await response.body?.cancel();throw Error('接近情報を取得できませんでした。');}
   let html=await boundedText(response);if(response.headers.get('content-type')?.includes('json')){const body=JSON.parse(html);html=typeof body.result==='string'?body.result:typeof body.content==='string'?body.content:'';}
-  return {kind:'bus-data',stop,...choice,...parseApproach(html),capturedAt:new Date().toISOString(),sourceURL:url};
+  try{return {kind:'bus-data',stop,...choice,...parseApproach(html),capturedAt:new Date().toISOString(),sourceURL:url};}
+  catch(e){throw layoutChanged('citybus',e instanceof Error?e.message:'市バスの接近要素を読み取れません。');}
 }
 async function busData(env,stop,choice){return Response.json(await busDataObject(env,stop,choice));}
 async function busAll(env,stop,choices){const unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),results=new Array(unique.length);let cursor=0;async function run(){while(true){const i=cursor++;if(i>=unique.length)return;const choice=unique[i];try{results[i]=await busDataObject(env,stop,choice);}catch(e){results[i]={kind:'bus-data',stop,...choice,buses:[],error:e instanceof Error?e.message:'接近情報を取得できませんでした。',capturedAt:new Date().toISOString()};}}}await Promise.all(Array.from({length:Math.min(3,unique.length)},()=>run()));return Response.json({kind:'bus-all',stop,results,capturedAt:new Date().toISOString()});}
-async function capture(env,url,source){const params={url,viewport:{width:480,height:1000,deviceScaleFactor:2},gotoOptions:{waitUntil:'networkidle2',timeout:8000},screenshotOptions:{type:'png',fullPage:true},actionTimeout:8000};if(source==='bus')params.waitForSelector={selector:'#approach_table',visible:true,timeout:5000};const r=await env.BROWSER.quickAction('screenshot',params);if(!r.ok){await r.body?.cancel();throw Error('公式画面を取得できませんでした。');}if(!r.headers.get('content-type')?.startsWith('image/')){await r.body?.cancel();throw Error('画像データを取得できませんでした。');}const headers=new Headers({'Content-Type':'image/png','Cache-Control':'private, no-store','X-Captured-At':new Date().toISOString(),'X-Source-URL':encodeURIComponent(url),'X-Content-Type-Options':'nosniff'});return new Response(r.body,{headers});}
 
 async function sha256(text){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function jsonETag(request,data,ttl=12){const body=JSON.stringify(data),etag=`"${(await sha256(body)).slice(0,24)}"`,headers=new Headers({'Content-Type':'application/json; charset=utf-8','Cache-Control':`public, max-age=0, s-maxage=${ttl}, stale-if-error=300`,'ETag':etag,'Vary':'Origin, Accept-Encoding'});if(request.headers.get('If-None-Match')===etag)return new Response(null,{status:304,headers});return new Response(body,{headers});}
@@ -63,7 +64,10 @@ async function cachedJSON(request,env,key,producer,ttl=12){
   if(hit){const etag=hit.headers.get('ETag');if(etag&&request.headers.get('If-None-Match')===etag)return new Response(null,{status:304,headers:hit.headers});return hit;}
   let data;
   try{data=await producer();if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(data),{expirationTtl:900});}
-  catch(e){const raw=env.LIVE_KV?await env.LIVE_KV.get(key):null;if(!raw)throw e;data={...JSON.parse(raw),stale:true,source:'prediction'};}
+  catch(e){
+    const diagnostic=fallbackDiagnostic(e,key);if(env.LIVE_KV)await env.LIVE_KV.put(`diag:${key}`,JSON.stringify(diagnostic),{expirationTtl:86400});
+    const raw=env.LIVE_KV?await env.LIVE_KV.get(key):null;if(!raw)throw e;data={...JSON.parse(raw),stale:true,source:'prediction',diagnostic};
+  }
   const response=await jsonETag(request,data,ttl);if(response.status===200)await cache.put(cacheKey,response.clone());return response;
 }
 async function fetchProto(url,key){const u=new URL(url);u.searchParams.set('acl:consumerKey',key);const r=await fetch(u,{headers:{Accept:'application/x-protobuf'},signal:AbortSignal.timeout(4000),cf:{cacheTtl:10,cacheEverything:true}});if(!r.ok){await r.body?.cancel();throw Error(`ODPT ${r.status}`);}return new Uint8Array(await r.arrayBuffer());}
@@ -76,30 +80,28 @@ async function cityBusArrivals(request,env,url){
   const stop=url.searchParams.get('stop');
   if(!env.STOP_NAMES.includes(stop))return error('対象の停留所を選択してください。');
   return cachedJSON(request,env,`citybus:${stop}`,async()=>{
-    const choices=await options(stop),unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),items=new Array(unique.length);
-    let cursor=0;
-    async function run(){
-      while(true){
-        const i=cursor++;
-        if(i>=unique.length)return;
-        try{items[i]=await busDataObject(env,stop,unique[i]);}
-        catch{items[i]={...unique[i],buses:[],capturedAt:new Date().toISOString()};}
-      }
-    }
+    const choices=await options(stop),unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),items=new Array(unique.length);let cursor=0,failures=0;
+    async function run(){while(true){const i=cursor++;if(i>=unique.length)return;try{items[i]=await busDataObject(env,stop,unique[i]);}catch{failures++;items[i]={...unique[i],buses:[],capturedAt:new Date().toISOString()};}}}
     await Promise.all(Array.from({length:Math.min(3,unique.length)},()=>run()));
+    if(unique.length&&failures===unique.length)throw layoutChanged('citybus','市バスの接近表を1件も読み取れませんでした。');
     const now=Date.now(),results=items.flatMap(item=>item.buses?.length?item.buses.slice(0,2).map((b,i)=>normalizedCityRow(item,b,i,now)):[normalizedCityRow(item,null,0,now)]).slice(0,40),asOf=results.map(r=>Date.parse(r.asOf)).filter(Number.isFinite).sort((a,b)=>b-a)[0]??now;
     return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results};
   },12);
 }
-async function railSnapshot(env){const r=await env.BROWSER.quickAction('content',{url:LOCATION_URL,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#stations .station-name',visible:true,timeout:4000},actionTimeout:4000});if(!r.ok){await r.body?.cancel();throw Error('近鉄の列車位置を取得できませんでした。');}let html=await boundedText(r);if(r.headers.get('content-type')?.includes('json')){const b=JSON.parse(html);html=typeof b.result==='string'?b.result:typeof b.content==='string'?b.content:'';}return parseRailLocation(html);}
+async function railSnapshot(env){
+  const r=await env.BROWSER.quickAction('content',{url:LOCATION_URL,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#stations .station-name',visible:true,timeout:4000},actionTimeout:4000});if(!r.ok){await r.body?.cancel();throw Error('近鉄の列車位置を取得できませんでした。');}
+  let html=await boundedText(r);if(r.headers.get('content-type')?.includes('json')){const b=JSON.parse(html);html=typeof b.result==='string'?b.result:typeof b.content==='string'?b.content:'';}
+  try{const parsed=parseRailLocation(html);if(shouldExpectRail()&&(!Array.isArray(parsed.trains)||parsed.trains.length===0))throw layoutChanged('kintetsu','運行時間帯に列車要素が0件でした。');return parsed;}
+  catch(e){if(e?.code==='layout_changed')throw e;throw layoutChanged('kintetsu',e instanceof Error?e.message:'近鉄の列車要素を読み取れません。');}
+}
 async function railLive(request,env){return cachedJSON(request,env,'rail:kintetsu',async()=>{const d=await railSnapshot(env),asOf=d.sourceUpdatedAt??new Date().toISOString();return {kind:'rail-live',source:'live',stale:false,asOf,trains:d.trains.map((t,i)=>({key:`${t.direction}:${t.position}:${t.destination}:${t.label}:${i}`,position:t.position,from:t.from,to:t.to,atStation:t.atStation,direction:t.direction,dest:t.destination,category:t.category,label:t.label,delay:t.delay}))};},12);}
 
-function corsHeaders(env){return {'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type, If-None-Match','Access-Control-Expose-Headers':'ETag, X-Captured-At, X-Source-URL','Vary':'Origin','X-Content-Type-Options':'nosniff'};}
-async function finalize(request,response,env){for(const[k,v]of Object.entries(corsHeaders(env)))response.headers.set(k,v);if(response.status===200&&response.body&&request.headers.get('Accept-Encoding')?.includes('gzip')&&response.headers.get('Content-Type')?.includes('application/json')&&typeof CompressionStream!=='undefined'){const headers=new Headers(response.headers);headers.set('Content-Encoding','gzip');headers.delete('Content-Length');return new Response(response.body.pipeThrough(new CompressionStream('gzip')),{status:response.status,headers});}return response;}
+function corsHeaders(env){return {'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type, If-None-Match','Access-Control-Expose-Headers':'ETag','Vary':'Origin','X-Content-Type-Options':'nosniff'};}
+function finalize(request,response,env){for(const[k,v]of Object.entries(corsHeaders(env)))response.headers.set(k,v);return response;}
 
 export default {async fetch(request,env){
   const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN,url=new URL(request.url),sourceFetch=officialFetcher(env);
-  if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:5,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY)});
+  if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:6,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY)});
   if(request.method==='OPTIONS')return allowed?new Response(null,{status:204,headers:corsHeaders(env)}):error('許可されていないオリジンです。',403);
   const publicLegacy=['/timetable/options','/timetable','/timetable/trip','/operations'].includes(url.pathname)&&!origin;if(!allowed&&!publicLegacy)return error('My Mapからご利用ください。',403);
   let response;
@@ -116,11 +118,9 @@ export default {async fetch(request,env){
     else if(url.pathname==='/timetable/trip')response=Response.json(await readOfficialTrip(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),url.searchParams.get('trip'),sourceFetch));
     else if(url.pathname==='/meeting'){const raw=url.searchParams.get('request');if(!raw||raw.length>4000)response=error('合流条件を確認してください。');else{let r;try{r=validateMeeting(JSON.parse(raw));}catch(e){response=error(e.message??'合流条件を確認してください。');}if(r)response=Response.json(await findMeeting(r));}}
     else if(url.pathname==='/journeys'){const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}}
-    else if(['/bus/options','/bus/capture','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!env.STOP_NAMES.includes(stop))response=error('対象の停留所を選択してください。');else{const choices=await options(stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice'),choice=choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=url.pathname==='/bus/data'?await busData(env,stop,choice):await capture(env,approachURL(stop,value),'bus');}}}
+    else if(['/bus/options','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!env.STOP_NAMES.includes(stop))response=error('対象の停留所を選択してください。');else{const choices=await options(stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice'),choice=choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=await busData(env,stop,choice);}}}
     else if(url.pathname==='/rail/location')response=Response.json({kind:'rail-location',...(await railSnapshot(env)),capturedAt:new Date().toISOString(),sourceURL:LOCATION_URL});
-    else if(url.pathname==='/rail/location/capture')response=await capture(env,LOCATION_URL,'rail');
-    else if(url.pathname==='/rail/capture')response=await capture(env,RAIL,'rail');
     else response=error('ページがありません。',404);
-  }catch(e){console.error('transit fetch failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'データの取得に失敗しました。',502);}
+  }catch(e){console.error('transit fetch failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'データの取得に失敗しました。',502,e?.code??null);}
   return finalize(request,response,env);
 }};

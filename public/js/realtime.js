@@ -23,8 +23,9 @@ export const getCached=key=>access('readonly',key).catch(()=>null);
 export const putCached=(key,value)=>access('readwrite',key,value).catch(()=>null);
 
 export function realtimeLog(){return [...logs.entries()].map(([key,v])=>({key,...v}));}
-function note(key,patch){logs.set(key,{...(logs.get(key)??{}),...patch});window.dispatchEvent?.(new CustomEvent('mymap-realtime-log'));}
+function note(key,patch){logs.set(key,{...(logs.get(key)??{}),...patch});globalThis.window?.dispatchEvent?.(new CustomEvent('mymap-realtime-log'));}
 function endpoint(path,params={}){const u=new URL(path,CAPTURE_API);for(const[k,v]of Object.entries(params))if(v!==null&&v!==undefined&&v!=='')u.searchParams.set(k,v);return u;}
+const diagnosticPatch=data=>data?.diagnostic?{diagnostic:data.diagnostic,error:data.diagnostic.message??data.diagnostic.code??null}:{diagnostic:null,error:null};
 
 export async function fetchRealtime(key,path,params={},options={}){
   const timeout=options.timeout??FETCH_TIMEOUT,cached=await getCached(key),headers={Accept:'application/json'};
@@ -33,10 +34,10 @@ export async function fetchRealtime(key,path,params={},options={}){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort('timeout'),timeout);const started=Date.now();
   try{
     const r=await fetch(endpoint(path,params),{headers,signal:controller.signal,cache:'no-store'});
-    if(r.status===304&&cached?.data){note(key,{source:cached.data.source??'live',online:true,status:304,latency:Date.now()-started,freshness:cached.data.asOf??cached.savedAt,error:null});return cached.data;}
-    const data=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(Error(data.error??`HTTP ${r.status}`),{status:r.status});
-    const saved={data,etag:r.headers.get('ETag'),savedAt:Date.now()};await putCached(key,saved);note(key,{source:data.source??(data.stale?'prediction':'live'),online:true,status:r.status,latency:Date.now()-started,freshness:data.asOf??data.capturedAt??saved.savedAt,error:null});return data;
-  }catch(e){note(key,{source:'prediction',online:typeof navigator==='undefined'?true:navigator.onLine!==false,status:e.status??0,latency:Date.now()-started,error:e.name==='AbortError'?'timeout':String(e.message??e),freshness:cached?.data?.asOf??cached?.savedAt??null});e.cached=cached;throw e;}finally{clearTimeout(timer);}
+    if(r.status===304&&cached?.data){note(key,{source:cached.data.source??'live',online:true,status:304,latency:Date.now()-started,freshness:cached.data.asOf??cached.savedAt,...diagnosticPatch(cached.data)});return cached.data;}
+    const data=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(Error(data.error??`HTTP ${r.status}`),{status:r.status,code:data.code});
+    const saved={data,etag:r.headers.get('ETag'),savedAt:Date.now()};await putCached(key,saved);note(key,{source:data.source??(data.stale?'prediction':'live'),online:true,status:r.status,latency:Date.now()-started,freshness:data.asOf??data.capturedAt??saved.savedAt,...diagnosticPatch(data)});return data;
+  }catch(e){note(key,{source:'prediction',online:typeof navigator==='undefined'?true:navigator.onLine!==false,status:e.status??0,latency:Date.now()-started,error:e.name==='AbortError'?'timeout':String(e.message??e),diagnostic:e.code?{code:e.code}:null,freshness:cached?.data?.asOf??cached?.savedAt??null});e.cached=cached;throw e;}finally{clearTimeout(timer);}
 }
 
 export function predictCityBus(data,now=Date.now()){

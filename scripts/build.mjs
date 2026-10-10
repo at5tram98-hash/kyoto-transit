@@ -17,10 +17,6 @@ const version=hash.digest('hex').slice(0,12);
 await rm(new URL('dist/',root),{recursive:true,force:true});
 await mkdir(output,{recursive:true});
 await cp(source,output,{recursive:true});
-const ocr=new URL('vendor/ocr/',output);
-await mkdir(new URL('core/',ocr),{recursive:true});
-for(const filename of ['tesseract.min.js','worker.min.js'])await cp(new URL(`node_modules/tesseract.js/dist/${filename}`,root),new URL(filename,ocr));
-for(const filename of await readdir(new URL('node_modules/tesseract.js-core/',root)))if(/^tesseract-core.*\.wasm(?:\.js)?$/.test(filename))await cp(new URL(`node_modules/tesseract.js-core/${filename}`,root),new URL(`core/${filename}`,ocr));
 for(const file of files.filter(file=>file.path.startsWith('js/')&&file.path.endsWith('.js'))){
   let content=file.content.toString().replace(/from (['"])(\.\/.+?\.js)\1/g,(_,quote,path)=>`from ${quote}${path}?v=${version}${quote}`);
   content=content.replace(/fetch\('data\/([\w-]+\.json)'\)/g,(_,path)=>`fetch('data/${path}?v=${version}')`);
