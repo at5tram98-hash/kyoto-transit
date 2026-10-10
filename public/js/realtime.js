@@ -46,6 +46,14 @@ export function predictCityBus(data,now=Date.now()){
 export function predictRail(data,now=Date.now()){
   if(!data)return null;const asOf=Date.parse(data.asOf??data.sourceUpdatedAt??data.capturedAt),age=Number.isFinite(asOf)?Math.max(0,(now-asOf)/60000):0;return {...data,stale:true,source:'prediction',trains:(data.trains??[]).map(t=>{const dir=t.direction==='north'?-1:1,advance=Math.min(6,age/1.5)*dir,pos=Math.max(1,Math.min(51,(Number(t.position)||1)+advance));return {...t,position:pos,predicted:true};})};
 }
+const recoveringFromPrediction=data=>Boolean(data&&(data.stale||data.source==='prediction'||data.trains?.some(t=>t.predicted)||data.results?.some(r=>r.source==='prediction')));
+export function interpolateCityBusRecovery(previous,actual,fraction=.65){
+  if(!recoveringFromPrediction(previous)||!actual||actual.stale||actual.source==='prediction')return actual;const old=new Map((previous.results??[]).map(r=>[String(r.key),r]));return {...actual,recovering:true,results:(actual.results??[]).map(r=>{const p=old.get(String(r.key));if(!p||!Number.isFinite(p.minutes)||!Number.isFinite(r.minutes))return r;return {...r,minutes:Math.max(0,Math.round((p.minutes+(r.minutes-p.minutes)*fraction)*10)/10),recovering:true};})};
+}
+const railSignature=t=>`${t.direction??''}|${t.category??''}|${t.dest??t.destination??''}|${t.label??''}`;
+export function interpolateRailRecovery(previous,actual,fraction=.6){
+  if(!recoveringFromPrediction(previous)||!actual||actual.stale||actual.source==='prediction')return actual;const pool=(previous.trains??[]).map((t,i)=>({t,i,used:false}));const trains=(actual.trains??[]).map(t=>{const pos=Number(t.position);if(!Number.isFinite(pos))return t;const matches=pool.filter(p=>!p.used&&railSignature(p.t)===railSignature(t)&&Number.isFinite(Number(p.t.position))).sort((a,b)=>Math.abs(Number(a.t.position)-pos)-Math.abs(Number(b.t.position)-pos)),match=matches[0];if(!match||Math.abs(Number(match.t.position)-pos)>12)return t;match.used=true;return {...t,position:Number(match.t.position)+(pos-Number(match.t.position))*fraction,recovering:true,predicted:false};});return {...actual,recovering:true,trains};
+}
 
 export function createLiveLoop({run,active=()=>true,interval=ARRIVAL_INTERVAL}){
   let timer=null,stopped=true,running=false;const backoff=new Backoff();
