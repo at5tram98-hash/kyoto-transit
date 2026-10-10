@@ -19,7 +19,7 @@ const icons={
  refresh:'<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.2 7.7A8 8 0 0 1 19 9m-1.2 7.3A8 8 0 0 1 5 15"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>',fold:'<path d="M5 17V9a5 5 0 0 1 10 0v10m-4-4 4 4 4-4"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>'
 };
 export const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]??icons.info}</svg>`;
-export const settings=Object.assign({autoDetect:true,haptics:true,showConfidence:false,railGuideDistance:350},JSON.parse(localStorage.getItem('mymap-vnext-settings')||'{}'));
+export const settings=Object.assign({autoDetect:true,haptics:true,showConfidence:false,railGuideDistance:350,passCityBus:false,passKyotoBus:false,passSubway:false,passSubwayFrom:'K01',passSubwayTo:'K11',passExpires:''},JSON.parse(localStorage.getItem('mymap-vnext-settings')||'{}'));
 export const saveSettings=()=>localStorage.setItem('mymap-vnext-settings',JSON.stringify(settings));
 export const state={network:null,geo:null,fix:null,location:null,samples:[],tab:'now',ride:null,rideSource:null,rideConfidence:0,rideShift:0,railFeed:null,railFeedAt:0,subwayFeed:null,subwayFeedAt:0,busLive:null,busLiveAt:0,busTrail:[],detectBusy:false,lastDetectAt:0,lastNearbyId:null,locationStatus:'loading',locationSession:null,lastRideSeenAt:0,foldbackRide:null};
 export const haptic=()=>{if(settings.haptics&&navigator.vibrate)navigator.vibrate(8);};
