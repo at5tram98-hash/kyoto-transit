@@ -1,8 +1,8 @@
-import {searchStops,kintetsuIds} from './network.js';
+import {searchStops} from './network.js';
 import {$,esc,icon,state,nearest,toast,tokyoNow} from './vnext-state.js';
 import {ARRIVAL_INTERVAL,getCached,fetchRealtime,predictCityBus,predictRail,isFresh,createLiveLoop,realtimeLog,interpolateCityBusRecovery,interpolateRailRecovery} from './realtime.js';
 import {CAPTURE_API} from './live.js';
-import {railTimetableEta} from './vnext-core.js';
+import {buildRailArrivalRows} from './rail-arrivals-core.js';
 
 const STORE='mymap-arrivals-v3';
 const saved=()=>{try{return JSON.parse(localStorage.getItem(STORE)||'{}');}catch{return {};}};
@@ -22,20 +22,9 @@ function busRow(r){return `<div class="arrival-service">${sourceDot(r.source)}<b
 function railRow(r){return `<div class="arrival-service">${sourceDot(r.source)}<b>${esc(r.label??r.category??'列車')}</b></div><div class="arrival-dest">${esc(r.dest??'')}</div><strong class="arrival-minutes">${esc(minuteText(r))}</strong><span class="arrival-delay">${esc(delayText(r.delay))}</span>`;}
 function stale(data,limit){return Boolean(data?.stale)||!isFresh(data?.asOf,limit);}
 function railTarget(){const n=nearest().all.find(x=>x.stop.type==='kintetsu');return n?.id??'K15';}
-export function railArrivalRows(predicted,timetable,target,nowMinute){
-  const targetIndex=kintetsuIds.indexOf(target),targetCell=targetIndex>=0?targetIndex*2+1:null;if(targetCell===null)return [];
-  const rows=[];
-  for(const t of predicted?.trains??[]){
-    const pos=Number(t.position),approaching=t.direction==='south'?pos<=targetCell:pos>=targetCell;if(!Number.isFinite(pos)||!approaching)continue;
-    const matched=Number.isFinite(nowMinute)?railTimetableEta(timetable,t,target,nowMinute):null,minutes=matched?Math.max(0,matched.minutes):null;
-    if(Number.isFinite(minutes)&&minutes>30)continue;
-    rows.push({...t,key:t.key??`${t.direction}:${pos}:${t.dest}`,minutes,status:matched?null:'時刻未確定',etaSource:matched?'timetable':null,source:t.predicted?'prediction':'live'});
-  }
-  rows.sort((a,b)=>(Number.isFinite(a.minutes)?a.minutes:Infinity)-(Number.isFinite(b.minutes)?b.minutes:Infinity)||String(a.dest).localeCompare(String(b.dest),'ja'));return rows.slice(0,12);
-}
 function normalizeRail(data,timetable=null,nowMinute=null){
   if(!data)return null;
-  const predicted=stale(data,120000)?predictRail(data):data,target=railTarget(),results=railArrivalRows(predicted,timetable,target,nowMinute);return {...predicted,target,results};
+  const predicted=stale(data,120000)?predictRail(data):data,target=railTarget(),results=buildRailArrivalRows(predicted,timetable,target,nowMinute);return {...predicted,target,results};
 }
 
 export function compactBusHTML(data){const rows=(data?.results??[]).slice(0,3);if(!rows.length)return '';return `<div class="arrival-compact">${rows.map(r=>`<div>${sourceDot(r.source)}<b>${esc(r.route)}</b><span>${esc(r.dest)}</span><strong>${esc(minuteText(r))}</strong></div>`).join('')}</div>`;}
