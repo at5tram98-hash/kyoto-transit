@@ -5,6 +5,7 @@ import {formatTime} from './router.js';
 import {subwayIds,kintetsuIds} from './network.js';
 import {distance} from './mobility.js';
 import {createRefreshLoop} from './refresh.js';
+import {mountRideAssistant} from './ride-ui.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const minute=time=>time.split(':').map(Number).reduce((h,m)=>h*60+m);
 const symbol=n=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${n==='location'?'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/>':n==='school'?'<path d="m2 8 10-5 10 5-10 5Z"/><path d="M5 10v7q7 5 14 0v-7M22 8v9"/>':n==='friends'?'<path d="M3 18v-5a4 4 0 0 1 8 0v5m2 0v-5a4 4 0 0 1 8 0v5M5 21l2-3m12 3-2-3"/><circle cx="7" cy="5" r="2"/><circle cx="17" cy="5" r="2"/>':'<path d="M3 8h18l-2-5H5Zm1 0v12h16V8M9 20v-7h6v7"/>'}</svg>`;
@@ -15,26 +16,26 @@ export function mountMobility(api){
   root.innerHTML=`<h2 class="section-head">いまの移動</h2><section class="card mobility-card"><div class="mobility-heading"><span class="round-symbol">${symbol('location')}</span><div><b id="position-heading">現在地から案内</b><small id="position-status" role="status">位置情報を使うと、最寄りの駅・バス停を探せます</small></div><button class="plain" id="geo-start">取得</button></div><button class="location-field compact-location" data-pick="assist-from"><span>出発する駅・バス停</span><strong id="assist-origin">丸太町</strong><small id="assist-origin-note">手動で変更できます</small></button><div id="nearest-place" hidden></div><div class="destination-grid"><button data-destination="ksu">${symbol('school')}<b>京都産大</b><small>国際会館経由</small></button><button data-destination="muji">${symbol('store')}<b>無印良品</b><small id="muji-short">勤務地を登録</small></button><button data-destination="gu">${symbol('store')}<b>GU</b><small id="gu-short">勤務地を登録</small></button><button id="open-meeting">${symbol('friends')}<b>一緒に乗る</b><small>高の原からの友達と</small></button></div><p class="fine">現在地は端末内で判定し、保存しません。線路付近にいるだけでは乗車中と確定できません。</p></section>
   <section id="meeting-panel" class="card meeting-panel" hidden><div class="section-title"><span class="round-symbol">${symbol('friends')}</span><h2>友達の列車に合流</h2><button class="plain" id="close-meeting">閉じる</button></div><p class="muted">友達は高の原から京都方面へ。間に合う範囲でできるだけ南まで行き、折り返して長く一緒に乗ります。</p><div class="meeting-inputs"><label>移動する日<input type="date" id="meeting-date" required></label><label>自分の出発時刻<input type="time" id="self-time" required></label><button class="location-field compact-location" data-pick="meet-from"><span>自分の出発駅</span><strong id="meet-origin">丸太町</strong><small>列車を降りられる駅を指定</small></button><label>友達が高の原を出る時刻<input type="time" id="friend-time" required></label><label>友達の近鉄の種別<select id="friend-type"><option value="express">急行</option><option value="local">普通</option><option value="all">種別を比較</option></select></label></div><button class="secondary" id="friend-search">友達の列車を調べる</button><div id="friend-choices" aria-live="polite"></div><div class="meeting-options"><label>乗換に必要な時間<select id="meet-buffer"><option value="1">1分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="10">10分</option></select></label><label>折り返しで最低限待つ時間<input type="number" id="meet-wait" value="0" min="0" max="180" step="1"><small>0〜180分・乗換時間も確保</small></label></div><button class="primary" id="meet-search" disabled>最大で行ける合流駅を探す</button><button class="plain" id="assist-cancel" hidden>検索を中止</button><p id="meeting-status" role="status" class="fine"></p><p id="meeting-error" class="form-error" role="alert"></p><div id="meeting-results" aria-live="polite"></div></section>
   <section id="train-panel" class="card train-panel"><details id="train-details"><summary>乗車中の列車・次の停車駅</summary><p class="fine">GPS・移動方向と取得した時刻表から候補を絞ります。地下ではGPSが止まるため、発車時刻と行先を確認して列車を選んでください。時刻は運行遅延を反映しない予定時刻です。</p><button class="location-field compact-location" data-pick="track-from"><span>乗った駅</span><strong id="track-origin">丸太町</strong></button><label class="block-label">進行方向<select id="track-direction"><option value="K01">国際会館方面</option><option value="A28">近鉄奈良方面</option><option value="B01">近鉄京都方面</option><option value="K15">竹田方面</option></select></label><button class="secondary" id="track-search">今の時刻の列車候補を取得</button><p class="fine" id="track-status" role="status"></p><div id="train-candidates"></div><div id="next-stop" aria-live="polite"></div></details></section>`;
-  let meetOrigin=origin,trackOrigin=origin;
+  let meetOrigin=origin,trackOrigin=origin,ride;
   function refreshSettings(){
     const destinations=getState().destinations??{};
     for(const k of ['muji','gu'])$(`#${k}-short`).textContent=destinations[k]?.label|| (destinations[k]?.stop?name(destinations[k].stop):'勤務地を登録');
     document.querySelector('#destination-settings').innerHTML=`<h2>いつもの行先</h2><p class="muted">店舗名と、対応範囲内の最寄り駅・バス停を登録します。</p>${['muji','gu'].map(k=>`<label class="block-label">${k==='muji'?'無印良品':'GU'}の店舗名<input type="text" maxlength="80" data-work-label="${k}" value="${esc(destinations[k]?.label??'')}" placeholder="店舗名を入力"></label><button class="location-field compact-location" data-pick="work-${k}"><span>勤務地の最寄り駅・バス停</span><strong>${esc(name(destinations[k]?.stop))}</strong><small>選択して保存</small></button>`).join('')}<p class="fine">京都産大は国際会館〜京都バスに固定。店舗そのものまでの徒歩は登録した最寄り駅・バス停から確認してください。</p>`;
   }
   document.querySelector('#destination-settings').addEventListener('change',e=>{const k=e.target.dataset.workLabel;if(!k)return;commit(s=>{s.destinations??={muji:{label:'',stop:null},gu:{label:'',stop:null}};s.destinations[k].label=e.target.value.trim().slice(0,80);});refreshSettings();});
-  function setOrigin(id){origin=id;$('#assist-origin').textContent=name(id);if(['subway','kintetsu'].includes(network.stops.get(id)?.type)){meetOrigin=id;trackOrigin=id;$('#meet-origin').textContent=name(id);$('#track-origin').textContent=name(id);}}
+  function setOrigin(id){origin=id;$('#assist-origin').textContent=name(id);ride?.origin();if(['subway','kintetsu'].includes(network.stops.get(id)?.type)){meetOrigin=id;trackOrigin=id;$('#meet-origin').textContent=name(id);$('#track-origin').textContent=name(id);}}
   const nearby=document.createElement('div');nearby.id='nearby-approach';$('#nearest-place').after(nearby);
   let nearBusy=false,nearSelected=null,nearAuto=false;
   const nearRefresh=createRefreshLoop({refresh:()=>loadNearby(nearStop,nearSelected),canRefresh:()=>!document.hidden&&!root.closest('.view').hidden&&!nearBusy&&!!nearStop});
   function clearNearby(){nearController?.abort();nearJob++;nearBusy=false;nearStop=null;nearSelected=null;nearChoices=[];lastAutoStop=null;nearby.innerHTML='';nearRefresh.setEnabled(false);}
-  function stopGeo(){geoJob++;if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;fix=null;previous=null;location=null;clearNearby();lastAutoStop=null;lastBusFetch=0;$('#nearest-place').hidden=true;$('#position-heading').textContent='現在地から案内';$('#assist-origin-note').textContent='手動で変更できます';$('#geo-start').textContent='取得';}
+  function stopGeo(){geoJob++;if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;fix=null;previous=null;location=null;ride?.clear();clearNearby();lastAutoStop=null;lastBusFetch=0;$('#nearest-place').hidden=true;$('#position-heading').textContent='現在地から案内';$('#assist-origin-note').textContent='手動で変更できます';$('#geo-start').textContent='取得';}
   async function startGeo(){
     if(watch!==null){stopGeo();$('#position-status').textContent='現在地の更新を停止しました';return;}
     if(!navigator.geolocation){$('#position-status').textContent='位置情報を利用できません。駅・バス停を指定してください。';return;}
     const current=++geoJob;$('#position-status').textContent='現在地を取得しています…';
     try{if(!geo){const r=await fetch('data/locations.json');if(!r.ok)throw Error('位置データを読み込めませんでした');geo=await r.json();}if(current!==geoJob)return;
       watch=navigator.geolocation.watchPosition(p=>{
-        if(current!==geoJob)return;previous=fix;fix={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy,timestamp:p.timestamp};location=locate(fix,geo,network);renderLocation();renderTracking();
+        if(current!==geoJob)return;previous=fix;fix={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy,timestamp:p.timestamp,speed:p.coords.speed,heading:p.coords.heading};location=locate(fix,geo,network);renderLocation();renderTracking();ride?.update(fix,geo);
       },e=>{if(current!==geoJob)return;$('#position-status').textContent=e.code===1?'位置情報が許可されていません。駅・バス停を選んで案内できます。':'現在地を取得できません。地下では駅を手動で指定してください。';stopGeo();},{enableHighAccuracy:true,maximumAge:10000,timeout:20000});$('#geo-start').textContent='停止';
     }catch(e){$('#position-status').textContent=e.message;stopGeo();}
   }
@@ -64,7 +65,7 @@ export function mountMobility(api){
       const choice=nearChoices.find(c=>c.value===value)??nearChoices[0];
       if(!choice){nearby.innerHTML='<p class="fine">この停留所で対象の系統を取得できませんでした。</p><button class="plain" id="nearby-refresh">再取得</button>';return;}
       const data=await getBusData(stop.fullName??stop.name,choice.value,signal);if(active!==nearJob||signal.aborted)return;
-      nearSelected=choice.value;nearby.innerHTML=`<label class="block-label">接近を見る行先・のりば<select id="nearby-choice">${nearChoices.map(c=>`<option value="${esc(c.value)}" ${c.value===choice.value?'selected':''}>${esc(c.route)}・${esc(c.destination)}・${esc(c.boarding)}</option>`).join('')}</select></label>${busHTML(data)}<div class="nearby-controls"><button class="plain" id="nearby-refresh">接近情報を更新</button><label class="bus-auto"><input type="checkbox" id="nearby-auto" ${nearAuto?'checked':''}>1分ごとに更新</label></div><p class="fine" role="status" id="nearby-status">この行先の接近情報です。目的地への経路は下のボタンで検索できます。</p>`;
+      ride?.bus(data);nearSelected=choice.value;nearby.innerHTML=`<label class="block-label">接近を見る行先・のりば<select id="nearby-choice">${nearChoices.map(c=>`<option value="${esc(c.value)}" ${c.value===choice.value?'selected':''}>${esc(c.route)}・${esc(c.destination)}・${esc(c.boarding)}</option>`).join('')}</select></label>${busHTML(data)}<div class="nearby-controls"><button class="plain" id="nearby-refresh">接近情報を更新</button><label class="bus-auto"><input type="checkbox" id="nearby-auto" ${nearAuto?'checked':''}>1分ごとに更新</label></div><p class="fine" role="status" id="nearby-status">この行先の接近情報です。目的地への経路は下のボタンで検索できます。</p>`;
       nearRefresh.setEnabled(nearAuto);
     }catch(e){if(active===nearJob&&(!signal.aborted||timedOut)){const message=timedOut?'接近情報の取得が時間切れになりました。再取得してください。':e.message;if(same){$('#nearby-status').textContent=message;$('#nearby-refresh').disabled=false;$('#nearby-choice').disabled=false;}else nearby.innerHTML=`<p class="fine" role="status">${esc(message)}</p><button class="plain" id="nearby-refresh">再取得</button>`;}}
     finally{clearTimeout(timeout);if(active===nearJob)nearBusy=false;}
@@ -111,7 +112,7 @@ export function mountMobility(api){
     if(trackOrigin===$('#track-direction').value){$('#track-status').textContent='乗った駅と行先を別の駅にしてください。';return;}
     const n=api.now(),t=minute(n.time)-20,date=new Date(Date.parse(`${n.date}T00:00:00Z`)+(t<0?-86400000:0)).toISOString().slice(0,10),r={from:trackOrigin,to:$('#track-direction').value,via:[],date,start:(t+1440)%1440,trainType:'all',buffer:1,maxWalk:10};
     const task=busy('実際の列車候補を取得中…'),timeout=setTimeout(()=>controller.abort(),90000);
-    try{const d=await getJourneys(r,task.signal);if(task.id!==job)return;trackRoutes=d.routes;trackRequest=r;confirmed=null;$('#next-stop').innerHTML='';renderTracking();$('#meeting-status').textContent='';}catch(e){fail(e,task.id);$('#track-status').textContent=e.message;}finally{clearTimeout(timeout);done(task.id);}
+    try{const d=await getJourneys(r,task.signal);if(task.id!==job)return;trackRoutes=d.routes;trackRequest=r;ride?.routes(d.routes,r);confirmed=null;$('#next-stop').innerHTML='';renderTracking();$('#meeting-status').textContent='';}catch(e){fail(e,task.id);$('#track-status').textContent=e.message;}finally{clearTimeout(timeout);done(task.id);}
   }
   root.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;const d=b.dataset;
@@ -119,7 +120,7 @@ export function mountMobility(api){
     else if(b.id==='friend-search')loadFriends();else if(b.id==='meet-search')searchMeeting();else if(b.id==='track-search')loadTrack();else if(b.id==='assist-cancel')controller?.abort();
     else if(d.destination){if(d.destination==='ksu')api.navigate(origin,'ksu');else{const target=getState().destinations?.[d.destination]?.stop;if(network.stops.has(target))api.navigate(origin,target);else{api.setTab('settings');toast('勤務地の最寄り駅・バス停を登録してください');}}}
     else if(d.meetingPlan!==undefined){const p=meetingData.plans[+d.meetingPlan];api.showMeeting(p,meetingRequest,meetingData.updatedAt,meetingData.notice);}
-    else if(d.confirmTrain!==undefined){confirmed=trackRoutes.flatMap(r=>r.legs.filter(l=>['subway','kintetsu'].includes(l.operator)))[+d.confirmTrain];renderTracking();}
+    else if(d.confirmTrain!==undefined){confirmed=trackRoutes.flatMap(r=>r.legs.filter(l=>['subway','kintetsu'].includes(l.operator)))[+d.confirmTrain];ride?.board(confirmed);renderTracking();}
     else if(d.useNext){meetOrigin=d.useNext;$('#meet-origin').textContent=name(meetOrigin);openMeeting();$('#self-time').value=formatTime(+d.nextTime).replace(/^翌日 /,'');if(+d.nextTime>=1440)$('#meeting-date').value=new Date(Date.parse(`${trackRequest.date}T00:00:00Z`)+86400000).toISOString().slice(0,10);}
   });
   for(const id of ['meeting-date','friend-time','friend-type'])$(`#${id}`).addEventListener('change',invalidateFriend);
@@ -129,8 +130,10 @@ export function mountMobility(api){
   const timer=setInterval(()=>{if(fix&&Date.now()-fix.timestamp>45000){$('#position-status').textContent='現在地の更新が止まっています。地下では駅を指定してください。';location={status:'unavailable'};$('#nearest-place').hidden=true;}if(trackRoutes.length)renderTracking();},15000);
   document.addEventListener('visibilitychange',()=>nearRefresh.tick());
   window.addEventListener('pagehide',()=>{stopGeo();controller?.abort();nearRefresh.dispose();clearInterval(timer);});
+  ride=mountRideAssistant({...api,getOrigin:()=>origin,setOrigin,loadNearby},root);
   refreshSettings();
-  return {openMeeting,refreshSettings,routesChanged:(routes,r)=>{trackRoutes=routes;trackRequest=r;confirmed=null;renderTracking();},selectStop:(target,id)=>{
+  return {openMeeting,refreshSettings,routesChanged:(routes,r)=>{trackRoutes=routes;trackRequest=r;ride.routes(routes,r);confirmed=null;renderTracking();},selectStop:(target,id)=>{
+    if(target==='ride-from'){setOrigin(id);return true;}
     if(target==='assist-from'){stopGeo();setOrigin(id);$('#position-status').textContent='指定した駅・バス停から案内します。';if(network.stops.get(id)?.type==='citybus')loadNearby(id);return true;}
     if(['meet-from','track-from'].includes(target)){if(!['subway','kintetsu'].includes(network.stops.get(id)?.type)){toast('列車に乗る駅を選んでください');return true;}if(target==='meet-from'){meetOrigin=id;$('#meet-origin').textContent=name(id);meetingData=null;$('#meeting-results').innerHTML='';}else{trackOrigin=id;$('#track-origin').textContent=name(id);confirmed=null;trackRoutes=[];renderTracking();}return true;}
     if(target?.startsWith('work-')){const k=target.slice(5);commit(s=>{s.destinations??={muji:{label:'',stop:null},gu:{label:'',stop:null}};s.destinations[k].stop=id;});refreshSettings();toast('勤務地の行先を保存しました');return true;}return false;

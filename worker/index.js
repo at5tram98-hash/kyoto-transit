@@ -2,6 +2,7 @@
 import {boundedText,searchJourney,validateJourneyRequest} from './journeys.js';
 import {parseApproach} from './bus.js';
 import {findMeeting,validateMeeting} from './meeting.js';
+import {LOCATION_URL,parseRailLocation} from './rail.js';
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const RAIL='https://www.kintetsu.jp/unkou/unkou.html';
 const ROUTES=new Set(['10','13','43','78','202','204','205','206','208']);
@@ -92,7 +93,13 @@ export default {
             else response=url.pathname==='/bus/data'?await busData(env,stop,choice):await capture(env,approachURL(stop,value),'bus');
           }
         }
-      }else if(url.pathname==='/rail/capture')response=await capture(env,RAIL,'rail');
+      }else if(url.pathname==='/rail/location'){
+        const r=await env.BROWSER.quickAction('content',{url:LOCATION_URL,gotoOptions:{waitUntil:'networkidle2',timeout:20000},waitForSelector:{selector:'#stations .station-name',visible:true,timeout:10000},actionTimeout:12000});
+        if(!r.ok){await r.body?.cancel();throw Error('近鉄の列車位置を取得できませんでした。');}
+        let html=await boundedText(r);if(r.headers.get('content-type')?.includes('json')){const b=JSON.parse(html);html=typeof b.result==='string'?b.result:typeof b.content==='string'?b.content:'';}
+        response=Response.json({kind:'rail-location',...parseRailLocation(html),capturedAt:new Date().toISOString(),sourceURL:LOCATION_URL});
+      }else if(url.pathname==='/rail/location/capture')response=await capture(env,LOCATION_URL,'rail');
+      else if(url.pathname==='/rail/capture')response=await capture(env,RAIL,'rail');
       else response=error('ページがありません。',404);
     }catch(e){console.error('capture failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'公式画面の取得に失敗しました。',502);}
     for(const [k,v]of Object.entries(cors))response.headers.set(k,v);

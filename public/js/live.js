@@ -6,6 +6,7 @@ async function response(path,params,signal){
 }
 export async function getBusChoices(stop,signal){return (await response('/bus/options',{stop},signal)).json();}
 export async function getBusData(stop,choice,signal){return (await response('/bus/data',{stop,choice},signal)).json();}
+export async function getRailLocation(signal){return (await response('/rail/location',{},signal)).json();}
 export async function getOfficialImage(source,{stop,choice}={},signal){
   const r=await response(source==='rail'?'/rail/capture':'/bus/capture',source==='rail'?{}:{stop,choice},signal);
   if(!r.headers.get('content-type')?.startsWith('image/'))throw Error('取得したデータが画像ではありません。');

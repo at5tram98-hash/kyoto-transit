@@ -46,7 +46,7 @@ function renderPasses(){
 function openPicker(target){
   pickerTarget=target;const railOnly=['meet-from','track-from'].includes(target);pickerFilter=target==='live'?'bus':railOnly?'rail':'all';
   const titles={from:'出発地を選択',to:'到着地を選択',favorite:'お気に入りを追加',live:'接近情報の停留所','assist-from':'出発する駅・バス停','meet-from':'自分が出発する駅','track-from':'乗った駅を選択','work-muji':'無印良品の最寄り駅・バス停','work-gu':'GUの最寄り駅・バス停'};
-  $('#picker-title').textContent=titles[target]??'経由・折り返しの場所';$('#picker-search').value='';$('#picker-filters').hidden=target==='live'||railOnly;$$('#picker-filters button').forEach(e=>e.classList.toggle('active',e.dataset.filter===pickerFilter));renderPicker();$('#stop-dialog').showModal();$('#picker-search').focus();
+  $('#picker-title').textContent=target==='ride-from'?'乗った駅・停留所を選択':titles[target]??'経由・折り返しの場所';$('#picker-search').value='';$('#picker-filters').hidden=target==='live'||railOnly;$$('#picker-filters button').forEach(e=>e.classList.toggle('active',e.dataset.filter===pickerFilter));renderPicker();$('#stop-dialog').showModal();$('#picker-search').focus();
 }
 function renderPicker(){
   const q=$('#picker-search').value,all=searchStops(network,q,pickerFilter).filter(s=>pickerTarget!=='live'||s.type==='citybus');
@@ -237,6 +237,7 @@ async function init(){
   try{const feed=await getFile('feed');if(feed)network=applyFeed(base,feed);}catch{/* データがない環境でもYahoo検索を利用できる。 */}
   renderSettings();renderLocations();renderPasses();updateFeedStatus();updateConditions();readScreenshot();readLiveReports();setTab('search');window.addEventListener('resize',moveTabSelection);
   mobility=mountMobility({network:base,getState:()=>state,commit,openPicker,toast,setTab,now:tokyoNow,
+    setSearchFrom:from=>{query.from=from;renderLocations();setTab('search');$('#from-name').scrollIntoView({behavior:'smooth',block:'center'});},
     navigate:(from,to)=>{query=schoolRequest({from,to,via:[]});setNow();renderLocations();setTab('search');searchYahoo();},
     showBus:async(id,route)=>{liveStop=base.stops.get(id)?.fullName??name(id);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';setTab('live',false);await loadLiveChoices();const c=choices.find(c=>c.route===route)??choices[0];if(c){$('#live-choice').value=c.value;await updateBus();}},
     showMeeting:(journey,r,updatedAt,notice)=>{query={from:r.from,to:journey.schoolAvailable?'ksu':'K01',via:[{stop:journey.point.id,dwell:Math.min(180,journey.available),exitGate:false}]};currentRequest={...r,...query,trainType:'all',maxWalk:30};$('#date').value=r.date;$('#time').value=formatTime(r.start);renderLocations();results=[journey.journey];routeUpdatedAt=updatedAt;routeNotice=notice;routeMode='real';openRoute=0;sort='fast';renderResults();$('#results-section').scrollIntoView({behavior:'smooth',block:'start'});}

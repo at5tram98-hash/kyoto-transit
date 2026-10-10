@@ -21,9 +21,9 @@ export function locate(fix,geo,network,now=Date.now()){
   return {status:nearLine?'rail':'bus',rail,bus,accuracy:fix.accuracy};
 }
 const simplified=n=>normalize(String(n).replace(/\([^)]*\)|（[^）]*）|駅前$/g,'').replaceAll('松ケ崎','松ヶ崎'));
-export function timedStops(leg,network){
+export function timedStops(leg,network,{includeUntimed=false}={}){
   const find=name=>[...network.stops.values()].find(s=>(s.type===leg.operator||leg.operator==='kintetsu'&&s.id==='K15')&&[s.name,...s.aliases].some(n=>simplified(n)===simplified(name)))?.id;
-  return [{id:leg.from,name:network.stops.get(leg.from)?.name,time:leg.depart},...(leg.intermediate??[]).map(s=>({id:find(s.name),name:s.name,time:s.time})),{id:leg.to,name:network.stops.get(leg.to)?.name,time:leg.arrive}].filter(s=>s.id&&Number.isFinite(s.time));
+  return [{id:leg.from,name:network.stops.get(leg.from)?.name,time:leg.depart},...(leg.intermediate??[]).map(s=>({id:find(s.name),name:s.name,time:s.time})),{id:leg.to,name:network.stops.get(leg.to)?.name,time:leg.arrive}].filter(s=>s.id&&(includeUntimed||Number.isFinite(s.time)));
 }
 export function trainKey(route){return JSON.stringify(route.legs.filter(l=>l.kind==='ride').map(l=>[l.from,l.to,l.depart,l.arrive,l.label,l.destination]));}
 export function meetingPoints(friend,network){
