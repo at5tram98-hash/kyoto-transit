@@ -27,16 +27,6 @@ jobs:
           npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
           test -s worker-dist/worker.js
           test $(wc -c < worker-dist/worker.js) -gt 100000
-      - name: Stage 2 initial timetable bootstrap
-        run: |
-          set -euo pipefail
-          base='https://my-map-capture.at5tram98.workers.dev/_s2init?token=S2INIT-c6e61f2b-8ad6-4f4f-83e8-efca4720b081'
-          curl --fail-with-body --show-error --max-time 240 "$base&op=subway&date=2026-10-10"
-          curl --fail-with-body --show-error --max-time 240 "$base&op=subway&date=2026-10-13"
-          curl --fail-with-body --show-error --max-time 240 "$base&op=k-south&date=2026-10-10"
-          curl --fail-with-body --show-error --max-time 240 "$base&op=k-north&date=2026-10-10"
-          curl --fail-with-body --show-error --max-time 240 "$base&op=k-south&date=2026-10-13"
-          curl --fail-with-body --show-error --max-time 240 "$base&op=k-north&date=2026-10-13"
       - uses: actions/upload-artifact@v4
         with:
           name: worker-bundle
