@@ -21,7 +21,6 @@ export function matchRail(leg,feed,network,minute,fix,geo,now=Date.now()){
   if(!['kintetsu','through'].includes(leg.operator)||!feed||now-Date.parse(feed.sourceUpdatedAt)>120000||now-Date.parse(feed.capturedAt)>120000||Date.parse(feed.sourceUpdatedAt)>now+60000)return [];
   const stops=timedStops(leg,network),railStops=stops.filter(s=>kintetsuIds.includes(s.id)),start=kintetsuIds.indexOf(railStops[0]?.id),end=kintetsuIds.indexOf(railStops.at(-1)?.id);if(start<0||end<0||start===end)return [];
   return feed.trains.filter(t=>t.category===leg.category&&simple(t.destination)===simple(leg.destination)&&t.direction===(end>start?'south':'north')).filter(t=>{
-    // Use source timestamp for the schedule comparison, not the later HTTP capture time.
     const sourceMinute=minute-(now-Date.parse(feed.sourceUpdatedAt))/60000,delay=t.delay??0,before=[...stops].reverse().find(s=>s.time<=sourceMinute-delay),after=stops.find(s=>s.time>=sourceMinute-delay);
     if(!before||!after)return false;
     const ids=[before.id,after.id].map(id=>kintetsuIds.indexOf(id));const pos=(t.position-1)/2;if(pos<Math.min(...ids)-.5||pos>Math.max(...ids)+.5)return false;
@@ -50,6 +49,41 @@ export function rankRides(legs,{network,geo,samples=[],minute,railFeed,busFeed,n
   }).filter(Boolean).sort((a,b)=>b.score-a.score||Math.abs(a.leg.depart-minute)-Math.abs(b.leg.depart-minute));
 }
 export function confidence(ranked){const a=ranked[0],margin=a?a.score-(ranked[1]?.score??0):0;return {level:!a?'未判定':a.score>=80&&margin>=20?'高':a.score>=55&&margin>=10?'中':'低',margin};}
+
+const routeToken=value=>normalize(String(value??'').replace(/系統|京都バス|直行/g,'').replace(/^0+/,''));
+const angleDiff=(a,b)=>Math.abs((a-b+540)%360-180);
+function bearingBetween(a,b){if(!a||!b)return null;const y=(b.lng-a.lng)*Math.cos(((a.lat+b.lat)/2)*Math.PI/180),x=b.lat-a.lat;if(Math.abs(x)+Math.abs(y)<1e-9)return null;return (Math.atan2(y,x)*180/Math.PI+360)%360;}
+export function gpsAccuracyWeight(accuracy){if(!Number.isFinite(accuracy))return .25;return Math.max(.25,Math.min(1,1-Math.max(0,accuracy-20)/140));}
+export function matchMeasuredVehicles(leg,vehicles,{network,samples=[],now=Date.now()}={}){
+  if(!leg||!Array.isArray(vehicles)||!vehicles.length)return [];
+  const motion=trajectory(samples,now),fix=motion.points.at(-1),derivedHeading=motion.points.length>1?bearingBetween(motion.points[0],motion.points.at(-1)):null,heading=Number.isFinite(motion.heading)?motion.heading:derivedHeading,route=routeToken(leg.route),officialIds=new Set((leg.officialStops??[]).flatMap(s=>{const stop=network?.stops?.get(s.id);return [s.id,stop?.officialId].filter(Boolean).map(String);}));
+  return vehicles.map(vehicle=>{
+    const timestamp=Number(vehicle.timestamp)*1000,age=now-timestamp;if(!Number.isFinite(timestamp)||age< -10000||age>90000)return null;
+    if(route&&routeToken(vehicle.route)!==route)return null;
+    const evidence=[],add=(reason,points)=>evidence.push({reason,points}),freshness=Math.max(0,1-age/90000);add('車両データが新しい',5+Math.round(5*freshness));
+    let meters=null;if(fix&&Number.isFinite(vehicle.lat)&&Number.isFinite(vehicle.lon)){meters=distance(fix,{lat:vehicle.lat,lng:vehicle.lon});const w=gpsAccuracyWeight(fix.accuracy),raw=meters<=60?38:meters<=140?30:meters<=280?20:meters<=500?8:-18;add('端末と車両の位置',Math.round(raw*w));}
+    if(Number.isFinite(motion.speed)&&Number.isFinite(vehicle.speed)){const diff=Math.abs(motion.speed-vehicle.speed);add('移動速度',diff<=2?10:diff<=5?5:diff>=10?-5:0);}
+    if(Number.isFinite(heading)&&Number.isFinite(vehicle.bearing)&&Number.isFinite(motion.speed)&&motion.speed>=2.5){const diff=angleDiff(heading,vehicle.bearing);add('進行方向',diff<=35?10:diff<=75?4:diff>=140?-8:0);}
+    if(vehicle.stop&&officialIds.has(String(vehicle.stop)))add('予定停留所と車両位置が一致',10);
+    if(motion.points.length>=3&&motion.span>=12&&meters!==null&&meters<=Math.max(350,(fix?.accuracy??100)*4))add('直近の軌跡と車両が近い',8);
+    const score=Math.max(0,Math.min(100,evidence.reduce((n,e)=>n+e.points,15)));
+    return {vehicle,score,evidence,meters,age};
+  }).filter(Boolean).sort((a,b)=>b.score-a.score||(a.meters??Infinity)-(b.meters??Infinity));
+}
+export function createRideConsensus({required=3,minScore=55,minMargin=8}={}){
+  let key=null,count=0,lastFix=null;
+  const reset=()=>{key=null;count=0;lastFix=null;};
+  return {reset,update(candidates,fixTimestamp){
+    const rows=(candidates??[]).filter(c=>c&&(c.ride??c.leg)&&Number.isFinite(c.score)).slice(0,3),top=rows[0],second=rows[1],margin=top?top.score-(second?.score??0):0;
+    if(!top||!Number.isFinite(fixTimestamp)){reset();return {confirmed:null,candidates:[],count:0,margin};}
+    const ambiguous=second&&top.score>=minScore&&margin<minMargin;
+    if(ambiguous){key=null;count=0;lastFix=fixTimestamp;return {confirmed:null,candidates:rows,count:0,margin,ambiguous:true};}
+    if(top.score<minScore||margin<minMargin){reset();return {confirmed:null,candidates:top.score>=minScore?rows:[],count:0,margin};}
+    const next=rideKey(top.ride??top.leg);if(next!==key){key=next;count=0;lastFix=null;}
+    if(fixTimestamp!==lastFix){count++;lastFix=fixTimestamp;}
+    return {confirmed:count>=required?(top.ride??top.leg):null,candidates:count>=required?[]:[top],count,margin,ambiguous:false};
+  }};
+}
 export function createModeDetector(){
   let state='nearby',pending=null,since=0,lastTimestamp=0;
   return {reset(){state='nearby';pending=null;since=0;lastTimestamp=0;},update({samples=[],ranked=[],nearStation=false,confirmed=false,now=Date.now()}){
