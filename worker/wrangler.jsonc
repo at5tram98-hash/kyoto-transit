@@ -26,7 +26,7 @@
     }
   ],
   "triggers": {
-    "crons": ["15 18 * * *"]
+    "crons": ["15 * * * *"]
   },
   "vars": {
     "APP_ORIGIN": "https://at5tram98-hash.github.io"
