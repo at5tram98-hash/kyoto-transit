@@ -5,7 +5,7 @@ import {Backoff,isFresh,freshnessNotice,decayDelay,predictedMinutes,predictCityB
 test('接近情報は15秒更新・通信は4秒で打ち切る',()=>{assert.equal(ARRIVAL_INTERVAL,15000);assert.equal(FETCH_TIMEOUT,4000);});
 test('実測は90秒を超えると新鮮扱いしない',()=>{const now=1_000_000;assert.equal(isFresh(now-89_000,90_000,now),true);assert.equal(isFresh(now-91_000,90_000,now),false);});
 test('起動時キャッシュは古くても即警告を出さない',()=>{const now=1_000_000,n=freshnessNotice({source:'prediction',stale:true,asOf:new Date(now-600_000).toISOString()},{initial:true,now});assert.deepEqual(n,{show:false,text:''});});
-test('5分未満の予測表示は古いデータ警告ではなく予測表示と案内する',()=>{const now=1_000_000,n=freshnessNotice({source:'prediction',stale:true,asOf:new Date(now-120_000).toISOString()},{now});assert.deepEqual(n,{show:true,text:'現在は予測で表示しています'});assert.equal(USER_STALE_WARNING_AGE,300000);});
+test('5分未満の予測状態は点表示だけにして警告文を出さない',()=>{const now=1_000_000,n=freshnessNotice({source:'prediction',stale:true,asOf:new Date(now-120_000).toISOString()},{now});assert.deepEqual(n,{show:false,text:''});assert.equal(USER_STALE_WARNING_AGE,300000);});
 test('5分を超えた値だけ古いデータとして警告する',()=>{const now=1_000_000,n=freshnessNotice({source:'prediction',stale:true,asOf:new Date(now-301_000).toISOString()},{now});assert.deepEqual(n,{show:true,text:'データが古くなっています'});});
 test('新しい実測では警告を出さない',()=>{const now=1_000_000,n=freshnessNotice({source:'live',stale:false,asOf:new Date(now-20_000).toISOString()},{now});assert.deepEqual(n,{show:false,text:''});});
 test('遅延は後続便ごとに半減する',()=>{assert.equal(decayDelay(8,0),8);assert.equal(decayDelay(8,1),4);assert.equal(decayDelay(8,2),2);});
