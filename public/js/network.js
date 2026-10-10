@@ -1,5 +1,5 @@
-// 駅・停留所カタログと、試作の動作確認専用サービス。
-// 発車間隔・所要時間・バスの経路順は実ダイヤではない。
+// 駅・停留所カタログと、リアルタイム取得に失敗した場合の補助経路データ。
+// 発車間隔・所要時間は補助値であり、経路検索では静的ダイヤを優先する。
 export const SUBWAY_NAMES = '国際会館 松ヶ崎 北山 北大路 鞍馬口 今出川 丸太町 烏丸御池 四条 五条 京都 九条 十条 くいな橋 竹田'.split(' ');
 export const SUBWAY_KM = [0,1.6,2.6,3.8,4.6,5.4,6.9,7.6,8.5,9.3,10.3,11.1,11.8,13,13.7];
 export const KINTETSU_NAMES = '京都 東寺 十条 上鳥羽口 竹田 伏見 近鉄丹波橋 桃山御陵前 向島 小倉 伊勢田 大久保 久津川 寺田 富野荘 新田辺 興戸 三山木 近鉄宮津 狛田 新祝園 木津川台 山田川 高の原 平城 大和西大寺 新大宮 近鉄奈良'.split(' ');
@@ -50,7 +50,7 @@ export function createNetwork(catalog) {
   for(const [route,entry] of Object.entries(catalog).sort(([a],[b])=>{const old=['10','13','43','78','202','204','205','206','208'];return (old.indexOf(a)<0?100+Number(a):old.indexOf(a))-(old.indexOf(b)<0?100+Number(b):old.indexOf(b));})) {
     let ids=[...new Set(entry.names.map(busStop))];
     ids.forEach(id=>{if(!stops.get(id).lines.includes(route))stops.get(id).lines.push(route);});
-    // 停留所一覧は方向差・入出庫便を含む。デモの循環幹線と枝を分離する。
+    // 停留所一覧は方向差・入出庫便を含む。循環幹線と枝を分離する。
     if(route==='202')ids=ids.filter(id=>stops.get(id).name!=='京都駅八条口アバンティ前');
     if(['202','204','205','206','208'].includes(route))ids.push(ids[0]);
     pairService(`bus-${route}`,`${route}系統`,'citybus',ids,ids.map((_,i)=>i*2),route==='43'||route==='78'?30:12,{route,source:entry.source});
@@ -78,7 +78,7 @@ export function createNetwork(catalog) {
     ['K09','四条烏丸',4],['K10','烏丸五条',4],['K11','京都駅前',5],
     ['K11','京都駅八条口',8],['K12','地下鉄九条駅前',4],['B02','九条近鉄前',6]
   ]) connect(a,busIds.get(name),mins);
-  return {stops,services,walks,catalog,busIds,mode:'demo',source:'試作の計算用データ'};
+  return {stops,services,walks,catalog,busIds,mode:'fallback',source:'補助経路データ'};
 }
 
 export function searchStops(network,query,type='all') {

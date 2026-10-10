@@ -89,7 +89,7 @@ export function route(network,request,objective='fast',filter=request.trainType?
       }
     }
   }
-  if(queue.size)throw new Error('試作の探索上限に達しました。経由地を分けて検索してください。');
+  if(queue.size)throw new Error('探索上限に達しました。経由地を分けて検索してください。');
   return null;
 }
 
