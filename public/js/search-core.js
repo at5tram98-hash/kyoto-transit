@@ -31,11 +31,12 @@ function firstDepartureCandidates(network,request,window=360){
   const values=new Set(),min=request.start-window,max=request.start;
   const addAt=(stop,offset=0)=>{for(const service of network.services){const i=service.stops.indexOf(stop);if(i<0)continue;for(const trip of service.trips??[]){if(trip.date!==request.date)continue;const d=trip.departures[i]-offset;if(d>=min&&d<=max)values.add(Math.max(0,d));}}};
   addAt(request.from,0);for(const walk of network.walks.filter(w=>w.from===request.from&&w.minutes<=request.maxWalk))addAt(walk.to,walk.minutes);
-  values.add(Math.max(0,min));return [...values].sort((a,b)=>b-a).slice(0,64);
+  return [...values].sort((a,b)=>b-a).slice(0,64);
 }
+function actualJourneyStart(route,fallback){const first=route.legs?.[0];return Number.isFinite(first?.depart)?first.depart:fallback;}
 export function searchTimetable(network,request,passes){
   if(request.timeMode!=='arrival')return selectThree(planRoutes(network,request,passes),{timeMode:'departure'});
-  const target=request.start,found=[];for(const start of firstDepartureCandidates(network,request)){const routes=planRoutes(network,{...request,start,timeMode:'departure'},passes);for(const r of routes)if(r.time<=target)found.push(r);}
+  const target=request.start,found=[];for(const start of firstDepartureCandidates(network,request)){const routes=planRoutes(network,{...request,start,timeMode:'departure'},passes);for(const r of routes)if(r.time<=target){const actualStart=actualJourneyStart(r,start);found.push({...r,start:actualStart,duration:Math.ceil(r.time-actualStart)});}}
   return selectThree(found,{timeMode:'arrival'});
 }
 const clampDelay=n=>Number.isFinite(n)?Math.max(-5,Math.min(60,n)):null;
@@ -54,4 +55,4 @@ export function applyRealtime(route,realtime,context={}){
   let shift=0,quality='schedule';const legs=route.legs.map(leg=>{if(leg.kind!=='ride')return {...leg,depart:leg.depart+shift,arrive:leg.arrive+shift};const live=realtimeDelayForLeg(leg,realtime,context);if(live){shift=Math.max(shift,live.delay??0);if(live.source==='live')quality='live';else if(quality!=='live')quality='prediction';}return {...leg,depart:leg.depart+shift,arrive:leg.arrive+shift,realtime:live};});return {...route,legs,time:route.time+shift,duration:route.duration+shift,realtimeSource:quality,realtimeDelay:shift};
 }
 export function staleWarnings(network){return [...new Set((network.feedMeta??[]).filter(m=>m.stale||m.warning).map(m=>m.warning??`${m.operator}の時刻データを確認してください。`))];}
-export function dayKind(date,{holidays=new Set()}={}){if(holidays.has(date))return 'holiday';const d=new Date(`${date}T00:00:00+09:00`).getDay();return d===0?'holiday':d===6?'saturday':'weekday';}
+export function dayKind(date,{holidays=new Set()}={}){if(holidays.has(date))return 'holiday';const d=new Date(`${date}T00:00:00Z`).getUTCDay();return d===0?'holiday':d===6?'saturday':'weekday';}
