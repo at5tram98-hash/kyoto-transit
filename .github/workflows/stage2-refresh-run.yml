@@ -1,0 +1,18 @@
+name: Stage 2 verified static bootstrap
+on:
+  push:
+    paths:
+      - .github/workflows/stage2-refresh-run.yml
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Subway weekend
+        run: curl --fail-with-body --show-error --silent --max-time 180 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=subway&date=2026-10-10'
+      - name: Subway weekday
+        run: curl --fail-with-body --show-error --silent --max-time 180 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=subway&date=2026-10-13'
+      - name: Kintetsu weekend
+        run: curl --fail-with-body --show-error --silent --max-time 240 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-10'
+      - name: Kintetsu weekday
+        run: curl --fail-with-body --show-error --silent --max-time 240 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-13'
