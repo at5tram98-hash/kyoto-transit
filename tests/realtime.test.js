@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Backoff,isFresh,decayDelay,predictedMinutes,predictCityBus,predictRail,ARRIVAL_INTERVAL,FETCH_TIMEOUT} from '../public/js/realtime.js';
+import {Backoff,isFresh,decayDelay,predictedMinutes,predictCityBus,predictRail,interpolateCityBusRecovery,interpolateRailRecovery,ARRIVAL_INTERVAL,FETCH_TIMEOUT} from '../public/js/realtime.js';
 
 test('接近情報は15秒更新・通信は4秒で打ち切る',()=>{assert.equal(ARRIVAL_INTERVAL,15000);assert.equal(FETCH_TIMEOUT,4000);});
 test('実測は90秒を超えると新鮮扱いしない',()=>{const now=1_000_000;assert.equal(isFresh(now-89_000,90_000,now),true);assert.equal(isFresh(now-91_000,90_000,now),false);});
@@ -9,3 +9,5 @@ test('指数バックオフは2→4→8→30秒で上限になる',()=>{const b=
 test('キャッシュ値は時刻経過で予測到着分へ更新する',()=>{const now=1_000_000,data={asOf:new Date(now-60_000).toISOString(),results:[{key:'a',route:'40',dest:'京産大',minutes:5,eta:new Date(now+120_000).toISOString(),source:'live'}]};const p=predictCityBus(data,now);assert.equal(p.source,'prediction');assert.equal(p.results[0].minutes,2);assert.equal(p.results[0].source,'prediction');});
 test('列車スナップショットは古い時に位置を予測側へ進める',()=>{const now=1_000_000,data={asOf:new Date(now-180_000).toISOString(),trains:[{key:'t',position:10,direction:'south'}]};const p=predictRail(data,now);assert.equal(p.source,'prediction');assert.ok(p.trains[0].position>10);assert.equal(p.trains[0].predicted,true);});
 test('到着時刻から残り分を算出する',()=>{assert.equal(predictedMinutes(new Date(1_120_000).toISOString(),1_000_000),2);});
+test('市バス実測復旧時は予測値から一度だけ補間して急な飛びを抑える',()=>{const previous={source:'prediction',stale:true,results:[{key:'a',minutes:8,source:'prediction'}]},actual={source:'live',stale:false,results:[{key:'a',minutes:2,source:'live'}]},r=interpolateCityBusRecovery(previous,actual,.5);assert.equal(r.recovering,true);assert.equal(r.results[0].minutes,5);assert.equal(r.results[0].source,'live');assert.equal(interpolateCityBusRecovery(r,actual,.5).results[0].minutes,2);});
+test('列車実測復旧時は同方向・種別・行先の最寄り予測位置から補間する',()=>{const previous={source:'prediction',stale:true,trains:[{direction:'north',category:'express',dest:'京都',label:'急行',position:20,predicted:true}]},actual={source:'live',stale:false,trains:[{direction:'north',category:'express',dest:'京都',label:'急行',position:14}]},r=interpolateRailRecovery(previous,actual,.5);assert.equal(r.recovering,true);assert.equal(r.trains[0].position,17);assert.equal(r.trains[0].predicted,false);assert.equal(interpolateRailRecovery(r,actual,.5).trains[0].position,14);});
