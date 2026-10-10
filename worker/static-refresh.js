@@ -1,6 +1,7 @@
 import {datasetResourceLinks,parseResourcePage,selectGtfsVersion,compactGtfsZip,dateFeed} from './static-gtfs.js';
 import {readKintetsuPattern,refreshKintetsuPattern} from './manual-rail-feed.js';
 import {readSubwayPattern,refreshSubwayPattern} from './manual-subway-feed.js';
+import {calendarDay} from './service-calendar.js';
 
 export const DATASETS={
   kyotobus:'https://ckan.odpt.org/dataset/kyoto_bus_all_lines_anotherversion',
@@ -9,7 +10,8 @@ export const DATASETS={
 };
 const tokyoDate=(now=new Date())=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
 const shiftDate=(date,days)=>new Date(Date.parse(`${date}T00:00:00Z`)+days*86400_000).toISOString().slice(0,10);
-const oppositePatternDate=date=>{const d=new Date(`${date}T00:00:00Z`).getUTCDay();if(d===6)return shiftDate(date,2);if(d===0)return shiftDate(date,1);const toSat=(6-d+7)%7;return shiftDate(date,toSat||7);};
+const patternKind=day=>day==='weekday'?'weekday':day?'weekend':null;
+const oppositePatternDate=(date,operator='kintetsu')=>{const current=patternKind(calendarDay(date,operator));if(!current)throw Error('運行カレンダーを確認できません。');for(let i=1;i<=14;i++){const candidate=shiftDate(date,i),kind=patternKind(calendarDay(candidate,operator));if(kind&&kind!==current)return candidate;}throw Error('反対の運行パターン日を確認できません。');};
 async function text(url,timeout=10000){const r=await fetch(url,{headers:{'User-Agent':'My Map/2.0 timetable updater','Accept':'text/html'},signal:AbortSignal.timeout(timeout),cache:'no-store'});if(!r.ok){await r.body?.cancel();throw Error(`データカタログ ${r.status}`);}const value=await r.text();if(value.length>4_000_000)throw Error('データカタログが大きすぎます。');return value;}
 function withConsumerKey(raw,key){const u=new URL(raw.replace(/\[(?:token|トークン|consumerKey)[^\]]*\]/gi,encodeURIComponent(key)));u.searchParams.set('acl:consumerKey',key);return u.href;}
 export async function discoverVersion(datasetURL,date,fetchText=text){
@@ -28,7 +30,7 @@ export async function refreshAll(env,date=tokyoDate()){
   const result={date,updatedAt:new Date().toISOString(),operators:{}},gtfs={};
   for(const op of ['kyotobus','citybus','subway']){try{const f=await refreshOne(env,op,date);gtfs[op]={ok:true,revisionDate:f.revisionDate,validFrom:f.validFrom,validTo:f.validTo,trips:f.trips.length};}catch(e){gtfs[op]={ok:false,error:String(e?.message??e)};}}
   result.operators.kyotobus=gtfs.kyotobus;result.operators.citybus=gtfs.citybus;
-  const dates=[date,oppositePatternDate(date)],kintetsu=await refreshManualPatterns(d=>refreshKintetsuPattern(env,d),dates),subway=await refreshManualPatterns(d=>refreshSubwayPattern(env,d),dates);
+  const kDates=[date,oppositePatternDate(date,'kintetsu')],sDates=[date,oppositePatternDate(date,'subway')],kintetsu=await refreshManualPatterns(d=>refreshKintetsuPattern(env,d),kDates),subway=await refreshManualPatterns(d=>refreshSubwayPattern(env,d),sDates);
   result.operators.kintetsu={ok:kintetsu.some(p=>p.ok),patterns:kintetsu};
   result.operators.subway={ok:Boolean(gtfs.subway?.ok)||subway.some(p=>p.ok),gtfs:gtfs.subway,fallbackPatterns:subway};
   if(env.LIVE_KV)await env.LIVE_KV.put('static:last-refresh',JSON.stringify(result));return result;
