@@ -38,6 +38,7 @@ function setupEvents(){
     if(b.hasAttribute('data-retry-location'))state.locationSession?.start({retry:true});
     else if(b.dataset.openTimetable){setTab('timetable');routeSearch?.openBoard();timetables.select(b.dataset.openTimetable);}
     else if(b.dataset.openArrivals){setTab('now');await arrivals?.selectStop(b.dataset.openArrivals,true);}
+    else if(b.dataset.startHere){setTab('timetable');routeSearch?.setFrom(b.dataset.startHere);}
     else if(b.dataset.rideCandidate!==undefined){if(confirmRideCandidate(b.dataset.rideCandidate))renderNow();}
     else if(b.id==='ride-foldback')openFoldback();
     else if(b.id==='ride-operations')setTab('operations');
