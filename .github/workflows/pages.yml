@@ -30,7 +30,10 @@ jobs:
       - name: Stage verified Worker for production handoff
         run: |
           mkdir -p dist/_deploy
-          cp worker-dist/worker.js dist/_deploy/worker.multipart
+          BUNDLE_SHA=$(sha256sum worker-dist/worker.js | awk '{print $1}')
+          printf '<!doctype html><meta charset="utf-8"><meta name="bundle-sha256" content="%s"><pre id="bundle">' "$BUNDLE_SHA" > dist/_deploy/worker.html
+          gzip -9 -c worker-dist/worker.js | base64 -w0 >> dist/_deploy/worker.html
+          printf '</pre>' >> dist/_deploy/worker.html
       - uses: actions/upload-artifact@v4
         with:
           name: worker-bundle
