@@ -1,1 +1,1 @@
-{"name": "My Map", "short_name": "My Map", "lang": "ja", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#F2F2F7", "theme_color": "#007AFF", "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]}
+{"name": "My Map", "short_name": "My Map", "lang": "ja", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#F2F2F7", "theme_color": "#F2F2F7", "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]}
