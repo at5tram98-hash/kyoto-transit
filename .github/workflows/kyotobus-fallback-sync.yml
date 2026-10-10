@@ -1,0 +1,31 @@
+name: Kyoto Bus fallback sync
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/kyotobus-fallback-sync.yml
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: python scripts/patch-kyotobus-fallback.py
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
+      - name: Commit fallback fix
+        run: |
+          rm .github/workflows/kyotobus-fallback-sync.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add worker/timetables.js worker/official-static-fallback.js .github/workflows/kyotobus-fallback-sync.yml
+          git commit -m 'Reduce Kyoto Bus fallback Browser Rendering load'
+          git push
