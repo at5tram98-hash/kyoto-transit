@@ -4,7 +4,7 @@ const RAIL_NAMES=KINTETSU_NAMES.slice(0,26),RAIL_IDS=kintetsuIds.slice(0,26);
 const clean=value=>String(value??'').normalize('NFKC').replace(/\s+/g,' ').trim();
 const stationToken=value=>normalize(clean(value).replace(/近鉄/g,'').replace(/駅/g,''));
 const stationIndex=value=>{const token=stationToken(value);return RAIL_NAMES.findIndex(name=>stationToken(name)===token);};
-const finite=(value,min,max)=>Number.isFinite(Number(value))&&Number(value)>=min&&Number(value)<=max?Number(value):null;
+const finite=(value,min,max)=>{if(value===null||value===undefined||value===''||typeof value==='boolean')return null;const n=Number(value);return Number.isFinite(n)&&n>=min&&n<=max?n:null;};
 
 async function quickActionJSON(response,label){
   if(!response?.ok){await response?.body?.cancel?.();throw Error(`${label}を取得できませんでした。`);}
@@ -36,7 +36,7 @@ export function normalizeVisualRail(value,{now=new Date()}={}){
     if(!atStation&&Math.abs(fromIndex-toIndex)!==1)continue;
     if(!atStation&&direction==='south'&&toIndex<=fromIndex)continue;
     if(!atStation&&direction==='north'&&toIndex>=fromIndex)continue;
-    const delay=row?.delay===null||row?.delay===undefined?null:finite(row.delay,-30,180),position=atStation?fromIndex*2+1:Math.min(fromIndex,toIndex)*2+2;
+    const delay=finite(row?.delay,-30,180),position=atStation?fromIndex*2+1:Math.min(fromIndex,toIndex)*2+2;
     trains.push({position,from:RAIL_IDS[fromIndex],to:RAIL_IDS[toIndex],atStation,direction,destination,category,label,delay,delayText:Number.isFinite(delay)&&delay?`${delay>0?'+':''}${delay}`:''});
   }
   return {stations:RAIL_IDS.map((id,i)=>({id,name:RAIL_NAMES[i]})),trains,sourceUpdatedAt:now.toISOString(),visualFallback:true,notice:'公式画面の視覚情報から復旧した列車位置。'};
