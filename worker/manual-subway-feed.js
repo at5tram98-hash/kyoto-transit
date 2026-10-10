@@ -1,13 +1,13 @@
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import {createNetwork,subwayIds} from '../public/js/network.js';
 import {calendarDay} from './service-calendar.js';
-import {officialFetcher,readTimetable} from './timetables.js';
+import {readTimetable} from './timetables.js';
 
 const network=createNetwork(catalog);
 const SOURCE='https://www2.city.kyoto.lg.jp/kotsu/tikadia/hyperdia/menu022.htm';
 // Kyoto City announced the current Karasuma-line timetable revision for weekends
 // from 2025-02-22 and weekdays from 2025-02-25. The fallback is regenerated from
-// station departure boards and does not retain the ODPT GTFS archive.
+// static station departure boards and does not retain the ODPT GTFS archive.
 const REVISION='2025-02-22';
 const EXPECTED_RUN=2;
 const MAX_GAP=4;
@@ -35,9 +35,6 @@ export function compileSubwayDirection(boardByStop,{direction,date,checkedAt=new
       const matched=matchNext(timesByStop.get(id)??[],usedByStop.get(id)??new Set(),previous);if(!Number.isFinite(matched))break;
       stops.push(id);times.push(matched);previous=matched;
     }
-    // Only add the terminal when the train was observed at every intermediate
-    // station. The terminal's arrival minute is the sole derived value because
-    // there is no same-direction departure board at the terminal.
     if(stops.at(-1)===ids.at(-2)){stops.push(terminal);times.push(previous+EXPECTED_RUN);}
     if(stops.length<2)continue;
     trips.push({id:`subway:${direction}:${date}:${n}:${originTimes[n]}`,date,stops,arrivals:times,departures:times,headsign:network.stops.get(stops.at(-1))?.name??''});
@@ -60,7 +57,8 @@ async function readDirection(fetcher,date,day,direction){
   for(const row of rows){if(row?.error)errors.push(row.error);else map.set(row.id,row.board.entries??[]);}if(errors.length)throw Error(`地下鉄公式時刻表の取得に失敗しました（${errors.length}駅）。`);return map;
 }
 export async function buildSubwayPattern(env,date){
-  const day=calendarDay(date,'subway');if(!day)throw Error('地下鉄の曜日種別を判定できません。');const fetcher=officialFetcher(env),[north,south]=await Promise.all([readDirection(fetcher,date,day,'north'),readDirection(fetcher,date,day,'south')]);
+  const day=calendarDay(date,'subway');if(!day)throw Error('地下鉄の曜日種別を判定できません。');
+  const [north,south]=await Promise.all([readDirection(fetch,date,day,'north'),readDirection(fetch,date,day,'south')]);
   return compileSubwayBoards({north,south},{date,day});
 }
 export async function refreshSubwayPattern(env,date){if(!env.LIVE_KV)throw Error('LIVE_KVが未設定です。');const feed=await buildSubwayPattern(env,date),key=`manual:subway:${serviceDay(calendarDay(date,'subway'))}`;await env.LIVE_KV.put(key,JSON.stringify(feed));await env.LIVE_KV.put('manual:subway:status',JSON.stringify({checkedAt:feed.lastUpdated,revisionDate:feed.revisionDate,tripCount:feed.meta.tripCount,completeCount:feed.meta.completeCount,day:feed.meta.day,terminalArrivalDerived:true}));return feed;}
