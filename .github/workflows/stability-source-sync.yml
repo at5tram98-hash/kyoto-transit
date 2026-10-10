@@ -77,7 +77,11 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Worker dry-run bundle
-        run: npx wrangler deploy --dry-run --outdir /tmp/worker-dry-run
+        run: |
+          mkdir -p worker-dist
+          npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
+          test -s worker-dist/worker.js
+          test $(wc -c < worker-dist/worker.js) -gt 100000
       - name: Commit synced source
         run: |
           rm .github/workflows/stability-source-sync.yml
