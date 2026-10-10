@@ -13,7 +13,6 @@ export function freshnessNotice(data,{initial=false,warnAge=USER_STALE_WARNING_A
   if(!data||initial)return {show:false,text:''};
   const raw=data.asOf??data.capturedAt??data.sourceUpdatedAt,t=typeof raw==='number'?raw:Date.parse(raw),age=Number.isFinite(t)?Math.max(0,now-t):null;
   if(Number.isFinite(age)&&age>warnAge)return {show:true,text:'データが古くなっています'};
-  if(data.stale||data.source==='prediction')return {show:true,text:'現在は予測で表示しています'};
   return {show:false,text:''};
 }
 export function predictedMinutes(eta,now=Date.now()){const t=typeof eta==='number'?eta:Date.parse(eta);return Number.isFinite(t)?Math.max(0,Math.ceil((t-now)/60000)):null;}
