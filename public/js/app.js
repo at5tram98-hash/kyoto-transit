@@ -9,17 +9,18 @@ import {getJourneys,journeyHTML,journeyFare,busHTML} from './journey.js';
 import {schoolRequest} from './mobility.js';
 import {mountMobility} from './assistant.js';
 import {createRefreshLoop} from './refresh.js';
+import {mountTimetables,mountOperations} from './timetable-ui.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const icons={location:'<path d="m3 10 18-7-7 18-3-8Z"/>',settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="var(--bg)"/><circle cx="15" cy="12" r="2" fill="var(--bg)"/><circle cx="9" cy="18" r="2" fill="var(--bg)"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',train:'<rect x="5" y="3" width="14" height="15" rx="4"/><path d="M5 10h14M12 3v7M8 21l2-3m6 3-2-3"/><path d="M8 14h.01M16 14h.01"/>',bus:'<rect x="4" y="4" width="16" height="14" rx="3"/><path d="M4 11h16M12 4v7M7 18v3m10-3v3M7 14h.01M17 14h.01"/>',star:'<path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.1 6.2-5.5-3-5.5 3 1.1-6.2L3 9.6l6.3-.8Z"/>',ticket:'<path d="M3 7h18v4a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4Z"/><path d="M15 7v2m0 3v1m0 3v2"/>',swap:'<path d="M8 3v16m-4-4 4 4 4-4m4-12v18m-4-14 4-4 4 4"/>',plus:'<path d="M12 5v14M5 12h14"/>',chevron:'<path d="m6 9 6 6 6-6"/>',arrow:'<path d="m9 5 7 7-7 7"/>',return:'<path d="M5 17V9a5 5 0 0 1 10 0v10m-4-4 4 4 4-4"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>',check:'<path d="m5 12 4 4L19 6"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',external:'<path d="M14 3h7v7m0-7L11 13M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-7 5 6"/>',walk:'<circle cx="13" cy="4" r="2"/><path d="m10 9 3-2 3 6 4 1m-10-5-2 5H4m8-2-2 5-4 4m6-9 3 5v4"/>'};
+const icons={location:'<path d="m3 10 18-7-7 18-3-8Z"/>',settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="var(--bg)"/><circle cx="15" cy="12" r="2" fill="var(--bg)"/><circle cx="9" cy="18" r="2" fill="var(--bg)"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',train:'<rect x="5" y="3" width="14" height="15" rx="4"/><path d="M5 10h14M12 3v7M8 21l2-3m6 3-2-3"/><path d="M8 14h.01M16 14h.01"/>',bus:'<rect x="4" y="4" width="16" height="14" rx="3"/><path d="M4 11h16M12 4v7M7 18v3m10-3v3M7 14h.01M17 14h.01"/>',star:'<path d="m12 3 2.7 5.8 6.3.8-4.6 4.4 1.1 6.2-5.5-3-5.5 3 1.1-6.2L3 9.6l6.3-.8Z"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>',ticket:'<path d="M3 7h18v4a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4Z"/><path d="M15 7v2m0 3v1m0 3v2"/>',swap:'<path d="M8 3v16m-4-4 4 4 4-4m4-12v18m-4-14 4-4 4 4"/>',plus:'<path d="M12 5v14M5 12h14"/>',chevron:'<path d="m6 9 6 6 6-6"/>',arrow:'<path d="m9 5 7 7-7 7"/>',return:'<path d="M5 17V9a5 5 0 0 1 10 0v10m-4-4 4 4 4-4"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>',check:'<path d="m5 12 4 4L19 6"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',external:'<path d="M14 3h7v7m0-7L11 13M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>',image:'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-7 5 6"/>',walk:'<circle cx="13" cy="4" r="2"/><path d="m10 9 3-2 3 6 4 1m-10-5-2 5H4m8-2-2 5-4 4m6-9 3 5v4"/>'};
 const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]??icons.info}</svg>`;
 function paintIcons(root=document){root.querySelectorAll('[data-icon]').forEach(e=>{e.innerHTML=icon(e.dataset.icon);});}
 let state=loadState(),base,network,query={from:'K07',to:'K01',via:[]},currentRequest=null,results=[],sort='fast',openRoute=0,pickerTarget=null,pickerFilter='all',toastTimer,cropImage;
-const names={today:'いま',search:'乗換検索',live:'接近・運行情報',favorites:'お気に入り',settings:'定期・設定'};
+const names={today:'今',timetable:'時刻表',search:'経路',live:'運行情報',favorites:'お気に入り',settings:'設定'};
 let liveStop='烏丸丸太町（地下鉄丸太町駅）',choices=[],choicesController,ocrController,ocrBusy=false,ocrJob=0;
 let routeMode='real',searchController,searchJob=0,routeUpdatedAt,routeNotice='';
-let mobility;
+let mobility,timetables,operations;
 let choicesBusy=false,savedBusReport,busRefresh;
 const name=id=>network?.stops.get(id)?.name??'場所を選択';
 const line=id=>network?.stops.get(id)?.lines?.join('・')??'';
@@ -28,7 +29,7 @@ function toast(message){$('#toast').textContent=message;$('#toast').classList.ad
 function commit(change){const next=structuredClone(state);change(next);try{saveState(next);state=next;return true;}catch{toast('保存できませんでした。端末の空き容量・保存設定を確認してください。');return false;}}
 function tokyoNow(){const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date()).split(' ');return {date:parts[0],time:parts[1]};}
 function setNow(){const n=tokyoNow();$('#date').value=n.date;$('#time').value=n.time;}
-function setTab(tab,autoLive=true){if(!names[tab])return;$$('.view').forEach(e=>{e.hidden=e.id!==`${tab}-view`;});$$('[data-tab]').forEach(e=>{e.classList.toggle('active',e.dataset.tab===tab);if(e.closest('nav'))e.setAttribute('aria-current',e.dataset.tab===tab?'page':'false');});$('#screen-title').textContent=tab==='today'?'My Map':names[tab];$('#tab-label').textContent=tab==='today'?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'long',day:'numeric',weekday:'long'}).format(new Date())+'・京都': 'My Map・京都のいつもの移動に';if(tab==='favorites')renderFavorites();if(tab==='live'&&autoLive&&!choices.length)loadLiveChoices();$('.scroll').scrollTo({top:0,behavior:'instant'});moveTabSelection();}
+function setTab(tab,autoLive=true){if(!names[tab])return;$$('.view').forEach(e=>{e.hidden=e.id!==`${tab}-view`;});$$('[data-tab]').forEach(e=>{e.classList.toggle('active',e.dataset.tab===tab);if(e.closest('nav'))e.setAttribute('aria-current',e.dataset.tab===tab?'page':'false');});$('#screen-title').textContent=names[tab];$('#tab-label').textContent=tab==='today'?new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'long',day:'numeric',weekday:'long'}).format(new Date())+'・京都': 'My Map・京都のいつもの移動に';if(tab==='favorites')renderFavorites();if(tab==='timetable')timetables?.show();if(tab==='live')operations?.show();$('.scroll').scrollTo({top:0,behavior:'instant'});moveTabSelection();}
 function moveTabSelection(){const active=$('.tabbar .tab.active'),nav=$('.tabbar'),pill=$('.tab-selection');if(!active){nav.classList.remove('tab-ready');return;}const rect=active.getBoundingClientRect(),parent=nav.getBoundingClientRect();pill.style.width=`${rect.width}px`;pill.style.transform=`translate3d(${rect.left-parent.left}px,0,0)`;nav.classList.add('tab-ready');}
 function renderFarePreview(){if(!network)return;const fare=query.via.length?null:estimateDirectFare(query.from,query.to,network,state.passes,$('#date').value),el=$('#fare-preview');el.classList.toggle('free',fare?.additional===0);el.classList.toggle('small',!fare);el.innerHTML=fare?`${Math.round(fare.additional).toLocaleString('ja-JP')}<span>円</span>`:query.via.length?'経由地あり':'経路を確認';$('#fare-preview-note').textContent=fare?`通常 ${yen(fare.normal)} ・ ${fare.additional===0?'定期券を適用':'大人運賃の目安'}`:'検索すると実際の経路と運賃を表示します';}
 function renderLocations(){
@@ -59,6 +60,7 @@ function selectStop(id){
   if(!network.stops.has(id))return;
   if(pickerTarget==='favorite'){if(state.favorites.includes(id))toast('すでに登録されています');else if(commit(s=>s.favorites.push(id)))toast('お気に入りに追加しました');renderFavorites();}
   else if(pickerTarget==='live'){liveStop=base.stops.get(id)?.fullName??name(id);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';loadLiveChoices();}
+  else if(pickerTarget==='timetable')timetables.select(id);
   else if(mobility?.selectStop(pickerTarget,id)){}
   else if(pickerTarget==='via-add')query.via.push({stop:id,dwell:5,exitGate:false});
   else if(pickerTarget?.startsWith('via-'))query.via[+pickerTarget.slice(4)].stop=id;
@@ -236,9 +238,11 @@ async function init(){
   const response=await fetch('data/bus-catalog.json');if(!response.ok)throw Error('停留所データを読み込めませんでした。');base=createNetwork(await response.json());network=base;
   try{const feed=await getFile('feed');if(feed)network=applyFeed(base,feed);}catch{/* データがない環境でもYahoo検索を利用できる。 */}
   renderSettings();renderLocations();renderPasses();updateFeedStatus();updateConditions();readScreenshot();readLiveReports();setTab('today');window.addEventListener('resize',moveTabSelection);
+  timetables=mountTimetables({network:base,getState:()=>state,now:tokyoNow,setTab});operations=mountOperations();
   mobility=mountMobility({network:base,getState:()=>state,commit,openPicker,toast,setTab,now:tokyoNow,
     sceneChanged:()=>{if(!$('#stop-dialog').open)setTab('today');},
-    showOperations:()=>{setTab('live',false);$('#capture-rail').closest('.card').scrollIntoView({behavior:'smooth',block:'start'});},
+    showOperations:()=>setTab('live',false),
+    showTimetable:id=>timetables.select(id),
     setSearchFrom:from=>{query.from=from;renderLocations();setTab('search');$('#from-name').scrollIntoView({behavior:'smooth',block:'center'});},
     navigate:(from,to)=>{query=schoolRequest({from,to,via:[]});setNow();renderLocations();setTab('search');searchYahoo();},
     showBus:async(id,route)=>{liveStop=base.stops.get(id)?.fullName??name(id);$('#live-stop-name').textContent=liveStop;$('#bus-live-result').innerHTML='';setTab('live',false);await loadLiveChoices();const c=choices.find(c=>c.route===route)??choices[0];if(c){$('#live-choice').value=c.value;await updateBus();}},

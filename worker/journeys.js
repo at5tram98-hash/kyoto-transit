@@ -5,7 +5,7 @@ import {yahooURL} from '../public/js/providers.js';
 import {schoolRequest} from '../public/js/mobility.js';
 
 const network=createNetwork(catalog);
-const routes=new Set(['10','13','43','78','202','204','205','206','208']);
+const routes=new Set(['10','13','43','46','78','93','202','204','205','206','208']);
 const clean=s=>String(s??'').replace(/\s+/g,' ').trim();
 const money=s=>{const m=clean(s).match(/([\d,]+)円/);return m?Number(m[1].replaceAll(',','')):null;};
 const simple=s=>normalize(s.replace(/\([^)]*\)|（[^）]*）|\[[^\]]*\]/g,'').replace(/[／/].*$/,'').replace(/駅前$/,'').replaceAll('松ケ崎','松ヶ崎'));

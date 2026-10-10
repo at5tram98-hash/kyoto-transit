@@ -28,6 +28,6 @@ for(const file of files.filter(file=>file.path.startsWith('js/')&&file.path.ends
   content=content.replace(/fetch\('data\/([\w-]+\.json)'\)/g,(_,path)=>`fetch('data/${path}?v=${version}')`);
   await writeFile(new URL(file.path,output),content);
 }
-const html=(await readFile(new URL('index.html',output),'utf8')).replace('href="styles.css"',`href="styles.css?v=${version}"`).replace('src="js/app.js"',`src="js/app.js?v=${version}"`);
+const html=(await readFile(new URL('index.html',output),'utf8')).replace('href="styles.css"',`href="styles.css?v=${version}"`).replace('href="native.css"',`href="native.css?v=${version}"`).replace('src="js/app.js"',`src="js/app.js?v=${version}"`);
 await writeFile(new URL('index.html',output),html);
 console.log(`dist/ に公開用ファイルを生成しました（${version}）。`);

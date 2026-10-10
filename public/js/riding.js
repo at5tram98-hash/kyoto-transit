@@ -13,13 +13,13 @@ export function trajectory(samples,now=Date.now()){
 }
 export function nearbyStops(f,geo,network,limit=3,now=Date.now()){
   if(!freshFix(f,now))return [];
-  return geo.stops.filter(s=>network.stops.get(s.id)?.type==='citybus').map(s=>({...s,meters:distance(f,s)})).filter(s=>s.meters<=5000).sort((a,b)=>a.meters-b.meters).slice(0,limit);
+  return geo.stops.filter(s=>['citybus','kyotobus','subway'].includes(network.stops.get(s.id)?.type)).map(s=>({...s,meters:distance(f,s)})).filter(s=>s.meters<=5000&&(network.stops.get(s.id)?.type!=='subway'||s.meters<=150)).sort((a,b)=>a.meters-b.meters).slice(0,limit);
 }
 const simple=s=>normalize(String(s??'').replace(/行き?$|方面$/g,'').replace(/\([^)]*\)|（[^）]*）|駅前$/g,'').replaceAll('近鉄奈良','奈良').replaceAll('大和西大寺','西大寺'));
 function onRailShape(fix,geo,operator){return (geo?.lines??[]).filter(l=>operator==='subway'?l.line==='烏丸線':['京都線','奈良線'].includes(l.line)).some(l=>l.points.some((p,i)=>i&&segmentDistance(fix,{lng:l.points[i-1][0],lat:l.points[i-1][1]},{lng:p[0],lat:p[1]})<=Math.max(100,fix.accuracy*2)));}
 export function matchRail(leg,feed,network,minute,fix,geo,now=Date.now()){
-  if(leg.operator!=='kintetsu'||!feed||now-Date.parse(feed.sourceUpdatedAt)>120000||now-Date.parse(feed.capturedAt)>120000||Date.parse(feed.sourceUpdatedAt)>now+60000)return [];
-  const stops=timedStops(leg,network),start=kintetsuIds.indexOf(leg.from),end=kintetsuIds.indexOf(leg.to);if(start<0||end<0||start===end)return [];
+  if(!['kintetsu','through'].includes(leg.operator)||!feed||now-Date.parse(feed.sourceUpdatedAt)>120000||now-Date.parse(feed.capturedAt)>120000||Date.parse(feed.sourceUpdatedAt)>now+60000)return [];
+  const stops=timedStops(leg,network),railStops=stops.filter(s=>kintetsuIds.includes(s.id)),start=kintetsuIds.indexOf(railStops[0]?.id),end=kintetsuIds.indexOf(railStops.at(-1)?.id);if(start<0||end<0||start===end)return [];
   return feed.trains.filter(t=>t.category===leg.category&&simple(t.destination)===simple(leg.destination)&&t.direction===(end>start?'south':'north')).filter(t=>{
     // Use source timestamp for the schedule comparison, not the later HTTP capture time.
     const sourceMinute=minute-(now-Date.parse(feed.sourceUpdatedAt))/60000,delay=t.delay??0,before=[...stops].reverse().find(s=>s.time<=sourceMinute-delay),after=stops.find(s=>s.time>=sourceMinute-delay);

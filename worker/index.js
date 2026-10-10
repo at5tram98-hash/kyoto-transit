@@ -3,9 +3,12 @@ import {boundedText,searchJourney,validateJourneyRequest} from './journeys.js';
 import {parseApproach} from './bus.js';
 import {findMeeting,validateMeeting} from './meeting.js';
 import {LOCATION_URL,parseRailLocation} from './rail.js';
+import {timetableOptions,readTimetable,readOfficialTrip,officialFetcher} from './timetables.js';
+import {operationInformation} from './operations.js';
+import {riderCandidates} from './rider-candidates.js';
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const RAIL='https://www.kintetsu.jp/unkou/unkou.html';
-const ROUTES=new Set(['10','13','43','78','202','204','205','206','208']);
+const ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208']);
 const clean=s=>s.replace(/\s+/g,' ').trim();
 const error=(message,status=400)=>Response.json({error:message},{status});
 
@@ -65,13 +68,20 @@ export default {
     const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN;
     const cors={'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Expose-Headers':'X-Captured-At, X-Source-URL','Vary':'Origin','Cache-Control':'no-store'};
     const url=new URL(request.url);
+    const sourceFetch=officialFetcher(env);
     if(url.pathname==='/health')return Response.json({service:'My Map 乗換・接近情報',version:3,browser:Boolean(env.BROWSER)});
-    if(!allowed)return error('My Mapからご利用ください。',403);
+    const publicOfficial=['/timetable/options','/timetable','/timetable/trip','/operations'].includes(url.pathname)&&!origin;
+    if(!allowed&&!publicOfficial)return error('My Mapからご利用ください。',403);
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
     let response;
     try{
       if(request.method!=='GET')response=error('GETのみ利用できます。',405);
       else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。1分ほど待ってください。',429);
+      else if(url.pathname==='/timetable/options')response=Response.json(await timetableOptions(url.searchParams.get('stop'),sourceFetch));
+      else if(url.pathname==='/timetable')response=Response.json(await readTimetable(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),sourceFetch,url.searchParams.get('date')));
+      else if(url.pathname==='/operations')response=Response.json(await operationInformation(sourceFetch));
+      else if(url.pathname==='/rider/candidates')response=Response.json(await riderCandidates(url.searchParams.get('stop'),url.searchParams.get('date'),Number(url.searchParams.get('minute')),sourceFetch));
+      else if(url.pathname==='/timetable/trip')response=Response.json(await readOfficialTrip(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),url.searchParams.get('trip'),sourceFetch));
       else if(url.pathname==='/meeting'){
         const raw=url.searchParams.get('request');if(!raw||raw.length>4000)response=error('合流条件を確認してください。');
         else{let r;try{r=validateMeeting(JSON.parse(raw));}catch(e){response=error(e.message??'合流条件を確認してください。');}if(r)response=Response.json(await findMeeting(r));}

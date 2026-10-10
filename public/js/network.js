@@ -47,7 +47,7 @@ export function createNetwork(catalog) {
     const offsets=all.map((id,i)=>i<15?i*2:28+Math.round((stops.get(id).kintetsuKm-3.6)*(category==='local'?1.8:1.1)));
     pairService(`through-${category}`,'烏丸線・近鉄直通','through',all,offsets,30,{category,through:true});
   }
-  for(const [route,entry] of Object.entries(catalog)) {
+  for(const [route,entry] of Object.entries(catalog).sort(([a],[b])=>{const old=['10','13','43','78','202','204','205','206','208'];return (old.indexOf(a)<0?100+Number(a):old.indexOf(a))-(old.indexOf(b)<0?100+Number(b):old.indexOf(b));})) {
     let ids=[...new Set(entry.names.map(busStop))];
     ids.forEach(id=>{if(!stops.get(id).lines.includes(route))stops.get(id).lines.push(route);});
     // 停留所一覧は方向差・入出庫便を含む。デモの循環幹線と枝を分離する。
@@ -61,7 +61,7 @@ export function createNetwork(catalog) {
     }
   }
   for(const [id,name] of [['kyotobus-kokusai','国際会館駅前'],['ksu','京都産業大学前']])
-    stops.set(id,{id,name,type:'kyotobus',lines:['40・直行40'],aliases:id==='ksu'?['京都産業大学','京産大']:[]});
+    stops.set(id,{id,name,type:'kyotobus',officialId:id==='ksu'?'7475_1':'91_1',lines:['40','特40','直行40'],aliases:id==='ksu'?['京都産業大学','京産大']:[]});
   pairService('kyotobus-40','京都バス40系統','kyotobus',['kyotobus-kokusai','ksu'],[0,15],15,{route:'40'});
   const connect=(a,b,minutes)=>{if(a&&b){walks.push({from:a,to:b,minutes},{from:b,to:a,minutes});}};
   connect('K11','B01',8);

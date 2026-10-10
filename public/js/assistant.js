@@ -7,6 +7,7 @@ import {distance} from './mobility.js';
 import {createRefreshLoop} from './refresh.js';
 import {mountRideAssistant} from './ride-ui.js';
 import {createLocationSession} from './location-session.js';
+import {mountFoldback} from './foldback-ui.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const minute=time=>time.split(':').map(Number).reduce((h,m)=>h*60+m);
 const symbol=n=>`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${n==='location'?'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/>':n==='school'?'<path d="m2 8 10-5 10 5-10 5Z"/><path d="M5 10v7q7 5 14 0v-7M22 8v9"/>':n==='friends'?'<path d="M3 18v-5a4 4 0 0 1 8 0v5m2 0v-5a4 4 0 0 1 8 0v5M5 21l2-3m12 3-2-3"/><circle cx="7" cy="5" r="2"/><circle cx="17" cy="5" r="2"/>':'<path d="M3 8h18l-2-5H5Zm1 0v12h16V8M9 20v-7h6v7"/>'}</svg>`;
@@ -132,7 +133,8 @@ export function mountMobility(api){
   document.addEventListener('visibilitychange',()=>{nearRefresh.tick();if(!document.hidden)gps.start();});
   window.addEventListener('pageshow',()=>{gps.start();nearRefresh.setEnabled(nearAuto);});
   window.addEventListener('pagehide',e=>{gps.stop();controller?.abort();nearController?.abort();if(!e.persisted){nearRefresh.dispose();clearInterval(timer);}});
-  ride=mountRideAssistant({...api,getOrigin:()=>origin,setOrigin,loadNearby},root);
+  const foldback=mountFoldback({network,now:api.now,openMeeting});
+  ride=mountRideAssistant({...api,getOrigin:()=>origin,setOrigin,loadNearby,openFoldback:foldback.open},root);
   refreshSettings();
   void gps.start();
   return {openMeeting,refreshSettings,routesChanged:(routes,r)=>{trackRoutes=routes;trackRequest=r;ride.routes(routes,r);confirmed=null;renderTracking();},selectStop:(target,id)=>{
