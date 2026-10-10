@@ -1,0 +1,60 @@
+name: Current Hyperdia parser sync
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/hyperdia-parser-sync.yml']
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Patch current Kyoto City Bus timetable parser
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('worker/timetables.js')
+          s=p.read_text()
+          old="""    if(!entries.length){
+      const rows=key==='weekday'?'.wektime':key==='saturday'?'.sattime,.doytime':'.holtime,.kyutime';
+      $(rows).each((_,e)=>{const row=$(e),hour=Number(clean(row.find('h3').first().text()));if(!Number.isInteger(hour)||hour<0||hour>24)return;
+        row.find('td.timetable span[data-no]').each((_,a)=>{const min=clean($(a).text());if(!/^\\d{1,2}$/.test(min)||+min>59)return;entries.push({depart:hour*60+(+min),category:null,destination:null,note:clean($(a).attr('title'))});});
+      });
+    }"""
+          new="""    if(!entries.length){
+      const current=key==='weekday'?'.tt-time.wek':key==='saturday'?'.tt-time.sat':'.tt-time.hol';
+      $(current).each((_,e)=>{const cell=$(e),heading=clean(cell.find('h3').first().text()),hour=Number(heading.match(/(\\d{1,2})時台/)?.[1]);if(!Number.isInteger(hour)||hour<0||hour>24)return;
+        const body=cell.clone();body.find('h3').remove();for(const match of clean(body.text()).matchAll(/(?:^|\\s)(\\d{1,2})(?=\\s|$)/g)){const min=Number(match[1]);if(min<0||min>59)continue;entries.push({depart:hour*60+min,category:null,destination:null,note:''});}
+      });
+    }
+    if(!entries.length){
+      const rows=key==='weekday'?'.wektime':key==='saturday'?'.sattime,.doytime':'.holtime,.kyutime';
+      $(rows).each((_,e)=>{const row=$(e),hour=Number(clean(row.find('h3').first().text()));if(!Number.isInteger(hour)||hour<0||hour>24)return;
+        row.find('td.timetable span[data-no]').each((_,a)=>{const min=clean($(a).text());if(!/^\\d{1,2}$/.test(min)||+min>59)return;entries.push({depart:hour*60+(+min),category:null,destination:null,note:clean($(a).attr('title'))});});
+      });
+    }"""
+          assert old in s
+          p.write_text(s.replace(old,new,1))
+          PY
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Worker dry-run bundle
+        run: |
+          mkdir -p worker-dist
+          npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
+          test -s worker-dist/worker.js
+      - name: Commit parser fix
+        run: |
+          rm .github/workflows/hyperdia-parser-sync.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add worker/timetables.js .github/workflows/hyperdia-parser-sync.yml
+          git commit -m 'Support current Kyoto City Bus timetable markup'
+          git push
