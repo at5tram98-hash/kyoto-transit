@@ -33,6 +33,9 @@ KVキー:
 - `manual:kintetsu:weekday`
 - `manual:kintetsu:weekend`
 - `manual:kintetsu:status`
+- `manual:subway:weekday`
+- `manual:subway:weekend`
+- `manual:subway:status`
 
 ### GTFS版の選択規則
 
@@ -46,34 +49,58 @@ KVキー:
 
 この順序は単体テストで固定しています。京都バスのオープンキャンパス等、通常版と臨時版が重なるケースを想定しています。
 
-### 軽量JSONスキーマ
+### GTFS軽量JSONスキーマ
 
-GTFSから以下だけを保持します。
+`worker/static-gtfs.js` が実際に保存する形式です。時刻はサービス日0:00からの分で、24時以降もそのまま保持します。`calendarDates` は通常曜日より優先します。
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "operator": "citybus",
+  "source": "https://ckan.odpt.org/...",
+  "version": {"versionDate":"YYYY-MM-DD","effectiveFrom":"YYYY-MM-DD","effectiveTo":"YYYY-MM-DD"},
   "revisionDate": "YYYY-MM-DD",
   "lastUpdated": "ISO-8601",
   "validFrom": "YYYY-MM-DD",
   "validTo": "YYYY-MM-DD",
-  "stops": [{"id":"...","name":"...","lat":0,"lon":0}],
-  "routes": [{"id":"...","shortName":"205","longName":"..."}],
-  "trips": [{"id":"...","routeId":"...","serviceId":"...","stops":[{"stopId":"...","arrival":480,"departure":480,"sequence":1}]}],
-  "calendar": {},
-  "calendarDates": {},
-  "shapes": {}
+  "stops": [{"id":"...","name":"...","lat":35.0,"lng":135.0,"platform":null}],
+  "routes": [{"id":"...","shortName":"205","longName":"...","type":3,"category":"local"}],
+  "trips": [{
+    "id":"...","routeId":"...","serviceId":"...","headsign":"...","direction":0,"shapeId":"...",
+    "stops":["stop-a","stop-b"],"arrivals":[480,482],"departures":[480,482]
+  }],
+  "calendar": [{"serviceId":"...","start":"YYYY-MM-DD","end":"YYYY-MM-DD","week":[true,true,true,true,true,false,false]}],
+  "calendarDates": [{"serviceId":"...","date":"YYYY-MM-DD","exception":1}],
+  "shapes": [{"id":"...","points":[[135.0,35.0],[135.1,35.1]]}]
 }
 ```
 
-時刻はサービス日0:00からの分で、24時以降もそのまま保持します。`calendar_dates` は通常曜日より優先します。
+## 地下鉄の期間限定GTFSと公式時刻表fallback
 
-## 地下鉄の期間限定GTFS
+公共交通オープンデータセンターで京都市営地下鉄GTFSが期間限定公開となる可能性があります。本アプリでは、公開終了後の長期アーカイブ利用を当然に許可されたものとは扱いません。継続保存・再利用が許可されていると明示確認できない場合は、古い保存版に依存せず京都市交通局の公式時刻表から生成するJSONへ切り替えます。
 
-公共交通オープンデータセンターで京都市営地下鉄GTFSが期間限定公開となる可能性があります。本アプリでは、公開終了後の長期アーカイブ利用を当然に許可されたものとは扱いません。継続保存・再利用が許可されていると明示確認できない場合は、利用終了時に当該GTFSへの依存を止め、京都市交通局の公式時刻表を読み取って作る時刻表JSONへ切り替えます。
+`worker/manual-subway-feed.js` は平日/土休日ごとに烏丸線15駅の公式発車表を読み、同方向の時刻を駅順に一対一照合します。公式駅時刻表に存在しない時刻を中間駅へ補いません。終着駅には同方向の発車表が存在しないため、**終着駅の到着分だけ**直前駅からの2分を導出値として持ち、`meta.terminalArrivalDerived: true` を必ず記録します。駅間対応が崩れ、全線を十分に照合できない場合は生成自体を失敗させます。
 
-手動/公式時刻表JSONは、生GTFSのコピーではなく、アプリが必要とする発車時刻・行先・種別・確認日・出典URLを記録します。
+保存形式:
+
+```json
+{
+  "schemaVersion": 1,
+  "source": "https://www2.city.kyoto.lg.jp/kotsu/tikadia/hyperdia/menu022.htm",
+  "revisionDate": "2025-02-22",
+  "lastUpdated": "ISO-8601",
+  "validDates": ["YYYY-MM-DD"],
+  "stops": [{"id":"K01","name":"国際会館","type":"subway"}],
+  "services": [{
+    "id":"manual:subway:...","operator":"subway","label":"地下鉄烏丸線","category":"local",
+    "stops":["K01","K02","...","K15"],
+    "trips":[{"id":"...","date":"YYYY-MM-DD","arrivals":[...],"departures":[...],"headsign":"竹田"}]
+  }],
+  "meta": {"operator":"subway","method":"official-station-timetable-json","terminalArrivalDerived":true}
+}
+```
+
+`readStatic()` はODPT地下鉄GTFSが対象日に有効かつ最終取得から48時間以内ならGTFSを優先し、それ以外では公式時刻表fallbackを使用します。fallback自体も14日以上更新できなければ短い警告を出します。
 
 ## 近鉄の時刻表JSON
 
@@ -90,14 +117,11 @@ GTFSから以下だけを保持します。
   "validDates": ["YYYY-MM-DD"],
   "stops": [{"id":"B01","name":"京都","type":"kintetsu"}],
   "services": [{
-    "id": "manual:...",
-    "operator": "kintetsu",
-    "label": "近鉄京都線",
-    "category": "express",
-    "stops": ["B01","B02","K15","B07","B24"],
-    "trips": [{"id":"1-...","date":"YYYY-MM-DD","arrivals":[...],"departures":[...],"headsign":"..."}]
+    "id":"manual:...","operator":"kintetsu","label":"近鉄京都線","category":"express",
+    "stops":["B01","B02","K15","B07","B24"],
+    "trips":[{"id":"1-...","date":"YYYY-MM-DD","arrivals":[...],"departures":[...],"headsign":"..."}]
   }],
-  "meta": {"operator":"kintetsu","revisionDate":"YYYY-MM-DD","lastUpdated":"ISO-8601"}
+  "meta": {"operator":"kintetsu","revisionDate":"YYYY-MM-DD","lastUpdated":"ISO-8601","method":"official-timetable-json"}
 }
 ```
 
@@ -108,8 +132,9 @@ GTFSから以下だけを保持します。
 1. Cronまたは `refreshKintetsuPattern()` を実行。
 2. 公式発車表の改正日を `revisionDate` に記録。
 3. 平日と土休日の両パターンをKVへ保存。
-4. 14日以上再取得できていない場合は画面へ短い警告を出す。
-5. 公式HTMLの目的要素が消失、または通常運行時間帯に便が0件になった場合は構造変更として扱い、前回成功データ/予測へ切り替える。
+4. 便詳細が20件未満なら完全な生成として採用しない。
+5. 14日以上再取得できていない場合は画面へ短い警告を出す。
+6. 公式HTMLの目的要素が消失、または通常運行時間帯に便が0件になった場合は構造変更として扱い、前回成功データ/予測へ切り替える。
 
 ## アプリ内経路検索
 
@@ -135,13 +160,11 @@ GTFSから以下だけを保持します。
 - 近鉄: 2026年3月14日適用の普通旅客運賃表を営業キロに適用
 - 京都バス: 公式普通旅客運賃表で40・特40の国際会館駅前—京都産業大学前—市原が全区間均一230円であることを確認。未確認の臨時区間は金額を作らない
 
-出典URLと確認日は `public/js/fares.js` の `FARE_SOURCES` に保持します。
-
-定期券は設定画面で明示的に有効化した場合だけ追加額へ適用します。初期状態はすべて無効です。
+出典URLと確認日は `public/js/fares.js` の `FARE_SOURCES` に保持します。定期券は設定画面で明示的に有効化した場合だけ追加額へ適用します。初期状態はすべて無効です。
 
 ## 曜日・祝日・臨時ダイヤ
 
-GTFS事業者は `calendar.txt` と `calendar_dates.txt` から検索日そのものを判定します。京都バスの大学ダイヤと、GTFSを使わない近鉄については `worker/service-calendar.js` の確認済み期間を使用します。確認済み範囲外を勝手に平日とみなしません。
+GTFS事業者は `calendar.txt` と `calendar_dates.txt` から検索日そのものを判定します。京都バスの大学ダイヤと、GTFSを使わない近鉄・地下鉄fallbackについては `worker/service-calendar.js` の確認済み期間を使用します。確認済み範囲外を勝手に平日とみなしません。
 
 ## HTML構造変更時の扱い
 
@@ -167,6 +190,7 @@ npx wrangler deploy --dry-run --config worker/wrangler.jsonc
 - GTFS ZIP/CSV解析
 - 有効版・臨時版選択
 - `calendar_dates` 優先
+- 地下鉄公式時刻表fallbackの全線照合・失敗判定
 - 経路探索、到着時刻指定、乗換余裕、徒歩上限、列車種別
 - 運賃と定期券
 - 祝日判定
