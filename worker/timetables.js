@@ -10,7 +10,7 @@ const KYOTO='https://www.kyotobus.jp';
 const clean=s=>String(s??'').replace(/\s+/g,' ').trim();
 export const timeNumber=s=>{const m=String(s??'').normalize('NFKC').match(/^(\d{1,2}):(\d{2})$/);return m&&+m[1]<48&&+m[2]<60?+m[1]*60+(+m[2]):null;};
 export function officialFetcher(env){return async(url,init)=>{
-  const u=new URL(url),render=u.origin===KYOTO||u.origin==='https://www2.city.kyoto.lg.jp'&&/\/hyperdia\/\d+\.htm$/.test(u.pathname);
+  const u=new URL(url),render=u.origin===KYOTO;
   if(!render)return fetch(url,init);
   const r=await env.BROWSER.quickAction('content',{url:u.href,gotoOptions:{waitUntil:'networkidle2',timeout:20000},actionTimeout:12000});
   if(!r.ok){await r.body?.cancel();throw Error('公式時刻表の画面を取得できませんでした。');}
