@@ -4,6 +4,7 @@ import {trajectory,rankRides,freshFix,matchMeasuredVehicles,createRideConsensus}
 import {getBusChoices,getBusData,getKyotoBusRT} from './live.js';
 import {officialTripLeg} from './vehicle.js';
 import {subwayRideCandidates,buildCityBusTrip,routeIntersection} from './vnext-core.js';
+import {mergeTimetableFeeds} from './search-core.js';
 import {state,settings,tokyoNow,nearest,speed,sleep,haptic,toast,rideKey,serviceName,official,ensureRailFeed,inferRailDirection} from './vnext-state.js';
 
 const consensus=createRideConsensus({required:3,minScore:55,minMargin:8});
@@ -11,6 +12,7 @@ let lastNextAlertKey=null;
 const scoreClamp=n=>Math.max(0,Math.min(100,Math.round(n)));
 const asCandidate=(ride,score,source,extra={})=>({ride,score:scoreClamp(score),source,...extra});
 function onRailCorridor(fix,type){if(!fix||!state.geo?.lines)return false;const names=type==='subway'?new Set(['烏丸線']):new Set(['京都線','奈良線']);return state.geo.lines.filter(l=>names.has(l.line)).some(l=>l.points.some((p,i)=>i&&segmentDistance(fix,{lng:l.points[i-1][0],lat:l.points[i-1][1]},{lng:p[0],lat:p[1]})<=Math.max(140,fix.accuracy*2)));}
+function normalizeStaticFeed(raw){const mapped=mergeTimetableFeeds({...state.network,services:[]},[raw]);return {...raw,services:mapped.services};}
 
 async function detectKintetsu(stopId){
   const now=tokyoNow(),feed=await ensureRailFeed(),data=await official('/rider/candidates',{stop:stopId,date:now.date,minute:now.minute}),legs=data.trips.map(t=>officialTripLeg(t,state.network)).filter(Boolean);if(!legs.length)return [];
@@ -32,7 +34,8 @@ async function detectKyotoBus(stopId){
 async function detectSubway(stopId){
   const now=tokyoNow();
   if(!state.subwayStaticFeed||state.subwayStaticFeedDate!==now.date||Date.now()-(state.subwayStaticFeedAt??0)>15*60*1000){
-    state.subwayStaticFeed=await official('/api/static/feed',{operator:'subway',date:now.date});
+    const raw=await official('/api/static/feed',{operator:'subway',date:now.date});
+    state.subwayStaticFeed=normalizeStaticFeed(raw);
     state.subwayStaticFeedDate=now.date;
     state.subwayStaticFeedAt=Date.now();
   }
