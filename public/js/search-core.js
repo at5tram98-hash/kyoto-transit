@@ -6,7 +6,7 @@ export function mergeTimetableFeeds(base,feeds){
   const index=new Map();for(const s of base.stops.values())for(const n of aliases(s))if(!index.has(n))index.set(n,s.id);
   const services=[];const sourceMeta=[];
   for(const feed of feeds.filter(Boolean)){
-    const map=new Map();for(const s of feed.stops??[]){const id=index.get(normalize(s.name));if(id)map.set(s.id,id);}
+    const map=new Map();for(const s of feed.stops??[]){const native=base.stops.get(s.id),id=native&&aliases(native).includes(normalize(s.name))?s.id:index.get(normalize(s.name));if(id)map.set(s.id,id);}
     for(const service of feed.services??[]){
       const mapped=[];for(let i=0;i<service.stops.length;i++){const id=map.get(service.stops[i]);if(!id)continue;if(mapped.at(-1)?.id===id)continue;mapped.push({id,index:i});}
       if(mapped.length<2)continue;const positions=mapped.map(x=>x.index),dedup=mapped.map(x=>x.id);
