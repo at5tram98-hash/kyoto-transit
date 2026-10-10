@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compileKintetsuTrips,compileKintetsuBoards} from '../worker/manual-rail-feed.js';
+import {compileKintetsuTrips,compileKintetsuBoards,tasksFor,boardURL} from '../worker/manual-rail-feed.js';
 
 const trip=(tripId,category,destination,stops)=>({tripId,category,destination,stops});
 
@@ -52,4 +52,12 @@ test('終着駅に発車表がない短距離便だけ、同種別の駅間中�
 test('同じ便IDでも上下方向は混ぜない',()=>{
   const boards=[board('B07',6,'south',[entry('same',700)]),board('B08',7,'south',[entry('same',702)]),board('B08',7,'north',[entry('same',800,'express','京都')]),board('B07',6,'north',[entry('same',803,'express','京都')])];
   const feed=compileKintetsuBoards(boards,{date:'2026-10-13'});assert.equal(feed.services.length,2);assert.equal(feed.meta.tripCount,2);
+});
+
+test('終端駅の先へ向かう発車表を取得対象にしない',()=>{
+  const south=tasksFor('south'),north=tasksFor('north');
+  assert.equal(south.length,25);assert.equal(north.length,25);
+  assert.equal(south[0].stop,'B01');assert.equal(south.at(-1).stop,'B25');
+  assert.equal(north[0].stop,'B02');assert.equal(north.at(-1).stop,'B26');
+  assert.equal(boardURL(25,'south','weekday'),null);assert.equal(boardURL(0,'north','weekday'),null);
 });
