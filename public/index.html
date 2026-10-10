@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="vnext-ui.css">
   <link rel="stylesheet" href="vnext-sheets.css">
   <link rel="stylesheet" href="vnext-arrivals.css">
+  <link rel="stylesheet" href="vnext-tabbar.css">
 </head>
 <body>
   <div class="app-shell">
@@ -32,13 +33,13 @@
         <div id="now-hero" aria-live="polite"></div>
         <div id="vehicle-panel"></div>
         <div id="network-panel"></div>
+        <div id="arrivals-root" aria-live="polite"></div>
         <div id="nearby-panel"></div>
       </section>
       <section class="view" data-view="timetable" aria-label="時刻表" hidden>
         <div id="timetable-root"></div>
       </section>
       <section class="view" data-view="operations" aria-label="運行情報" hidden>
-        <div id="arrivals-root" aria-live="polite"></div>
         <div id="operations-root" aria-live="polite"></div>
       </section>
       <section class="view" data-view="settings" aria-label="設定" hidden>

@@ -46,13 +46,27 @@ async function options(stop){
   if(!response.ok){await response.body?.cancel();throw Error(`ポケロケの停留所検索を取得できませんでした（HTTP ${response.status}）。`);}
   return parseBusChoices(await boundedText(response));
 }
-async function busData(env,stop,choice){
+async function busDataObject(env,stop,choice){
   const url=approachURL(stop,choice.value);
   const response=await env.BROWSER.quickAction('content',{url,gotoOptions:{waitUntil:'networkidle2',timeout:20000},waitForSelector:{selector:'#approach_table',visible:true,timeout:10000},actionTimeout:12000});
   if(!response.ok){await response.body?.cancel();throw Error('公式の接近情報を取得できませんでした。時間をおいて再度お試しください。');}
   let html=await boundedText(response);
   if(response.headers.get('content-type')?.includes('json')){const body=JSON.parse(html);html=typeof body.result==='string'?body.result:typeof body.content==='string'?body.content:'';}
-  return Response.json({kind:'bus-data',stop,...choice,...parseApproach(html),capturedAt:new Date().toISOString(),sourceURL:url});
+  return {kind:'bus-data',stop,...choice,...parseApproach(html),capturedAt:new Date().toISOString(),sourceURL:url};
+}
+async function busData(env,stop,choice){return Response.json(await busDataObject(env,stop,choice));}
+async function busAll(env,stop,choices){
+  const unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24);
+  const results=new Array(unique.length);let cursor=0;
+  async function run(){
+    while(true){
+      const i=cursor++;if(i>=unique.length)return;const choice=unique[i];
+      try{results[i]=await busDataObject(env,stop,choice);}
+      catch(e){results[i]={kind:'bus-data',stop,...choice,buses:[],error:e instanceof Error?e.message:'接近情報を取得できませんでした。',capturedAt:new Date().toISOString()};}
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(4,unique.length)},()=>run()));
+  return Response.json({kind:'bus-all',stop,results,capturedAt:new Date().toISOString(),notice:'この停留所の対応系統・行先・のりばを一括取得'});
 }
 async function capture(env,url,source){
   const params={url,viewport:{width:480,height:1000,deviceScaleFactor:2},gotoOptions:{waitUntil:'networkidle2',timeout:20000},screenshotOptions:{type:'png',fullPage:true},actionTimeout:12000};
@@ -69,14 +83,14 @@ export default {
     const cors={'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type','Access-Control-Expose-Headers':'X-Captured-At, X-Source-URL','Vary':'Origin','Cache-Control':'no-store'};
     const url=new URL(request.url);
     const sourceFetch=officialFetcher(env);
-    if(url.pathname==='/health')return Response.json({service:'My Map 乗換・接近情報',version:3,browser:Boolean(env.BROWSER)});
+    if(url.pathname==='/health')return Response.json({service:'My Map 乗換・接近情報',version:4,browser:Boolean(env.BROWSER)});
     const publicOfficial=['/timetable/options','/timetable','/timetable/trip','/operations'].includes(url.pathname)&&!origin;
     if(!allowed&&!publicOfficial)return error('My Mapからご利用ください。',403);
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
     let response;
     try{
       if(request.method!=='GET')response=error('GETのみ利用できます。',405);
-      else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。1分ほど待ってください。',429);
+      else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。少し待ってから再度お試しください。',429);
       else if(url.pathname==='/timetable/options')response=Response.json(await timetableOptions(url.searchParams.get('stop'),sourceFetch));
       else if(url.pathname==='/timetable')response=Response.json(await readTimetable(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),sourceFetch,url.searchParams.get('date')));
       else if(url.pathname==='/operations')response=Response.json(await operationInformation(sourceFetch));
@@ -90,12 +104,13 @@ export default {
         const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');
         else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}
       }
-      else if(['/bus/options','/bus/capture','/bus/data'].includes(url.pathname)){
+      else if(['/bus/options','/bus/capture','/bus/data','/bus/all'].includes(url.pathname)){
         const stop=url.searchParams.get('stop');
         if(!env.STOP_NAMES.includes(stop))response=error('対象の停留所を選択してください。');
         else{
           const choices=await options(stop);
           if(url.pathname==='/bus/options')response=Response.json({stop,choices});
+          else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);
           else{
             const value=url.searchParams.get('choice');
             const choice=choices.find(c=>c.value===value);

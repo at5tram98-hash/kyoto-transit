@@ -13,9 +13,15 @@ if(ids.size!==rawIds.length)throw Error('HTMLに重複するIDがあります。
 for(const required of ['view-title','view-subtitle','location-indicator','now-hero','vehicle-panel','network-panel','nearby-panel','timetable-root','arrivals-root','operations-root','settings-content','foldback-sheet','foldback-body','toast'])if(!ids.has(required))throw Error(`公開UIの必須IDがありません：${required}`);
 const views=[...html.matchAll(/data-view="([^"]+)"/g)].map(x=>x[1]);
 if(JSON.stringify(views)!==JSON.stringify(['now','timetable','operations','settings']))throw Error('公開タブは 今・時刻表・運行情報・設定 の4つにしてください。');
+const nowStart=html.indexOf('data-view="now"'),timetableStart=html.indexOf('data-view="timetable"'),arrivalsAt=html.indexOf('id="arrivals-root"');
+if(!(nowStart<arrivalsAt&&arrivalsAt<timetableStart))throw Error('接近情報は「今」タブ内に配置してください。');
+if(!html.includes('vnext-tabbar.css'))throw Error('旧型アニメーション付きタブバーCSSが読み込まれていません。');
 for(const m of html.matchAll(/(?:src|href)="([^"]+)"/g)){
   if(/^(?:https?:|#|data:|\.\/$)/.test(m[1]))continue;
   const file=m[1].split(/[?#]/)[0];if(!existsSync(resolve(root,'public',file)))throw Error(`ファイルがありません：${file}`);
 }
+const arrivals=readFileSync(resolve(root,'public/js/vnext-arrivals.js'),'utf8'),worker=readFileSync(resolve(root,'worker/index.js'),'utf8');
+if(!/REFRESH_MS\s*=\s*20000/.test(arrivals)||!arrivals.includes('getBusAll'))throw Error('接近情報は20秒更新・全系統一括取得にしてください。');
+if(!worker.includes("'/bus/all'"))throw Error('Workerに市バス全接近情報APIがありません。');
 JSON.parse(readFileSync(resolve(root,'public/manifest.webmanifest'),'utf8'));
-console.log('JavaScript構文・4タブUI・接近情報UI・静的ファイル参照を検証しました。');
+console.log('JavaScript構文・4タブUI・今タブ接近情報・20秒更新・全系統接近API・アニメーションタブバーを検証しました。');

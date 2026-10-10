@@ -7,10 +7,13 @@ async function response(path,params,signal){
 }
 export async function getBusChoices(stop,signal){return (await response('/bus/options',{stop},signal)).json();}
 export async function getBusData(stop,choice,signal){const value=busChoiceValue(choice);if(!value)throw Error('系統・行先を選択してください。');return (await response('/bus/data',{stop,choice:value},signal)).json();}
+export async function getBusAll(stop,signal){if(!stop)throw Error('停留所を選択してください。');return (await response('/bus/all',{stop},signal)).json();}
 export async function getRailLocation(signal){return (await response('/rail/location',{},signal)).json();}
 export async function getOfficialImage(source,{stop,choice}={},signal){
-  const params=source==='rail'?{}:{stop,choice:busChoiceValue(choice)};if(source!=='rail'&&(!params.stop||!params.choice))throw Error('停留所と系統・行先を選択してください。');
-  const r=await response(source==='rail'?'/rail/capture':'/bus/capture',params,signal);
+  const railLocation=source==='rail-location',rail=source==='rail'||railLocation;
+  const params=rail?{}:{stop,choice:busChoiceValue(choice)};if(!rail&&(!params.stop||!params.choice))throw Error('停留所と系統・行先を選択してください。');
+  const path=railLocation?'/rail/location/capture':source==='rail'?'/rail/capture':'/bus/capture';
+  const r=await response(path,params,signal);
   if(!r.headers.get('content-type')?.startsWith('image/'))throw Error('取得したデータが画像ではありません。');
   const blob=await r.blob();if(blob.size>15*1024*1024)throw Error('取得画像が大きすぎます。公式画面で確認してください。');
   const capturedAt=r.headers.get('X-Captured-At');if(!Number.isFinite(Date.parse(capturedAt)))throw Error('取得時刻を確認できませんでした。');
