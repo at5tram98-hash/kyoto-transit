@@ -2,14 +2,15 @@ import {createNetwork} from './network.js';
 import {locate} from './mobility.js';
 import {createLocationSession} from './location-session.js';
 import {mountTimetables,mountOperations} from './timetable-ui.js';
-import {$,$$,esc,icon,state,haptic,tokyoNow,augmentKyotoBusGeometry,ensureRailFeed,nearest} from './vnext-state.js';
+import {mountRouteSearch} from './route-search-ui.js';
+import {$,$$,esc,icon,state,settings,haptic,tokyoNow,augmentKyotoBusGeometry,ensureRailFeed,nearest} from './vnext-state.js';
 import {autoDetectRide,updateBusTrail} from './vnext-detect.js';
 import {renderNow} from './vnext-view.js';
 import {renderSettings,setupSettings,refreshNetwork} from './vnext-network-view.js';
 import {openFoldback,setupFoldback} from './vnext-foldback.js';
 import {mountArrivals} from './vnext-arrivals.js';
 
-let timetables,operations,arrivals;
+let timetables,operations,arrivals,routeSearch;
 function moveTabSelection(){
   const nav=$('.tabbar'),active=nav?.querySelector('.tab-button.active'),pill=nav?.querySelector('.tab-selection');
   if(!nav||!active||!pill){nav?.classList.remove('tab-ready');return;}
@@ -24,6 +25,7 @@ function setTab(tab){
   $('#view-title').textContent={now:'今',timetable:'時刻表',operations:'運行情報',settings:'設定'}[tab];
   $('#view-subtitle').textContent=tab==='now'?'現在地に合わせて自動案内':'My Map';
   if(tab==='now')arrivals?.show();
+  if(tab==='timetable')routeSearch?.show();
   if(tab==='operations')operations.show();
   if(tab==='settings')renderSettings();
   requestAnimationFrame(moveTabSelection);
@@ -34,7 +36,7 @@ function setupEvents(){
   document.addEventListener('click',async e=>{
     const b=e.target.closest('button');if(!b)return;
     if(b.hasAttribute('data-retry-location'))state.locationSession?.start({retry:true});
-    else if(b.dataset.openTimetable){timetables.select(b.dataset.openTimetable);setTab('timetable');}
+    else if(b.dataset.openTimetable){setTab('timetable');routeSearch?.openBoard();timetables.select(b.dataset.openTimetable);}
     else if(b.dataset.openArrivals){setTab('now');await arrivals?.selectStop(b.dataset.openArrivals,true);}
     else if(b.id==='ride-foldback')openFoldback();
     else if(b.id==='ride-operations')setTab('operations');
@@ -56,6 +58,7 @@ async function init(){
     ]);
     state.network=createNetwork(catalog);state.geo=geo;augmentKyotoBusGeometry();
     timetables=mountTimetables({network:state.network,getState:()=>({favorites:[]}),now:tokyoNow,setTab});
+    routeSearch=mountRouteSearch({network:state.network,settings,tokyoNow});
     operations=mountOperations();
     arrivals=mountArrivals({network:state.network});
     renderSettings();setupSettings(renderNow);setupEvents();
