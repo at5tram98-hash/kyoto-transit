@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="vnext.css">
   <link rel="stylesheet" href="vnext-ui.css">
   <link rel="stylesheet" href="vnext-sheets.css">
+  <link rel="stylesheet" href="vnext-arrivals.css">
 </head>
 <body>
   <div class="app-shell">
@@ -37,6 +38,7 @@
         <div id="timetable-root"></div>
       </section>
       <section class="view" data-view="operations" aria-label="運行情報" hidden>
+        <div id="arrivals-root" aria-live="polite"></div>
         <div id="operations-root" aria-live="polite"></div>
       </section>
       <section class="view" data-view="settings" aria-label="設定" hidden>

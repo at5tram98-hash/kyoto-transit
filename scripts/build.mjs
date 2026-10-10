@@ -27,6 +27,6 @@ for(const file of files.filter(file=>file.path.startsWith('js/')&&file.path.ends
   await writeFile(new URL(file.path,output),content);
 }
 let html=await readFile(new URL('index.html',output),'utf8');
-html=html.replace(/href="vnext\.css(?:\?[^\"]*)?"/,`href="vnext.css?v=${version}"`).replace(/href="vnext-ui\.css(?:\?[^\"]*)?"/,`href="vnext-ui.css?v=${version}"`).replace(/href="vnext-sheets\.css(?:\?[^\"]*)?"/,`href="vnext-sheets.css?v=${version}"`).replace(/src="js\/vnext\.js(?:\?[^\"]*)?"/,`src="js/vnext.js?v=${version}"`);
+html=html.replace(/href="(vnext(?:-[\w-]+)?\.css)(?:\?[^\"]*)?"/g,(_,path)=>`href="${path}?v=${version}"`).replace(/src="js\/vnext\.js(?:\?[^\"]*)?"/,`src="js/vnext.js?v=${version}"`);
 await writeFile(new URL('index.html',output),html);
 console.log(`dist/ に公開用ファイルを生成しました（${version}）。`);

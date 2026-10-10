@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {chooseNearbyGuide,buildSubwayTrip,buildCityBusTrip,routeIntersection,projectSubwayTrains,delayLabel} from '../public/js/vnext-core.js';
+import {busChoiceValue} from '../public/js/live.js';
 import {subwayIds,createNetwork} from '../public/js/network.js';
 
 const subwayNetwork={stops:new Map(subwayIds.map((id,i)=>[id,{id,name:`S${i+1}`}]))};
@@ -12,4 +13,5 @@ test('市バスは直前の停留所から進行方向を優先する',()=>{cons
 test('連続して観測した停留所に共通する市バス系統だけを残す',()=>{const network={stops:new Map([['a',{lines:['10','202']}],['b',{lines:['202','204']}],['c',{lines:['202']} ]])};assert.deepEqual(routeIntersection(['a','b','c'],network),['202']);});
 test('地下鉄の両方向の便を公式発車時刻から同時に投影できる',()=>{const trains=projectSubwayTrains({southEntries:[{depart:590}],northEntries:[{depart:591}],nowMinute:600,network:subwayNetwork});assert.ok(trains.some(t=>t.direction==='south'));assert.ok(trains.some(t=>t.direction==='north'));});
 test('遅れ表示は公式と推定を区別する',()=>{assert.equal(delayLabel(4,true),'4分遅れ');assert.equal(delayLabel(4,false),'推定 4分遅れ');assert.equal(delayLabel(0,false),'ほぼ定刻');});
+test('ポケロケ候補はオブジェクトでもvalueだけをAPIへ渡す',()=>{const choice={route:'204',destination:'円町',boarding:'Bのりば',value:'204000001;1:2:3'};assert.equal(busChoiceValue(choice),'204000001;1:2:3');assert.equal(busChoiceValue(choice.value),choice.value);assert.equal(busChoiceValue(null),'');});
 test('京都バス臨時の丸太町区間を公式停留所ID付きで登録する',()=>{const network=createNetwork({});assert.equal(network.stops.get('kyotobus-karasuma-marutamachi').officialId,'51_1');assert.equal(network.stops.get('kyotobus-senbon-marutamachi').officialId,'152_2');assert.ok(network.services.some(s=>s.operator==='kyotobus'&&s.route==='臨時'));});
