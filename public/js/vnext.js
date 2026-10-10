@@ -4,7 +4,7 @@ import {createLocationSession} from './location-session.js';
 import {mountTimetables,mountOperations} from './timetable-ui.js';
 import {mountRouteSearch} from './route-search-ui.js';
 import {$,$$,esc,icon,state,settings,haptic,tokyoNow,augmentKyotoBusGeometry,ensureRailFeed,nearest} from './vnext-state.js';
-import {autoDetectRide,updateBusTrail} from './vnext-detect.js';
+import {autoDetectRide,updateBusTrail,confirmRideCandidate,resetRideDetection} from './vnext-detect.js';
 import {renderNow} from './vnext-view.js';
 import {renderSettings,setupSettings,refreshNetwork} from './vnext-network-view.js';
 import {openFoldback,setupFoldback} from './vnext-foldback.js';
@@ -38,9 +38,10 @@ function setupEvents(){
     if(b.hasAttribute('data-retry-location'))state.locationSession?.start({retry:true});
     else if(b.dataset.openTimetable){setTab('timetable');routeSearch?.openBoard();timetables.select(b.dataset.openTimetable);}
     else if(b.dataset.openArrivals){setTab('now');await arrivals?.selectStop(b.dataset.openArrivals,true);}
+    else if(b.dataset.rideCandidate!==undefined){if(confirmRideCandidate(b.dataset.rideCandidate))renderNow();}
     else if(b.id==='ride-foldback')openFoldback();
     else if(b.id==='ride-operations')setTab('operations');
-    else if(b.id==='ride-end'){state.ride=null;state.rideShift=0;state.rideConfidence=0;state.rideSource=null;renderNow();}
+    else if(b.id==='ride-end'){state.ride=null;state.rideShift=0;state.rideConfidence=0;state.rideSource=null;resetRideDetection();renderNow();}
     else if(b.id==='network-refresh')refreshNetwork();
     else if(b.id==='location-indicator')state.locationSession?.start({retry:true});
   });
