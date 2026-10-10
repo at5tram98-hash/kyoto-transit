@@ -77,7 +77,7 @@ async function init(){
     setInterval(()=>{
       if(document.hidden)return;
       renderNow();autoDetectRide(false,renderNow);
-      if(state.ride&&['kintetsu','through'].includes(state.ride.operator)&&Date.now()-state.railFeedAt>18000)ensureRailFeed(true).then(renderNow);
+      if(state.tab!=='now'&&state.ride&&['kintetsu','through'].includes(state.ride.operator)&&Date.now()-state.railFeedAt>18000)ensureRailFeed(true).then(renderNow);
     },20000);
   }catch(e){
     console.error(e);
