@@ -5,7 +5,7 @@ import {getRailLocation,CAPTURE_API} from './live.js';
 import {officialData} from './timetable-ui.js';
 
 export const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-export const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const minuteOf=time=>{const [h,m]=String(time).split(':').map(Number);return h*60+m;};
 export const tokyoNow=()=>{const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date()).split(' ');return {date:p[0],time:p[1],minute:minuteOf(p[1])};};
@@ -21,7 +21,7 @@ const icons={
 export const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name]??icons.info}</svg>`;
 export const settings=Object.assign({autoDetect:true,haptics:true,showConfidence:false,railGuideDistance:350,passCityBus:false,passKyotoBus:false,passSubway:false,passSubwayFrom:'K01',passSubwayTo:'K11',passExpires:''},JSON.parse(localStorage.getItem('mymap-vnext-settings')||'{}'));
 export const saveSettings=()=>localStorage.setItem('mymap-vnext-settings',JSON.stringify(settings));
-export const state={network:null,geo:null,fix:null,location:null,samples:[],tab:'now',ride:null,rideSource:null,rideConfidence:0,rideShift:0,rideCandidates:[],rideConsensusCount:0,railFeed:null,railFeedAt:0,subwayFeed:null,subwayFeedAt:0,kyotoBusFeed:null,kyotoBusFeedAt:0,busLive:null,busLiveAt:0,busTrail:[],detectBusy:false,lastDetectAt:0,lastNearbyId:null,locationStatus:'loading',locationSession:null,lastRideSeenAt:0,foldbackRide:null};
+export const state={network:null,geo:null,fix:null,location:null,samples:[],tab:'now',ride:null,rideSource:null,rideConfidence:0,rideShift:0,rideCandidates:[],rideConsensusCount:0,railFeed:null,railFeedAt:0,subwayFeed:null,subwayFeedAt:0,subwayStaticFeed:null,subwayStaticFeedDate:null,subwayStaticFeedAt:0,kyotoBusFeed:null,kyotoBusFeedAt:0,busLive:null,busLiveAt:0,busTrail:[],detectBusy:false,lastDetectAt:0,lastNearbyId:null,locationStatus:'loading',locationSession:null,lastRideSeenAt:0,foldbackRide:null};
 export const haptic=()=>{if(settings.haptics&&navigator.vibrate)navigator.vibrate(8);};
 export function toast(message){const el=$('#toast');if(!el)return;el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2800);}
 export function nearest(){const {fix,geo,network}=state;if(!fix||!geo||!network||!freshFix(fix))return {rail:null,bus:null,kyotoBus:null,all:[]};const all=geo.stops.filter(s=>network.stops.has(s.id)).map(s=>({...s,meters:distance(fix,s),stop:network.stops.get(s.id)})).sort((a,b)=>a.meters-b.meters);return {all,rail:all.find(s=>['subway','kintetsu'].includes(s.stop.type)),bus:all.find(s=>['citybus','kyotobus'].includes(s.stop.type)),kyotoBus:all.find(s=>s.stop.type==='kyotobus')};}
