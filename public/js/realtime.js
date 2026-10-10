@@ -2,12 +2,20 @@ import {CAPTURE_API} from './live.js';
 
 export const ARRIVAL_INTERVAL=15000;
 export const LIVE_MAX_AGE=90000;
+export const USER_STALE_WARNING_AGE=300000;
 export const FETCH_TIMEOUT=4000;
 const DB='mymap-live-v1',STORE='cache';
 const logs=new Map();
 
 export const decayDelay=(delay,followingTrips=0)=>Number.isFinite(delay)?delay*(.5**Math.max(0,followingTrips)):null;
 export const isFresh=(asOf,limit=LIVE_MAX_AGE,now=Date.now())=>{const t=typeof asOf==='number'?asOf:Date.parse(asOf);return Number.isFinite(t)&&t<=now+5000&&now-t<=limit;};
+export function freshnessNotice(data,{initial=false,warnAge=USER_STALE_WARNING_AGE,now=Date.now()}={}){
+  if(!data||initial)return {show:false,text:''};
+  const raw=data.asOf??data.capturedAt??data.sourceUpdatedAt,t=typeof raw==='number'?raw:Date.parse(raw),age=Number.isFinite(t)?Math.max(0,now-t):null;
+  if(Number.isFinite(age)&&age>warnAge)return {show:true,text:'データが古くなっています'};
+  if(data.stale||data.source==='prediction')return {show:true,text:'現在は予測で表示しています'};
+  return {show:false,text:''};
+}
 export function predictedMinutes(eta,now=Date.now()){const t=typeof eta==='number'?eta:Date.parse(eta);return Number.isFinite(t)?Math.max(0,Math.ceil((t-now)/60000)):null;}
 
 export class Backoff{
