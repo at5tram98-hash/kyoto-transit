@@ -8,6 +8,7 @@ import {operationInformation} from './operations.js';
 import {riderCandidates} from './rider-candidates.js';
 import {decodeGtfsRealtime,filterKyotoBusVehicles} from './gtfs-rt.js';
 import {layoutChanged,requireRows,shouldExpectRail,fallbackDiagnostic} from './layout.js';
+import {refreshAll,readStatic,tokyoDate} from './static-refresh.js';
 
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const KYOTO_BUS_VEHICLE='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_vehicle';
@@ -99,28 +100,37 @@ async function railLive(request,env){return cachedJSON(request,env,'rail:kintets
 function corsHeaders(env){return {'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type, If-None-Match','Access-Control-Expose-Headers':'ETag','Vary':'Origin','X-Content-Type-Options':'nosniff'};}
 function finalize(request,response,env){for(const[k,v]of Object.entries(corsHeaders(env)))response.headers.set(k,v);return response;}
 
-export default {async fetch(request,env){
-  const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN,url=new URL(request.url),sourceFetch=officialFetcher(env);
-  if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:6,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY)});
-  if(request.method==='OPTIONS')return allowed?new Response(null,{status:204,headers:corsHeaders(env)}):error('許可されていないオリジンです。',403);
-  const publicLegacy=['/timetable/options','/timetable','/timetable/trip','/operations'].includes(url.pathname)&&!origin;if(!allowed&&!publicLegacy)return error('My Mapからご利用ください。',403);
-  let response;
-  try{
-    if(request.method!=='GET')response=error('GETのみ利用できます。',405);
-    else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。少し待ってから再度お試しください。',429);
-    else if(url.pathname==='/api/bus/rt')response=await kyotoBusRealtime(request,env);
-    else if(url.pathname==='/api/citybus/arrivals')response=await cityBusArrivals(request,env,url);
-    else if(url.pathname==='/api/rail/live')response=await railLive(request,env);
-    else if(url.pathname==='/timetable/options')response=Response.json(await timetableOptions(url.searchParams.get('stop'),sourceFetch));
-    else if(url.pathname==='/timetable')response=Response.json(await readTimetable(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),sourceFetch,url.searchParams.get('date')));
-    else if(url.pathname==='/operations')response=Response.json(await operationInformation(sourceFetch));
-    else if(url.pathname==='/rider/candidates')response=Response.json(await riderCandidates(url.searchParams.get('stop'),url.searchParams.get('date'),Number(url.searchParams.get('minute')),sourceFetch));
-    else if(url.pathname==='/timetable/trip')response=Response.json(await readOfficialTrip(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),url.searchParams.get('trip'),sourceFetch));
-    else if(url.pathname==='/meeting'){const raw=url.searchParams.get('request');if(!raw||raw.length>4000)response=error('合流条件を確認してください。');else{let r;try{r=validateMeeting(JSON.parse(raw));}catch(e){response=error(e.message??'合流条件を確認してください。');}if(r)response=Response.json(await findMeeting(r));}}
-    else if(url.pathname==='/journeys'){const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}}
-    else if(['/bus/options','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!env.STOP_NAMES.includes(stop))response=error('対象の停留所を選択してください。');else{const choices=await options(stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice'),choice=choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=await busData(env,stop,choice);}}}
-    else if(url.pathname==='/rail/location')response=Response.json({kind:'rail-location',...(await railSnapshot(env)),capturedAt:new Date().toISOString(),sourceURL:LOCATION_URL});
-    else response=error('ページがありません。',404);
-  }catch(e){console.error('transit fetch failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'データの取得に失敗しました。',502,e?.code??null);}
-  return finalize(request,response,env);
-}};
+export default {
+  async fetch(request,env){
+    const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN,url=new URL(request.url),sourceFetch=officialFetcher(env);
+    if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:7,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY)});
+    if(request.method==='OPTIONS')return allowed?new Response(null,{status:204,headers:corsHeaders(env)}):error('許可されていないオリジンです。',403);
+    const publicLegacy=['/timetable/options','/timetable','/timetable/trip','/operations'].includes(url.pathname)&&!origin;if(!allowed&&!publicLegacy)return error('My Mapからご利用ください。',403);
+    let response;
+    try{
+      if(request.method!=='GET')response=error('GETのみ利用できます。',405);
+      else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。少し待ってから再度お試しください。',429);
+      else if(url.pathname==='/api/bus/rt')response=await kyotoBusRealtime(request,env);
+      else if(url.pathname==='/api/citybus/arrivals')response=await cityBusArrivals(request,env,url);
+      else if(url.pathname==='/api/rail/live')response=await railLive(request,env);
+      else if(url.pathname==='/api/static/feed'){
+        const operator=url.searchParams.get('operator'),date=url.searchParams.get('date')||tokyoDate(),data=await readStatic(env,operator,date);response=data?await jsonETag(request,data,60):error('静的時刻データをまだ準備できていません。',503,'static_not_ready');
+      }
+      else if(url.pathname==='/api/static/status'){
+        const raw=await env.LIVE_KV?.get('static:last-refresh');response=Response.json(raw?JSON.parse(raw):{updatedAt:null,operators:{}});
+      }
+      else if(url.pathname==='/timetable/options')response=Response.json(await timetableOptions(url.searchParams.get('stop'),sourceFetch));
+      else if(url.pathname==='/timetable')response=Response.json(await readTimetable(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),sourceFetch,url.searchParams.get('date')));
+      else if(url.pathname==='/operations')response=Response.json(await operationInformation(sourceFetch));
+      else if(url.pathname==='/rider/candidates')response=Response.json(await riderCandidates(url.searchParams.get('stop'),url.searchParams.get('date'),Number(url.searchParams.get('minute')),sourceFetch));
+      else if(url.pathname==='/timetable/trip')response=Response.json(await readOfficialTrip(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),url.searchParams.get('trip'),sourceFetch));
+      else if(url.pathname==='/meeting'){const raw=url.searchParams.get('request');if(!raw||raw.length>4000)response=error('合流条件を確認してください。');else{let r;try{r=validateMeeting(JSON.parse(raw));}catch(e){response=error(e.message??'合流条件を確認してください。');}if(r)response=Response.json(await findMeeting(r));}}
+      else if(url.pathname==='/journeys'){const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}}
+      else if(['/bus/options','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!env.STOP_NAMES.includes(stop))response=error('対象の停留所を選択してください。');else{const choices=await options(stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice'),choice=choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=await busData(env,stop,choice);}}}
+      else if(url.pathname==='/rail/location')response=Response.json({kind:'rail-location',...(await railSnapshot(env)),capturedAt:new Date().toISOString(),sourceURL:LOCATION_URL});
+      else response=error('ページがありません。',404);
+    }catch(e){console.error('transit fetch failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'データの取得に失敗しました。',502,e?.code??null);}
+    return finalize(request,response,env);
+  },
+  async scheduled(controller,env,ctx){ctx.waitUntil(refreshAll(env).catch(async e=>{console.error('static refresh failed',e);if(env.LIVE_KV)await env.LIVE_KV.put('static:last-error',JSON.stringify({at:new Date().toISOString(),error:String(e?.message??e)}),{expirationTtl:604800});}));}
+};
