@@ -5,7 +5,7 @@ import {getRailLocation,CAPTURE_API} from './live.js';
 import {officialData} from './timetable-ui.js';
 
 export const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-export const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+export const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const minuteOf=time=>{const [h,m]=String(time).split(':').map(Number);return h*60+m;};
 export const tokyoNow=()=>{const p=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date()).split(' ');return {date:p[0],time:p[1],minute:minuteOf(p[1])};};
