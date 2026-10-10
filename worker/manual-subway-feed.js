@@ -1,10 +1,11 @@
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import {createNetwork,subwayIds} from '../public/js/network.js';
 import {calendarDay} from './service-calendar.js';
-import {readTimetable} from './timetables.js';
+import {parseHyperdia} from './timetables.js';
 
 const network=createNetwork(catalog);
-const SOURCE='https://www2.city.kyoto.lg.jp/kotsu/tikadia/hyperdia/menu022.htm';
+const CITY='https://www2.city.kyoto.lg.jp/kotsu/';
+const SOURCE=`${CITY}tikadia/hyperdia/menu022.htm`;
 // Kyoto City announced the current Karasuma-line timetable revision for weekends
 // from 2025-02-22 and weekdays from 2025-02-25. The fallback is regenerated from
 // static station departure boards and does not retain the ODPT GTFS archive.
@@ -52,13 +53,23 @@ export function compileSubwayBoards(boardByStop,{date,day,checkedAt=new Date().t
 }
 
 async function mapLimit(items,limit,fn){const out=new Array(items.length);let cursor=0;async function run(){for(;;){const i=cursor++;if(i>=items.length)return;try{out[i]=await fn(items[i]);}catch(e){out[i]={error:String(e?.message??e)};}}}await Promise.all(Array.from({length:Math.min(limit,items.length)},run));return out;}
-async function readDirection(fetcher,date,day,direction){
-  const ids=directionIds(direction).slice(0,-1),rows=await mapLimit(ids,4,async id=>({id,board:await readTimetable(id,direction,day,fetcher,date)})),map=new Map(),errors=[];
-  for(const row of rows){if(row?.error)errors.push(row.error);else map.set(row.id,row.board.entries??[]);}if(errors.length)throw Error(`地下鉄公式時刻表の取得に失敗しました（${errors.length}駅）。`);return map;
+function boardURL(id,direction){
+  const number=Number(id.slice(1));
+  if(direction==='north')return `${CITY}tikadia/hyperdia/02${String(number+10).padStart(2,'0')}01.htm`;
+  return `${CITY}tikadia/hyperdia/02${String(number+10).padStart(2,'0')}00.htm`;
+}
+async function fetchBoard(id,direction,day){
+  const url=boardURL(id,direction),response=await fetch(url,{redirect:'manual',signal:AbortSignal.timeout(12000),headers:{Accept:'text/html','User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36'}});
+  if(!response.ok){await response.body?.cancel();throw Error(`${id}:HTTP ${response.status}`);}const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length>2*1024*1024)throw Error(`${id}:時刻表データが大きすぎます。`);
+  const html=new TextDecoder('shift_jis').decode(bytes),parsed=parseHyperdia(html),entries=parsed.days[day]??(day==='saturday'?parsed.days.holiday:null)??[];if(!entries.length)throw Error(`${id}:対象日の発車時刻がありません。`);return entries;
+}
+async function readDirection(date,day,direction){
+  const ids=directionIds(direction).slice(0,-1),rows=await mapLimit(ids,4,async id=>({id,entries:await fetchBoard(id,direction,day)})),map=new Map(),errors=[];
+  for(const row of rows){if(row?.error)errors.push(row.error);else map.set(row.id,row.entries);}if(errors.length)throw Error(`地下鉄公式時刻表の取得に失敗しました（${errors.length}駅: ${errors.slice(0,3).join(' / ')}）。`);return map;
 }
 export async function buildSubwayPattern(env,date){
   const day=calendarDay(date,'subway');if(!day)throw Error('地下鉄の曜日種別を判定できません。');
-  const [north,south]=await Promise.all([readDirection(fetch,date,day,'north'),readDirection(fetch,date,day,'south')]);
+  const [north,south]=await Promise.all([readDirection(date,day,'north'),readDirection(date,day,'south')]);
   return compileSubwayBoards({north,south},{date,day});
 }
 export async function refreshSubwayPattern(env,date){if(!env.LIVE_KV)throw Error('LIVE_KVが未設定です。');const feed=await buildSubwayPattern(env,date),key=`manual:subway:${serviceDay(calendarDay(date,'subway'))}`;await env.LIVE_KV.put(key,JSON.stringify(feed));await env.LIVE_KV.put('manual:subway:status',JSON.stringify({checkedAt:feed.lastUpdated,revisionDate:feed.revisionDate,tripCount:feed.meta.tripCount,completeCount:feed.meta.completeCount,day:feed.meta.day,terminalArrivalDerived:true}));return feed;}
