@@ -12,7 +12,7 @@ export const timeNumber=s=>{const m=String(s??'').normalize('NFKC').match(/^(\d{
 export function officialFetcher(env){return async(url,init)=>{
   const u=new URL(url),render=u.origin===KYOTO;
   if(!render)return fetch(url,init);
-  const r=await env.BROWSER.quickAction('content',{url:u.href,gotoOptions:{waitUntil:'networkidle2',timeout:20000},actionTimeout:12000});
+  const r=await env.BROWSER.quickAction('content',{url:u.href,gotoOptions:{waitUntil:'domcontentloaded',timeout:30000},waitForSelector:{selector:'body',visible:true,timeout:20000},actionTimeout:30000});
   if(!r.ok){await r.body?.cancel();throw Error('公式時刻表の画面を取得できませんでした。');}
   let html=await r.text();if(html.length>6*1024*1024)throw Error('公式画面のデータが大きすぎます。');
   if(r.headers.get('content-type')?.includes('json')){const d=JSON.parse(html);html=typeof d.result==='string'?d.result:typeof d.content==='string'?d.content:'';}

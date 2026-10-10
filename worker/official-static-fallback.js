@@ -1,7 +1,7 @@
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import {createNetwork,normalize} from '../public/js/network.js';
 import {calendarDay} from './service-calendar.js';
-import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,timetableOptions,readTimetable,timeNumber} from './timetables.js';
+import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,parseKyotoSchedules,kyotoEntries} from './timetables.js';
 
 const network=createNetwork(catalog);
 const CACHE_TTL=172800;
@@ -52,32 +52,31 @@ function chooseKyotoBoard(boards=[],route,targetName=''){
   const target=normalize(targetName),eligible=boards.filter(b=>(b.routes??[]).some(r=>kyotoRouteMatch(route,r)));if(!eligible.length)return null;
   return eligible.map((board,index)=>({board,index,score:target&&normalize(board.label??'').includes(target)?10:0})).sort((a,b)=>b.score-a.score||a.index-b.index)[0]?.board??null;
 }
-function timedSequence(board,entry,detail){
-  return [{name:board.name,arrival:entry.depart,departure:entry.depart},...(detail?.stops??[]).map(s=>({name:s.stop_name,arrival:timeNumber(s.arrival_time),departure:timeNumber(s.departure_time)}))];
+const KYOTO_DIRECT_BOARDS={
+  'kyotobus-40-down':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=91_3',
+  'kyotobus-40-up':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=7475_1',
+  'kyotobus-marutamachi-temp-down':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=51_2',
+  'kyotobus-marutamachi-temp-up':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=152_1'
+};
+function kyotoDayEntries(days,day){const selected=day==='holiday'?'sunday':day==='weekday'?(days.weekday?'weekday':null):day;return selected?days[selected]??[]:[];}
+async function kyotoBoardDays(env,service,fetcher){
+  const sourceURL=KYOTO_DIRECT_BOARDS[service.id];if(!sourceURL)return null;
+  const key=`static:kyotobus-board:${service.id}`,raw=await env.LIVE_KV?.get(key);if(raw){try{return JSON.parse(raw);}catch{}}
+  const html=await officialText(sourceURL,fetcher,3600),{boot}=parseKyotoSchedules(html),schedule=boot.master_current??Object.values(boot)[0];if(!schedule)return null;
+  const value={sourceURL,days:kyotoEntries(schedule),effective:schedule.start_date??null,capturedAt:new Date().toISOString()};if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:604800});return value;
 }
-function serviceTimes(service,sequence){
-  const arrivals=[],departures=[];let cursor=0,previous=0;
-  for(const id of service.stops){const wanted=normalize(cleanName(network.stops.get(id)));let found=-1;for(let i=cursor;i<sequence.length;i++)if(normalize(sequence[i].name)===wanted){found=i;break;}if(found<0)return null;cursor=found+1;
-    let a=sequence[found].arrival??sequence[found].departure,d=sequence[found].departure??a;if(!Number.isFinite(a)||!Number.isFinite(d))return null;while(a<previous)a+=1440;while(d<a)d+=1440;arrivals.push(a);departures.push(d);previous=d;
-  }
-  return {arrivals,departures};
-}
-async function kyotoService(service,date,day,fetcher){
-  const anchorId=service.stops[0],targetId=service.stops.at(-1),anchor=network.stops.get(anchorId),target=network.stops.get(targetId);if(!anchor?.officialId||!target)return null;
-  const options=await timetableOptions(anchorId,fetcher),board=chooseKyotoBoard(options.boards,service.route,cleanName(target));if(!board)return null;
-  const timetable=await readTimetable(anchorId,board.key,day,fetcher,date);if(!timetable.fareURL)return null;
-  const raw=JSON.parse(await officialText(timetable.fareURL,fetcher,1800));if(!Array.isArray(raw))return null;
-  const trips=[];for(const entry of timetable.entries.filter(e=>kyotoRouteMatch(service.route,e.route))){const route=raw.find(r=>String(r.route_id)===String(entry.routeId)),detail=route?.departures?.find(t=>t.trip_id===entry.tripId&&timeNumber(t.departure_time)===entry.depart);if(!detail)continue;const times=serviceTimes(service,timedSequence(timetable,entry,detail));if(!times)continue;trips.push({id:`official:${service.id}:${entry.tripId}`,date,...times,headsign:entry.destination??''});}
-  if(!trips.length)return null;return {id:`official-${service.id}`,label:service.label,operator:'kyotobus',route:String(service.route),category:'local',stops:service.stops,trips,officialFallback:true,sourceURL:timetable.sourceURL};
+async function kyotoService(env,service,date,day,fetcher){
+  const board=await kyotoBoardDays(env,service,fetcher);if(!board)return null;const entries=kyotoDayEntries(board.days,day).filter(e=>kyotoRouteMatch(service.route,e.route)),trips=offsetTrips(entries,service,date);if(!trips.length)return null;
+  return {id:`official-${service.id}`,label:service.label,operator:'kyotobus',route:String(service.route),category:'local',stops:service.stops,trips,officialFallback:true,sourceURL:board.sourceURL};
 }
 export async function buildKyotoBusFallback(env,date,fetcher=officialFetcher(env)){
   const day=calendarDay(date,'kyotobus');if(!day)throw Error('京都バスの運行日区分を確認できません。');
-  const prototypes=network.services.filter(s=>s.operator==='kyotobus'&&s.prototype),services=(await mapLimit(prototypes,2,s=>kyotoService(s,date,day,fetcher))).filter(Boolean);
+  const prototypes=network.services.filter(s=>s.operator==='kyotobus'&&s.prototype).sort((a,b)=>Number(!a.id.startsWith('kyotobus-40'))-Number(!b.id.startsWith('kyotobus-40'))),services=(await mapLimit(prototypes,1,s=>kyotoService(env,s,date,day,fetcher))).filter(Boolean);
   if(!services.length)throw Error('京都バスの公式時刻表fallbackを生成できませんでした。');
-  return feed('kyotobus',date,services,'京都バス 公式時刻表・便別停留所時刻','official_trip_times');
+  const value=feed('kyotobus',date,services,'京都バス 公式時刻表（区間所要時間は路線順序から補完）','official_departures_with_segment_completion');value.meta.partial=services.length<prototypes.length;value.meta.expectedServices=prototypes.length;value.meta.availableServices=services.length;return value;
 }
 export async function buildOfficialFallback(env,operator,date){if(operator==='citybus')return buildCityBusFallback(env,date);if(operator==='kyotobus')return buildKyotoBusFallback(env,date);throw Error('公式時刻表fallbackの対象外です。');}
 export async function readOfficialFallback(env,operator,date,{force=false}={}){
   const key=`static:fallback:${operator}:${date}`,raw=!force?await env.LIVE_KV?.get(key):null;if(raw){try{return JSON.parse(raw);}catch{}}
-  const value=await buildOfficialFallback(env,operator,date);if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:CACHE_TTL});return value;
+  const value=await buildOfficialFallback(env,operator,date);if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:value.meta?.partial?300:CACHE_TTL});return value;
 }
