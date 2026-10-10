@@ -5,7 +5,8 @@ import {officialFetcher,officialText,parseKintetsuTrip,readTimetable} from './ti
 
 const network=createNetwork(catalog);
 const byIds=ids=>new Map(ids.flatMap(id=>{const s=network.stops.get(id);return [s?.name,...(s?.aliases??[])].filter(Boolean).map(name=>[normalize(name),id]);}));
-const KINTETSU_BY_NAME=byIds(kintetsuIds),SUBWAY_BY_NAME=byIds(subwayIds),SUBWAY_ONLY=new Set(subwayIds.filter(id=>id!=='K15').map(id=>normalize(network.stops.get(id).name)));
+const KINTETSU_BY_NAME=byIds(kintetsuIds),SUBWAY_BY_NAME=byIds(subwayIds);
+const SUBWAY_EXCLUSIVE=new Set([...SUBWAY_BY_NAME.keys()].filter(name=>!KINTETSU_BY_NAME.has(name)&&name!==normalize('竹田')));
 const SEEDS=[
   {stop:'B01',direction:'south'},
   {stop:'B07',direction:'south'},
@@ -18,7 +19,7 @@ const serviceDay=day=>day==='weekday'?'weekday':'weekend';
 const sourceURL='https://eki.kintetsu.co.jp/norikae/';
 
 function mappedStops(trip){
-  const names=trip.stops.map(s=>normalize(s.name)),takeda=names.findIndex(n=>n===normalize('竹田')),hasSubway=names.some(n=>SUBWAY_ONLY.has(n)),subwayFirst=hasSubway&&takeda>=0&&names.slice(0,takeda).some(n=>SUBWAY_ONLY.has(n));
+  const names=trip.stops.map(s=>normalize(s.name)),takeda=names.findIndex(n=>n===normalize('竹田')),hasSubway=names.some(n=>SUBWAY_EXCLUSIVE.has(n)),subwayFirst=hasSubway&&takeda>=0&&names.slice(0,takeda).some(n=>SUBWAY_EXCLUSIVE.has(n));
   const rows=[];for(let i=0;i<trip.stops.length;i++){const stop=trip.stops[i],n=names[i];let id;if(hasSubway&&takeda>=0){if(i===takeda)id='K15';else if(subwayFirst)id=i<takeda?SUBWAY_BY_NAME.get(n):KINTETSU_BY_NAME.get(n);else id=i<takeda?KINTETSU_BY_NAME.get(n):SUBWAY_BY_NAME.get(n);}else id=KINTETSU_BY_NAME.get(n);if(!id)continue;const arrival=Number.isFinite(stop.arrival)?stop.arrival:stop.departure,departure=Number.isFinite(stop.departure)?stop.departure:stop.arrival;if(!Number.isFinite(arrival)||!Number.isFinite(departure))continue;if(rows.at(-1)?.id===id)continue;rows.push({id,arrival,departure});}return rows;
 }
 export function compileKintetsuTrips(trips,{date,revision=null,checkedAt=new Date().toISOString()}={}){
