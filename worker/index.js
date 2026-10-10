@@ -9,6 +9,7 @@ import {riderCandidates} from './rider-candidates.js';
 import {decodeGtfsRealtime,filterKyotoBusVehicles} from './gtfs-rt.js';
 import {layoutChanged,requireRows,shouldExpectRail,fallbackDiagnostic} from './layout.js';
 import {refreshAll,readStatic,tokyoDate} from './static-refresh.js';
+import {visualBusApproach,visualRailSnapshot} from './visual-fallback.js';
 
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const KYOTO_BUS_VEHICLE='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_vehicle';
@@ -48,15 +49,34 @@ async function options(stop){
   if(!response.ok){await response.body?.cancel();throw Error(`停留所情報を取得できませんでした（HTTP ${response.status}）。`);}
   return requireRows('citybus',parseBusChoices(await boundedText(response)),'市バスの系統選択要素が見つかりません。');
 }
-async function busDataObject(env,stop,choice){
-  const url=approachURL(stop,choice.value),response=await env.BROWSER.quickAction('content',{url,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#approach_table',visible:true,timeout:4000},actionTimeout:4000});
-  if(!response.ok){await response.body?.cancel();throw Error('接近情報を取得できませんでした。');}
-  let html=await boundedText(response);if(response.headers.get('content-type')?.includes('json')){const body=JSON.parse(html);html=typeof body.result==='string'?body.result:typeof body.content==='string'?body.content:'';}
-  try{return {kind:'bus-data',stop,...choice,...parseApproach(html),capturedAt:new Date().toISOString(),sourceURL:url};}
-  catch(e){throw layoutChanged('citybus',e instanceof Error?e.message:'市バスの接近要素を読み取れません。');}
+async function recordVisualRecovery(env,source){
+  if(!env.LIVE_KV)return;
+  await env.LIVE_KV.put(`diag:visual:${source}`,JSON.stringify({code:'visual_recovery',source,at:new Date().toISOString()}),{expirationTtl:86400});
 }
-async function busData(env,stop,choice){return Response.json(await busDataObject(env,stop,choice));}
-async function busAll(env,stop,choices){const unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),results=new Array(unique.length);let cursor=0;async function run(){while(true){const i=cursor++;if(i>=unique.length)return;const choice=unique[i];try{results[i]=await busDataObject(env,stop,choice);}catch(e){results[i]={kind:'bus-data',stop,...choice,buses:[],error:e instanceof Error?e.message:'接近情報を取得できませんでした。',capturedAt:new Date().toISOString()};}}}await Promise.all(Array.from({length:Math.min(3,unique.length)},()=>run()));return Response.json({kind:'bus-all',stop,results,capturedAt:new Date().toISOString()});}
+async function busDataObject(env,stop,choice,allowVisual=true){
+  const url=approachURL(stop,choice.value),captured=()=>new Date().toISOString();let directError=null;
+  try{
+    const response=await env.BROWSER.quickAction('content',{url,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#approach_table',visible:true,timeout:4000},actionTimeout:4000});
+    if(!response.ok){await response.body?.cancel();throw Error('接近情報を取得できませんでした。');}
+    let html=await boundedText(response);if(response.headers.get('content-type')?.includes('json')){const body=JSON.parse(html);html=typeof body.result==='string'?body.result:typeof body.content==='string'?body.content:'';}
+    return {kind:'bus-data',stop,...choice,...parseApproach(html),capturedAt:captured(),sourceURL:url};
+  }catch(e){directError=e;}
+  if(allowVisual){
+    try{const recovered=await visualBusApproach(env,url);await recordVisualRecovery(env,'citybus');return {kind:'bus-data',stop,...choice,...recovered,capturedAt:captured(),sourceURL:url};}catch{/* last successful data is safer than an unvalidated extraction */}
+  }
+  throw layoutChanged('citybus',directError instanceof Error?directError.message:'市バスの接近要素を読み取れません。');
+}
+async function busData(env,stop,choice){return Response.json(await busDataObject(env,stop,choice,true));}
+async function bulkBusData(env,stop,choices){
+  const unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),results=new Array(unique.length);let cursor=0,success=0;
+  async function directRun(){while(true){const i=cursor++;if(i>=unique.length)return;const choice=unique[i];try{results[i]=await busDataObject(env,stop,choice,false);success++;}catch(e){results[i]={kind:'bus-data',stop,...choice,buses:[],error:e instanceof Error?e.message:'接近情報を取得できませんでした。',capturedAt:new Date().toISOString()};}}}
+  await Promise.all(Array.from({length:Math.min(3,unique.length)},()=>directRun()));
+  if(success===0&&unique.length){
+    for(let i=0;i<Math.min(4,unique.length);i++)try{results[i]=await busDataObject(env,stop,unique[i],true);success++;}catch{}
+  }
+  return {unique,results,success};
+}
+async function busAll(env,stop,choices){const {results}=await bulkBusData(env,stop,choices);return Response.json({kind:'bus-all',stop,results,capturedAt:new Date().toISOString()});}
 
 async function sha256(text){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function jsonETag(request,data,ttl=12){const body=JSON.stringify(data),etag=`"${(await sha256(body)).slice(0,24)}"`,headers=new Headers({'Content-Type':'application/json; charset=utf-8','Cache-Control':`public, max-age=0, s-maxage=${ttl}, stale-if-error=300`,'ETag':etag,'Vary':'Origin, Accept-Encoding'});if(request.headers.get('If-None-Match')===etag)return new Response(null,{status:304,headers});return new Response(body,{headers});}
@@ -81,19 +101,21 @@ async function cityBusArrivals(request,env,url){
   const stop=url.searchParams.get('stop');
   if(!env.STOP_NAMES.includes(stop))return error('対象の停留所を選択してください。');
   return cachedJSON(request,env,`citybus:${stop}`,async()=>{
-    const choices=await options(stop),unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),items=new Array(unique.length);let cursor=0,failures=0;
-    async function run(){while(true){const i=cursor++;if(i>=unique.length)return;try{items[i]=await busDataObject(env,stop,unique[i]);}catch{failures++;items[i]={...unique[i],buses:[],capturedAt:new Date().toISOString()};}}}
-    await Promise.all(Array.from({length:Math.min(3,unique.length)},()=>run()));
-    if(unique.length&&failures===unique.length)throw layoutChanged('citybus','市バスの接近表を1件も読み取れませんでした。');
+    const choices=await options(stop),{unique,results:items,success}=await bulkBusData(env,stop,choices);
+    if(unique.length&&success===0)throw layoutChanged('citybus','市バスの接近表を1件も読み取れませんでした。');
     const now=Date.now(),results=items.flatMap(item=>item.buses?.length?item.buses.slice(0,2).map((b,i)=>normalizedCityRow(item,b,i,now)):[normalizedCityRow(item,null,0,now)]).slice(0,40),asOf=results.map(r=>Date.parse(r.asOf)).filter(Number.isFinite).sort((a,b)=>b-a)[0]??now;
     return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results};
   },12);
 }
-async function railSnapshot(env){
+async function directRailSnapshot(env){
   const r=await env.BROWSER.quickAction('content',{url:LOCATION_URL,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#stations .station-name',visible:true,timeout:4000},actionTimeout:4000});if(!r.ok){await r.body?.cancel();throw Error('近鉄の列車位置を取得できませんでした。');}
   let html=await boundedText(r);if(r.headers.get('content-type')?.includes('json')){const b=JSON.parse(html);html=typeof b.result==='string'?b.result:typeof b.content==='string'?b.content:'';}
-  try{const parsed=parseRailLocation(html);if(shouldExpectRail()&&(!Array.isArray(parsed.trains)||parsed.trains.length===0))throw layoutChanged('kintetsu','運行時間帯に列車要素が0件でした。');return parsed;}
-  catch(e){if(e?.code==='layout_changed')throw e;throw layoutChanged('kintetsu',e instanceof Error?e.message:'近鉄の列車要素を読み取れません。');}
+  const parsed=parseRailLocation(html);if(shouldExpectRail()&&(!Array.isArray(parsed.trains)||parsed.trains.length===0))throw layoutChanged('kintetsu','運行時間帯に列車要素が0件でした。');return parsed;
+}
+async function railSnapshot(env){
+  let directError=null;try{return await directRailSnapshot(env);}catch(e){directError=e;}
+  try{const recovered=await visualRailSnapshot(env,LOCATION_URL);if(shouldExpectRail()&&!recovered.trains.length)throw Error('視覚情報にも列車がありません。');await recordVisualRecovery(env,'kintetsu');return recovered;}catch{}
+  if(directError?.code==='layout_changed')throw directError;throw layoutChanged('kintetsu',directError instanceof Error?directError.message:'近鉄の列車要素を読み取れません。');
 }
 async function railLive(request,env){return cachedJSON(request,env,'rail:kintetsu',async()=>{const d=await railSnapshot(env),asOf=d.sourceUpdatedAt??new Date().toISOString();return {kind:'rail-live',source:'live',stale:false,asOf,trains:d.trains.map((t,i)=>({key:`${t.direction}:${t.position}:${t.destination}:${t.label}:${i}`,position:t.position,from:t.from,to:t.to,atStation:t.atStation,direction:t.direction,dest:t.destination,category:t.category,label:t.label,delay:t.delay}))};},12);}
 
@@ -103,7 +125,7 @@ function finalize(request,response,env){for(const[k,v]of Object.entries(corsHead
 export default {
   async fetch(request,env){
     const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN,url=new URL(request.url),sourceFetch=officialFetcher(env);
-    if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:7,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY)});
+    if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:8,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY),visualFallback:true});
     if(request.method==='OPTIONS')return allowed?new Response(null,{status:204,headers:corsHeaders(env)}):error('許可されていないオリジンです。',403);
     const publicLegacy=['/timetable/options','/timetable','/timetable/trip','/operations'].includes(url.pathname)&&!origin;if(!allowed&&!publicLegacy)return error('My Mapからご利用ください。',403);
     let response;
