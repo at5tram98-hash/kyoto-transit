@@ -16,3 +16,5 @@ jobs:
         run: curl --fail-with-body --show-error --silent --max-time 240 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-10'
       - name: Kintetsu weekday
         run: curl --fail-with-body --show-error --silent --max-time 240 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-13'
+      - name: Done
+        run: echo 'Stage 2 bootstrap completed'
