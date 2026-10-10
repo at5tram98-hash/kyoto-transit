@@ -21,6 +21,18 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Stage2 subway weekend bootstrap
+        continue-on-error: true
+        run: curl --fail-with-body --show-error --max-time 180 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=subway&date=2026-10-10'
+      - name: Stage2 subway weekday bootstrap
+        continue-on-error: true
+        run: curl --fail-with-body --show-error --max-time 180 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=subway&date=2026-10-13'
+      - name: Stage2 Kintetsu weekend bootstrap
+        continue-on-error: true
+        run: curl --fail-with-body --show-error --max-time 240 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-10'
+      - name: Stage2 Kintetsu weekday bootstrap
+        continue-on-error: true
+        run: curl --fail-with-body --show-error --max-time 240 -H 'Origin: https://at5tram98-hash.github.io' 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-13'
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
