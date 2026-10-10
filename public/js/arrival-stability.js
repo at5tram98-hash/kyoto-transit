@@ -10,14 +10,15 @@ export function busDirectionLabel(route,dest=''){
   return `${text}方面`;
 }
 export function busServiceLabel(row){return `${row.route}（${busDirectionLabel(row.route,row.dest)}）`;}
+const effectiveBusSource=row=>row.source==='prediction'&&Number(row.confidence)>=0.6?'live':row.source;
 export function groupCityBusRows(rows=[]){
   const groups=new Map();
   for(const row of rows){
     const key=`${row.route}|${String(row.dest??'').normalize('NFKC')}`;
     if(!groups.has(key))groups.set(key,{...row,key,arrivals:[],source:'schedule'});
-    const group=groups.get(key);
-    group.arrivals.push(row);
-    if(row.source==='live')group.source='live';else if(group.source!=='live'&&row.source==='prediction')group.source='prediction';
+    const group=groups.get(key),source=effectiveBusSource(row);
+    group.arrivals.push({...row,source});
+    if(source==='live')group.source='live';else if(group.source!=='live'&&source==='prediction')group.source='prediction';
     if(Number.isFinite(row.delay)&&(group.delay==null||Math.abs(row.delay)>Math.abs(group.delay)))group.delay=row.delay;
   }
   for(const group of groups.values())group.arrivals.sort((a,b)=>(Number.isFinite(a.minutes)?a.minutes:999)-(Number.isFinite(b.minutes)?b.minutes:999)||String(a.key).localeCompare(String(b.key)));
