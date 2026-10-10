@@ -36,7 +36,7 @@ export function mountMobility(api){
       $('.gps-symbol').classList.toggle('active',status==='active');
       if(status==='active')return;
       $('#position-heading').textContent=status==='loading'?'現在地を取得中':status==='denied'?'位置情報の許可が必要です':'現在地を確認できません';
-      $('#position-status').textContent=status==='loading'?'移動に合わせて、画面が自動で切り替わります':status==='denied'?'ブラウザの設定で許可するか、出発地を選んでください。':status==='unsupported'?'駅・バス停を選んで案内できます。':'地下では、乗った便を選んで案内を続けられます。';
+      $('#position-status').textContent=status==='loading'?'移動に合わせて、画面が自動で切り替わります':status==='denied'?'ブラウザで位置情報を許可してください。':status==='unsupported'?'駅・バス停を選んで案内できます。':'地下では、乗った便を選んで案内を続けられます。';
     }
   });
   function startGeo(){manualOrigin=false;return gps.start({retry:true});}
