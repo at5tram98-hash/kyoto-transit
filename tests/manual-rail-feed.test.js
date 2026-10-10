@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {compileKintetsuTrips} from '../worker/manual-rail-feed.js';
+import {compileKintetsuTrips,compileKintetsuBoards} from '../worker/manual-rail-feed.js';
 
 const trip=(tripId,category,destination,stops)=>({tripId,category,destination,stops});
 
@@ -20,4 +20,36 @@ test('地下鉄直通便はthroughとして保持し未対応駅を捏造しな�
     trip('limited','other','京都',[{name:'高の原',departure:700},{name:'京都',arrival:725}])
   ],{date:'2026-10-10'});
   assert.equal(feed.services.length,1);assert.equal(feed.services[0].operator,'through');assert.ok(feed.services[0].stops.includes('K14'));assert.ok(feed.services[0].stops.includes('K01'));assert.ok(!feed.services.some(s=>s.category==='other'));
+});
+
+const board=(stop,index,direction,entries)=>({stop,index,direction,effective:'2026年3月14日現在',entries});
+const entry=(tripId,depart,category='local',destination='橿')=>({tripId,depart,category,destination});
+
+test('各駅発車表の同じtxを結合して1本の列車にする',()=>{
+  const boards=[
+    board('B01',0,'south',[entry('t1',600)]),
+    board('B02',1,'south',[entry('t1',602)]),
+    board('K15',4,'south',[entry('t1',607)]),
+    board('B07',6,'south',[entry('t1',611)]),
+    board('B24',23,'south',[entry('t1',636)]),
+    board('B26',25,'south',[entry('t1',642)])
+  ];
+  const feed=compileKintetsuBoards(boards,{date:'2026-10-13',revision:'2026-03-14',checkedAt:'2026-10-10T12:00:00Z'}),service=feed.services[0];
+  assert.equal(feed.meta.method,'official-board-tx-join');assert.equal(feed.meta.boardCount,6);assert.equal(feed.meta.tripCount,1);
+  assert.deepEqual(service.stops,['B01','B02','K15','B07','B24','B26']);assert.deepEqual(service.trips[0].departures,[600,602,607,611,636,642]);
+});
+
+test('終着駅に発車表がない短距離便だけ、同種別の駅間中央値で終着時刻を補う',()=>{
+  const boards=[
+    board('B14',13,'south',[entry('through',600,'local','橿'),entry('short',620,'local','新田辺')]),
+    board('B15',14,'south',[entry('through',602,'local','橿'),entry('short',622,'local','新田辺')]),
+    board('B16',15,'south',[entry('through',604,'local','橿')])
+  ];
+  const feed=compileKintetsuBoards(boards,{date:'2026-10-13'}),short=feed.services.flatMap(s=>s.trips.map(t=>({service:s,trip:t}))).find(x=>x.trip.id==='short');
+  assert.ok(short);assert.equal(short.service.stops.at(-1),'B16');assert.equal(short.trip.arrivals.at(-1),624);assert.equal(feed.meta.terminalDerived,1);
+});
+
+test('同じ便IDでも上下方向は混ぜない',()=>{
+  const boards=[board('B07',6,'south',[entry('same',700)]),board('B08',7,'south',[entry('same',702)]),board('B08',7,'north',[entry('same',800,'express','京都')]),board('B07',6,'north',[entry('same',803,'express','京都')])];
+  const feed=compileKintetsuBoards(boards,{date:'2026-10-13'});assert.equal(feed.services.length,2);assert.equal(feed.meta.tripCount,2);
 });
