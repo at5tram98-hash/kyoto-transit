@@ -18,12 +18,12 @@ export function buildIndex(network) {
 function nextTrips(service,index,ready,date) {
   if(service.trips) {
     return service.trips.filter(t=>t.date===date&&t.departures[index]>=ready).sort((a,b)=>a.departures[index]-b.departures[index]).slice(0,2)
-      .map(t=>({tripId:t.id,depart:t.departures[index],arrivals:t.arrivals,departures:t.departures}));
+      .map(t=>({tripId:t.id,depart:t.departures[index],arrivals:t.arrivals,departures:t.departures,headsign:t.headsign??null}));
   }
   const offset=service.offsets[index];
   const base=service.first+Math.max(0,Math.ceil((ready-service.first-offset)/service.headway))*service.headway;
   if(base>service.last)return [];
-  return [{tripId:`${service.id}@${base}`,depart:base+offset,arrivals:service.offsets.map(x=>base+x),departures:service.offsets.map(x=>base+x)}];
+  return [{tripId:`${service.id}@${base}`,depart:base+offset,arrivals:service.offsets.map(x=>base+x),departures:service.offsets.map(x=>base+x),headsign:null}];
 }
 
 export function route(network,request,objective='fast',filter=request.trainType??'all',index=buildIndex(network)) {
@@ -43,7 +43,6 @@ export function route(network,request,objective='fast',filter=request.trainType?
   while(queue.size&&loops++<100000){
     let s=queue.pop();
     if(s.time>horizon||s.boardings>9)continue;
-    // 段階を状態に含めるので、同じ駅を通り直す経路を排除しない。
     if(s.stop===targets[s.stage]){
       if(s.stage===targets.length-1)return {...s,start,objective,filter,date,sourceMode:network.mode};
       const v=via[s.stage];
@@ -51,12 +50,8 @@ export function route(network,request,objective='fast',filter=request.trainType?
         legs:[...s.legs,{kind:'dwell',from:s.stop,to:s.stop,depart:s.time,arrive:s.time+v.dwell,minutes:v.dwell,exitGate:Boolean(v.exitGate)}]};
       s.score=score(s);
     }
-    // 降車先を全て生成済みなので、便IDごとのラベル保持は不要。
-    // 到着駅・経由段階単位のParetoラベルで往復の探索爆発を抑える。
     const key=`${s.stop}:${s.stage}`;
     const retained=labels.get(key)??[];
-    // 評価対象に含まれない待ち時間を別軸で保持すると循環路線で状態が膨張する。
-    // scoreに各目的の重みを含め、到着時刻と探索上限に影響する値を比較する。
     const dominates=(a,b)=>a.time<=b.time&&a.score<=b.score&&a.boardings<=b.boardings&&a.walk<=b.walk;
     if(retained.some(x=>dominates(x,s)))continue;
     const next=[...retained.filter(x=>!dominates(s,x)),s].sort((a,b)=>a.score-b.score).slice(0,6);
@@ -74,13 +69,12 @@ export function route(network,request,objective='fast',filter=request.trainType?
       for(const trip of nextTrips(service,i,ready,date)) {
         if(trip.tripId===s.lastTrip)continue;
         for(let j=i+1;j<service.stops.length;j++){
-          // 経由駅を通過しただけでは経由条件を満たさない。必ずそこで下車させる。
           if(j>i+1&&service.stops[j-1]===targets[s.stage])break;
           const n={...s,stop:service.stops[j],time:trip.arrivals[j],boardings:s.boardings+1,
             wait:s.wait+trip.depart-s.time,lastTrip:trip.tripId,
             legs:[...s.legs,{kind:'ride',from:s.stop,to:service.stops[j],depart:trip.depart,arrive:trip.arrivals[j],
               serviceId:service.id,tripId:trip.tripId,operator:service.operator,label:service.label,category:service.category,
-              route:service.route,through:service.through,path:service.stops.slice(i,j+1),
+              route:service.route,destination:trip.headsign,through:service.through,path:service.stops.slice(i,j+1),
               times:trip.arrivals.slice(i,j+1),direction:service.stops.at(-1),platform:service.platforms?.[i]??null,
               platformSource:service.platforms?.[i]?'imported':null}]};
           if(n.time<=s.time)continue;
