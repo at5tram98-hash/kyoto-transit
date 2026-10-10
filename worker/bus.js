@@ -10,7 +10,7 @@ export function parseApproach(html){
   const selectors=['#approach_table [id^="vehicle-position-data_"]','[id^="vehicle-position-data_"]','[data-vehicle-position]','.vehicle-position','.approach-vehicle','.vehicle-info','.approach-info','.approachGuidance'];
   for(const selector of selectors)$(selector).each((_,e)=>{const cell=$(e),text=[cell.text(),...cell.find('img[alt]').map((_,img)=>$(img).attr('alt')).get()].join(' '),parsed=parseText(text);if(parsed)rows.push(parsed);});
   let buses=uniqueBuses(rows);
-  const body=clean($('body').text()),noBus=/(?:6\s*停留所以内|接近(?:している)?バス)[^。]{0,35}(?:ありません|いません|なし)/.test(body)||/現在[^。]{0,35}接近[^。]{0,35}(?:ありません|いません)/.test(body);
+  const body=clean($.root().text()),noBus=/(?:6\s*停留所以内|接近(?:している)?バス)[^。]{0,35}(?:ありません|いません|なし)/.test(body)||/現在[^。]{0,35}接近[^。]{0,35}(?:ありません|いません)/.test(body);
   if(!buses.length&&!noBus){
     const fallback=[];for(const match of body.matchAll(/(?:あと|約)?\s*\d{1,2}\s*分|[1-6]\s*(?:(?:停留所|つ|個)\s*)?(?:まえ|前)/g)){const from=Math.max(0,match.index-45),to=Math.min(body.length,match.index+match[0].length+45),parsed=parseText(body.slice(from,to));if(parsed)fallback.push(parsed);}buses=uniqueBuses(fallback);
   }
