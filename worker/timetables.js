@@ -30,8 +30,7 @@ export function jsonConstant(html,key){
 export async function officialText(url,fetcher=fetch,ttl=900){
   const cache=typeof caches!=='undefined'?caches.default:null;
   const cacheURL=new URL(url);cacheURL.searchParams.set('_my_map_reader','2');const cacheKey=new Request(cacheURL);const saved=cache?await cache.match(cacheKey):null;
-  // The official legacy timetable chooses its PC/mobile format from User-Agent.
-  const r=saved??await fetcher(url,{redirect:'manual',signal:AbortSignal.timeout(18000),headers:{Accept:'text/html,application/json', 'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36'}});
+  const r=saved??await fetcher(url,{redirect:'manual',signal:AbortSignal.timeout(18000),headers:{Accept:'text/html,application/json','User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36'}});
   if(!r.ok){await r.body?.cancel();throw Error(`公式時刻表を取得できません（HTTP ${r.status}）。`);}
   const reader=r.body?.getReader();if(!reader)return '';
   const parts=[];let size=0;
@@ -52,8 +51,6 @@ export function parseHyperdia(html){
       entries.push({depart,category:kind,destination:clean(dest).replace(/^(普通|急行)\s*/,''),note:clean(row.find('.data-tt-note').text())});
     });
     if(!entries.length){
-      // The official desktop response has static minute spans; mobile rows are
-      // produced by script. Preserve missing per-trip destination/type as null.
       const rows=key==='weekday'?'.wektime':key==='saturday'?'.sattime,.doytime':'.holtime,.kyutime';
       $(rows).each((_,e)=>{const row=$(e),hour=Number(clean(row.find('h3').first().text()));if(!Number.isInteger(hour)||hour<0||hour>24)return;
         row.find('td.timetable span[data-no]').each((_,a)=>{const min=clean($(a).text());if(!/^\d{1,2}$/.test(min)||+min>59)return;entries.push({depart:hour*60+(+min),category:null,destination:null,note:clean($(a).attr('title'))});});
@@ -70,11 +67,11 @@ export function parseKintetsuBoard(html,sourceURL){
   const $=load(html),entries=[];
   $('tr').each((_,e)=>{const cells=$(e).children('td'),hour=clean(cells.first().text());if(!/^\d{1,2}$/.test(hour)||+hour>24)return;
     cells.eq(1).find('a[href*="T7?"]').each((_,a)=>{
-      const node=$(a),min=clean(node.find('.min').text());if(!/^\d{1,2}$/.test(min)||+min>59)return;
-      const classes=node.find('[class^="K_"]').first().attr('class')??'',dest=clean(node.clone().find('.min').remove().end().text());
-      const tripURL=new URL(node.attr('href'),sourceURL).href;
+      const node=$(a),min=clean(node.find('.min').text())||clean(node.text()).match(/(?:^|\s)(\d{1,2})(?:\s|$)/)?.[1];if(!/^\d{1,2}$/.test(min)||+min>59)return;
+      const classes=node.find('[class^="K_"]').first().attr('class')??'',raw=clean(node.clone().find('.min').remove().end().text()),dest=raw.replace(new RegExp(`(?:^|\\s)${min}(?:\\s|$)`),' '),tripURL=new URL(node.attr('href'),sourceURL).href;
       const destination=dest.replace(/^京/,'京都').replace(/^国/,'国際会館').replace(/^田/,'新田辺');
-      entries.push({depart:(+hour||24)*60+(+min),category:classes.includes('1903')?'express':classes.includes('1901')?'local':'other',destination,tripURL,tripId:new URL(tripURL).searchParams.get('tx')});
+      const category=classes.includes('1903')?'express':classes.includes('1901')?'local':/急行/.test(raw)?'express':/普通/.test(raw)?'local':'other';
+      entries.push({depart:(+hour||24)*60+(+min),category,destination,tripURL,tripId:new URL(tripURL).searchParams.get('tx')});
     });
   });
   if(!entries.length)throw Error('近鉄の公式発車便を読み取れませんでした。');
@@ -84,11 +81,8 @@ export function parseKintetsuTrip(html,sourceURL){
   const $=load(html),stops=[];let title='';
   $('tr').each((_,e)=>{const cells=$(e).children('td');if(cells.length===1&&/行き（始発駅/.test(cells.text()))title=clean(cells.text());
     if(cells.length!==3||!cells.eq(0).find('a[href*="/norikae/T"]').length)return;
-    const arrival=timeNumber(clean(cells.eq(1).text())),departure=timeNumber(clean(cells.eq(2).text()));
-    const name=clean(cells.eq(0).text());if(!name||(arrival===null&&departure===null))return;
-    let a=arrival,d=departure;const prev=stops.at(-1)?.departure??stops.at(-1)?.arrival??0;
-    if(a!==null)while(a<prev)a+=1440;if(d!==null)while(d<(a??prev))d+=1440;
-    stops.push({name,arrival:a,departure:d});
+    const arrival=timeNumber(clean(cells.eq(1).text())),departure=timeNumber(clean(cells.eq(2).text())),name=clean(cells.eq(0).text());if(!name||(arrival===null&&departure===null))return;
+    let a=arrival,d=departure;const prev=stops.at(-1)?.departure??stops.at(-1)?.arrival??0;if(a!==null)while(a<prev)a+=1440;if(d!==null)while(d<(a??prev))d+=1440;stops.push({name,arrival:a,departure:d});
   });
   if(!title||stops.length<2)throw Error('近鉄の停車駅・時刻を読み取れませんでした。');
   return {title,tripId:new URL(sourceURL).searchParams.get('tx'),destination:title.match(/\s+(.+?)行き（/)?.[1]??stops.at(-1).name,category:/^急行/.test(title)?'express':/^普通/.test(title)?'local':'other',stops,sourceURL};
@@ -100,7 +94,11 @@ export function parseCityCatalog(html,sourceURL){const $=load(html);return $('h2
 export async function timetableOptions(id,fetcher=fetch){
   const stop=network.stops.get(id);if(!stop)throw Error('対応する駅・停留所を選んでください。');
   if(stop.type==='subway')return {stop:id,name:stop.name,boards:[...(id==='K01'?[]:[{key:'north',label:'国際会館方面',sourceURL:`${CITY}tikadia/hyperdia/02${String(+id.slice(1)+10).padStart(2,'0')}01.htm`}]),...(id==='K15'?[{key:'south',label:'新田辺・近鉄奈良方面',sourceURL:`${CITY}tikadia/hyperdia/022500.htm`}]:[{key:'south',label:'京都・竹田・近鉄奈良方面',sourceURL:`${CITY}tikadia/hyperdia/02${String(+id.slice(1)+10).padStart(2,'0')}00.htm`}])],operator:'subway'};
-  if(stop.type==='kintetsu'){const index=kintetsuIds.indexOf(id);if(index>25)throw Error('奈良線の公式方面選択はまだ確認できていません。');return {stop:id,name:stop.name,operator:'kintetsu',boards:[{key:'north',label:'京都・国際会館方面',sourceURL:`${KINTETSU}T5?USR=PC&slCode=360-${index}&d=1&dw=0&pattern=A`},{key:'south',label:'近鉄奈良・橿原神宮前方面',sourceURL:`${KINTETSU}T5?USR=PC&slCode=360-${index}&d=2&dw=0&pattern=A`}]};}
+  if(stop.type==='kintetsu'){
+    const index=kintetsuIds.indexOf(id);if(index>25)throw Error('奈良線の公式方面選択はまだ確認できていません。');
+    if(id==='B01')return {stop:id,name:stop.name,operator:'kintetsu',boards:[{key:'south',label:'近鉄奈良・橿原神宮前方面',sourceURL:`${KINTETSU}T5?USR=PC&slCode=360-0&d=1&dw=0&pattern=A`}]};
+    return {stop:id,name:stop.name,operator:'kintetsu',boards:[{key:'north',label:'京都・国際会館方面',sourceURL:`${KINTETSU}T5?USR=PC&slCode=360-${index}&d=1&dw=0&pattern=A`},{key:'south',label:'近鉄奈良・橿原神宮前方面',sourceURL:`${KINTETSU}T5?USR=PC&slCode=360-${index}&d=2&dw=0&pattern=A`}]};
+  }
   if(stop.type==='citybus'){
     const rows=await Promise.all(stop.lines.map(async route=>parseCityCatalog(await officialText(catalog[route].source,fetcher),catalog[route].source).find(s=>normalize(s.name)===normalize(stop.fullName??stop.name))));
     const boards=[];rows.forEach((r,i)=>r?.boards.forEach(b=>{const old=boards.find(o=>o.sourceURL===b.sourceURL);if(old)old.routes.push(stop.lines[i]);else boards.push({...b,key:String(boards.length),routes:[stop.lines[i]]});}));
