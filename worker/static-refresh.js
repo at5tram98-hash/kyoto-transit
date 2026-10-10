@@ -1,4 +1,5 @@
 import {datasetResourceLinks,parseResourcePage,selectGtfsVersion,compactGtfsZip,dateFeed} from './static-gtfs.js';
+import {readKintetsuPattern,refreshKintetsuPattern} from './manual-rail-feed.js';
 
 export const DATASETS={
   kyotobus:'https://ckan.odpt.org/dataset/kyoto_bus_all_lines_anotherversion',
@@ -6,6 +7,8 @@ export const DATASETS={
   subway:'https://ckan.odpt.org/dataset/kyoto_municipal_transportation_kyoto_city_subway_gtfs'
 };
 const tokyoDate=(now=new Date())=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+const shiftDate=(date,days)=>new Date(Date.parse(`${date}T00:00:00Z`)+days*86400_000).toISOString().slice(0,10);
+const oppositePatternDate=date=>{const d=new Date(`${date}T00:00:00Z`).getUTCDay();if(d===6)return shiftDate(date,2);if(d===0)return shiftDate(date,1);const toSat=(6-d+7)%7;return shiftDate(date,toSat||7);};
 async function text(url,timeout=10000){const r=await fetch(url,{headers:{'User-Agent':'My Map/2.0 timetable updater','Accept':'text/html'},signal:AbortSignal.timeout(timeout),cache:'no-store'});if(!r.ok){await r.body?.cancel();throw Error(`データカタログ ${r.status}`);}const value=await r.text();if(value.length>4_000_000)throw Error('データカタログが大きすぎます。');return value;}
 function withConsumerKey(raw,key){const u=new URL(raw.replace(/\[(?:token|トークン|consumerKey)[^\]]*\]/gi,encodeURIComponent(key)));u.searchParams.set('acl:consumerKey',key);return u.href;}
 export async function discoverVersion(datasetURL,date,fetchText=text){
@@ -22,9 +25,12 @@ export async function refreshOne(env,operator,date=tokyoDate()){
 export async function refreshAll(env,date=tokyoDate()){
   const result={date,updatedAt:new Date().toISOString(),operators:{}};
   for(const op of ['kyotobus','citybus','subway']){try{const f=await refreshOne(env,op,date);result.operators[op]={ok:true,revisionDate:f.revisionDate,validFrom:f.validFrom,validTo:f.validTo,trips:f.trips.length};}catch(e){result.operators[op]={ok:false,error:String(e?.message??e)};}}
+  const dates=[date,oppositePatternDate(date)];const patterns=[];for(const d of dates){try{const f=await refreshKintetsuPattern(env,d);patterns.push({ok:true,date:d,day:f.meta.day,revisionDate:f.revisionDate,trips:f.meta.tripCount});}catch(e){patterns.push({ok:false,date:d,error:String(e?.message??e)});}}
+  result.operators.kintetsu={ok:patterns.some(p=>p.ok),patterns};
   if(env.LIVE_KV)await env.LIVE_KV.put('static:last-refresh',JSON.stringify(result));return result;
 }
 export async function readStatic(env,operator,date=tokyoDate()){
+  if(operator==='kintetsu')return readKintetsuPattern(env,date);
   if(!['kyotobus','citybus','subway'].includes(operator))throw Error('事業者を確認してください。');const raw=await env.LIVE_KV?.get(`static:${operator}`);if(!raw)return null;const feed=JSON.parse(raw),daily=dateFeed(feed,date),updated=Date.parse(feed.lastUpdated),stale=(!feed.validFrom||date<feed.validFrom)||(!feed.validTo||date>feed.validTo)||!Number.isFinite(updated)||Date.now()-updated>48*3600_000;return {...daily,meta:{operator,revisionDate:feed.revisionDate,lastUpdated:feed.lastUpdated,validFrom:feed.validFrom,validTo:feed.validTo,stale,warning:stale?'時刻データの更新を確認してください。':null}};
 }
-export {tokyoDate};
+export {tokyoDate,oppositePatternDate};
