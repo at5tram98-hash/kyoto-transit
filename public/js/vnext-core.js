@@ -16,21 +16,6 @@ export function chooseNearbyGuide({rail,bus},railLimit=350,busLimit=350){
   return rail.meters<=bus.meters?{kind:'rail',...rail}:{kind:'bus',...bus};
 }
 
-const directionIds=(fromId,direction)=>{
-  const i=subwayIds.indexOf(fromId);
-  if(i<0)return [];
-  if(direction==='north')return subwayIds.slice(0,i+1).reverse();
-  if(direction==='south')return subwayIds.slice(i);
-  return [];
-};
-
-export function buildSubwayTrip({fromId,direction,depart,network,stepMinutes=2}){
-  const ids=directionIds(fromId,direction);
-  if(ids.length<2||!Number.isFinite(depart))return null;
-  const stops=ids.map((id,index)=>({id,name:network?.stops?.get(id)?.name??id,time:depart+index*stepMinutes,arrival:depart+index*stepMinutes,departure:depart+index*stepMinutes,estimated:index>0})),destination=stops.at(-1).name;
-  return {kind:'ride',operator:'subway',category:'local',label:'地下鉄烏丸線',destination,from:fromId,to:ids.at(-1),depart,arrive:stops.at(-1).time,minutes:stops.at(-1).time-depart,officialStops:stops,fullTerminus:true,syntheticTimes:true,direction};
-}
-
 function orderedDirection(ids,axis){
   const points=ids.map(id=>axis.indexOf(id)).filter(i=>i>=0);
   if(points.length<2)return null;
@@ -90,23 +75,9 @@ function projectSubwayStatic(feed,nowMinute,network){
   return trains.sort((a,b)=>a.depart-b.depart).slice(0,40);
 }
 
-export function projectSubwayTrains({feed=null,southEntries=[],northEntries=[],nowMinute,network,windowBefore=36,windowAfter=2,stepMinutes=2}){
-  if(feed?.services?.length)return projectSubwayStatic(feed,nowMinute,network);
-  const total=(subwayIds.length-1)*stepMinutes,trains=[];
-  const add=(entry,direction)=>{
-    const depart=entry.depart;
-    if(!Number.isFinite(depart))return;
-    const elapsed=nowMinute-depart;
-    if(elapsed<0||elapsed>total)return;
-    const progress=clamp(elapsed/total,0,1),raw=progress*(subwayIds.length-1);
-    let aIndex=Math.floor(raw),bIndex=Math.min(subwayIds.length-1,aIndex+1);
-    if(direction==='north'){aIndex=subwayIds.length-1-aIndex;bIndex=Math.max(0,aIndex-1);}
-    const a=subwayIds[aIndex],b=subwayIds[bIndex];
-    trains.push({operator:'subway',direction,from:a,to:b,atStation:Math.abs(raw-Math.round(raw))<.12,position:raw,destination:direction==='south'?network.stops.get(subwayIds.at(-1))?.name:network.stops.get(subwayIds[0])?.name,label:'烏丸線',delay:null,estimated:true,depart});
-  };
-  southEntries.filter(e=>e.depart>=nowMinute-windowBefore&&e.depart<=nowMinute+windowAfter).forEach(e=>add(e,'south'));
-  northEntries.filter(e=>e.depart>=nowMinute-windowBefore&&e.depart<=nowMinute+windowAfter).forEach(e=>add(e,'north'));
-  return trains;
+export function projectSubwayTrains({feed,nowMinute,network}){
+  if(!feed?.services?.length||!Number.isFinite(nowMinute))return [];
+  return projectSubwayStatic(feed,nowMinute,network);
 }
 
 const simpleDestination=value=>normalize(String(value??'').replace(/行き?$|方面|駅$/g,'').replaceAll('大和西大寺','西大寺').replaceAll('近鉄奈良','奈良'));
