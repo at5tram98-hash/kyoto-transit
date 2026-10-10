@@ -48,10 +48,10 @@ export function mountMobility(api){
     if(nearStop&&(status!=='bus'||nearStop!==bus.id))clearNearby();
     if(bus.meters<=5000){const stop=network.stops.get(bus.id);$('#nearest-place').hidden=false;$('#nearest-place').innerHTML=`<div class="nearest-row"><span class="round-symbol">${symbol('location')}</span><div><small>最寄りの対応市バス停</small><b>${esc(stop.name)}</b><small>約${Math.round(bus.meters)}m（直線距離）</small></div><button class="plain" id="nearest-bus">接近を見る</button></div>`;}
     const visible=!document.hidden&&!root.closest('.view').hidden;
-    if(status==='bus'&&visible&&lastAutoStop!==bus.id&&Date.now()-lastBusFetch>60000){lastAutoStop=bus.id;lastBusFetch=Date.now();$('#position-status').textContent+='・接近情報を取得';loadNearby(bus.id);}
-    if(status==='rail'){$('#train-details').open=true;if(visible&&!confirmed&&Date.now()-lastRailFetch>60000&&$('#track-search').disabled===false){lastRailFetch=Date.now();loadTrack(true);}}
+    if(status==='bus'&&visible&&!ride?.isRiding()&&lastAutoStop!==bus.id&&Date.now()-lastBusFetch>60000){lastAutoStop=bus.id;lastBusFetch=Date.now();$('#position-status').textContent+='・接近情報を取得';loadNearby(bus.id);}
+    if(status==='rail'){$('#train-details').open=true;if(visible&&!confirmed&&!ride?.isConfirmed()&&Date.now()-lastRailFetch>60000&&$('#track-search').disabled===false){lastRailFetch=Date.now();loadTrack(true);}}
   }
-  async function loadNearby(id,value){
+  async function loadNearby(id,value,route){
     const stop=network.stops.get(id);if(stop?.type!=='citybus')return;
     nearController?.abort();nearController=new AbortController();const active=++nearJob,signal=nearController.signal;
     const same=nearStop===id&&nearSelected===value&&nearby.querySelector('.bus-native');nearStop=id;nearBusy=true;lastBusFetch=Date.now();nearRefresh.touch();
@@ -62,7 +62,7 @@ export function mountMobility(api){
       const choices=value?nearChoices:(await getBusChoices(stop.fullName??stop.name,signal)).choices;
       if(active!==nearJob||signal.aborted)return;
       nearChoices=choices;
-      const choice=nearChoices.find(c=>c.value===value)??nearChoices[0];
+      const choice=nearChoices.find(c=>c.value===value)??nearChoices.find(c=>c.route===route)??nearChoices[0];
       if(!choice){nearby.innerHTML='<p class="fine">この停留所で対象の系統を取得できませんでした。</p><button class="plain" id="nearby-refresh">再取得</button>';return;}
       const data=await getBusData(stop.fullName??stop.name,choice.value,signal);if(active!==nearJob||signal.aborted)return;
       ride?.bus(data);nearSelected=choice.value;nearby.innerHTML=`<label class="block-label">接近を見る行先・のりば<select id="nearby-choice">${nearChoices.map(c=>`<option value="${esc(c.value)}" ${c.value===choice.value?'selected':''}>${esc(c.route)}・${esc(c.destination)}・${esc(c.boarding)}</option>`).join('')}</select></label>${busHTML(data)}<div class="nearby-controls"><button class="plain" id="nearby-refresh">接近情報を更新</button><label class="bus-auto"><input type="checkbox" id="nearby-auto" ${nearAuto?'checked':''}>1分ごとに更新</label></div><p class="fine" role="status" id="nearby-status">この行先の接近情報です。目的地への経路は下のボタンで検索できます。</p>`;

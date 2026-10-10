@@ -43,7 +43,8 @@ export function rankRides(legs,{network,geo,samples=[],minute,railFeed,busFeed,n
     }}
     const matches=matchRail(leg,railFeed,network,minute,fix,geo,now);
     if(matches.length===1)add('近鉄公式の種別・行先・駅間と一致',25);else if(matches.length>1)add('近鉄公式に同条件の複数便',10);
-    if(isBus(leg)&&busFeed&&now-Date.parse(busFeed.capturedAt)<=120000&&simple(busFeed.stop)===simple(network.stops.get(leg.from)?.fullName??network.stops.get(leg.from)?.name)&&busFeed.route===leg.route&&simple(busFeed.destination)===simple(leg.destination)&&Math.abs(minute-leg.depart)<=3&&busFeed.buses?.some(b=>b.stopsAway===0))add('乗車停留所の接近表示と一致（車両IDなし）',10);
+    const reportedStop=busFeed?stops.find(s=>simple(busFeed.stop)===simple(network.stops.get(s.id)?.fullName??s.name)):null;
+    if(isBus(leg)&&busFeed&&now-Date.parse(busFeed.capturedAt)<=120000&&Date.parse(busFeed.capturedAt)<=now+5000&&Number.isFinite(reportedStop?.time)&&busFeed.route===leg.route&&simple(busFeed.destination)===simple(leg.destination)&&Math.abs(minute-reportedStop.time)<=3&&busFeed.buses?.some(b=>b.stopsAway<=1))add('停車地点の接近表示と一致（車両IDなし）',10);
     const score=Math.max(0,Math.min(100,evidence.reduce((n,e)=>n+e.points,0)));
     return {leg,stops,score,evidence,live:matches.length===1?matches[0]:null,geometry};
   }).filter(Boolean).sort((a,b)=>b.score-a.score||Math.abs(a.leg.depart-minute)-Math.abs(b.leg.depart-minute));
