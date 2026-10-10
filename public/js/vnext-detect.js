@@ -1,5 +1,5 @@
 import {kintetsuIds} from './network.js';
-import {distance} from './mobility.js';
+import {distance,segmentDistance} from './mobility.js';
 import {trajectory,rankRides,freshFix,matchMeasuredVehicles,createRideConsensus} from './riding.js';
 import {getBusChoices,getBusData,getKyotoBusRT} from './live.js';
 import {officialTripLeg} from './vehicle.js';
@@ -10,6 +10,7 @@ const consensus=createRideConsensus({required:3,minScore:55,minMargin:8});
 let lastNextAlertKey=null;
 const scoreClamp=n=>Math.max(0,Math.min(100,Math.round(n)));
 const asCandidate=(ride,score,source,extra={})=>({ride,score:scoreClamp(score),source,...extra});
+function onRailCorridor(fix,type){if(!fix||!state.geo?.lines)return false;const names=type==='subway'?new Set(['烏丸線']):new Set(['京都線','奈良線']);return state.geo.lines.filter(l=>names.has(l.line)).some(l=>l.points.some((p,i)=>i&&segmentDistance(fix,{lng:l.points[i-1][0],lat:l.points[i-1][1]},{lng:p[0],lat:p[1]})<=Math.max(140,fix.accuracy*2)));}
 
 async function detectKintetsu(stopId){
   const now=tokyoNow(),feed=await ensureRailFeed(),data=await official('/rider/candidates',{stop:stopId,date:now.date,minute:now.minute}),legs=data.trips.map(t=>officialTripLeg(t,state.network)).filter(Boolean);if(!legs.length)return [];
@@ -48,7 +49,7 @@ export async function autoDetectRide(force=false,onChange=()=>{}){
   if(!settings.autoDetect||state.detectBusy||!state.network||!state.geo||!state.fix||!freshFix(state.fix)||state.ride)return;if(!force&&Date.now()-state.lastDetectAt<12000)return;
   const near=nearest(),motion=trajectory(state.samples),moving=Number.isFinite(motion.speed)&&motion.speed>=2.8;updateBusTrail(near.bus?.id,near.bus?.meters??Infinity);if(!moving){state.rideCandidates=[];state.rideConsensusCount=0;return;}state.detectBusy=true;state.lastDetectAt=Date.now();onChange();
   try{
-    let candidates=[];const railClose=near.rail&&near.rail.meters<=Math.max(180,state.fix.accuracy*2.2),busClose=near.bus&&near.bus.meters<=Math.max(150,state.fix.accuracy*2.1),kyotoClose=near.kyotoBus&&near.kyotoBus.meters<=Math.max(180,state.fix.accuracy*2.3);
+    let candidates=[];const stationClose=near.rail&&near.rail.meters<=Math.max(180,state.fix.accuracy*2.2),railClose=near.rail&&(stationClose||onRailCorridor(state.fix,near.rail.stop.type)),recentBusTrail=state.busTrail.some(x=>Date.now()-x.at<180000),busClose=near.bus&&(near.bus.meters<=Math.max(150,state.fix.accuracy*2.1)||(recentBusTrail&&near.bus.meters<=700)),kyotoClose=near.kyotoBus&&near.kyotoBus.meters<=Math.max(180,state.fix.accuracy*2.3);
     if(railClose){if(near.rail.id==='K15'){const [k,s]=await Promise.all([detectKintetsu('K15').catch(()=>[]),detectSubway('K15').catch(()=>[])]);candidates=mergeCandidates(k,s);}else candidates=near.rail.stop.type==='kintetsu'?await detectKintetsu(near.rail.id).catch(()=>[]):await detectSubway(near.rail.id).catch(()=>[]);}
     if(!candidates.length&&(busClose||kyotoClose)){const cityPromise=busClose&&near.bus.stop.type==='citybus'?detectCityBus(near.bus).catch(()=>[]):Promise.resolve([]),kyotoPromise=kyotoClose?detectKyotoBus(near.kyotoBus.id).catch(()=>[]):near.bus?.stop.type==='kyotobus'&&busClose?detectKyotoBus(near.bus.id).catch(()=>[]):Promise.resolve([]);const [city,kyoto]=await Promise.all([cityPromise,kyotoPromise]);candidates=mergeCandidates(city,kyoto);}
     const decision=consensus.update(candidates,state.fix.timestamp);state.rideConsensusCount=decision.count;state.rideCandidates=decision.ambiguous?decision.candidates:[];
