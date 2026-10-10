@@ -2,6 +2,7 @@ import {datasetResourceLinks,parseResourcePage,selectGtfsVersion,compactGtfsZip,
 import {readKintetsuPattern,refreshKintetsuStage,finalizeKintetsuPattern} from './manual-rail-feed.js';
 import {readSubwayPattern,refreshSubwayPattern} from './manual-subway-feed.js';
 import {calendarDay} from './service-calendar.js';
+import {readOfficialFallback} from './official-static-fallback.js';
 
 export const DATASETS={
   kyotobus:'https://ckan.odpt.org/dataset/kyoto_bus_all_lines_anotherversion',
@@ -38,7 +39,7 @@ async function recordRefreshResult(env,result,nextState){
 export async function runRefreshStep(env,date=tokyoDate()){
   if(!env.LIVE_KV)throw Error('LIVE_KVが未設定です。');const state=await readCronState(env,date),name=REFRESH_STEPS[state.step],base=state.cycleDate,kOpp=oppositePatternDate(base,'kintetsu'),sOpp=oppositePatternDate(base,'subway'),startedAt=new Date().toISOString();let detail=null,error=null;
   try{
-    if(name.startsWith('odpt:')){const operator=name.split(':')[1],feed=await refreshOne(env,operator,base);detail={operator,revisionDate:feed.revisionDate,validFrom:feed.validFrom,validTo:feed.validTo,trips:feed.trips.length};}
+    if(name.startsWith('odpt:')){const operator=name.split(':')[1];if(!env.ODPT_CONSUMER_KEY&&['citybus','kyotobus'].includes(operator)){const feed=await readOfficialFallback(env,operator,base,{force:true});detail={operator,source:'official_fallback',services:feed.services.length,trips:feed.services.reduce((n,s)=>n+s.trips.length,0)};}else if(!env.ODPT_CONSUMER_KEY&&operator==='subway'){const feed=await readSubwayPattern(env,base);detail={operator,source:'official_timetable',trips:feed.meta?.tripCount??feed.services?.reduce((n,s)=>n+s.trips.length,0)??0};}else{const feed=await refreshOne(env,operator,base);detail={operator,revisionDate:feed.revisionDate,validFrom:feed.validFrom,validTo:feed.validTo,trips:feed.trips.length};}}
     else if(name==='subway:current'){const feed=await refreshSubwayPattern(env,base);detail={operator:'subway',pattern:feed.meta.day,trips:feed.meta.tripCount,complete:feed.meta.completeCount};}
     else if(name==='subway:opposite'){const feed=await refreshSubwayPattern(env,sOpp);detail={operator:'subway',pattern:feed.meta.day,trips:feed.meta.tripCount,complete:feed.meta.completeCount};}
     else if(name==='kintetsu:current:south')detail={operator:'kintetsu',pattern:patternKind(calendarDay(base,'kintetsu')),stage:await refreshKintetsuStage(env,base,'south')};
@@ -59,6 +60,8 @@ export async function readStatic(env,operator,date=tokyoDate()){
     if(raw){const feed=JSON.parse(raw),record=staticRecord(feed,operator,date);if(!record.meta.stale)return record;}
     return readSubwayPattern(env,date);
   }
-  if(!raw)return null;return staticRecord(JSON.parse(raw),operator,date);
+  if(raw){const record=staticRecord(JSON.parse(raw),operator,date);if(!record.meta.stale)return record;}
+  if(['citybus','kyotobus'].includes(operator)){try{return await readOfficialFallback(env,operator,date);}catch(e){if(raw)return staticRecord(JSON.parse(raw),operator,date);throw e;}}
+  return raw?staticRecord(JSON.parse(raw),operator,date):null;
 }
 export {tokyoDate,oppositePatternDate};

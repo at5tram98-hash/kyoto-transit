@@ -10,6 +10,7 @@ import {decodeGtfsRealtime,filterKyotoBusVehicles} from './gtfs-rt.js';
 import {layoutChanged,requireRows,shouldExpectRail,fallbackDiagnostic} from './layout.js';
 import {refreshAll,readStatic,tokyoDate} from './static-refresh.js';
 import {visualBusApproach,visualRailSnapshot} from './visual-fallback.js';
+import {BUS_CHOICE_CACHE_TTL,BUS_CHOICE_LIVE_AGE,oldestChoiceIndexes} from './bus-refresh.js';
 
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const KYOTO_BUS_VEHICLE='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_vehicle';
@@ -70,11 +71,10 @@ async function busDataObject(env,stop,choice,allowVisual=true){
 }
 async function busData(env,stop,choice){return Response.json(await busDataObject(env,stop,choice,true));}
 async function busChoiceCached(env,stop,choice){if(!env.LIVE_KV)return null;const raw=await env.LIVE_KV.get(`citybus:choice:${stop}:${choice.value}`);if(!raw)return null;try{return JSON.parse(raw);}catch{return null;}}
-async function saveBusChoice(env,stop,choice,value){if(env.LIVE_KV)await env.LIVE_KV.put(`citybus:choice:${stop}:${choice.value}`,JSON.stringify(value),{expirationTtl:180});}
+async function saveBusChoice(env,stop,choice,value){if(env.LIVE_KV)await env.LIVE_KV.put(`citybus:choice:${stop}:${choice.value}`,JSON.stringify(value),{expirationTtl:BUS_CHOICE_CACHE_TTL});}
 async function bulkBusData(env,stop,choices){
   const unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),cached=await Promise.all(unique.map(c=>busChoiceCached(env,stop,c))),results=cached.slice();
-  let available=cached.filter(Boolean).length,cursor=0;const slot=Math.floor(Date.now()/15000)%4;
-  const refresh=unique.map((_,i)=>i).filter(i=>!cached[i]||i%4===slot).sort((a,b)=>Number(Boolean(cached[a]))-Number(Boolean(cached[b]))).slice(0,2);
+  let available=cached.filter(Boolean).length,cursor=0;const refresh=oldestChoiceIndexes(cached,2);
   async function directRun(){while(true){const n=cursor++;if(n>=refresh.length)return;const i=refresh[n],choice=unique[i];try{const value=await busDataObject(env,stop,choice,false);results[i]=value;if(!cached[i])available++;await saveBusChoice(env,stop,choice,value);}catch(e){if(!results[i])results[i]={kind:'bus-data',stop,...choice,buses:[],error:e instanceof Error?e.message:'接近情報を取得できませんでした。',capturedAt:new Date().toISOString()};}}}
   await Promise.all(Array.from({length:Math.min(2,refresh.length)},()=>directRun()));
   if(available===0&&unique.length){const i=refresh[0]??0;try{const value=await busDataObject(env,stop,unique[i],true);results[i]=value;available++;await saveBusChoice(env,stop,unique[i],value);}catch{}}
@@ -101,7 +101,7 @@ async function kyotoBusRealtime(request,env){
   if(!env.ODPT_CONSUMER_KEY)return error('京都バスのリアルタイム連携を準備中です。',503,'odpt_not_configured');
   return cachedJSON(request,env,'rt:kyotobus',async()=>{const [vehicleBytes,tripBytes]=await Promise.all([fetchProto(KYOTO_BUS_VEHICLE,env.ODPT_CONSUMER_KEY),fetchProto(KYOTO_BUS_TRIP,env.ODPT_CONSUMER_KEY).catch(()=>null)]),vehicleFeed=decodeGtfsRealtime(vehicleBytes),tripFeed=tripBytes?decodeGtfsRealtime(tripBytes):{tripUpdates:[]},filtered=filterKyotoBusVehicles(vehicleFeed.vehicles,tripFeed.tripUpdates),timestamps=filtered.vehicles.map(v=>v.timestamp).filter(Number.isFinite),latest=timestamps.length?Math.max(...timestamps)*1000:Date.now(),hasFresh=filtered.vehicles.some(v=>v.fresh);return {kind:'kyotobus-rt',source:hasFresh?'live':'prediction',stale:!hasFresh,asOf:iso(latest),vehicles:filtered.vehicles.map(v=>({id:v.id,trip:v.trip,route:v.route,lat:v.lat,lon:v.lon,bearing:v.bearing,speed:v.speed,timestamp:v.timestamp,stop:v.stop,stopSequence:v.stopSequence,congestion:v.congestion,occupancy:v.occupancy,occupancyPct:v.occupancyPct,delay:v.delay})),meta:{tripUpdates:tripFeed.tripUpdates.length,unmapped:filtered.unmapped}};},12);
 }
-function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),observed=direct||Number.isFinite(bus?.stopsAway),minutes=direct?bus.minutes:Number.isFinite(bus?.stopsAway)?Math.max(1,bus.stopsAway*2):null,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=90000;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,minutes,status:minutes===null?(item.noBus?'接近なし':null):null,delay:null,eta:Number.isFinite(minutes)?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:observed?0.72:0.45,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:observed&&!direct};}
+function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),observed=direct||Number.isFinite(bus?.stopsAway),minutes=direct?bus.minutes:Number.isFinite(bus?.stopsAway)?Math.max(1,bus.stopsAway*2):null,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=BUS_CHOICE_LIVE_AGE;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,minutes,status:minutes===null?(item.noBus?'接近なし':null):null,delay:null,eta:Number.isFinite(minutes)?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:observed?0.72:0.45,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:observed&&!direct};}
 async function cityBusArrivals(request,env,url){
   const stop=url.searchParams.get('stop');
   if(!env.STOP_NAMES.includes(stop))return error('対象の停留所を選択してください。');
