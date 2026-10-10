@@ -22,11 +22,15 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Worker dry-run bundle
-        run: npx wrangler deploy --dry-run --outdir worker-dist --config worker/wrangler.jsonc
+        run: |
+          mkdir -p worker-dist
+          npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
+          test -s worker-dist/worker.js
+          test $(wc -c < worker-dist/worker.js) -gt 100000
       - uses: actions/upload-artifact@v4
         with:
           name: worker-bundle
-          path: worker-dist
+          path: worker-dist/worker.js
           retention-days: 3
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
