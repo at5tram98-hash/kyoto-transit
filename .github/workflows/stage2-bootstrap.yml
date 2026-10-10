@@ -1,0 +1,20 @@
+name: Stage 2 one-time timetable bootstrap
+on:
+  push:
+    paths:
+      - .github/workflows/stage2-bootstrap.yml
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Subway weekend
+        run: curl --fail --show-error --silent --max-time 180 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=subway&date=2026-10-10&token=s2-9f316a7d343a48c7ab93291c84b3634c'
+      - name: Subway weekday
+        run: curl --fail --show-error --silent --max-time 180 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=subway&date=2026-10-09&token=s2-9f316a7d343a48c7ab93291c84b3634c'
+      - name: Kintetsu weekend
+        continue-on-error: true
+        run: curl --fail --show-error --silent --max-time 240 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-10&token=s2-9f316a7d343a48c7ab93291c84b3634c'
+      - name: Kintetsu weekday
+        continue-on-error: true
+        run: curl --fail --show-error --silent --max-time 240 'https://my-map-capture.at5tram98.workers.dev/_stage2-refresh?op=kintetsu&date=2026-10-09&token=s2-9f316a7d343a48c7ab93291c84b3634c'
