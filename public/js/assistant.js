@@ -133,6 +133,7 @@ export function mountMobility(api){
   ride=mountRideAssistant({...api,getOrigin:()=>origin,setOrigin,loadNearby},root);
   refreshSettings();
   return {openMeeting,refreshSettings,routesChanged:(routes,r)=>{trackRoutes=routes;trackRequest=r;ride.routes(routes,r);confirmed=null;renderTracking();},selectStop:(target,id)=>{
+    if(target==='ride-to'){ride.setDestination(id);return true;}
     if(target==='ride-from'){setOrigin(id);return true;}
     if(target==='assist-from'){stopGeo();setOrigin(id);$('#position-status').textContent='指定した駅・バス停から案内します。';if(network.stops.get(id)?.type==='citybus')loadNearby(id);return true;}
     if(['meet-from','track-from'].includes(target)){if(!['subway','kintetsu'].includes(network.stops.get(id)?.type)){toast('列車に乗る駅を選んでください');return true;}if(target==='meet-from'){meetOrigin=id;$('#meet-origin').textContent=name(id);meetingData=null;$('#meeting-results').innerHTML='';}else{trackOrigin=id;$('#track-origin').textContent=name(id);confirmed=null;trackRoutes=[];renderTracking();}return true;}

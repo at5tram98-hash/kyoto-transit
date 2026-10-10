@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createNetwork,KINTETSU_NAMES} from '../public/js/network.js';
-import {freshFix,trajectory,nearbyStops,rankRides,confidence,createModeDetector,rideProgress,matchRail} from '../public/js/riding.js';
+import {freshFix,trajectory,nearbyStops,rankRides,confidence,createModeDetector,rideProgress,matchRail,alignRideDate} from '../public/js/riding.js';
 import {parseRailLocation} from '../worker/rail.js';
 import worker from '../worker/index.js';
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
@@ -25,6 +25,7 @@ test('同じGPS点を繰り返しても継続時間を水増ししない',()=>{c
 test('停車・地下のGPS消失で手動確定した便を解除せず、リセットで戻す',()=>{const d=createModeDetector();assert.equal(d.update({samples:[],confirmed:leg,now}).state,'rail');assert.equal(d.update({samples:[fix('B24',now,{speed:0})],nearStation:true,confirmed:leg,now}).state,'rail');d.reset();assert.equal(d.update({samples:[],now}).state,'nearby');});
 test('駅での位置確認＋経過時間で次の実停車駅と残りを計算する',()=>{const p=rideProgress(leg,network,873,{anchor:{scheduledMinute:865,actualMinute:868},alight:'B12'});assert.equal(p.next.id,'B16');assert.equal(p.next.eta,878);assert.equal(p.remaining,2);assert.equal(p.target.id,'B12');assert.ok(!p.stops.some(s=>s.id==='B22'));assert.equal(rideProgress(leg,network,900).finished,true);});
 test('同点の候補には高信頼度を付けない',()=>assert.equal(confidence([{score:95},{score:95}]).level,'低'));
+test('日付をまたぐ直近候補を同じ日付へ揃え、途中時刻の未取得を保持',()=>{const l=alignRideDate({...leg,depart:1430,arrive:1460,intermediate:[{name:'新田辺',time:1445},{name:'未取得',time:null}]},'2026-10-09','2026-10-10');assert.equal(l.depart,-10);assert.equal(l.arrive,20);assert.equal(l.intermediate[0].time,5);assert.equal(l.intermediate[1].time,null);assert.equal(leg.depart,860);});
 test('Yahooの「行」と公式画面の行先省略表記を照合',()=>{const feed={capturedAt:new Date(now).toISOString(),sourceUpdatedAt:new Date(now).toISOString(),trains:[{position:45,direction:'north',destination:'京都',category:'express',delay:0}]};assert.equal(matchRail({...leg,destination:'京都行'},feed,network,861,null,geo,now).length,1);});
 test('途中停留所の時刻がないバスはGPSで確認した停留所から更新し、ETAを作らない',()=>{const stops=[...network.stops.values()].filter(s=>s.type==='citybus').slice(0,3),bus={...leg,operator:'citybus',from:stops[0].id,to:stops[2].id,intermediate:[{name:stops[1].name,time:null}]};let p=rideProgress(bus,network,870);assert.equal(p.next,null);assert.equal(p.remaining,null);p=rideProgress(bus,network,870,{passed:stops[0].id});assert.equal(p.next.id,stops[1].id);assert.equal(p.next.eta,null);assert.equal(p.remaining,2);});
 test('停留所一覧がないバスの終点を「次」と断定しない',()=>{const bus={...leg,operator:'citybus',minutes:10,intermediate:[]};const p=rideProgress(bus,network,870,{passed:bus.from});assert.equal(p.next,null);assert.equal(p.remaining,null);});
