@@ -7,6 +7,7 @@ import {buildSubwayTrip,buildCityBusTrip,routeIntersection} from './vnext-core.j
 import {state,settings,tokyoNow,nearest,speed,sleep,haptic,toast,rideKey,serviceName,official,ensureRailFeed,inferRailDirection} from './vnext-state.js';
 
 const consensus=createRideConsensus({required:3,minScore:55,minMargin:8});
+let lastNextAlertKey=null;
 const scoreClamp=n=>Math.max(0,Math.min(100,Math.round(n)));
 const asCandidate=(ride,score,source,extra={})=>({ride,score:scoreClamp(score),source,...extra});
 
@@ -40,11 +41,11 @@ async function detectCityBus(stopInfo){
   return rows.sort((a,b)=>b.score-a.score).slice(0,3);
 }
 function mergeCandidates(...groups){const map=new Map();for(const row of groups.flat().filter(Boolean)){const key=rideKey(row.ride);const old=map.get(key);if(!old||row.score>old.score)map.set(key,row);}return [...map.values()].sort((a,b)=>b.score-a.score).slice(0,3);}
-function applyRide(candidate){const changed=rideKey(state.ride)!==rideKey(candidate.ride);state.ride=candidate.ride;state.rideSource=candidate.source;state.rideConfidence=candidate.score;state.lastRideSeenAt=Date.now();state.rideCandidates=[];state.rideConsensusCount=0;if(Number.isFinite(candidate.live?.delay))state.rideShift=candidate.live.delay;if(changed){haptic();toast(`${serviceName(candidate.ride)}を判定しました`);}}
+function applyRide(candidate){const changed=rideKey(state.ride)!==rideKey(candidate.ride);state.ride=candidate.ride;state.rideSource=candidate.source;state.rideConfidence=candidate.score;state.lastRideSeenAt=Date.now();state.rideCandidates=[];state.rideConsensusCount=0;if(Number.isFinite(candidate.live?.delay))state.rideShift=candidate.live.delay;if(changed){lastNextAlertKey=null;haptic();toast(`${serviceName(candidate.ride)}を判定しました`);}}
 export function confirmRideCandidate(index){const candidate=state.rideCandidates[Number(index)];if(!candidate)return false;consensus.reset();applyRide(candidate);return true;}
-export function resetRideDetection(){consensus.reset();state.rideCandidates=[];state.rideConsensusCount=0;}
+export function resetRideDetection(){consensus.reset();state.rideCandidates=[];state.rideConsensusCount=0;lastNextAlertKey=null;}
 export async function autoDetectRide(force=false,onChange=()=>{}){
-  if(!settings.autoDetect||state.detectBusy||!state.network||!state.geo||!state.geo||!state.fix||!freshFix(state.fix)||state.ride)return;if(!force&&Date.now()-state.lastDetectAt<12000)return;
+  if(!settings.autoDetect||state.detectBusy||!state.network||!state.geo||!state.fix||!freshFix(state.fix)||state.ride)return;if(!force&&Date.now()-state.lastDetectAt<12000)return;
   const near=nearest(),motion=trajectory(state.samples),moving=Number.isFinite(motion.speed)&&motion.speed>=2.8;updateBusTrail(near.bus?.id,near.bus?.meters??Infinity);if(!moving){state.rideCandidates=[];state.rideConsensusCount=0;return;}state.detectBusy=true;state.lastDetectAt=Date.now();onChange();
   try{
     let candidates=[];const railClose=near.rail&&near.rail.meters<=Math.max(180,state.fix.accuracy*2.2),busClose=near.bus&&near.bus.meters<=Math.max(150,state.fix.accuracy*2.1),kyotoClose=near.kyotoBus&&near.kyotoBus.meters<=Math.max(180,state.fix.accuracy*2.3);
@@ -54,4 +55,10 @@ export async function autoDetectRide(force=false,onChange=()=>{}){
     if(decision.confirmed){const selected=candidates.find(c=>rideKey(c.ride)===rideKey(decision.confirmed))??candidates[0];if(selected)applyRide(selected);}
   }finally{state.detectBusy=false;onChange();}
 }
-export function updateRideAnchor(){const ride=state.ride;if(!ride||!freshFix(state.fix)||!state.geo)return;const now=tokyoNow(),stops=ride.officialStops??[];let best=null;for(const s of stops){if(!s.id||!Number.isFinite(s.time))continue;const g=state.geo.stops.find(x=>x.id===s.id);if(!g)continue;const meters=distance(state.fix,g);if(meters<Math.max(45,Math.min(90,state.fix.accuracy*1.6))&&(!best||meters<best.meters))best={s,meters};}if(best&&Math.abs(now.minute-best.s.time)<20&&!['kintetsu','through'].includes(ride.operator))state.rideShift=now.minute-best.s.time;const end=stops.at(-1),endGeo=end?.id?state.geo.stops.find(x=>x.id===end.id):null;if(endGeo&&distance(state.fix,endGeo)<80&&speed()<1.2&&now.minute>(end.time??ride.arrive)+state.rideShift){if(Date.now()-state.lastRideSeenAt>90000){state.ride=null;state.rideShift=0;state.rideSource=null;state.rideConfidence=0;resetRideDetection();toast('到着を確認しました');}}else state.lastRideSeenAt=Date.now();}
+export function updateRideAnchor(){
+  const ride=state.ride;if(!ride||!freshFix(state.fix)||!state.geo)return;const now=tokyoNow(),stops=ride.officialStops??[],effective=now.minute-state.rideShift;let best=null;
+  for(const s of stops){if(!s.id||!Number.isFinite(s.time))continue;const g=state.geo.stops.find(x=>x.id===s.id);if(!g)continue;const meters=distance(state.fix,g);if(meters<Math.max(45,Math.min(90,state.fix.accuracy*1.6))&&(!best||meters<best.meters))best={s,meters};}
+  if(best&&Math.abs(now.minute-best.s.time)<20&&!['kintetsu','through'].includes(ride.operator))state.rideShift=now.minute-best.s.time;
+  if(['citybus','kyotobus'].includes(ride.operator)){const next=stops.find(s=>s.id&&Number.isFinite(s.time)&&s.time>effective+.1),nextGeo=next&&state.geo.stops.find(x=>x.id===next.id),alertKey=next?`${rideKey(ride)}|${next.id}`:null;if(nextGeo&&alertKey!==lastNextAlertKey&&distance(state.fix,nextGeo)<=220){lastNextAlertKey=alertKey;haptic();toast(`次は ${next.name??state.network.stops.get(next.id)?.name??'次の停留所'}`);}}
+  const end=stops.at(-1),endGeo=end?.id?state.geo.stops.find(x=>x.id===end.id):null;if(endGeo&&distance(state.fix,endGeo)<80&&speed()<1.2&&now.minute>(end.time??ride.arrive)+state.rideShift){if(Date.now()-state.lastRideSeenAt>90000){state.ride=null;state.rideShift=0;state.rideSource=null;state.rideConfidence=0;resetRideDetection();toast('到着を確認しました');}}else state.lastRideSeenAt=Date.now();
+}
