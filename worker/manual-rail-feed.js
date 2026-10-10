@@ -4,11 +4,12 @@ import {calendarDay} from './service-calendar.js';
 import {officialFetcher,officialText,parseKintetsuTrip,readTimetable} from './timetables.js';
 
 const network=createNetwork(catalog);
-const APP_IDS=new Set([...kintetsuIds,...subwayIds]);
-const STOP_BY_NAME=new Map([...network.stops.values()].filter(s=>APP_IDS.has(s.id)).flatMap(s=>[s.name,...(s.aliases??[])].filter(Boolean).map(name=>[normalize(name),s.id])));
+const byIds=ids=>new Map(ids.flatMap(id=>{const s=network.stops.get(id);return [s?.name,...(s?.aliases??[])].filter(Boolean).map(name=>[normalize(name),id]);}));
+const KINTETSU_BY_NAME=byIds(kintetsuIds),SUBWAY_BY_NAME=byIds(subwayIds),SUBWAY_ONLY=new Set(subwayIds.filter(id=>id!=='K15').map(id=>normalize(network.stops.get(id).name)));
 const SEEDS=[
   {stop:'B01',direction:'south'},
-  {stop:'K15',direction:'south'},
+  {stop:'B07',direction:'south'},
+  {stop:'B07',direction:'north'},
   {stop:'B16',direction:'north'},
   {stop:'B26',direction:'north'}
 ];
@@ -17,7 +18,8 @@ const serviceDay=day=>day==='weekday'?'weekday':'weekend';
 const sourceURL='https://eki.kintetsu.co.jp/norikae/';
 
 function mappedStops(trip){
-  const rows=[];for(const stop of trip.stops){const id=STOP_BY_NAME.get(normalize(stop.name));if(!id)continue;const arrival=Number.isFinite(stop.arrival)?stop.arrival:stop.departure,departure=Number.isFinite(stop.departure)?stop.departure:stop.arrival;if(!Number.isFinite(arrival)||!Number.isFinite(departure))continue;if(rows.at(-1)?.id===id)continue;rows.push({id,arrival,departure});}return rows;
+  const names=trip.stops.map(s=>normalize(s.name)),takeda=names.findIndex(n=>n===normalize('竹田')),hasSubway=names.some(n=>SUBWAY_ONLY.has(n)),subwayFirst=hasSubway&&takeda>=0&&names.slice(0,takeda).some(n=>SUBWAY_ONLY.has(n));
+  const rows=[];for(let i=0;i<trip.stops.length;i++){const stop=trip.stops[i],n=names[i];let id;if(hasSubway&&takeda>=0){if(i===takeda)id='K15';else if(subwayFirst)id=i<takeda?SUBWAY_BY_NAME.get(n):KINTETSU_BY_NAME.get(n);else id=i<takeda?KINTETSU_BY_NAME.get(n):SUBWAY_BY_NAME.get(n);}else id=KINTETSU_BY_NAME.get(n);if(!id)continue;const arrival=Number.isFinite(stop.arrival)?stop.arrival:stop.departure,departure=Number.isFinite(stop.departure)?stop.departure:stop.arrival;if(!Number.isFinite(arrival)||!Number.isFinite(departure))continue;if(rows.at(-1)?.id===id)continue;rows.push({id,arrival,departure});}return rows;
 }
 export function compileKintetsuTrips(trips,{date,revision=null,checkedAt=new Date().toISOString()}={}){
   const grouped=new Map(),usedStops=new Set();
@@ -33,7 +35,7 @@ export async function buildKintetsuPattern(env,date){
   if(!entries.length)throw Error('近鉄の普通・急行便を確認できませんでした。');
   const parsed=await mapLimit(entries,8,async entry=>parseKintetsuTrip(await officialText(entry.tripURL,fetcher,6*3600),entry.tripURL));
   const trips=parsed.filter(x=>x&&!x.error),revision=[...new Set(boards.map(b=>revisionDate(b.effective)).filter(Boolean))].sort().at(-1)??null;if(trips.length<20)throw Error(`近鉄便詳細が少なすぎます（${trips.length}件）。`);
-  const feed=compileKintetsuTrips(trips,{date,revision});feed.meta.seedStations=SEEDS.map(x=>x.stop);feed.meta.tripCount=trips.length;feed.meta.day=serviceDay(day);feed.meta.failedTrips=parsed.length-trips.length;return feed;
+  const feed=compileKintetsuTrips(trips,{date,revision});feed.meta.seedStations=SEEDS.map(x=>`${x.stop}:${x.direction}`);feed.meta.tripCount=trips.length;feed.meta.day=serviceDay(day);feed.meta.failedTrips=parsed.length-trips.length;return feed;
 }
 export async function refreshKintetsuPattern(env,date){if(!env.LIVE_KV)throw Error('LIVE_KVが未設定です。');const feed=await buildKintetsuPattern(env,date),key=`manual:kintetsu:${serviceDay(calendarDay(date,'kintetsu'))}`;await env.LIVE_KV.put(key,JSON.stringify(feed));await env.LIVE_KV.put('manual:kintetsu:status',JSON.stringify({checkedAt:feed.lastUpdated,revisionDate:feed.revisionDate,tripCount:feed.meta.tripCount,failedTrips:feed.meta.failedTrips,day:feed.meta.day}));return feed;}
 export async function readKintetsuPattern(env,date){const day=calendarDay(date,'kintetsu');if(!day)return null;const raw=await env.LIVE_KV?.get(`manual:kintetsu:${serviceDay(day)}`);if(!raw)return null;const source=JSON.parse(raw),age=Date.now()-Date.parse(source.lastUpdated),stale=!Number.isFinite(age)||age>14*86400_000;return {...source,validDates:[date],services:source.services.map(s=>({...s,trips:s.trips.map(t=>({...t,date}))})),meta:{...source.meta,stale,warning:stale?'近鉄の時刻データを確認してください。':null}};}
