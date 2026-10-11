@@ -37,6 +37,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
+      - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
         env:
@@ -63,6 +64,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
+      - run: npm run build
       - run: npx playwright install --with-deps webkit
       - run: npm run test:browser
         env:
@@ -87,6 +89,7 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --ignore-scripts
+      - run: npm run build
       - run: npx playwright install --with-deps webkit
       - run: npm run test:pwa
         env:
