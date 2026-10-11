@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="route-search.css">
   <link rel="stylesheet" href="vnext-tabbar.css">
   <link rel="stylesheet" href="stability.css">
+  <link rel="stylesheet" href="vnext-journey.css">
 </head>
 <body>
   <div class="app-shell">
@@ -30,6 +31,7 @@
       <button class="location-pill" id="location-indicator" type="button" aria-label="位置情報を確認">位置情報</button>
     </header>
 
+    <aside id="app-update" class="app-update" role="status" hidden><span>最新版を利用できます</span><button class="secondary-action" data-apply-update>更新して再開</button></aside>
     <main>
       <section class="view" data-view="now" aria-label="今">
         <div id="now-hero" aria-live="polite"></div>

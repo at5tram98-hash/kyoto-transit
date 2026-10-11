@@ -14,8 +14,8 @@ const arrivals=readFileSync(resolve(root,'public/js/vnext-arrivals.js'),'utf8'),
 if(!/ARRIVAL_INTERVAL\s*=\s*20000/.test(realtime))throw Error('接近情報の更新間隔は20秒にしてください。');if(!/FETCH_TIMEOUT\s*=\s*4000/.test(realtime))throw Error('リアルタイム通信のタイムアウトは4秒にしてください。');if(arrivals.includes('recognizeImage')||arrivals.includes('getOfficialImage'))throw Error('接近情報に画像取得処理が残っています。');
 for(const path of ["'/api/bus/rt'","'/api/citybus/arrivals'","'/api/rail/live'"])if(!worker.includes(path))throw Error(`Worker APIがありません：${path}`);if(!worker.includes('ODPT_CONSUMER_KEY')||!worker.includes('LIVE_KV'))throw Error('ODPT secret/KVフォールバックが構成されていません。');if(!worker.includes('layout_changed')||!worker.includes('diagnostic'))throw Error('HTML構造変更の検知・予測フォールバックが構成されていません。');
 if(!worker.includes("from './citybus-all.js'")||worker.includes('stopsAway*2'))throw Error('市バス全方面一括取得または公式位置の忠実表示が崩れています。');
-if(!vnext.includes('serviceWorker.register')||!sw.includes('__BUILD_VERSION__')||!sw.includes('__PRECACHE__')||!build.includes("replace('__BUILD_VERSION__',version)"))throw Error('PWAのバージョン付きService Workerが構成されていません。');
+if(!vnext.includes('serviceWorker.register')||!sw.includes('__BUILD_VERSION__')||!sw.includes('__PRECACHE__')||!/replace\(['"]__BUILD_VERSION__['"],\s*version\)/.test(build))throw Error('PWAのバージョン付きService Workerが構成されていません。');
 if(core.includes('buildSubwayTrip')||/stepMinutes\s*=\s*2/.test(core))throw Error('地下鉄の固定2分刻み合成ロジックを公開コードへ戻さないでください。');
-if(!planner.includes("new Worker(new URL('./planner-worker.js'")||!plannerWorker.includes('planWorkerJob'))throw Error('経路探索をModule Web Workerで実行してください。');
+if(!/new Worker\(\s*new URL\(['"]\.\/planner-worker\.js['"]/.test(planner)||!plannerWorker.includes('planWorkerJob'))throw Error('経路探索をModule Web Workerで実行してください。');
 if(!worker.includes("from './visual-fallback.js'")||!visual.includes("quickAction('json'"))throw Error('公式HTML構造変更時の検証付き視覚フォールバックが構成されていません。');
 JSON.parse(readFileSync(resolve(root,'public/manifest.webmanifest'),'utf8'));console.log('構文・公開残骸ゼロ・全方面接近・PWA・実時刻地下鉄・Web Worker探索・20秒更新・4秒timeout・リアルタイムAPI・視覚/予測フォールバックを検証しました。');

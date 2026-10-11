@@ -48,7 +48,7 @@ export function subwayRideCandidates(feed,{fromId,direction=null,minute,network,
       if(stops.length<2)continue;
       if(feed.meta?.terminalArrivalDerived&&stops.at(-1)?.id===service.stops.at(-1))stops.at(-1).estimated=true;
       const last=stops.at(-1),arrive=last.arrival??last.time;
-      rows.push({kind:'ride',operator:service.operator,category:service.category??'local',label:service.label??'地下鉄烏丸線',destination:trip.headsign??last.name,from:fromId,to:last.id,depart,arrive,minutes:arrive-depart,officialStops:stops,fullTerminus:true,syntheticTimes:false,direction:serviceDirection,serviceId:service.id,tripId:trip.id,timetableSource:'static'});
+      rows.push({kind:'ride',operator:service.operator,category:service.category??'local',label:service.label??'地下鉄烏丸線',destination:trip.headsign??last.name,from:fromId,to:last.id,depart,arrive,minutes:arrive-depart,officialStops:stops,fullTerminus:true,syntheticTimes:false,direction:serviceDirection,serviceId:service.id,tripId:trip.id,serviceDate:trip.date,timetableSource:'static'});
     }
   }
   return rows.sort((a,b)=>Math.abs(a.depart-minute)-Math.abs(b.depart-minute)||a.depart-b.depart).slice(0,6);

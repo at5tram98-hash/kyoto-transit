@@ -1,0 +1,39 @@
+name: Cloudflare Worker公開
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/worker.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - name: Validate Worker bundle
+        run: npx wrangler deploy --dry-run --config worker/wrangler.jsonc --outdir /tmp/my-map-worker
+      - name: Deploy existing production Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Cloudflare公開用のCLOUDFLARE_API_TOKENをGitHub Actions secretsに設定してください。"
+            exit 1
+          fi
+          npx wrangler deploy --config worker/wrangler.jsonc

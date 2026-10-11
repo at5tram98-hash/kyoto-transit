@@ -30,3 +30,8 @@ test('自動確定には強い一意候補と別GPS点の15秒継続が必要',(
 test('近鉄から地下鉄への直通は同名の京都・十条を取り違えない',()=>{
   const trip={operator:'kintetsu',boardStop:'B07',destination:'国際会館',category:'express',title:'急行 国際会館行き',stops:[{name:'近鉄丹波橋',departure:600},{name:'竹田',arrival:605,departure:607},{name:'十条',arrival:612},{name:'京都',arrival:616},{name:'国際会館',arrival:640}]};const leg=officialTripLeg(trip,network);assert.equal(leg.operator,'through');assert.equal(leg.officialStops[2].id,'K13');assert.equal(leg.officialStops[3].id,'K11');assert.equal(leg.to,'K01');assert.equal(leg.fullTerminus,true);
 });
+
+test('地下鉄から近鉄への南行直通も地下鉄の停車駅を維持して直通便として扱う',()=>{
+  const network=createNetwork(catalog),trip={operator:'kintetsu',boardStop:'K13',destination:'近鉄奈良',category:'local',stops:[{name:'十条',departure:600},{name:'竹田',arrival:605,departure:606},{name:'伏見',arrival:610}]};
+  const leg=officialTripLeg(trip,network);assert.equal(leg.operator,'through');assert.equal(leg.officialStops[0].id,'K13');assert.equal(leg.officialStops[2].id,'B06');
+});

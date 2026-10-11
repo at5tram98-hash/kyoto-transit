@@ -21,6 +21,28 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Install browsers for UI regression checks
+        run: npx playwright install --with-deps chromium webkit
+      - name: Check responsive UI and journeys in Chromium
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/chromium
+      - name: Check responsive UI and journeys in WebKit
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ENGINE: webkit
+          BROWSER_ARTIFACT_DIR: browser-artifacts/webkit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-verification
+          path: browser-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Worker dry-run bundle
         run: |
           mkdir -p worker-dist

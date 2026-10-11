@@ -12,6 +12,7 @@ import {layoutChanged,requireRows,shouldExpectRail,fallbackDiagnostic} from './l
 import {refreshAll,readStatic,tokyoDate} from './static-refresh.js';
 import {visualBusApproach,visualRailSnapshot} from './visual-fallback.js';
 import {BUS_CHOICE_CACHE_TTL,BUS_CHOICE_LIVE_AGE,oldestChoiceIndexes} from './bus-refresh.js';
+import {validBusStop} from './bus-stops.js';
 
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const KYOTO_BUS_VEHICLE='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_vehicle';
@@ -113,7 +114,7 @@ async function kyotoBusRealtime(request,env){
 function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),hasStops=Number.isFinite(bus?.stopsAway),observed=direct||hasStops,minutes=direct?bus.minutes:null,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=BUS_CHOICE_LIVE_AGE;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,boarding:item.boarding??'',minutes,stopsAway:hasStops?bus.stopsAway:null,congestion:bus?.congestion??null,status:minutes===null&&!hasStops?(item.noBus?'接近なし':null):null,delay:null,eta:direct?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:hasStops?0.82:item.noBus?0.9:0.45,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:false};}
 async function cityBusArrivals(request,env,url){
   const stop=url.searchParams.get('stop');
-  if(!env.STOP_NAMES.includes(stop))return error('対象の停留所を選択してください。');
+  if(!validBusStop(stop,env.STOP_NAMES))return error('対象の停留所を選択してください。');
   return cachedJSON(request,env,`citybus:${stop}`,async()=>{
     const choices=await options(stop),{unique,results:items,success,mode}=await bulkBusData(env,stop,choices);
     if(unique.length&&success===0)throw layoutChanged('citybus','市バスの接近表を1件も読み取れませんでした。');
@@ -162,7 +163,7 @@ export default {
       else if(url.pathname==='/timetable/trip')response=Response.json(await readOfficialTrip(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),url.searchParams.get('trip'),sourceFetch));
       else if(url.pathname==='/meeting'){const raw=url.searchParams.get('request');if(!raw||raw.length>4000)response=error('合流条件を確認してください。');else{let r;try{r=validateMeeting(JSON.parse(raw));}catch(e){response=error(e.message??'合流条件を確認してください。');}if(r)response=Response.json(await findMeeting(r));}}
       else if(url.pathname==='/journeys'){const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}}
-      else if(['/bus/options','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!env.STOP_NAMES.includes(stop))response=error('対象の停留所を選択してください。');else{const choices=await options(stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice'),choice=choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=await busData(env,stop,choice);}}}
+      else if(['/bus/options','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!validBusStop(stop,env.STOP_NAMES))response=error('対象の停留所を選択してください。');else{const choices=await options(stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice'),choice=choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=await busData(env,stop,choice);}}}
       else if(url.pathname==='/rail/location')response=Response.json({kind:'rail-location',...(await railSnapshot(env)),capturedAt:new Date().toISOString(),sourceURL:LOCATION_URL});
       else response=error('ページがありません。',404);
     }catch(e){console.error('transit fetch failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'データの取得に失敗しました。',502,e?.code??null);}

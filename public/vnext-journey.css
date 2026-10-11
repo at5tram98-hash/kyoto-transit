@@ -1,0 +1,526 @@
+/* Dedicated onboard displays share the existing Now view and data sources. */
+[data-view="now"] {
+  display: flex;
+  flex-direction: column;
+}
+#now-hero {
+  order: 0;
+}
+#vehicle-panel {
+  order: 1;
+}
+#network-panel {
+  order: 2;
+}
+#arrivals-root {
+  order: 3;
+}
+#nearby-panel {
+  order: 4;
+}
+[data-context="nearby"] #nearby-panel {
+  order: 2;
+}
+.journey-display {
+  --journey-accent: #248a3d;
+}
+.journey-display.rail {
+  --journey-accent: #8944ab;
+}
+.journey-display.bus {
+  --journey-accent: #ad6400;
+}
+.journey-display::after {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--journey-accent) 15%, transparent),
+    transparent 70%
+  );
+}
+.journey-display .service-title {
+  margin: 16px 0 22px;
+}
+.journey-display .service-title > div {
+  min-width: 0;
+}
+.journey-display .service-title h2 {
+  font-size: clamp(20px, 4.7vw, 28px);
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+.journey-display .service-title p {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.journey-next {
+  padding-top: 18px;
+  border-top: 1px solid var(--separator);
+}
+.journey-next .section-label {
+  font-size: 12px;
+}
+.journey-next-name {
+  display: block;
+  margin: 5px 0 7px;
+  font-size: clamp(28px, 7.5vw, 40px);
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+.position-source {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.journey-track {
+  margin: 24px 0 18px;
+  padding: 0 7px;
+  --journey-position: 0%;
+}
+.journey-track-line {
+  height: 28px;
+  position: relative;
+  margin: 0 9px;
+}
+.journey-track-line::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 4px;
+  background: var(--separator);
+}
+.journey-track-line i {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  width: var(--journey-position);
+  height: 4px;
+  border-radius: 4px;
+  background: var(--journey-accent);
+  transition: width 0.7s cubic-bezier(0.22, 0.8, 0.25, 1);
+}
+.journey-track-line > span {
+  position: absolute;
+  left: var(--journey-position);
+  top: 0;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--journey-accent);
+  border-radius: 9px;
+  box-shadow: 0 0 0 3px var(--panel);
+  transition: left 0.7s cubic-bezier(0.22, 0.8, 0.25, 1);
+}
+.journey-track-line svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.journey-track-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 7px;
+}
+.journey-track-labels span {
+  min-width: 0;
+  max-width: 50%;
+  overflow-wrap: anywhere;
+}
+.journey-track-labels span:last-child {
+  text-align: right;
+}
+.journey-metrics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr);
+  padding: 16px 0;
+  border-top: 1px solid var(--separator);
+  border-bottom: 1px solid var(--separator);
+  gap: 12px;
+}
+.journey-metrics > div {
+  min-width: 0;
+}
+.journey-metrics > div > span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: 7px;
+}
+.journey-metrics strong {
+  font-size: 23px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.journey-metrics small {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 3px;
+}
+.journey-metrics strong > small:only-child {
+  margin-left: 0;
+  font-size: 13px;
+}
+.journey-display .ride-meta {
+  font-size: 11px;
+  line-height: 1.5;
+  flex-wrap: wrap;
+}
+.journey-table-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--separator);
+  color: var(--muted);
+  font-size: 11px;
+}
+.journey-stop-list li {
+  grid-template-columns: 22px minmax(0, 1fr) minmax(80px, auto);
+  gap: 8px;
+  min-height: 62px;
+}
+.journey-stop-list li:not(:last-child)::before {
+  bottom: -35px;
+}
+.journey-stop-list b {
+  overflow-wrap: anywhere;
+}
+.journey-stop-list .stop-times {
+  text-align: right;
+}
+.journey-stop-list .stop-times small {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 4px;
+}
+.journey-stop-list .current .rail-dot {
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 14%, transparent);
+}
+.journey-stops .plain-action {
+  flex-shrink: 0;
+  font-size: 13px;
+  padding: 0 4px;
+}
+.nearby-place {
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--separator);
+}
+.nearby-place:last-child {
+  padding-bottom: 0;
+  border: 0;
+}
+.nearby-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  min-height: 48px;
+}
+.nearby-row b,
+.nearby-row small {
+  overflow-wrap: anywhere;
+}
+.nearby-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.nearby-actions .secondary-action {
+  margin-top: 10px;
+  min-height: 44px;
+  font-size: 12px;
+  padding: 10px 13px;
+}
+.foldback-plan {
+  border-color: color-mix(in srgb, var(--blue) 28%, var(--separator));
+}
+.foldback-plan .native-row {
+  padding: 6px 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.foldback-plan.missed,
+.foldback-plan.tight {
+  border-color: var(--orange);
+}
+.foldback-plan.missed .native-row small {
+  color: var(--red);
+}
+.foldback-plan b,
+.foldback-plan small {
+  overflow-wrap: anywhere;
+}
+.sheet {
+  max-height: min(82dvh, 760px);
+}
+.sheet-close,
+.sheet-back {
+  min-height: 44px;
+}
+.sheet-close {
+  min-width: 44px;
+}
+.choice-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.choice-row b,
+.choice-row small {
+  overflow-wrap: anywhere;
+}
+.fold-step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 17px 0 12px;
+}
+.fold-step > span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--blue-soft);
+  color: var(--blue);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 750;
+}
+.fold-step > b {
+  font-size: 16px;
+}
+.fold-direction {
+  font-size: 12px;
+  color: var(--muted);
+}
+#foldback-body .primary-action {
+  width: 100%;
+  min-height: 48px;
+}
+#foldback-body .secondary-action {
+  min-height: 44px;
+}
+.sheet-field select {
+  width: 100%;
+  min-height: 46px;
+}
+.target-train {
+  grid-template-columns: 63px minmax(0, 1fr) 68px;
+  gap: 9px;
+  padding: 15px 3px;
+  min-height: 76px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+.target-train:hover,
+.target-train:active {
+  background: var(--panel-2);
+}
+.target-train > b {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.target-train b > small {
+  color: var(--muted);
+  font-size: 10px;
+  display: block;
+  margin-top: 4px;
+}
+.target-train strong {
+  display: block;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.target-train span > small {
+  display: block;
+  font-size: 10px;
+  margin-top: 5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.target-train .fold-margin {
+  color: var(--blue);
+  font-size: 11px;
+  text-align: right;
+  line-height: 1.5;
+}
+.fold-margin.tight {
+  color: #ad6400;
+}
+.fold-margin.missed {
+  color: var(--red);
+}
+.target-result > span {
+  font-size: 13px;
+  font-weight: 750;
+}
+.target-result.possible > span {
+  color: #248a3d;
+}
+.target-result.tight > span {
+  color: #ad6400;
+}
+.target-result.missed > span {
+  color: var(--red);
+}
+.target-result.unknown > span {
+  color: var(--muted);
+}
+.fold-timing {
+  margin: 16px 0 0;
+}
+.fold-timing > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--separator);
+}
+.fold-timing dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.fold-timing dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 370px) {
+  .journey-metrics {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px 10px;
+  }
+  .journey-metrics > div:last-child {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .journey-metrics > div:last-child > span {
+    margin: 0;
+  }
+  .journey-display .ride-meta {
+    gap: 5px;
+  }
+  .journey-stop-list li {
+    grid-template-columns: 16px minmax(0, 1fr) 86px;
+    gap: 5px;
+  }
+  .journey-stop-list li:not(:last-child)::before {
+    left: 4px;
+  }
+  .target-train {
+    grid-template-columns: 59px minmax(0, 1fr) 58px;
+    gap: 5px;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .journey-display {
+    --journey-accent: #30d158;
+  }
+  .journey-display.rail {
+    --journey-accent: #bf5af2;
+  }
+  .journey-display.bus {
+    --journey-accent: #ff9f0a;
+  }
+  .target-result.possible > span {
+    color: var(--green);
+  }
+  .target-result.tight > span,
+  .fold-margin.tight {
+    color: var(--orange);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-track-line i,
+  .journey-track-line > span,
+  .target-train {
+    transition: none;
+  }
+}
+
+.app-update {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 2px 16px #00000008;
+  font-size: 14px;
+}
+.app-update[hidden] {
+  display: none;
+}
+.app-update > span {
+  min-width: 0;
+}
+.app-update .secondary-action {
+  flex-shrink: 0;
+  min-height: 44px;
+}
+.nearby-departures {
+  padding: 0 16px 12px;
+  display: grid;
+  gap: 10px;
+}
+.nearby-departures > div > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.nearby-departures p {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 6px 0;
+  min-width: 0;
+}
+.nearby-departures time {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.nearby-departures p > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.nearby-departures .source-note {
+  display: block;
+}
+.planner-board {
+  margin-top: 10px;
+  width: 100%;
+  white-space: normal;
+  min-height: 44px;
+}
+.foldback-plan > .secondary-action {
+  margin: 8px 0;
+  width: 100%;
+  white-space: normal;
+}
+@media (max-width: 370px) {
+  .app-update {
+    flex-wrap: wrap;
+  }
+  .app-update .secondary-action {
+    width: 100%;
+  }
+}

@@ -5,3 +5,4 @@ node_modules/
 *.traineddata
 .wrangler/
 .dev.vars
+browser-artifacts/
