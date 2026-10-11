@@ -1,0 +1,58 @@
+name: Remove dead public assets
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/remove-dead-public-assets.yml']
+permissions:
+  contents: write
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Remove unreachable legacy assets
+        run: |
+          git rm \
+            public/js/assistant.js \
+            public/js/foldback-ui.js \
+            public/js/journey.js \
+            public/js/providers.js \
+            public/js/refresh.js \
+            public/js/ride-ui.js \
+            public/js/storage.js \
+            public/native.css
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Verify dead assets are absent from public build
+        run: |
+          for p in \
+            dist/js/assistant.js \
+            dist/js/foldback-ui.js \
+            dist/js/journey.js \
+            dist/js/providers.js \
+            dist/js/refresh.js \
+            dist/js/ride-ui.js \
+            dist/js/storage.js \
+            dist/native.css; do
+            test ! -e "$p"
+          done
+          test -s dist/js/vnext.js
+          test -s dist/js/planner-worker.js
+      - name: Worker dry-run bundle
+        run: |
+          mkdir -p worker-dist
+          npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
+          test -s worker-dist/worker.js
+      - name: Commit verified cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/remove-dead-public-assets.yml
+          git add -A
+          git commit -m "Remove unreachable legacy public assets"
+          git push
