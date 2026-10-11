@@ -1,6 +1,6 @@
 const VERSION='__BUILD_VERSION__';
 const CACHE=`mymap-static-${VERSION}`;
-const PRECACHE=['./','index.html','manifest.webmanifest','icon.svg','vnext.css','vnext-ui.css','vnext-sheets.css','vnext-arrivals.css','route-search.css','vnext-tabbar.css','stability.css','data/bus-catalog.json','data/locations.json','js/vnext.js'];
+const PRECACHE=__PRECACHE__;
 const scoped=path=>new URL(path,self.registration.scope).href;
 
 self.addEventListener('install',event=>{
@@ -10,11 +10,11 @@ self.addEventListener('activate',event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('mymap-static-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
 });
 async function navigation(request){
-  try{const response=await fetch(request);const cache=await caches.open(CACHE);cache.put(scoped('index.html'),response.clone()).catch(()=>{});return response;}
-  catch{return await caches.match(request)||await caches.match(scoped('index.html'))||Response.error();}
+  try{const response=await fetch(request);if(response.ok){const cache=await caches.open(CACHE);cache.put(scoped('index.html'),response.clone()).catch(()=>{});}return response;}
+  catch{return await caches.match(request,{ignoreSearch:true})||await caches.match(scoped('index.html'),{ignoreSearch:true})||Response.error();}
 }
 async function staticAsset(request){
-  const cache=await caches.open(CACHE),cached=await cache.match(request);
+  const cache=await caches.open(CACHE),cached=await cache.match(request,{ignoreSearch:true});
   const network=fetch(request).then(response=>{if(response.ok)cache.put(request,response.clone()).catch(()=>{});return response;}).catch(()=>null);
   if(cached){network.catch(()=>{});return cached;}
   return await network||Response.error();
