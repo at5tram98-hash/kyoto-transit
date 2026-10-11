@@ -11,6 +11,13 @@ import {openFoldback,setupFoldback} from './vnext-foldback.js';
 import {mountArrivals} from './vnext-arrivals.js';
 
 let timetables,operations,arrivals,routeSearch;
+async function registerServiceWorker(){
+  if(typeof navigator==='undefined'||!('serviceWorker'in navigator))return;
+  try{
+    const version=new URL(import.meta.url).searchParams.get('v')??'dev',url=new URL('../sw.js',import.meta.url);url.searchParams.set('v',version);
+    const registration=await navigator.serviceWorker.register(url.href,{scope:'./'});registration.update().catch(()=>{});
+  }catch(e){console.warn('service worker',e);}
+}
 function moveTabSelection(){
   const nav=$('.tabbar'),active=nav?.querySelector('.tab-button.active'),pill=nav?.querySelector('.tab-selection');
   if(!nav||!active||!pill){nav?.classList.remove('tab-ready');return;}
@@ -90,4 +97,5 @@ async function init(){
     document.addEventListener('click',ev=>{if(ev.target.closest('[data-reload]'))location.reload();},{once:true});
   }
 }
+registerServiceWorker();
 init();
