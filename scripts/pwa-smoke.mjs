@@ -30,6 +30,59 @@ let release = 0,
   failInstall = false,
   originUnavailable = false,
   legacyRelease = false;
+let apiBase;
+const allowedOrigins = new Set(),
+  apiRequests = [];
+const apiServer = createServer((req, res) => {
+  const url = new URL(req.url, "http://fixture"),
+    origin = req.headers.origin;
+  apiRequests.push({
+    path: url.pathname,
+    origin,
+    method: req.method,
+    requestedHeaders: req.headers["access-control-request-headers"],
+  });
+  if (!allowedOrigins.has(origin)) {
+    res.writeHead(403).end();
+    return;
+  }
+  const headers = {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, If-None-Match",
+    Vary: "Origin",
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+  };
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, headers).end();
+    return;
+  }
+  const data =
+    url.pathname === "/api/static/feed"
+      ? {
+          schemaVersion: 1,
+          source: "PWA HTTP fixture",
+          validDates: [url.searchParams.get("date") ?? "2026-10-11"],
+          stops: [],
+          services: [],
+          meta: { operator: url.searchParams.get("operator"), stale: false },
+        }
+      : {
+          results: [],
+          trains: [],
+          vehicles: [],
+          lines: [],
+          entries: [],
+          boards: [],
+          trips: [],
+          source: "live",
+          asOf: "2026-10-11T01:05:00Z",
+        };
+  res.writeHead(200, headers).end(JSON.stringify(data));
+});
+await new Promise((r) => apiServer.listen(0, "127.0.0.1", r));
+apiBase = `http://127.0.0.1:${apiServer.address().port}`;
 const server = createServer(async (req, res) => {
   if (originUnavailable) {
     req.socket.destroy();
@@ -60,6 +113,10 @@ const server = createServer(async (req, res) => {
       oldVersion,
       legacyRelease ? legacyVersion : versions[release],
     );
+    body = body.replaceAll(
+      "https://my-map-capture.at5tram98.workers.dev",
+      apiBase,
+    );
     if (["js/journey-core.js", "js/network.js"].includes(relative))
       body += `\nexport const releaseMarker='${legacyRelease ? legacyVersion : versions[release]}';\n`;
     const compressed = gzipSync(body);
@@ -77,6 +134,7 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}${scope}`;
+allowedOrigins.add(new URL(base).origin);
 const engine = process.env.BROWSER_ENGINE === "webkit" ? webkit : chromium;
 const browser = await engine.launch(
   engine === webkit
@@ -94,46 +152,6 @@ const context = await browser.newContext({
     viewport: { width: 320, height: 740 },
   }),
   errors = [];
-async function mockProviders(context, origin) {
-  await context.route(
-    "https://my-map-capture.at5tram98.workers.dev/**",
-    (route) => {
-      const url = new URL(route.request().url());
-      const data =
-        url.pathname === "/api/static/feed"
-          ? {
-              validDates: [url.searchParams.get("date") ?? "2026-10-11"],
-              stops: [],
-              services: [],
-              meta: {
-                operator: url.searchParams.get("operator"),
-                stale: false,
-              },
-            }
-          : {
-              results: [],
-              trains: [],
-              vehicles: [],
-              lines: [],
-              entries: [],
-              boards: [],
-              trips: [],
-              source: "live",
-              asOf: "2026-10-11T01:05:00Z",
-            };
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: {
-          "Access-Control-Allow-Origin": origin,
-          "Access-Control-Allow-Methods": "GET, OPTIONS",
-        },
-        body: JSON.stringify(data),
-      });
-    },
-  );
-}
-await mockProviders(context, new URL(base).origin);
 await context.addInitScript(() => {
   Object.defineProperty(navigator, "geolocation", {
     value: {
@@ -315,11 +333,11 @@ try {
   const legacyServer = createServer(server.listeners("request")[0]);
   await new Promise((r) => legacyServer.listen(0, "127.0.0.1", r));
   const legacyBase = `http://127.0.0.1:${legacyServer.address().port}${scope}`;
+  allowedOrigins.add(new URL(legacyBase).origin);
   const legacyContext = await browser.newContext({ serviceWorkers: "allow" });
   legacyContext.on("weberror", (event) =>
     recordRuntimeError(event.error(), event.page()),
   );
-  await mockProviders(legacyContext, new URL(legacyBase).origin);
   try {
     const legacyPage = await legacyContext.newPage();
     await legacyPage.goto(legacyBase);
@@ -418,6 +436,14 @@ try {
     await new Promise((r) => legacyServer.close(r));
   }
   assert.deepEqual(errors, []);
+  assert.ok(
+    apiRequests.some((request) => request.path === "/api/static/feed"),
+    "Provider requests must reach the real cross-origin HTTP fixture",
+  );
+  assert.ok(
+    apiRequests.every((request) => allowedOrigins.has(request.origin)),
+    "Every provider request must use a verified app origin",
+  );
   const result = {
     browser: engine.name(),
     scope,
@@ -433,6 +459,7 @@ try {
       "Previously published worker migrates without an update button or mixed modules",
     ],
     errors,
+    apiRequests: apiRequests.length,
   };
   const artifacts = resolve(
     process.env.BROWSER_ARTIFACT_DIR ?? "/tmp/my-map-browser",
@@ -444,6 +471,9 @@ try {
   );
   console.log(JSON.stringify(result, null, 2));
 } catch (error) {
+  console.error(
+    `::error title=PWA HTTP fixture::${JSON.stringify(apiRequests.slice(-12))}`,
+  );
   const message = error?.stack ?? String(error);
   console.error(
     `::error title=${engine.name()} PWA verification::${message.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}`,
@@ -453,4 +483,5 @@ try {
   await context.close();
   await browser.close();
   await new Promise((r) => server.close(r));
+  await new Promise((r) => apiServer.close(r));
 }
