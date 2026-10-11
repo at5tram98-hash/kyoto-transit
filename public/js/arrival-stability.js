@@ -10,13 +10,13 @@ export function busDirectionLabel(route,dest=''){
   return `${text}方面`;
 }
 export function busServiceLabel(row){const board=String(row?.boarding??'').trim();return `${row.route}（${busDirectionLabel(row.route,row.dest)}）${board?` ${board}`:''}`;}
-const effectiveBusSource=row=>row.source==='prediction'&&Number(row.confidence)>=0.6?'live':row.source;
-const congestionRank=value=>({満員:5,'たいへん混雑':4,混雑:3,'やや混雑':2,'空席あり':1,'通常':1,'普通':1}[value]??0);
+const effectiveBusSource=row=>row.source??'schedule';
+const congestionRank=value=>({満員:5,'大変混雑':4,混雑:3,'ゆったり立てる':2,'空席あり':1}[value]??0);
 export function normalizeCongestion(value){
-  const text=String(value??'').trim();
+  const text=String(value??'').normalize('NFKC').trim();
   if(/満員/.test(text))return '満員';
-  if(/たいへん混雑/.test(text))return 'たいへん混雑';
-  if(/やや混雑/.test(text))return 'やや混雑';
+  if(/大変混雑|たいへん混雑/.test(text))return '大変混雑';
+  if(/ゆったり立て/.test(text))return 'ゆったり立てる';
   if(/混雑/.test(text))return '混雑';
   if(/空席|すいて|空いて|通常|普通/.test(text))return '空席あり';
   return '';
