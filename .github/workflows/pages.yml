@@ -12,6 +12,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -21,6 +23,9 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Record release version
+        id: release
+        run: node --input-type=module -e 'import {readFileSync,appendFileSync} from "node:fs"; const version=readFileSync("dist/sw.js","utf8").match(/const VERSION = "([a-f0-9]{12})"/)[1]; appendFileSync(process.env.GITHUB_OUTPUT,`version=${version}\n`);'
       - name: Install browsers for UI regression checks
         run: npx playwright install --with-deps chromium webkit
       - name: Check responsive UI and journeys in Chromium
@@ -61,6 +66,8 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       pages: write
       id-token: write
@@ -71,3 +78,25 @@ jobs:
       - name: 公開
         id: deployment
         uses: actions/deploy-pages@v4
+  verify-production:
+    name: 公開済みサイト・実運行APIの接続確認
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Verify published release and transport providers
+        run: npm run verify:production
+        env:
+          APP_URL: ${{ needs.deploy.outputs.page_url }}
+          EXPECTED_BUILD_VERSION: ${{ needs.build.outputs.version }}
+          PRODUCTION_REPORT_DIR: production-artifacts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-verification
+          path: production-artifacts/
+          if-no-files-found: error
+          retention-days: 7

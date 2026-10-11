@@ -143,8 +143,8 @@ Workerの `STOP_NAMES` が未設定の場合は同梱の市バス停留所カタ
 
 mainへの反映後、GitHub Pagesのワークフローが自動テスト・Chromium/WebKit検証を通過してからサイトを公開します。Workerに変更がある場合は別の `Cloudflare Worker公開` ワークフローが既存の `my-map-capture` を更新します。Worker公開にはリポジトリのGitHub Actions secretsに `CLOUDFLARE_API_TOKEN` が必要です。複数アカウントを持つ場合やトークンでアカウント一覧を取得できない場合は `CLOUDFLARE_ACCOUNT_ID` も設定します。トークンは対象アカウントのWorkers Scripts編集・KV編集など必要な公開権限に限定し、コードやログに値を記録しません。既存Workerの変数・secret・KVを維持します。
 
-`npm run verify:production` は設定を変更せず、本番WorkerのBrowser Rendering/KV、公開元に対するCORS、当日の地下鉄全駅時刻表・発車表、市バス接近情報と近鉄列車位置を読み取ります。ODPTキーが設定済みの場合は京都バスの実測も確認します。確認結果は `/tmp/my-map-browser/production-report.json` に保存します。別の環境は `CAPTURE_API_URL` と `APP_ORIGIN` で指定できます。
+`npm run verify:production` は設定を変更せず、公開HTML・Service Worker・乗車画面のファイルの版と、本番WorkerのBrowser Rendering/KV、公開元に対するCORS、当日の地下鉄全駅時刻表・発車表、市バス接近情報と近鉄列車位置を読み取ります。ODPTキーが設定済みの場合は京都バスの実測も確認します。確認結果は `/tmp/my-map-browser/production-report.json` に保存します。別の環境は `APP_URL`、`CAPTURE_API_URL`、`APP_ORIGIN` で指定できます。Pages公開後のCIは `EXPECTED_BUILD_VERSION` も指定し、今回公開した版が配信されていることを確認します。接続確認の失敗時は公開済みサイトとは別のジョブに原因を記録します。
 
-`npm run test:pwa` はGitHub Pagesと同じ `/kyoto-transit/` 配下で複数の版と複数のウィンドウを動かし、更新待ち、選択後の乗車・折り返し復元、古いウィンドウのモジュール、オフライン再読み込み、未知の版の拒否、取得失敗時の旧版維持を実ブラウザで検証します。CIはChromiumとWebKitの両方でこの検証を実行します。
+`npm run test:pwa` はGitHub Pagesと同じ `/kyoto-transit/` 配下で複数の版と複数のウィンドウを動かし、更新待ち、選択後の乗車・折り返し復元、古いウィンドウのモジュール、オフライン再読み込み、未知の版の拒否、取得失敗時の旧版維持を実ブラウザで検証します。通信断はテストサーバーが接続を切断して再現し、未保存のURLに接続できないことも確認します。CIはChromiumとWebKitの両方でこの検証を実行します。
 
 クラウド環境の通信制限で本番Workerにアクセスできない場合、接続確認は `blocked` を記録して失敗として終了します。固定データのブラウザ検証の成功を本番データの確認として扱いません。

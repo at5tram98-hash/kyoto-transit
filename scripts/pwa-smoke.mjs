@@ -19,8 +19,13 @@ const versions = [oldVersion, "bbbbbbbbbbbb", "cccccccccccc"],
     ".webmanifest": "application/manifest+json",
   };
 let release = 0,
-  failInstall = false;
+  failInstall = false,
+  originUnavailable = false;
 const server = createServer(async (req, res) => {
+  if (originUnavailable) {
+    req.socket.destroy();
+    return;
+  }
   try {
     const path = new URL(req.url, "http://localhost").pathname;
     if (!path.startsWith(scope)) {
@@ -191,7 +196,21 @@ try {
     { base, oldVersion },
   );
   assert.equal(oldModule, "mymap-active-journey-v1");
-  await context.setOffline(true);
+  // Simulate the same real connection failure in Chromium and WebKit;
+  // protocol offline emulation can prevent WebKit's cached SW responses.
+  originUnavailable = true;
+  assert.equal(
+    await page.evaluate(async (base) => {
+      try {
+        await fetch(`${base}__network-check`, { cache: "no-store" });
+        return true;
+      } catch {
+        return false;
+      }
+    }, base),
+    false,
+    "The origin must be unreachable during the offline checks",
+  );
   await page.reload();
   await page.locator(".journey-display").waitFor();
   await page.locator(".foldback-plan").waitFor();
@@ -213,7 +232,7 @@ try {
     false,
     "Unavailable version must not receive another release",
   );
-  await context.setOffline(false);
+  originUnavailable = false;
   release = 2;
   failInstall = true;
   await page.evaluate(() =>

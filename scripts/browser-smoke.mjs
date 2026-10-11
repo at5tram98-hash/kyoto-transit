@@ -21,11 +21,16 @@ const mime = {
   ".webmanifest": "application/manifest+json",
 };
 let server,
-  base = process.env.BROWSER_BASE_URL;
+  base = process.env.BROWSER_BASE_URL,
+  originUnavailable = false;
 const serverRequests = new Map();
 if (!base) {
   assert.ok(existsSync(resolve(dist, "index.html")), "Run npm run build first");
   server = createServer(async (req, res) => {
+    if (originUnavailable) {
+      req.socket.destroy();
+      return;
+    }
     try {
       const path = decodeURIComponent(
           new URL(req.url, "http://localhost").pathname,
@@ -48,6 +53,7 @@ if (!base) {
       res
         .writeHead(200, {
           "Content-Type": mime[extname(file)] ?? "application/octet-stream",
+          "Cache-Control": "no-store",
         })
         .end(body);
     } catch {
@@ -1180,7 +1186,22 @@ try {
         before,
         "Precached assets must not be fetched again",
       );
-      await context.setOffline(true);
+      // WebKit's protocol offline mode can reject even SW-cached responses.
+      // Cut the actual origin connection in both engines instead, then prove
+      // an uncached request fails before checking the cached app shell.
+      originUnavailable = true;
+      assert.equal(
+        await page.evaluate(async () => {
+          try {
+            await fetch("/__network-check", { cache: "no-store" });
+            return true;
+          } catch {
+            return false;
+          }
+        }),
+        false,
+        "The origin must be unreachable during the offline checks",
+      );
       assert.equal(
         await page.evaluate(async () => {
           const r = await fetch("/vnext-journey.css");
@@ -1192,6 +1213,7 @@ try {
       await page.locator("#now-hero .hero-card").waitFor();
       await layout(page, "offline PWA navigation and app shell");
     } finally {
+      originUnavailable = false;
       await context.close();
     }
     summary.checks.push(

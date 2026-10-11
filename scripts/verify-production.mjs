@@ -8,9 +8,12 @@ const run = promisify(execFile),
     process.env.CAPTURE_API_URL ??
       "https://my-map-capture.at5tram98.workers.dev",
   ),
+  site = new URL(
+    process.env.APP_URL ?? "https://at5tram98-hash.github.io/kyoto-transit/",
+  ),
   origin = process.env.APP_ORIGIN ?? "https://at5tram98-hash.github.io";
-if (!["http:", "https:"].includes(base.protocol))
-  throw Error("HTTP(S) API URL required");
+if ([base, site].some((url) => !["http:", "https:"].includes(url.protocol)))
+  throw Error("HTTP(S) production URLs required");
 const date = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Asia/Tokyo",
   year: "numeric",
@@ -18,6 +21,56 @@ const date = new Intl.DateTimeFormat("sv-SE", {
   day: "2-digit",
 }).format(new Date());
 const checks = [];
+async function publishedFile(path) {
+  const url = new URL(path, site);
+  const { stdout } = await run(
+    "curl",
+    [
+      "--silent",
+      "--show-error",
+      "--fail",
+      "--location",
+      "--max-time",
+      "35",
+      "--header",
+      "Cache-Control: no-cache",
+      url.href,
+    ],
+    { maxBuffer: 5 * 1024 * 1024 },
+  );
+  return stdout;
+}
+try {
+  const html = await publishedFile("./"),
+    version = html.match(/js\/vnext\.js\?v=([a-f0-9]{12})/)?.[1];
+  if (!version) throw Error("公開HTMLのビルド番号を確認できません");
+  if (
+    process.env.EXPECTED_BUILD_VERSION &&
+    version !== process.env.EXPECTED_BUILD_VERSION
+  )
+    throw Error(`公開版が一致しません: ${version}`);
+  const [worker, module, stylesheet] = await Promise.all([
+    publishedFile("sw.js"),
+    publishedFile(`js/vnext.js?v=${version}`),
+    publishedFile(`vnext-journey.css?v=${version}`),
+  ]);
+  if (!worker.includes(`const VERSION = "${version}"`))
+    throw Error("公開HTMLとService Workerの版が一致しません");
+  if (!module.includes(`./vnext-state.js?v=${version}`))
+    throw Error("公開モジュールの版が一致しません");
+  if (!stylesheet.includes(".journey-display"))
+    throw Error("乗車画面のスタイルを取得できません");
+  checks.push({ name: "Published Pages release", status: "passed", version });
+} catch (e) {
+  const message = e.stderr?.trim() || e.message;
+  checks.push({
+    name: "Published Pages release",
+    status: /CONNECT tunnel failed|Domain forbidden/.test(message)
+      ? "blocked"
+      : "failed",
+    error: message.slice(0, 700),
+  });
+}
 async function check(name, path, validate, { cors = true } = {}) {
   const url = new URL(path, base);
   try {
@@ -138,6 +191,7 @@ if (health) {
 const result = {
   checkedAt: new Date().toISOString(),
   api: base.origin,
+  site: site.href,
   origin,
   date,
   checks,
@@ -152,4 +206,10 @@ await writeFile(
   JSON.stringify(result, null, 2) + "\n",
 );
 console.log(JSON.stringify(result, null, 2));
-if (!result.passed) process.exitCode = 1;
+if (!result.passed) {
+  for (const c of checks.filter((c) => c.error))
+    console.error(
+      `::error title=${c.name}::${c.error.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}`,
+    );
+  process.exitCode = 1;
+}
