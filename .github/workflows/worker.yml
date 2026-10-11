@@ -37,3 +37,14 @@ jobs:
             exit 1
           fi
           npx wrangler deploy --config worker/wrangler.jsonc
+      - name: Verify published site and production Worker
+        run: npm run verify:production
+        env:
+          PRODUCTION_REPORT_DIR: production-artifacts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: worker-production-verification
+          path: production-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -81,6 +81,10 @@ await context.route(
     route.fulfill({
       status: 503,
       contentType: "application/json",
+      headers: {
+        "Access-Control-Allow-Origin": new URL(base).origin,
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+      },
       body: JSON.stringify({ error: "Offline provider fixture" }),
     }),
 );

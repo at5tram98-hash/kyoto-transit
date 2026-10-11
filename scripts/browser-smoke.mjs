@@ -351,6 +351,10 @@ async function fixture(page, scenario = {}) {
       .fulfill({
         status,
         contentType: "application/json",
+        headers: {
+          "Access-Control-Allow-Origin": new URL(base).origin,
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+        },
         body: JSON.stringify(data),
       })
       .catch(() => {});

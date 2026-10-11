@@ -61,6 +61,9 @@ try {
   if (!stylesheet.includes(".journey-display"))
     throw Error("乗車画面のスタイルを取得できません");
   checks.push({ name: "Published Pages release", status: "passed", version });
+  console.log(
+    `::notice title=Published Pages release::${site.href} (${version})`,
+  );
 } catch (e) {
   const message = e.stderr?.trim() || e.message;
   checks.push({
