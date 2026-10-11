@@ -1,1 +1,1 @@
-{"name": "My Map", "short_name": "My Map", "lang": "ja", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#F2F2F7", "theme_color": "#F2F2F7", "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]}
+{"id":"./","name":"My Map","short_name":"My Map","description":"京都の地下鉄・近鉄・バスを現在地と公式運行情報から案内する路線案内PWA","lang":"ja","start_url":"./","scope":"./","display":"standalone","background_color":"#F2F2F7","theme_color":"#F2F2F7","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
