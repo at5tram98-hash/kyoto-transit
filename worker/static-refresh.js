@@ -2,7 +2,7 @@ import {datasetResourceLinks,parseResourcePage,selectGtfsVersion,compactGtfsZip,
 import {readKintetsuPattern,refreshKintetsuStage,finalizeKintetsuPattern} from './manual-rail-feed.js';
 import {readSubwayPattern,refreshSubwayPattern} from './manual-subway-feed.js';
 import {calendarDay} from './service-calendar.js';
-import {readOfficialFallback} from './official-static-fallback.js';
+import {readOfficialFallback,refreshCityBusBatch,finalizeCityBusFallback} from './official-static-fallback.js';
 
 export const DATASETS={
   kyotobus:'https://ckan.odpt.org/dataset/kyoto_bus_all_lines_anotherversion',
@@ -10,7 +10,7 @@ export const DATASETS={
   subway:'https://ckan.odpt.org/dataset/kyoto_municipal_transportation_kyoto_city_subway_gtfs'
 };
 export const REFRESH_STEPS=[
-  'odpt:kyotobus','odpt:citybus','odpt:subway',
+  'odpt:kyotobus','odpt:citybus','citybus:batch:1','citybus:batch:2','citybus:finalize','odpt:subway',
   'subway:current','subway:opposite',
   'kintetsu:current:south','kintetsu:current:north',
   'kintetsu:opposite:south','kintetsu:opposite:north'
@@ -39,7 +39,11 @@ async function recordRefreshResult(env,result,nextState){
 export async function runRefreshStep(env,date=tokyoDate()){
   if(!env.LIVE_KV)throw Error('LIVE_KVが未設定です。');const state=await readCronState(env,date),name=REFRESH_STEPS[state.step],base=state.cycleDate,kOpp=oppositePatternDate(base,'kintetsu'),sOpp=oppositePatternDate(base,'subway'),startedAt=new Date().toISOString();let detail=null,error=null;
   try{
-    if(name.startsWith('odpt:')){const operator=name.split(':')[1];if(!env.ODPT_CONSUMER_KEY&&['citybus','kyotobus'].includes(operator)){const feed=await readOfficialFallback(env,operator,base,{force:true});detail={operator,source:'official_fallback',services:feed.services.length,trips:feed.services.reduce((n,s)=>n+s.trips.length,0)};}else if(!env.ODPT_CONSUMER_KEY&&operator==='subway'){const feed=await readSubwayPattern(env,base);detail={operator,source:'official_timetable',trips:feed.meta?.tripCount??feed.services?.reduce((n,s)=>n+s.trips.length,0)??0};}else{const feed=await refreshOne(env,operator,base);detail={operator,revisionDate:feed.revisionDate,validFrom:feed.validFrom,validTo:feed.validTo,trips:feed.trips.length};}}
+    if(name==='odpt:citybus'&&!env.ODPT_CONSUMER_KEY){detail={operator:'citybus',source:'official_fallback',...(await refreshCityBusBatch(env,base,0))};}
+    else if(name==='citybus:batch:1'){detail={operator:'citybus',source:'official_fallback',...(await refreshCityBusBatch(env,base,1))};}
+    else if(name==='citybus:batch:2'){detail={operator:'citybus',source:'official_fallback',...(await refreshCityBusBatch(env,base,2))};}
+    else if(name==='citybus:finalize'){const feed=await finalizeCityBusFallback(env,base);detail={operator:'citybus',source:'official_fallback',services:feed.services.length,trips:feed.services.reduce((n,s)=>n+s.trips.length,0),partial:false};}
+    else if(name.startsWith('odpt:')){const operator=name.split(':')[1];if(!env.ODPT_CONSUMER_KEY&&operator==='kyotobus'){const feed=await readOfficialFallback(env,operator,base,{force:true});detail={operator,source:'official_fallback',services:feed.services.length,trips:feed.services.reduce((n,s)=>n+s.trips.length,0)};}else if(!env.ODPT_CONSUMER_KEY&&operator==='subway'){const feed=await readSubwayPattern(env,base);detail={operator,source:'official_timetable',trips:feed.meta?.tripCount??feed.services?.reduce((n,s)=>n+s.trips.length,0)??0};}else{const feed=await refreshOne(env,operator,base);detail={operator,revisionDate:feed.revisionDate,validFrom:feed.validFrom,validTo:feed.validTo,trips:feed.trips.length};}}
     else if(name==='subway:current'){const feed=await refreshSubwayPattern(env,base);detail={operator:'subway',pattern:feed.meta.day,trips:feed.meta.tripCount,complete:feed.meta.completeCount};}
     else if(name==='subway:opposite'){const feed=await refreshSubwayPattern(env,sOpp);detail={operator:'subway',pattern:feed.meta.day,trips:feed.meta.tripCount,complete:feed.meta.completeCount};}
     else if(name==='kintetsu:current:south')detail={operator:'kintetsu',pattern:patternKind(calendarDay(base,'kintetsu')),stage:await refreshKintetsuStage(env,base,'south')};

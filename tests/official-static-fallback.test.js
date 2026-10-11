@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {chooseCityBoard,offsetTrips,groupCityServices} from '../worker/official-static-fallback.js';
+import {chooseCityBoard,offsetTrips,groupCityServices,CITYBUS_ROUTE_BATCHES} from '../worker/official-static-fallback.js';
 
 test('市バスfallbackは次停留所を含む方面を優先する',()=>{
   const boards=[{label:'銀閣寺・高野方面',sourceURL:'a'},{label:'円町・金閣寺方面',sourceURL:'b'}];
@@ -24,4 +24,9 @@ test('市バスfallbackは系統単位にまとめて上下方向を同じ取得
   assert.deepEqual(grouped.map(x=>x.route),['10','204','202']);
   assert.deepEqual(grouped.find(x=>x.route==='10').services.map(x=>x.id),['bus-10-down','bus-10-up']);
   assert.deepEqual(grouped.find(x=>x.route==='202').services.map(x=>x.id),['bus-202-eight-down','bus-202-eight-up']);
+});
+
+test('市バスCronバッチは全対応系統を重複なく4+4+3で網羅する',()=>{
+  assert.deepEqual(CITYBUS_ROUTE_BATCHES.map(x=>x.length),[4,4,3]);
+  assert.deepEqual([...new Set(CITYBUS_ROUTE_BATCHES.flat())].sort((a,b)=>Number(a)-Number(b)),['10','13','43','46','78','93','202','204','205','206','208'].sort((a,b)=>Number(a)-Number(b)));
 });

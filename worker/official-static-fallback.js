@@ -6,6 +6,7 @@ import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,parseKyotoSc
 const network=createNetwork(catalog);
 const CACHE_TTL=172800;
 const PARTIAL_TTL=300;
+export const CITYBUS_ROUTE_BATCHES=[['10','13','43','46'],['78','93','202','204'],['205','206','208']];
 const cleanName=stop=>stop?.fullName??stop?.name??'';
 const unique=values=>[...new Set(values)];
 
@@ -61,15 +62,39 @@ async function readCityRouteFallback(env,route,services,date,day,fetcher){
   const value={route,date,services:built,expectedServices:services.length,availableServices:built.length,failed,capturedAt:new Date().toISOString()};
   if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:failed.length?PARTIAL_TTL:CACHE_TTL});return value;
 }
-export async function buildCityBusFallback(env,date,fetcher=officialFetcher(env)){
+async function cityContext(date){
   const day=calendarDay(date,'citybus');if(!day)throw Error('市バスの運行日区分を確認できません。');
-  const prototypes=network.services.filter(s=>s.operator==='citybus'&&s.prototype),groups=groupCityServices(prototypes),routeResults=[];
-  // 京都市公式サイトへの負荷と一時的な取得失敗を抑えるため、系統単位で順番に取得する。
-  for(const group of groups){try{routeResults.push(await readCityRouteFallback(env,group.route,group.services,date,day,fetcher));}catch(error){await recordCityRouteError(env,group.route,'route',error);}}
-  const services=routeResults.flatMap(r=>r.services??[]);if(!services.length)throw Error('京都市バスの公式時刻表fallbackを生成できませんでした。');
+  const prototypes=network.services.filter(s=>s.operator==='citybus'&&s.prototype),groups=groupCityServices(prototypes);return {day,prototypes,groups};
+}
+async function cachedCityRoutes(env,date,groups){
+  const routeResults=[],missing=[];
+  for(const group of groups){const raw=await env.LIVE_KV?.get(`static:fallback:citybus-route:${group.route}:${date}`);if(!raw){missing.push(group.route);continue;}try{const saved=JSON.parse(raw);if(Array.isArray(saved.services)&&saved.services.length)routeResults.push(saved);else missing.push(group.route);}catch{missing.push(group.route);}}
+  return {routeResults,missing,services:routeResults.flatMap(r=>r.services??[])};
+}
+function cityFeedFromRoutes(date,prototypes,groups,routeResults,services,missing){
   const value=feed('citybus',date,services,'京都市交通局 公式停留所時刻表（区間所要時間は路線順序から補完）','official_departures_with_segment_completion');
-  value.meta.expectedRoutes=groups.length;value.meta.availableRoutes=routeResults.length;value.meta.expectedServices=prototypes.length;value.meta.availableServices=services.length;value.meta.partial=routeResults.length<groups.length||services.length<prototypes.length;value.meta.failedRoutes=groups.map(g=>g.route).filter(route=>!routeResults.some(r=>r.route===route));
-  return value;
+  value.meta.expectedRoutes=groups.length;value.meta.availableRoutes=routeResults.length;value.meta.expectedServices=prototypes.length;value.meta.availableServices=services.length;value.meta.partial=missing.length>0||services.length<prototypes.length;value.meta.failedRoutes=missing;return value;
+}
+export async function refreshCityBusBatch(env,date,batchIndex,fetcher=officialFetcher(env)){
+  if(!env.LIVE_KV)throw Error('LIVE_KVが未設定です。');const {day,groups}=await cityContext(date),routes=CITYBUS_ROUTE_BATCHES[batchIndex];if(!routes)throw Error('市バス更新バッチを確認してください。');
+  const selected=groups.filter(g=>routes.includes(g.route)),routeResults=[],failed=[];
+  for(const group of selected){try{routeResults.push(await readCityRouteFallback(env,group.route,group.services,date,day,fetcher));}catch(error){failed.push(group.route);await recordCityRouteError(env,group.route,'batch',error);}}
+  if(!routeResults.length)throw Error(`市バスfallbackバッチ${batchIndex+1}を生成できませんでした。`);
+  return {date,batchIndex,routes,availableRoutes:routeResults.map(r=>r.route),failedRoutes:failed,services:routeResults.flatMap(r=>r.services??[]).length};
+}
+export async function finalizeCityBusFallback(env,date){
+  if(!env.LIVE_KV)throw Error('LIVE_KVが未設定です。');const {prototypes,groups}=await cityContext(date),{routeResults,missing,services}=await cachedCityRoutes(env,date,groups);
+  if(missing.length||services.length<prototypes.length)throw Error(`市バス公式時刻表fallbackが未完成です（未取得: ${missing.join('・')||'サービス'}）。`);
+  const value=cityFeedFromRoutes(date,prototypes,groups,routeResults,services,[]);await env.LIVE_KV.put(`static:fallback:citybus:${date}`,JSON.stringify(value),{expirationTtl:CACHE_TTL});return value;
+}
+async function partialCityBusFallback(env,date){
+  const {prototypes,groups}=await cityContext(date),{routeResults,missing,services}=await cachedCityRoutes(env,date,groups);if(!services.length)throw Error('京都市バスの公式時刻表fallbackをまだ生成できていません。');return cityFeedFromRoutes(date,prototypes,groups,routeResults,services,missing);
+}
+async function nextCityBusBatch(env,date){
+  const {groups}=await cityContext(date),{missing}=await cachedCityRoutes(env,date,groups),set=new Set(missing);for(let i=0;i<CITYBUS_ROUTE_BATCHES.length;i++)if(CITYBUS_ROUTE_BATCHES[i].some(route=>set.has(route)))return i;return -1;
+}
+export async function buildCityBusFallback(env,date,fetcher=officialFetcher(env)){
+  for(let i=0;i<CITYBUS_ROUTE_BATCHES.length;i++)await refreshCityBusBatch(env,date,i,fetcher);return finalizeCityBusFallback(env,date);
 }
 function kyotoRouteMatch(route,value){const text=String(value??'').normalize('NFKC');return route==='臨時'?/^臨時/.test(text):/^(?:特|直行)?40$/.test(text);}
 function chooseKyotoBoard(boards=[],route,targetName=''){
@@ -102,5 +127,10 @@ export async function buildKyotoBusFallback(env,date,fetcher=officialFetcher(env
 export async function buildOfficialFallback(env,operator,date){if(operator==='citybus')return buildCityBusFallback(env,date);if(operator==='kyotobus')return buildKyotoBusFallback(env,date);throw Error('公式時刻表fallbackの対象外です。');}
 export async function readOfficialFallback(env,operator,date,{force=false}={}){
   const key=`static:fallback:${operator}:${date}`,raw=!force?await env.LIVE_KV?.get(key):null;if(raw){try{return JSON.parse(raw);}catch{}}
+  if(operator==='citybus'){
+    try{return await finalizeCityBusFallback(env,date);}catch{}
+    const batch=await nextCityBusBatch(env,date);if(batch>=0)await refreshCityBusBatch(env,date,batch);
+    try{return await finalizeCityBusFallback(env,date);}catch{return partialCityBusFallback(env,date);}
+  }
   const value=await buildOfficialFallback(env,operator,date);if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:value.meta?.partial?PARTIAL_TTL:CACHE_TTL});return value;
 }
