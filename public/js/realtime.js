@@ -1,6 +1,6 @@
 import {CAPTURE_API} from './live.js';
 
-export const ARRIVAL_INTERVAL=15000;
+export const ARRIVAL_INTERVAL=20000;
 export const LIVE_MAX_AGE=90000;
 export const USER_STALE_WARNING_AGE=300000;
 export const FETCH_TIMEOUT=4000;
