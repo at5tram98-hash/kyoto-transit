@@ -1,25 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {busDirectionLabel,busServiceLabel,groupCityBusRows,busArrivalText,shouldShowKintetsuArrival,relevantMissingOperators} from '../public/js/arrival-stability.js';
+import {busDirectionLabel,busServiceLabel,groupCityBusRows,busArrivalText,busCongestionText,normalizeCongestion,shouldShowKintetsuArrival,relevantMissingOperators} from '../public/js/arrival-stability.js';
 
 test('204は方面ごとに明確な系統名へ分ける',()=>{
   assert.equal(busDirectionLabel('204','銀閣寺・高野'),'高野・銀閣寺方面');
   assert.equal(busDirectionLabel('204','円町・金閣寺'),'金閣寺方面');
-  assert.equal(busServiceLabel({route:'204',dest:'銀閣寺・高野'}),'204（高野・銀閣寺方面）');
+  assert.equal(busServiceLabel({route:'204',dest:'銀閣寺・高野',boarding:'Aのりば'}),'204（高野・銀閣寺方面） Aのりば');
 });
 
-test('同じ系統・方面の複数接近車は1行へまとめる',()=>{
+test('同じ系統・方面・のりばの複数接近車は1行へまとめる',()=>{
   const rows=groupCityBusRows([
-    {key:'a:0',route:'204',dest:'銀閣寺・高野',minutes:3,source:'live',confidence:.96},
-    {key:'a:1',route:'204',dest:'銀閣寺・高野',minutes:11,source:'live',confidence:.96},
-    {key:'b:0',route:'204',dest:'円町・金閣寺',minutes:6,source:'live',confidence:.96}
-  ]),ginkaku=rows.find(r=>r.dest==='銀閣寺・高野');
-  assert.equal(rows.length,2);assert.equal(ginkaku.arrivals.length,2);assert.equal(busArrivalText(ginkaku),'あと3・11分');
+    {key:'a:0',route:'204',dest:'銀閣寺・高野',boarding:'Aのりば',minutes:3,source:'live',congestion:'空席あり'},
+    {key:'a:1',route:'204',dest:'銀閣寺・高野',boarding:'Aのりば',minutes:11,source:'live',congestion:'混雑'},
+    {key:'b:0',route:'204',dest:'円町・金閣寺',boarding:'Bのりば',stopsAway:2,source:'live',congestion:'ゆったり立てる'}
+  ]),ginkaku=rows.find(r=>r.dest==='銀閣寺・高野'),kinkaku=rows.find(r=>r.dest==='円町・金閣寺');
+  assert.equal(rows.length,2);assert.equal(ginkaku.arrivals.length,2);assert.equal(busArrivalText(ginkaku),'あと3分・あと11分');
+  assert.equal(busArrivalText(kinkaku),'2停留所前');assert.equal(busCongestionText(kinkaku),'ゆったり立てる');
 });
 
-test('実測停留所位置から算出したETAは表示上liveとして扱う',()=>{
-  const [row]=groupCityBusRows([{key:'x',route:'10',dest:'四条河原町',minutes:4,source:'prediction',confidence:.62}]);
-  assert.equal(row.source,'live');
+test('停留所数しかない実測から架空の分数へ変換しない',()=>{
+  const [row]=groupCityBusRows([{key:'x',route:'10',dest:'四条河原町',stopsAway:4,minutes:null,source:'live',confidence:.72}]);
+  assert.equal(row.source,'live');assert.equal(busArrivalText(row),'4停留所前');
+});
+
+test('公式混雑度の表現を正規化する',()=>{
+  assert.equal(normalizeCongestion('大変混雑しています'),'大変混雑');
+  assert.equal(normalizeCongestion('ゆったり立てます'),'ゆったり立てる');
+  assert.equal(normalizeCongestion('空席があります'),'空席あり');
 });
 
 test('近鉄接近情報は近鉄線付近または乗車中だけ表示する',()=>{
