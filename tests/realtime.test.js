@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Backoff,isFresh,freshnessNotice,decayDelay,predictedMinutes,predictCityBus,predictRail,interpolateCityBusRecovery,interpolateRailRecovery,ARRIVAL_INTERVAL,FETCH_TIMEOUT,USER_STALE_WARNING_AGE} from '../public/js/realtime.js';
 
-test('接近情報は15秒更新・通信は4秒で打ち切る',()=>{assert.equal(ARRIVAL_INTERVAL,15000);assert.equal(FETCH_TIMEOUT,4000);});
+test('接近情報は20秒更新・通信は4秒で打ち切る',()=>{assert.equal(ARRIVAL_INTERVAL,20000);assert.equal(FETCH_TIMEOUT,4000);});
 test('実測は90秒を超えると新鮮扱いしない',()=>{const now=1_000_000;assert.equal(isFresh(now-89_000,90_000,now),true);assert.equal(isFresh(now-91_000,90_000,now),false);});
 test('起動時キャッシュは古くても即警告を出さない',()=>{const now=1_000_000,n=freshnessNotice({source:'prediction',stale:true,asOf:new Date(now-600_000).toISOString()},{initial:true,now});assert.deepEqual(n,{show:false,text:''});});
 test('5分未満の予測状態は点表示だけにして警告文を出さない',()=>{const now=1_000_000,n=freshnessNotice({source:'prediction',stale:true,asOf:new Date(now-120_000).toISOString()},{now});assert.deepEqual(n,{show:false,text:''});assert.equal(USER_STALE_WARNING_AGE,300000);});
