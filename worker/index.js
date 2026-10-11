@@ -1,6 +1,7 @@
 // Public transport endpoints. Arbitrary URLs and browser credentials are never accepted.
 import {boundedText,searchJourney,validateJourneyRequest} from './journeys.js';
 import {parseApproach} from './bus.js';
+import {batchBusChoices,fetchAllSelectedApproach} from './citybus-all.js';
 import {findMeeting,validateMeeting} from './meeting.js';
 import {LOCATION_URL,parseRailLocation} from './rail.js';
 import {timetableOptions,readTimetable,readOfficialTrip,officialFetcher} from './timetables.js';
@@ -73,15 +74,23 @@ async function busData(env,stop,choice){return Response.json(await busDataObject
 async function busChoiceCached(env,stop,choice){if(!env.LIVE_KV)return null;const raw=await env.LIVE_KV.get(`citybus:choice:${stop}:${choice.value}`);if(!raw)return null;try{return JSON.parse(raw);}catch{return null;}}
 async function saveBusChoice(env,stop,choice,value){if(env.LIVE_KV)await env.LIVE_KV.put(`citybus:choice:${stop}:${choice.value}`,JSON.stringify(value),{expirationTtl:BUS_CHOICE_CACHE_TTL});}
 async function bulkBusData(env,stop,choices){
-  const unique=[...new Map(choices.map(c=>[c.value,c])).values()].slice(0,24),cached=await Promise.all(unique.map(c=>busChoiceCached(env,stop,c))),results=cached.slice();
+  const unique=[...new Map(choices.filter(c=>c?.value).map(c=>[c.value,c])).values()];let allPageError=null;
+  try{
+    const results=[];
+    for(const batch of batchBusChoices(unique,10)){const page=await fetchAllSelectedApproach(stop,batch,{timeout:9000});results.push(...page.results);}
+    if(results.length!==unique.length)throw Error(`全方面の接近情報が揃いませんでした（${results.length}/${unique.length}）。`);
+    await Promise.all(results.map((value,index)=>saveBusChoice(env,stop,unique[index],value)));
+    return {unique,results,success:results.length,mode:'all_page'};
+  }catch(e){allPageError=e;if(env.LIVE_KV)await env.LIVE_KV.put(`diag:citybus:all:${stop}`,JSON.stringify({code:'all_page_failed',message:String(e?.message??e),at:new Date().toISOString()}),{expirationTtl:86400});}
+  const cached=await Promise.all(unique.map(c=>busChoiceCached(env,stop,c))),results=cached.slice();
   let available=cached.filter(Boolean).length,cursor=0;const refresh=oldestChoiceIndexes(cached,2);
   async function directRun(){while(true){const n=cursor++;if(n>=refresh.length)return;const i=refresh[n],choice=unique[i];try{const value=await busDataObject(env,stop,choice,false);results[i]=value;if(!cached[i])available++;await saveBusChoice(env,stop,choice,value);}catch(e){if(!results[i])results[i]={kind:'bus-data',stop,...choice,buses:[],error:e instanceof Error?e.message:'接近情報を取得できませんでした。',capturedAt:new Date().toISOString()};}}}
   await Promise.all(Array.from({length:Math.min(2,refresh.length)},()=>directRun()));
   if(available===0&&unique.length){const i=refresh[0]??0;try{const value=await busDataObject(env,stop,unique[i],true);results[i]=value;available++;await saveBusChoice(env,stop,unique[i],value);}catch{}}
   for(let i=0;i<unique.length;i++)if(!results[i])results[i]={kind:'bus-data',stop,...unique[i],buses:[],capturedAt:new Date().toISOString()};
-  return {unique,results,success:available};
+  return {unique,results,success:available,mode:'per_choice_fallback',allPageError:String(allPageError?.message??allPageError??'')};
 }
-async function busAll(env,stop,choices){const {results}=await bulkBusData(env,stop,choices);return Response.json({kind:'bus-all',stop,results,capturedAt:new Date().toISOString()});}
+async function busAll(env,stop,choices){const {results,mode}=await bulkBusData(env,stop,choices);return Response.json({kind:'bus-all',stop,results,capturedAt:new Date().toISOString(),meta:{mode}});}
 
 async function sha256(text){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function jsonETag(request,data,ttl=12){const body=JSON.stringify(data),etag=`"${(await sha256(body)).slice(0,24)}"`,headers=new Headers({'Content-Type':'application/json; charset=utf-8','Cache-Control':`public, max-age=0, s-maxage=${ttl}, stale-if-error=300`,'ETag':etag,'Vary':'Origin, Accept-Encoding'});if(request.headers.get('If-None-Match')===etag)return new Response(null,{status:304,headers});return new Response(body,{headers});}
@@ -101,15 +110,15 @@ async function kyotoBusRealtime(request,env){
   if(!env.ODPT_CONSUMER_KEY)return error('京都バスのリアルタイム連携を準備中です。',503,'odpt_not_configured');
   return cachedJSON(request,env,'rt:kyotobus',async()=>{const [vehicleBytes,tripBytes]=await Promise.all([fetchProto(KYOTO_BUS_VEHICLE,env.ODPT_CONSUMER_KEY),fetchProto(KYOTO_BUS_TRIP,env.ODPT_CONSUMER_KEY).catch(()=>null)]),vehicleFeed=decodeGtfsRealtime(vehicleBytes),tripFeed=tripBytes?decodeGtfsRealtime(tripBytes):{tripUpdates:[]},filtered=filterKyotoBusVehicles(vehicleFeed.vehicles,tripFeed.tripUpdates),timestamps=filtered.vehicles.map(v=>v.timestamp).filter(Number.isFinite),latest=timestamps.length?Math.max(...timestamps)*1000:Date.now(),hasFresh=filtered.vehicles.some(v=>v.fresh);return {kind:'kyotobus-rt',source:hasFresh?'live':'prediction',stale:!hasFresh,asOf:iso(latest),vehicles:filtered.vehicles.map(v=>({id:v.id,trip:v.trip,route:v.route,lat:v.lat,lon:v.lon,bearing:v.bearing,speed:v.speed,timestamp:v.timestamp,stop:v.stop,stopSequence:v.stopSequence,congestion:v.congestion,occupancy:v.occupancy,occupancyPct:v.occupancyPct,delay:v.delay})),meta:{tripUpdates:tripFeed.tripUpdates.length,unmapped:filtered.unmapped}};},12);
 }
-function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),observed=direct||Number.isFinite(bus?.stopsAway),minutes=direct?bus.minutes:Number.isFinite(bus?.stopsAway)?Math.max(1,bus.stopsAway*2):null,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=BUS_CHOICE_LIVE_AGE;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,minutes,status:minutes===null?(item.noBus?'接近なし':null):null,delay:null,eta:Number.isFinite(minutes)?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:observed?0.72:0.45,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:observed&&!direct};}
+function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),hasStops=Number.isFinite(bus?.stopsAway),observed=direct||hasStops,minutes=direct?bus.minutes:null,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=BUS_CHOICE_LIVE_AGE;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,boarding:item.boarding??'',minutes,stopsAway:hasStops?bus.stopsAway:null,congestion:bus?.congestion??null,status:minutes===null&&!hasStops?(item.noBus?'接近なし':null):null,delay:null,eta:direct?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:hasStops?0.82:item.noBus?0.9:0.45,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:false};}
 async function cityBusArrivals(request,env,url){
   const stop=url.searchParams.get('stop');
   if(!env.STOP_NAMES.includes(stop))return error('対象の停留所を選択してください。');
   return cachedJSON(request,env,`citybus:${stop}`,async()=>{
-    const choices=await options(stop),{unique,results:items,success}=await bulkBusData(env,stop,choices);
+    const choices=await options(stop),{unique,results:items,success,mode}=await bulkBusData(env,stop,choices);
     if(unique.length&&success===0)throw layoutChanged('citybus','市バスの接近表を1件も読み取れませんでした。');
     const now=Date.now(),results=items.flatMap(item=>item.buses?.length?item.buses.slice(0,2).map((b,i)=>normalizedCityRow(item,b,i,now)):[normalizedCityRow(item,null,0,now)]).slice(0,40),asOf=results.map(r=>Date.parse(r.asOf)).filter(Number.isFinite).sort((a,b)=>b-a)[0]??now;
-    return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results};
+    return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results,meta:{mode,coverage:{available:success,total:unique.length}}};
   },12);
 }
 async function directRailSnapshot(env){
@@ -130,7 +139,7 @@ function finalize(request,response,env){for(const[k,v]of Object.entries(corsHead
 export default {
   async fetch(request,env){
     const origin=request.headers.get('Origin'),allowed=origin===env.APP_ORIGIN,url=new URL(request.url),sourceFetch=officialFetcher(env);
-    if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:8,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY),visualFallback:true});
+    if(url.pathname==='/health')return Response.json({service:'My Map transit data',version:9,browser:Boolean(env.BROWSER),kv:Boolean(env.LIVE_KV),odpt:Boolean(env.ODPT_CONSUMER_KEY),visualFallback:true});
     if(request.method==='OPTIONS')return allowed?new Response(null,{status:204,headers:corsHeaders(env)}):error('許可されていないオリジンです。',403);
     const publicLegacy=['/timetable/options','/timetable','/timetable/trip','/operations'].includes(url.pathname)&&!origin;if(!allowed&&!publicLegacy)return error('My Mapからご利用ください。',403);
     let response;

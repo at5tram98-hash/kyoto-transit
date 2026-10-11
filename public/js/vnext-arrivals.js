@@ -16,9 +16,8 @@ const minuteText=r=>Number.isFinite(r.minutes)?`あと${Math.max(0,Math.round(r.
 
 function keyedRows(root,rows,render){
   [...root.children].filter(el=>!el.dataset.key).forEach(el=>el.remove());
-  const old=new Map([...root.querySelectorAll('[data-key]')].map(el=>[el.dataset.key,el]));
-  const fragment=document.createDocumentFragment();
-  for(const row of rows){const key=String(row.key),html=render(row),hash=JSON.stringify(row);let el=old.get(key);if(!el){el=document.createElement('article');el.dataset.key=key;el.className='arrival-line';}if(el.dataset.hash!==hash){el.dataset.hash=hash;el.innerHTML=html;}fragment.append(el);old.delete(key);}root.append(fragment);for(const el of old.values())el.remove();
+  const old=new Map([...root.querySelectorAll('[data-key]')].map(el=>[el.dataset.key,el]));let previous=null;
+  for(const row of rows){const key=String(row.key),html=render(row),hash=JSON.stringify(row);let el=old.get(key);if(!el){el=document.createElement('article');el.dataset.key=key;el.className='arrival-line';}if(el.dataset.hash!==hash){el.dataset.hash=hash;el.innerHTML=html;}const expected=previous?previous.nextElementSibling:root.firstElementChild;if(el!==expected)root.insertBefore(el,expected);previous=el;old.delete(key);}for(const el of old.values())el.remove();
 }
 function busRow(r){return `<div class="arrival-service bus-service">${sourceDot(r.source)}<b>${esc(busServiceLabel(r))}</b></div><div class="arrival-dest">${esc(r.dest??'')}</div><strong class="arrival-minutes">${esc(busArrivalText(r))}</strong><span class="arrival-delay">${esc(delayText(r.delay))}</span>`;}
 function railRow(r){return `<div class="arrival-service">${sourceDot(r.source)}<b>${esc(r.label??r.category??'列車')}</b></div><div class="arrival-dest">${esc(r.dest??'')}</div><strong class="arrival-minutes">${esc(minuteText(r))}</strong><span class="arrival-delay">${esc(delayText(r.delay))}</span>`;}

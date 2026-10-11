@@ -23,6 +23,8 @@ for(const file of files.filter(file=>file.path.startsWith('js/')&&file.path.ends
   await writeFile(new URL(file.path,output),content);
 }
 let html=await readFile(new URL('index.html',output),'utf8');
-html=html.replace(/href="(vnext(?:-[\w-]+)?\.css)(?:\?[^\"]*)?"/g,(_,path)=>`href="${path}?v=${version}"`).replace(/src="js\/vnext\.js(?:\?[^\"]*)?"/,`src="js/vnext.js?v=${version}"`);
+html=html.replace(/href="((?:vnext(?:-[\w-]+)?|route-search|stability)\.css)(?:\?[^\"]*)?"/g,(_,path)=>`href="${path}?v=${version}"`).replace(/src="js\/vnext\.js(?:\?[^\"]*)?"/,`src="js/vnext.js?v=${version}"`);
 await writeFile(new URL('index.html',output),html);
+const precache=['./',...files.map(file=>file.path).filter(path=>path!=='sw.js')];
+let sw=await readFile(new URL('sw.js',output),'utf8');sw=sw.replace('__BUILD_VERSION__',version).replace('__PRECACHE__',JSON.stringify(precache));await writeFile(new URL('sw.js',output),sw);
 console.log(`dist/ に公開用ファイルを生成しました（${version}）。`);
