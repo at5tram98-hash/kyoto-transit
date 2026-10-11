@@ -1,0 +1,81 @@
+name: Patch citybus all-selected production path
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/patch-citybus-all.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Patch Worker integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('worker/index.js')
+          s=p.read_text()
+          old="import {parseApproach} from './bus.js';"
+          new="import {parseApproach} from './bus.js';\nimport {fetchAllSelectedApproach,uniqueBusChoices} from './citybus-all.js';"
+          assert old in s and "./citybus-all.js" not in s
+          s=s.replace(old,new,1)
+          start=s.index('async function bulkBusData(env,stop,choices){')
+          end=s.index('async function busAll(env,stop,choices)',start)
+          replacement="""async function fullBusSnapshotCached(env,stop,unique){
+  if(!env.LIVE_KV)return null;const raw=await env.LIVE_KV.get(`citybus:all:${stop}`);if(!raw)return null;
+  try{const saved=JSON.parse(raw),byValue=new Map((saved.results??[]).map(row=>[row.value,row])),results=unique.map(choice=>byValue.get(choice.value)??null);return results.every(Boolean)?results:null;}catch{return null;}
+}
+async function saveFullBusSnapshot(env,stop,value){if(env.LIVE_KV)await env.LIVE_KV.put(`citybus:all:${stop}`,JSON.stringify(value),{expirationTtl:BUS_CHOICE_CACHE_TTL});}
+async function bulkBusData(env,stop,choices){
+  const unique=uniqueBusChoices(choices);
+  try{
+    const full=await fetchAllSelectedApproach(stop,unique);await Promise.all(full.results.map((value,index)=>saveBusChoice(env,stop,unique[index],value)));await saveFullBusSnapshot(env,stop,full);return {unique,results:full.results,success:full.results.length,mode:'all-selected'};
+  }catch(allError){
+    if(env.LIVE_KV)await env.LIVE_KV.put(`diag:citybus:all:${stop}`,JSON.stringify({code:'all_selected_failed',message:String(allError?.message??allError),at:new Date().toISOString()}),{expirationTtl:86400});
+    const fullCached=await fullBusSnapshotCached(env,stop,unique);if(fullCached)return {unique,results:fullCached,success:fullCached.length,mode:'all-selected-cache'};
+  }
+  const cached=await Promise.all(unique.map(c=>busChoiceCached(env,stop,c))),results=cached.slice();
+  let available=cached.filter(Boolean).length,cursor=0;const refresh=oldestChoiceIndexes(cached,2);
+  async function directRun(){while(true){const n=cursor++;if(n>=refresh.length)return;const i=refresh[n],choice=unique[i];try{const value=await busDataObject(env,stop,choice,false);results[i]=value;if(!cached[i])available++;await saveBusChoice(env,stop,choice,value);}catch(e){if(!results[i])results[i]={kind:'bus-data',stop,...choice,buses:[],error:e instanceof Error?e.message:'接近情報を取得できませんでした。',capturedAt:null};}}}
+  await Promise.all(Array.from({length:Math.min(2,refresh.length)},()=>directRun()));
+  if(available===0&&unique.length){const i=refresh[0]??0;try{const value=await busDataObject(env,stop,unique[i],true);results[i]=value;available++;await saveBusChoice(env,stop,unique[i],value);}catch{}}
+  for(let i=0;i<unique.length;i++)if(!results[i])results[i]={kind:'bus-data',stop,...unique[i],buses:[],capturedAt:null};
+  return {unique,results,success:available,mode:'per-direction-fallback'};
+}
+"""
+          s=s[:start]+replacement+s[end:]
+          old_norm="function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),observed=direct||Number.isFinite(bus?.stopsAway),minutes=direct?bus.minutes:Number.isFinite(bus?.stopsAway)?Math.max(1,bus.stopsAway*2):null,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=BUS_CHOICE_LIVE_AGE;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,minutes,status:minutes===null?(item.noBus?'接近なし':null):null,delay:null,eta:Number.isFinite(minutes)?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:observed?0.72:0.45,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:observed&&!direct};}"
+          new_norm="""function normalizedCityRow(item,bus,index,now){
+  const direct=Number.isFinite(bus?.minutes),stops=Number.isFinite(bus?.stopsAway),observed=direct||stops,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=BUS_CHOICE_LIVE_AGE,minutes=direct?bus.minutes:null,status=direct?null:stops?`${Math.max(0,Math.round(bus.stopsAway))}停留所前`:item.noBus?'接近なし':null;
+  return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,boarding:item.boarding??'',minutes,stopsAway:stops?bus.stopsAway:null,status,delay:null,eta:Number.isFinite(minutes)?iso(now+minutes*60000):null,asOf:item.capturedAt,congestion:bus?.congestion??null,confidence:direct||stops?0.98:item.noBus?0.95:0.4,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:false};
+}"""
+          assert old_norm in s
+          s=s.replace(old_norm,new_norm,1)
+          old_city="const choices=await options(stop),{unique,results:items,success}=await bulkBusData(env,stop,choices);"
+          new_city="const choices=await options(stop),{unique,results:items,success,mode}=await bulkBusData(env,stop,choices);"
+          assert old_city in s
+          s=s.replace(old_city,new_city,1)
+          old_return="return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results};"
+          new_return="return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:!results.some(r=>r.source==='live'),asOf:iso(asOf),results,meta:{mode,directions:unique.length}};"
+          assert old_return in s
+          s=s.replace(old_return,new_return,1)
+          s=s.replace("version:8,browser", "version:9,browser", 1)
+          p.write_text(s)
+          PY
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npx wrangler deploy --dry-run --config worker/wrangler.jsonc
+      - name: Commit patch and remove workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add worker/index.js
+          git rm .github/workflows/patch-citybus-all.yml
+          git commit -m 'Use official all-selected city bus approach page'
+          git push
