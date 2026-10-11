@@ -5,6 +5,7 @@ import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,parseKyotoSc
 
 const network=createNetwork(catalog);
 const CACHE_TTL=172800;
+const PARTIAL_TTL=300;
 const cleanName=stop=>stop?.fullName??stop?.name??'';
 const unique=values=>[...new Set(values)];
 
@@ -16,7 +17,8 @@ async function mapLimit(items,limit,fn){
 function stopRecord(id){const s=network.stops.get(id);return s?{id,name:s.name,type:s.type,aliases:s.aliases??[],lines:s.lines??[]}:null;}
 function feed(operator,date,services,source,precision){
   const stopIds=unique(services.flatMap(s=>s.stops));
-  return {schemaVersion:1,source,revisionDate:date,lastUpdated:new Date().toISOString(),validDates:[date],stops:stopIds.map(stopRecord).filter(Boolean),services,walks:[],meta:{operator,source:'official_fallback',fallback:true,precision,stale:false,warning:null,lastUpdated:new Date().toISOString()}};
+  const now=new Date().toISOString();
+  return {schemaVersion:1,source,revisionDate:date,lastUpdated:now,validDates:[date],stops:stopIds.map(stopRecord).filter(Boolean),services,walks:[],meta:{operator,source:'official_fallback',fallback:true,precision,stale:false,warning:null,lastUpdated:now}};
 }
 export function chooseCityBoard(boards=[],nextName='',reverse=false){
   if(!boards.length)return null;const target=normalize(nextName);
@@ -30,22 +32,44 @@ export function offsetTrips(entries=[],service,date){
     return {id:`official:${service.id}:${date}:${entry.depart}:${index}`,date,arrivals:times,departures:times,headsign:entry.destination??''};
   });
 }
-async function cityService(service,date,day,fetcher,routePageCache){
-  const route=String(service.route??''),source=catalog[route]?.source;if(!source)return null;
-  let rows=routePageCache.get(route);if(!rows){rows=parseCityCatalog(await officialText(source,fetcher,3600),source);routePageCache.set(route,rows);}
+export function groupCityServices(services=[]){
+  const grouped=new Map();
+  for(const service of services){const route=String(service.route??'');if(!route)continue;if(!grouped.has(route))grouped.set(route,[]);grouped.get(route).push(service);}
+  return [...grouped].map(([route,items])=>({route,services:items}));
+}
+async function parsedBoard(board,fetcher,timetableCache){
+  let value=timetableCache.get(board.sourceURL);
+  if(!value){value=officialText(board.sourceURL,fetcher,1800).then(parseHyperdia);timetableCache.set(board.sourceURL,value);}
+  return value;
+}
+async function cityServiceFromRows(service,date,day,fetcher,rows,timetableCache){
   const anchorId=service.stops[0],anchor=network.stops.get(anchorId),next=network.stops.get(service.stops[1]);if(!anchor||!next)return null;
   const row=rows.find(r=>normalize(r.name)===normalize(cleanName(anchor)));if(!row?.boards?.length)return null;
   const board=chooseCityBoard(row.boards,cleanName(next),service.id.endsWith('-up'));if(!board)return null;
-  const parsed=parseHyperdia(await officialText(board.sourceURL,fetcher,1800)),entries=parsed.days?.[day]??[];
-  const trips=offsetTrips(entries,service,date);if(!trips.length)return null;
-  return {id:`official-${service.id}`,label:service.label,operator:'citybus',route,category:'local',stops:service.stops,trips,officialFallback:true,sourceURL:board.sourceURL};
+  const parsed=await parsedBoard(board,fetcher,timetableCache),entries=parsed.days?.[day]??[],trips=offsetTrips(entries,service,date);if(!trips.length)return null;
+  return {id:`official-${service.id}`,label:service.label,operator:'citybus',route:String(service.route),category:'local',stops:service.stops,trips,officialFallback:true,sourceURL:board.sourceURL};
+}
+async function recordCityRouteError(env,route,service,error){
+  if(!env.LIVE_KV)return;await env.LIVE_KV.put(`diag:static:citybus:${route}:${service}`,JSON.stringify({operator:'citybus',route,service,error:String(error?.message??error),at:new Date().toISOString()}),{expirationTtl:604800});
+}
+async function readCityRouteFallback(env,route,services,date,day,fetcher){
+  const key=`static:fallback:citybus-route:${route}:${date}`,raw=await env.LIVE_KV?.get(key);if(raw){try{const saved=JSON.parse(raw);if(Array.isArray(saved.services)&&saved.services.length)return saved;}catch{}}
+  const source=catalog[route]?.source;if(!source)throw Error(`市バス${route}系統の公式時刻表URLがありません。`);
+  const rows=parseCityCatalog(await officialText(source,fetcher,3600),source),timetableCache=new Map(),built=[],failed=[];
+  for(const service of services){try{const value=await cityServiceFromRows(service,date,day,fetcher,rows,timetableCache);if(value)built.push(value);else failed.push(service.id);}catch(error){failed.push(service.id);await recordCityRouteError(env,route,service.id,error);}}
+  if(!built.length)throw Error(`市バス${route}系統の公式時刻表fallbackを生成できませんでした。`);
+  const value={route,date,services:built,expectedServices:services.length,availableServices:built.length,failed,capturedAt:new Date().toISOString()};
+  if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:failed.length?PARTIAL_TTL:CACHE_TTL});return value;
 }
 export async function buildCityBusFallback(env,date,fetcher=officialFetcher(env)){
   const day=calendarDay(date,'citybus');if(!day)throw Error('市バスの運行日区分を確認できません。');
-  const prototypes=network.services.filter(s=>s.operator==='citybus'&&s.prototype),routePageCache=new Map();
-  const services=(await mapLimit(prototypes,3,s=>cityService(s,date,day,fetcher,routePageCache))).filter(Boolean);
-  if(!services.length)throw Error('京都市バスの公式時刻表fallbackを生成できませんでした。');
-  return feed('citybus',date,services,'京都市交通局 公式停留所時刻表（区間所要時間は路線順序から補完）','official_departures_with_segment_completion');
+  const prototypes=network.services.filter(s=>s.operator==='citybus'&&s.prototype),groups=groupCityServices(prototypes),routeResults=[];
+  // 京都市公式サイトへの負荷と一時的な取得失敗を抑えるため、系統単位で順番に取得する。
+  for(const group of groups){try{routeResults.push(await readCityRouteFallback(env,group.route,group.services,date,day,fetcher));}catch(error){await recordCityRouteError(env,group.route,'route',error);}}
+  const services=routeResults.flatMap(r=>r.services??[]);if(!services.length)throw Error('京都市バスの公式時刻表fallbackを生成できませんでした。');
+  const value=feed('citybus',date,services,'京都市交通局 公式停留所時刻表（区間所要時間は路線順序から補完）','official_departures_with_segment_completion');
+  value.meta.expectedRoutes=groups.length;value.meta.availableRoutes=routeResults.length;value.meta.expectedServices=prototypes.length;value.meta.availableServices=services.length;value.meta.partial=routeResults.length<groups.length||services.length<prototypes.length;value.meta.failedRoutes=groups.map(g=>g.route).filter(route=>!routeResults.some(r=>r.route===route));
+  return value;
 }
 function kyotoRouteMatch(route,value){const text=String(value??'').normalize('NFKC');return route==='臨時'?/^臨時/.test(text):/^(?:特|直行)?40$/.test(text);}
 function chooseKyotoBoard(boards=[],route,targetName=''){
@@ -78,5 +102,5 @@ export async function buildKyotoBusFallback(env,date,fetcher=officialFetcher(env
 export async function buildOfficialFallback(env,operator,date){if(operator==='citybus')return buildCityBusFallback(env,date);if(operator==='kyotobus')return buildKyotoBusFallback(env,date);throw Error('公式時刻表fallbackの対象外です。');}
 export async function readOfficialFallback(env,operator,date,{force=false}={}){
   const key=`static:fallback:${operator}:${date}`,raw=!force?await env.LIVE_KV?.get(key):null;if(raw){try{return JSON.parse(raw);}catch{}}
-  const value=await buildOfficialFallback(env,operator,date);if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:value.meta?.partial?300:CACHE_TTL});return value;
+  const value=await buildOfficialFallback(env,operator,date);if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:value.meta?.partial?PARTIAL_TTL:CACHE_TTL});return value;
 }
