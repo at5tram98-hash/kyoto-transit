@@ -73,7 +73,14 @@ async function staticAsset(request) {
       cached = await cache.match(request, { ignoreSearch: true });
     if (cached) return cached;
   }
-  if (version && version !== VERSION) return Response.error();
+  if (version && version !== VERSION)
+    return new Response("This app version is unavailable", {
+      status: 410,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
   return fetch(request);
 }
 self.addEventListener("fetch", (event) => {

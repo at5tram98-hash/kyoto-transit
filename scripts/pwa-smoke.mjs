@@ -93,9 +93,7 @@ const context = await browser.newContext({
     serviceWorkers: "allow",
     viewport: { width: 320, height: 740 },
   }),
-  errors = [],
-  expectedNetworkErrors = [];
-let rejectingUnknownVersion = false;
+  errors = [];
 async function mockProviders(context, origin) {
   await context.route(
     "https://my-map-capture.at5tram98.workers.dev/**",
@@ -148,18 +146,8 @@ await context.addInitScript(() => {
   });
 });
 const page = await context.newPage();
-function recordRuntimeError(e, sourcePage) {
-  // WebKit also reports this native network error when our explicitly caught
-  // negative fetch proves a missing version cannot receive another release.
-  if (
-    engine === webkit &&
-    rejectingUnknownVersion &&
-    sourcePage === page &&
-    !e.stack &&
-    e.message === "Response served by service worker is an error"
-  )
-    expectedNetworkErrors.push(e.message);
-  else errors.push(e.message);
+function recordRuntimeError(e) {
+  errors.push(e.message);
 }
 context.on("weberror", (event) =>
   recordRuntimeError(event.error(), event.page()),
@@ -287,36 +275,27 @@ try {
     new RegExp(versions[1]),
   );
   assert.equal(await marker(page, versions[1]), versions[1]);
-  rejectingUnknownVersion = true;
   const wrong = await page.evaluate(async (base) => {
-    try {
-      await fetch(`${base}js/journey-core.js?v=dddddddddddd`);
-      return true;
-    } catch {
-      return false;
-    }
+    const response = await fetch(`${base}js/journey-core.js?v=dddddddddddd`);
+    return {
+      status: response.status,
+      ok: response.ok,
+      body: await response.text(),
+    };
   }, base);
-  assert.equal(
+  assert.deepEqual(
     wrong,
-    false,
-    "Unavailable version must not receive another release",
+    { status: 410, ok: false, body: "This app version is unavailable" },
+    "Unavailable version must be explicitly rejected without receiving another release",
   );
-  // Flush WebKit's native failure event before leaving this negative case.
-  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
-  rejectingUnknownVersion = false;
-  assert.ok(expectedNetworkErrors.length <= 1);
   originUnavailable = false;
   release = 2;
   failInstall = true;
   await page.evaluate(() =>
-    navigator.serviceWorker
-      .getRegistration()
-      .then((r) => r.update().catch(() => {})),
+    navigator.serviceWorker.ready.then((r) => r.update().catch(() => {})),
   );
   await page.waitForFunction(() =>
-    navigator.serviceWorker
-      .getRegistration()
-      .then((r) => !r.installing && !r.waiting),
+    navigator.serviceWorker.ready.then((r) => !r.installing && !r.waiting),
   );
   await page.reload();
   await page.locator(".journey-display").waitFor();
@@ -454,7 +433,6 @@ try {
       "Previously published worker migrates without an update button or mixed modules",
     ],
     errors,
-    expectedNetworkErrors,
   };
   const artifacts = resolve(
     process.env.BROWSER_ARTIFACT_DIR ?? "/tmp/my-map-browser",
