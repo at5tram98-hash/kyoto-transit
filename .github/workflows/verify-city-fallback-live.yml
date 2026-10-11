@@ -1,0 +1,40 @@
+name: Verify city fallback live
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-city-fallback-live.yml']
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - name: Build full current city bus fallback
+        run: |
+          node --input-type=module <<'NODE'
+          import {buildCityBusFallback} from './worker/official-static-fallback.js';
+          const feed=await buildCityBusFallback({},'2026-10-11');
+          const routes=[...new Set(feed.services.map(s=>String(s.route)))].sort((a,b)=>Number(a)-Number(b));
+          const ids=feed.services.map(s=>s.id);
+          console.log(JSON.stringify({meta:feed.meta,routes,services:feed.services.length,trips:feed.services.reduce((n,s)=>n+s.trips.length,0),ids},null,2));
+          const required=['10','13','43','78','202','204','205','206','208'];
+          for(const route of required)if(!routes.includes(route))throw Error(`missing route ${route}`);
+          for(const route of ['204','205','206','208']){
+            if(!ids.includes(`official-bus-${route}-down`)||!ids.includes(`official-bus-${route}-up`))throw Error(`missing directions ${route}`);
+          }
+          if(feed.meta.partial||feed.meta.failedRoutes?.length)throw Error(`partial feed ${JSON.stringify(feed.meta)}`);
+          if(feed.meta.availableServices!==feed.meta.expectedServices)throw Error('service count mismatch');
+          NODE
+      - name: Remove verification workflow
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/verify-city-fallback-live.yml
+          git commit -m 'Remove live city fallback verification workflow'
+          git push
