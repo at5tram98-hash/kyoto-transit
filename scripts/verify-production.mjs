@@ -110,7 +110,15 @@ async function check(name, path, validate, { cors = true } = {}) {
     checks.push({ name, status: "passed" });
     return data;
   } catch (e) {
-    const message = e.stderr?.trim() || e.message;
+    let message = e.stderr?.trim() || e.message;
+    if (["City bus arrivals", "Rail live positions"].includes(name)) {
+      try {
+        const body = JSON.parse(e.stdout.split(/\r?\n\r?\n/).pop());
+        if (typeof body.error === "string")
+          message += ` ${body.error.replace(/Bearer\s+\S+/gi, "Bearer [redacted]").slice(0, 400)}`;
+        if (typeof body.code === "string") message += ` (${body.code})`;
+      } catch {}
+    }
     checks.push({
       name,
       status: /CONNECT tunnel failed|Domain forbidden/.test(message)
