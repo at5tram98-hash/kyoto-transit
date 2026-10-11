@@ -293,20 +293,49 @@ try {
     new RegExp(versions[1]),
   );
   assert.equal(await marker(page, versions[1]), versions[1]);
-  const wrong = await page.evaluate(async (base) => {
-    const response = await fetch(`${base}js/journey-core.js?v=dddddddddddd`);
-    return {
-      status: response.status,
-      ok: response.ok,
-      body: await response.text(),
-    };
-  }, base);
+  const unavailableVersion = async () =>
+    page.evaluate(async (base) => {
+      try {
+        const response = await fetch(`${base}js/journey-core.js?v=dddddddddddd`);
+        return {
+          status: response.status,
+          ok: response.ok,
+          body: await response.text(),
+        };
+      } catch (error) {
+        if (!(error instanceof TypeError)) throw error;
+        return { networkError: true };
+      }
+    }, base);
+  const wrong = await unavailableVersion();
+  // WebKit may reject a fetch when the origin is unavailable. Both outcomes
+  // must reject the expired release, and the cached app must remain usable.
   assert.deepEqual(
     wrong,
+    wrong.networkError
+      ? { networkError: true }
+      : { status: 410, ok: false, body: "This app version is unavailable" },
+    "Offline requests must never receive a different release's module",
+  );
+  const cachedStyle = await page.evaluate(async ({ base, version }) => {
+    const response = await fetch(
+      `${base}vnext.css?v=${version}&offline-probe=after-rejection`,
+      { cache: "no-store" },
+    );
+    return { status: response.status, body: await response.text() };
+  }, { base, version: versions[1] });
+  assert.equal(cachedStyle.status, 200);
+  assert.equal(
+    cachedStyle.body,
+    await readFile(resolve(dist, "vnext.css"), "utf8"),
+    "The active worker must still serve cached assets after rejecting an expired release",
+  );
+  originUnavailable = false;
+  assert.deepEqual(
+    await unavailableVersion(),
     { status: 410, ok: false, body: "This app version is unavailable" },
     "Unavailable version must be explicitly rejected without receiving another release",
   );
-  originUnavailable = false;
   release = 2;
   failInstall = true;
   await page.evaluate(() =>

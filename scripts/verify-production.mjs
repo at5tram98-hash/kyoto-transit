@@ -172,7 +172,7 @@ if (health) {
   );
   await check(
     "City bus arrivals",
-    "/api/citybus/arrivals?stop=" + encodeURIComponent("烏丸丸太町"),
+    "/api/citybus/arrivals?stop=" + encodeURIComponent("烏丸丸太町（地下鉄丸太町駅）"),
     (d) => {
       required(Array.isArray(d.results), "接近情報の形式が異なります");
       required(

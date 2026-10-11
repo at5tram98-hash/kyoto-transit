@@ -48,10 +48,13 @@ async function registerServiceWorker() {
     return;
   try {
     const url = new URL("../sw.js", import.meta.url);
-    const registration = await navigator.serviceWorker.register(url.href, {
-      scope: "./",
-      updateViaCache: "none",
-    });
+    const registration =
+      navigator.serviceWorker.controller?.scriptURL === url.href
+        ? await navigator.serviceWorker.ready
+        : await navigator.serviceWorker.register(url.href, {
+            scope: "./",
+            updateViaCache: "none",
+          });
     updateRegistration = registration;
     const show = () => {
       if (registration.waiting && navigator.serviceWorker.controller)
