@@ -257,6 +257,12 @@ try {
     JSON.stringify(result, null, 2) + "\n",
   );
   console.log(JSON.stringify(result, null, 2));
+} catch (error) {
+  const message = error?.stack ?? String(error);
+  console.error(
+    `::error title=${engine.name()} PWA verification::${message.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}`,
+  );
+  throw error;
 } finally {
   await context.close();
   await browser.close();

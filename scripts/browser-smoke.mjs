@@ -1204,6 +1204,17 @@ try {
     JSON.stringify(summary, null, 2) + "\n",
   );
   console.log(JSON.stringify(summary, null, 2));
+} catch (error) {
+  const message = error?.stack ?? String(error);
+  summary.errors.push(message);
+  await writeFile(
+    resolve(artifacts, "failure-report.json"),
+    JSON.stringify(summary, null, 2) + "\n",
+  );
+  console.error(
+    `::error title=${engine.name()} browser verification::${message.replaceAll("%", "%25").replaceAll("\r", "%0D").replaceAll("\n", "%0A")}`,
+  );
+  throw error;
 } finally {
   await browser.close();
   if (server) await new Promise((resolve) => server.close(resolve));
