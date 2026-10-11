@@ -5,11 +5,19 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
 import { existsSync } from "node:fs";
 import { chromium, webkit } from "playwright";
+import { gzipSync } from "node:zlib";
 const dist = resolve("dist"),
   scope = "/kyoto-transit/";
 const html = await readFile(resolve(dist, "index.html"), "utf8"),
   oldVersion = html.match(/vnext\.js\?v=([a-f0-9]+)/)[1];
 const versions = [oldVersion, "bbbbbbbbbbbb", "cccccccccccc"],
+  legacyVersion = "000000000000",
+  legacyWorker = (await readFile("tests/fixtures/legacy-sw.js", "utf8"))
+    .replace("__BUILD_VERSION__", legacyVersion)
+    .replace(
+      "__PRECACHE__",
+      JSON.stringify(["./", "index.html", "js/network.js", "vnext.css"]),
+    ),
   mime = {
     ".html": "text/html",
     ".js": "application/javascript",
@@ -20,7 +28,8 @@ const versions = [oldVersion, "bbbbbbbbbbbb", "cccccccccccc"],
   };
 let release = 0,
   failInstall = false,
-  originUnavailable = false;
+  originUnavailable = false,
+  legacyRelease = false;
 const server = createServer(async (req, res) => {
   if (originUnavailable) {
     req.socket.destroy();
@@ -43,15 +52,25 @@ const server = createServer(async (req, res) => {
       return;
     }
     let body = await readFile(file, "utf8");
-    body = body.replaceAll(oldVersion, versions[release]);
-    if (relative === "js/journey-core.js")
-      body += `\nexport const releaseMarker='${versions[release]}';\n`;
+    if (legacyRelease && relative === "sw.js") body = legacyWorker;
+    if (legacyRelease && relative === "index.html")
+      body =
+        '<!doctype html><html lang="ja"><title>Legacy app</title><body>Legacy app without update controls</body></html>';
+    body = body.replaceAll(
+      oldVersion,
+      legacyRelease ? legacyVersion : versions[release],
+    );
+    if (["js/journey-core.js", "js/network.js"].includes(relative))
+      body += `\nexport const releaseMarker='${legacyRelease ? legacyVersion : versions[release]}';\n`;
+    const compressed = gzipSync(body);
     res
       .writeHead(200, {
         "Content-Type": mime[extname(file)] ?? "application/octet-stream",
         "Cache-Control": "no-store",
+        "Content-Encoding": "gzip",
+        "Content-Length": compressed.length,
       })
-      .end(body);
+      .end(compressed);
   } catch {
     res.writeHead(404).end();
   }
@@ -110,11 +129,12 @@ async function installed(page) {
     navigator.serviceWorker.getRegistration().then((r) => r?.waiting),
   );
 }
-async function marker(page, version) {
+async function marker(page, version, file = "journey-core.js") {
   return page.evaluate(
-    async ({ base, version }) =>
-      (await import(`${base}js/journey-core.js?v=${version}`)).releaseMarker,
-    { base, version },
+    async ({ version, file }) =>
+      (await import(new URL(`js/${file}?v=${version}`, location.href).href))
+        .releaseMarker,
+    { version, file },
   );
 }
 try {
@@ -255,6 +275,126 @@ try {
     await page.locator("script[type=module]").getAttribute("src"),
     new RegExp(versions[1]),
   );
+  // Exercise the actual previously published worker, whose page cannot send
+  // ACTIVATE_UPDATE. Its versioned registration must migrate without leaving
+  // a waiting worker or serving its old module cache to the new document.
+  release = 0;
+  failInstall = false;
+  legacyRelease = true;
+  // Use a fresh origin so the earlier update scenario cannot supply this
+  // scenario's cache before its own migration has completed.
+  await context.close();
+  const legacyServer = createServer(server.listeners("request")[0]);
+  await new Promise((r) => legacyServer.listen(0, "127.0.0.1", r));
+  const legacyBase = `http://127.0.0.1:${legacyServer.address().port}${scope}`;
+  const legacyContext = await browser.newContext({ serviceWorkers: "allow" });
+  await legacyContext.route(
+    "https://my-map-capture.at5tram98.workers.dev/**",
+    (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        headers: { "Access-Control-Allow-Origin": new URL(legacyBase).origin },
+        body: JSON.stringify({ error: "Offline provider fixture" }),
+      }),
+  );
+  try {
+    const legacyPage = await legacyContext.newPage();
+    await legacyPage.goto(legacyBase);
+    await legacyPage.evaluate(async (version) => {
+      await navigator.serviceWorker.register(`sw.js?v=${version}`, {
+        scope: "./",
+      });
+      await navigator.serviceWorker.ready;
+    }, legacyVersion);
+    await controlled(legacyPage);
+    await legacyPage.waitForFunction(() =>
+      navigator.serviceWorker
+        .getRegistration()
+        .then((r) => r?.active?.state === "activated" && !r.installing),
+    );
+    assert.equal(
+      await marker(legacyPage, legacyVersion, "network.js"),
+      legacyVersion,
+    );
+    legacyRelease = false;
+    await legacyPage.evaluate(() => {
+      window.__legacyClaimed = false;
+      navigator.serviceWorker.addEventListener(
+        "controllerchange",
+        () => {
+          window.__legacyClaimed = true;
+        },
+        { once: true },
+      );
+      return navigator.serviceWorker.getRegistration().then((r) => r.update());
+    });
+    await legacyPage.waitForFunction(async (version) => {
+      const registration = await navigator.serviceWorker.getRegistration();
+      return (
+        !registration.installing &&
+        !registration.waiting &&
+        registration.active?.state === "activated" &&
+        navigator.serviceWorker.controller &&
+        window.__legacyClaimed &&
+        (await caches.has(`mymap-static-${version}`))
+      );
+    }, oldVersion);
+    // A cache entry alone is insufficient: wait for the new worker to claim
+    // the legacy page, then verify a fresh document and its modules together.
+    await legacyPage.waitForFunction(async (version) => {
+      const channel = new MessageChannel();
+      const reported = new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          channel.port1.close();
+          resolve(null);
+        }, 200);
+        channel.port1.onmessage = (event) => {
+          clearTimeout(timeout);
+          channel.port1.close();
+          resolve(event.data?.version);
+        };
+      });
+      navigator.serviceWorker.controller.postMessage({ type: "GET_VERSION" }, [
+        channel.port2,
+      ]);
+      if ((await reported) !== version) return false;
+      const response = await fetch(`js/network.js?v=${version}`);
+      return (await response.text()).includes(`releaseMarker='${version}'`);
+    }, oldVersion);
+    await legacyPage.reload();
+    assert.match(
+      await legacyPage.locator('script[type="module"]').getAttribute("src"),
+      new RegExp(oldVersion),
+    );
+    assert.equal(await marker(legacyPage, oldVersion), oldVersion);
+    assert.equal(
+      await marker(legacyPage, oldVersion, "network.js"),
+      oldVersion,
+    );
+    const responseUrls = await legacyPage.evaluate(async (version) => {
+      const requested = new URL(`js/network.js?v=${version}`, location.href)
+        .href;
+      return { requested, response: (await fetch(requested)).url };
+    }, oldVersion);
+    assert.equal(
+      responseUrls.response,
+      responseUrls.requested,
+      "Cached module responses must preserve the requested build URL",
+    );
+    assert.equal(
+      await legacyPage.evaluate(() =>
+        navigator.serviceWorker
+          .getRegistration()
+          .then((r) => Boolean(r.waiting)),
+      ),
+      false,
+    );
+  } finally {
+    legacyRelease = false;
+    await legacyContext.close();
+    await new Promise((r) => legacyServer.close(r));
+  }
   assert.deepEqual(errors, []);
   const result = {
     browser: engine.name(),
@@ -268,6 +408,7 @@ try {
       "Offline reload resumes the new journey",
       "Unknown versions never fall back to different code",
       "Failed precache leaves current release usable",
+      "Previously published worker migrates without an update button or mixed modules",
     ],
     errors,
   };

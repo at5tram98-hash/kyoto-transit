@@ -52,8 +52,8 @@ html = html
     (_, path) => `href="${path}?v=${version}"`,
   )
   .replace(
-    /src="js\/vnext\.js(?:\?[^\"]*)?"/,
-    `src="js/vnext.js?v=${version}"`,
+    /src="js\/(vnext|bootstrap)\.js(?:\?[^\"]*)?"/g,
+    (_, name) => `src="js/${name}.js?v=${version}"`,
   );
 await writeFile(new URL("index.html", output), html);
 const precache = [

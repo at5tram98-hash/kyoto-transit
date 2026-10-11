@@ -49,10 +49,11 @@ try {
     version !== process.env.EXPECTED_BUILD_VERSION
   )
     throw Error(`公開版が一致しません: ${version}`);
-  const [worker, module, stylesheet] = await Promise.all([
+  const [worker, module, stylesheet, bootstrap] = await Promise.all([
     publishedFile("sw.js"),
     publishedFile(`js/vnext.js?v=${version}`),
     publishedFile(`vnext-journey.css?v=${version}`),
+    publishedFile(`js/bootstrap.js?v=${version}`),
   ]);
   if (!worker.includes(`const VERSION = "${version}"`))
     throw Error("公開HTMLとService Workerの版が一致しません");
@@ -60,6 +61,8 @@ try {
     throw Error("公開モジュールの版が一致しません");
   if (!stylesheet.includes(".journey-display"))
     throw Error("乗車画面のスタイルを取得できません");
+  if (!bootstrap.includes("entry.replaceWith(script)"))
+    throw Error("起動・旧版移行のファイルを取得できません");
   checks.push({ name: "Published Pages release", status: "passed", version });
   console.log(
     `::notice title=Published Pages release::${site.href} (${version})`,
