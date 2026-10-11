@@ -18,9 +18,6 @@ jobs:
           git rm \
             public/js/assistant.js \
             public/js/foldback-ui.js \
-            public/js/journey.js \
-            public/js/providers.js \
-            public/js/refresh.js \
             public/js/ride-ui.js \
             public/js/storage.js \
             public/native.css
@@ -33,9 +30,6 @@ jobs:
           for p in \
             dist/js/assistant.js \
             dist/js/foldback-ui.js \
-            dist/js/journey.js \
-            dist/js/providers.js \
-            dist/js/refresh.js \
             dist/js/ride-ui.js \
             dist/js/storage.js \
             dist/native.css; do
@@ -43,6 +37,9 @@ jobs:
           done
           test -s dist/js/vnext.js
           test -s dist/js/planner-worker.js
+          test -s dist/js/journey.js
+          test -s dist/js/providers.js
+          test -s dist/js/refresh.js
       - name: Worker dry-run bundle
         run: |
           mkdir -p worker-dist
