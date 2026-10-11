@@ -1,0 +1,49 @@
+name: Diagnose city fallback
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/diagnose-city-fallback.yml']
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - name: Inspect official city bus pages
+        run: |
+          node --input-type=module <<'NODE'
+          import catalog from './public/data/bus-catalog.json' with {type:'json'};
+          import {officialText,parseCityCatalog,parseHyperdia} from './worker/timetables.js';
+          import {normalize} from './public/js/network.js';
+          for (const route of ['202','204','205','206','208']) {
+            const source=catalog[route].source;
+            console.log(`\n=== ${route} ===`);
+            try {
+              const html=await officialText(source,fetch,0);
+              const rows=parseCityCatalog(html,source);
+              console.log('rows', rows.length, 'first', rows[0]?.name, 'boards', rows[0]?.boards);
+              const wanted=catalog[route].names[0];
+              const row=rows.find(r=>normalize(r.name)===normalize(wanted));
+              console.log('anchor', wanted, 'matched', row?.name, 'boardCount', row?.boards?.length);
+              for (const board of (row?.boards??[]).slice(0,4)) {
+                try {
+                  const t=parseHyperdia(await officialText(board.sourceURL,fetch,0));
+                  console.log('board',board.label,board.sourceURL,'keys',Object.keys(t.days),'counts',Object.fromEntries(Object.entries(t.days).map(([k,v])=>[k,v.length])));
+                } catch (e) { console.log('board-error',board.label,e.message); }
+              }
+            } catch(e) { console.log('route-error',e.stack||e.message); }
+          }
+          NODE
+      - name: Remove diagnostic workflow
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/diagnose-city-fallback.yml
+          git commit -m 'Remove city fallback diagnostic workflow'
+          git push
