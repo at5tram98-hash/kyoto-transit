@@ -13,15 +13,22 @@ function parsedChoice(choice,allowedRoutes=DEFAULT_ROUTES){
   return {dest,route,parts};
 }
 export function approachAllURL(stop,choices,{allowedRoutes=DEFAULT_ROUTES}={}){
-  const selected=uniqueBusChoices(choices);if(!selected.length)throw Error('接近情報の方面がありません。');
-  const destinations=[],routeKeys=[],signpoles=[],passes=[];
-  for(const choice of selected){const {dest,parts}=parsedChoice(choice,allowedRoutes);destinations.push(dest);for(const part of parts){routeKeys.push(part[0]);signpoles.push(part[1]);passes.push(part[2]);}}
-  const p=new URLSearchParams({tabName:'approachGuidance',from:stop,fromType:'',to:'',toType:'',locale:'ja',bsid:'1',targetTabName:'busStopSearchTab',busStopName:stop,mapFlag:'false',existYn:'',routeKeys:routeKeys.join(','),fromDisplayPassNo:passes.join(','),fromSignpoleStringKey:signpoles.join(','),destinationCd:destinations.join(','),routeKeynum:String(selected.length),autoRefreshTime:'0'});
+  const selected=uniqueBusChoices(choices);if(!selected.length)throw Error('接近情報の方面がありません。');if(selected.length>10)throw Error('市バス公式画面は一度に10方面までです。');
+  const parsed=selected.map(choice=>parsedChoice(choice,allowedRoutes));
+  const p=new URLSearchParams({
+    tabName:'approachGuidance',from:stop,fromType:'',to:'',toType:'',locale:'ja',bsid:'1',targetTabName:'busStopSearchTab',busStopName:stop,mapFlag:'false',existYn:'',
+    destinationCd:parsed.map(x=>x.dest).join(','),
+    routeKeys:parsed.map(x=>x.parts.map(v=>v[0]).join(',')).join('_'),
+    fromDisplayPassNo:parsed.map(x=>x.parts.map(v=>v[2]).join(',')).join('_'),
+    fromSignpoleStringKey:parsed.map(x=>x.parts.map(v=>v[1]).join(',')).join('_'),
+    routeKeynum:String(selected.length),autoRefreshTime:'0'
+  });
   for(const key of blankKeys)p.set(key,'');
   return `${POC}approachGuidance.htm?${p}`;
 }
+export function batchBusChoices(choices=[],size=10){const selected=uniqueBusChoices(choices),out=[];for(let i=0;i<selected.length;i+=Math.max(1,size))out.push(selected.slice(i,i+Math.max(1,size)));return out;}
 async function htmlText(response){const text=await response.text();if(text.length>2_000_000)throw Error('市バス接近ページが大きすぎます。');return text;}
-export async function fetchAllSelectedApproach(stop,choices,{fetcher=fetch,timeout=7000,allowedRoutes=DEFAULT_ROUTES}={}){
+export async function fetchAllSelectedApproach(stop,choices,{fetcher=fetch,timeout=9000,allowedRoutes=DEFAULT_ROUTES}={}){
   const selected=uniqueBusChoices(choices),url=approachAllURL(stop,selected,{allowedRoutes}),controller=new AbortController(),timer=setTimeout(()=>controller.abort('timeout'),timeout);
   try{
     const response=await fetcher(url,{headers:{'User-Agent':'Mozilla/5.0 My Map transit reader','Accept':'text/html,application/xhtml+xml'},signal:controller.signal,cache:'no-store'});
