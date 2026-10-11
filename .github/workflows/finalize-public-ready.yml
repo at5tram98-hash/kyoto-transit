@@ -1,0 +1,37 @@
+name: Finalize public-ready hardening
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/finalize-public-ready.py
+      - .github/workflows/finalize-public-ready.yml
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Apply production hardening
+        run: python scripts/finalize-public-ready.py
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Worker dry-run bundle
+        run: |
+          mkdir -p worker-dist
+          npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
+          test -s worker-dist/worker.js
+          test $(wc -c < worker-dist/worker.js) -gt 100000
+      - name: Commit verified hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm scripts/finalize-public-ready.py .github/workflows/finalize-public-ready.yml
+          git add worker/index.js public/js/vnext-arrivals.js scripts/build.mjs scripts/check.mjs
+          git commit -m "Finalize all-direction realtime and PWA hardening"
+          git push
