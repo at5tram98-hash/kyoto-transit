@@ -1,0 +1,47 @@
+name: PR品質検証
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Chromium UI and PWA verification
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/chromium
+      - name: WebKit UI and PWA verification
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ENGINE: webkit
+          BROWSER_ARTIFACT_DIR: browser-artifacts/webkit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-browser-verification
+          path: browser-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
