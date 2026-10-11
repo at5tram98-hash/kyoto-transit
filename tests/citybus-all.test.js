@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseApproachAll} from '../worker/bus.js';
-import {approachAllURL,fetchAllSelectedApproach} from '../worker/citybus-all.js';
+import {approachAllURL,batchBusChoices,fetchAllSelectedApproach} from '../worker/citybus-all.js';
 
 const choices=[
   {route:'204',destination:'銀閣寺・高野',boarding:'Aのりば',value:'204010003;10381:28723:23'},
@@ -14,14 +14,19 @@ const html=`<table id="approach_table"><tbody>
 <tr><td id="vehicle-position-data_1"><img alt="１つまえ 大変混雑しています"></td><td id="vehicle-position-data_2"></td><td id="vehicle-position-data_3"></td></tr>
 </tbody></table>`;
 
-test('全選択URLは方面を1ページへまとめる',()=>{
+test('全選択URLは公式の方面境界形式で1ページへまとめる',()=>{
   const u=new URL(approachAllURL('丸太町智恵光院',choices));
   assert.equal(u.searchParams.get('routeKeynum'),'2');
   assert.equal(u.searchParams.get('destinationCd'),'204010003,204020004');
-  assert.equal(u.searchParams.get('routeKeys'),'10381,9980,9990');
-  assert.equal(u.searchParams.get('fromSignpoleStringKey'),'28723,28724,28724');
-  assert.equal(u.searchParams.get('fromDisplayPassNo'),'23,24,30');
+  assert.equal(u.searchParams.get('routeKeys'),'10381_9980,9990');
+  assert.equal(u.searchParams.get('fromSignpoleStringKey'),'28723_28724,28724');
+  assert.equal(u.searchParams.get('fromDisplayPassNo'),'23_24,30');
   assert.equal(u.searchParams.get('formerApproachGuidance'),'');
+});
+
+test('公式の10方面上限を越える時だけ複数ページへ分ける',()=>{
+  const many=Array.from({length:21},(_,i)=>({...choices[0],value:`20401000${i%10};${10000+i}:28723:23`}));
+  assert.deepEqual(batchBusChoices(many).map(x=>x.length),[10,10,1]);
 });
 
 test('全選択HTMLは方面順を保ったまま公式位置と混雑度を読む',()=>{
@@ -43,6 +48,7 @@ test('全選択取得は1リクエストで全方面を返す',async()=>{
   assert.equal(result.results.length,2);
   assert.equal(result.results[0].boarding,'Aのりば');
   assert.equal(result.results[1].buses[0].stopsAway,1);
+  assert.equal(new Set(result.results.map(x=>x.capturedAt)).size,1);
 });
 
 test('方面数のDOM変更は静かに誤対応せず失敗する',()=>{
