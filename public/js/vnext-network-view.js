@@ -1,35 +1,234 @@
-import {subwayIds,kintetsuIds} from './network.js';
-import {projectSubwayTrains,CITY_ROUTES,KYOTO_ROUTES} from './vnext-core.js';
-import {$,esc,icon,state,settings,saveSettings,tokyoNow,rideKey,ensureRailFeed,ensureSubwayFeed} from './vnext-state.js';
-import {realtimeLog,ARRIVAL_INTERVAL,isFresh} from './realtime.js';
-import {updateHTML} from './view-rendering.js';
-const panelVersions=new WeakMap();
+import { subwayIds, kintetsuIds } from "./network.js";
+import {
+  projectSubwayTrains,
+  CITY_ROUTES,
+  KYOTO_ROUTES,
+} from "./vnext-core.js";
+import {
+  $,
+  esc,
+  icon,
+  state,
+  settings,
+  saveSettings,
+  tokyoNow,
+  rideKey,
+  ensureRailFeed,
+  ensureSubwayFeed,
+} from "./vnext-state.js";
+import { realtimeLog, ARRIVAL_INTERVAL, isFresh } from "./realtime.js";
+import { updateHTML } from "./view-rendering.js";
 
-const dot=source=>`<i class="source-dot ${source==='live'?'live':'prediction'}" aria-hidden="true"></i>`;
-export async function renderNetworkPanel(panel,ride,now){
-  const token=rideKey(ride),version=(panelVersions.get(panel)??0)+1;panelVersions.set(panel,version);
-  if(panel.dataset.token!==token||!panel.querySelector('#network-live')){panel.dataset.token=token;updateHTML(panel,`<section class="section-block"><div class="section-heading"><div><span class="section-label">走行位置</span><h3>同じ路線の列車</h3></div><button class="round-action" id="network-refresh" aria-label="更新">${icon('refresh')}</button></div><div id="network-live"><p class="loading-line">更新中…</p></div></section>`);}
-  if(['kintetsu','through'].includes(ride.operator))await ensureRailFeed();else if(ride.operator==='subway')await ensureSubwayFeed();if(panel.dataset.token!==token||panelVersions.get(panel)!==version||panel.closest('[hidden]'))return;
-  const container=panel.querySelector('#network-live');if(!container)return;let trains=[];
-  if(['kintetsu','through'].includes(ride.operator)&&state.railFeed){const feed=state.railFeed,measured=!feed.stale&&feed.source!=='prediction'&&isFresh(feed.asOf??feed.sourceUpdatedAt??feed.capturedAt);trains=(feed.trains??[]).filter(t=>['local','express','other'].includes(t.category)).slice(0,30).map(t=>({...t,estimated:!measured||t.predicted}));}
-  else if(ride.operator==='subway'&&state.subwayFeed?.services?.length)trains=projectSubwayTrains({feed:state.subwayFeed,nowMinute:now.minute,network:state.network});
-  if(!trains.length){updateHTML(container,'<p class="empty-state">表示できる列車がありません。</p>');return;}
-  const rideDirection=ride.direction??(()=>{const ids=ride.operator==='subway'?subwayIds:kintetsuIds,a=ids.indexOf(ride.from),b=ids.indexOf(ride.to);return b>a?'south':'north';})(),opposite=trains.filter(t=>t.direction!==rideDirection).slice(0,8),same=trains.filter(t=>t.direction===rideDirection).slice(0,8);
-  updateHTML(container,`<div class="train-group"><span>進行方向</span>${trainRows(same)}</div><div class="train-group"><span>反対方向</span>${trainRows(opposite)}</div>`);
-}
-function trainRows(trains){if(!trains.length)return '<p class="fine-empty">表示中の列車はありません</p>';return `<div class="train-rows">${trains.map(t=>`<div class="train-row"><span class="train-arrow">${t.direction==='north'?'←':'→'}</span><div><b>${dot(t.estimated?'prediction':'live')}${esc(t.label??(t.category==='express'?'急行':'普通'))}</b><small>${esc(state.network.stops.get(t.from)?.name??t.from)} ${t.atStation?'停車中':'〜'} ${esc(state.network.stops.get(t.to)?.name??t.to)}</small></div><span class="delay ${t.delay?'late':''}">${t.delay===null?'—':t.delay?`+${t.delay}分`:'定刻'}</span></div>`).join('')}</div>`;}
-export async function refreshNetwork(){if(!state.ride)return;const panel=$('#network-panel');if(['kintetsu','through'].includes(state.ride.operator))await ensureRailFeed(true);else if(state.ride.operator==='subway')await ensureSubwayFeed(true);renderNetworkPanel(panel,state.ride,tokyoNow());}
+const panelVersions = new WeakMap();
+const dot = (source) =>
+  `<i class="source-dot ${source === "live" ? "live" : "prediction"}" aria-hidden="true"></i>`;
 
-function logHTML(){const rows=realtimeLog();return `<div class="debug-live" ${settings.debugLive?'':'hidden'}><div><b>更新間隔</b><span>${ARRIVAL_INTERVAL/1000}秒</span></div>${rows.map(r=>`<div><b>${esc(r.key)}</b><span>${esc(r.source??'—')} · ${r.freshness?new Date(r.freshness).toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—'}${r.error?` · ${esc(r.error)}`:''}</span></div>`).join('')||'<div><b>ログ</b><span>まだありません</span></div>'}</div>`;}
-const subwayOptions=()=>subwayIds.map(id=>`<option value="${id}">${esc(state.network?.stops.get(id)?.name??id)}</option>`).join('');
-export function renderSettings(){
-  const root=$('#settings-content');root.innerHTML=`<section class="settings-section"><h2>自動案内</h2><div class="settings-card"><label class="setting-row"><span><b>自動乗車判定</b><small>移動に合わせて表示を切り替えます</small></span><input type="checkbox" data-setting="autoDetect" ${settings.autoDetect?'checked':''}></label><label class="setting-row"><span><b>触覚フィードバック</b><small>便を判定したときに短く通知</small></span><input type="checkbox" data-setting="haptics" ${settings.haptics?'checked':''}></label><label class="setting-row"><span><b>判定根拠を表示</b><small>必要なときだけ詳細を表示</small></span><input type="checkbox" data-setting="showConfidence" ${settings.showConfidence?'checked':''}></label></div></section><section class="settings-section"><h2>定期券</h2><div class="settings-card"><label class="setting-row"><span><b>市バス</b><small>対象区間の追加額を0円として計算</small></span><input type="checkbox" data-setting="passCityBus" ${settings.passCityBus?'checked':''}></label><label class="setting-row"><span><b>京都バス</b><small>登録した対象区間だけに適用</small></span><input type="checkbox" data-setting="passKyotoBus" ${settings.passKyotoBus?'checked':''}></label><label class="setting-row"><span><b>地下鉄</b><small>設定区間内の追加額を0円として計算</small></span><input type="checkbox" data-setting="passSubway" ${settings.passSubway?'checked':''}></label><div class="pass-range"><label>区間<select data-setting-value="passSubwayFrom">${subwayOptions()}</select></label><span>〜</span><label>区間<select data-setting-value="passSubwayTo">${subwayOptions()}</select></label></div><label class="pass-expiry">有効期限<input type="date" data-setting-value="passExpires" value="${esc(settings.passExpires??'')}"></label><p class="source-caption">未設定では通常運賃＝追加額です。実際の券面区間を優先してください。</p></div></section><section class="settings-section"><h2>近くの駅</h2><div class="settings-card slider-card"><label><span><b>地下鉄を表示する距離</b><small>候補に表示する範囲</small></span><strong>${settings.railGuideDistance}m</strong><input type="range" min="150" max="600" step="50" value="${settings.railGuideDistance}" data-setting-range="railGuideDistance"></label></div></section><section class="settings-section"><h2>対応路線</h2><div class="settings-card source-list"><div><b>地下鉄烏丸線</b><small>全線・近鉄直通</small></div><div><b>近鉄京都線</b><small>全線・烏丸線直通</small></div><div><b>京都バス</b><small>${KYOTO_ROUTES.join('・')}</small></div><div><b>京都市バス</b><small>${CITY_ROUTES.join('・')}・202八条口</small></div></div></section><section class="settings-section" id="info-section"><h2 data-info-title>情報</h2><div class="settings-card source-list"><div><b>出典</b><small>京都市交通局・近畿日本鉄道・京都バス・公共交通オープンデータセンター</small></div><div><b>運賃確認</b><small>公式運賃表を基準にし、未確認区間は確定額を表示しません</small></div><div><b>オープンデータ</b><small>公共交通オープンデータ基本ライセンスに基づき利用しています</small></div><div><b>現在地</b><small>位置情報は端末上で乗車判定に使用します</small></div></div>${logHTML()}</section>`;
-  const from=root.querySelector('[data-setting-value="passSubwayFrom"]'),to=root.querySelector('[data-setting-value="passSubwayTo"]');if(from)from.value=settings.passSubwayFrom??'K01';if(to)to.value=settings.passSubwayTo??'K11';
+function routeIdsFor(ride) {
+  return ride.operator === "subway" ? subwayIds : kintetsuIds;
 }
-export function setupSettings(onRender){
-  let infoTaps=0,lastTap=0;const root=$('#settings-content');
-  root.addEventListener('change',e=>{if(e.target.dataset.setting){settings[e.target.dataset.setting]=e.target.checked;saveSettings();onRender();}if(e.target.dataset.settingRange){settings[e.target.dataset.settingRange]=Number(e.target.value);saveSettings();renderSettings();onRender();}if(e.target.dataset.settingValue){settings[e.target.dataset.settingValue]=e.target.value;saveSettings();onRender();}});
-  root.addEventListener('input',e=>{if(e.target.dataset.settingRange){settings[e.target.dataset.settingRange]=Number(e.target.value);e.target.closest('label').querySelector('strong').textContent=`${settings[e.target.dataset.settingRange]}m`;}});
-  root.addEventListener('click',e=>{if(!e.target.closest('[data-info-title]'))return;const now=Date.now();infoTaps=now-lastTap<1200?infoTaps+1:1;lastTap=now;if(infoTaps>=7){settings.debugLive=!settings.debugLive;saveSettings();infoTaps=0;renderSettings();}});
-  window.addEventListener('mymap-realtime-log',()=>{if(state.tab==='settings'&&settings.debugLive)renderSettings();});
+
+function markerPosition(train, ids) {
+  const from = ids.indexOf(train.from);
+  const to = ids.indexOf(train.to);
+  if (from < 0 && to < 0) return null;
+  if (from < 0) return (to / Math.max(1, ids.length - 1)) * 100;
+  if (to < 0 || train.atStation)
+    return (from / Math.max(1, ids.length - 1)) * 100;
+  return (((from + to) / 2) / Math.max(1, ids.length - 1)) * 100;
+}
+
+function trainStrip(trains, ride, rideDirection) {
+  const ids = routeIdsFor(ride);
+  const markers = trains
+    .map((train) => ({ train, position: markerPosition(train, ids) }))
+    .filter((entry) => Number.isFinite(entry.position))
+    .slice(0, 18);
+  if (!markers.length) return "";
+  const first = state.network.stops.get(ids[0])?.name ?? ids[0];
+  const last = state.network.stops.get(ids.at(-1))?.name ?? ids.at(-1);
+  return `<div class="network-strip" role="img" aria-label="同じ路線を走る列車の推定位置">
+    <div class="network-strip-line" aria-hidden="true"></div>
+    ${markers
+      .map(({ train, position }) => {
+        const same = train.direction === rideDirection;
+        const label = esc(
+          train.label ?? (train.category === "express" ? "急行" : "普通"),
+        );
+        return `<span class="network-train-marker ${same ? "same" : "opposite"} ${train.estimated ? "estimated" : "live"}" style="--train-position:${Math.max(1, Math.min(99, position)).toFixed(1)}%" title="${label} · ${same ? "進行方向" : "反対方向"}">${icon("train")}</span>`;
+      })
+      .join("")}
+    <div class="network-strip-labels"><span>${esc(first)}</span><span>${esc(last)}</span></div>
+    <div class="network-strip-legend"><span>${dot("live")}実測</span><span>${dot("prediction")}時刻表から推定</span></div>
+  </div>`;
+}
+
+export async function renderNetworkPanel(panel, ride, now) {
+  const token = rideKey(ride);
+  const version = (panelVersions.get(panel) ?? 0) + 1;
+  panelVersions.set(panel, version);
+
+  if (panel.dataset.token !== token || !panel.querySelector("#network-live")) {
+    panel.dataset.token = token;
+    updateHTML(
+      panel,
+      `<section class="section-block network-board"><div class="section-heading"><div><span class="section-label">リアルタイム列車走行情報</span><h3>同じ路線の列車</h3></div><button class="round-action" id="network-refresh" aria-label="列車位置を更新">${icon("refresh")}</button></div><div id="network-live"><p class="loading-line">列車位置を更新中…</p></div></section>`,
+    );
+  }
+
+  if (["kintetsu", "through"].includes(ride.operator)) await ensureRailFeed();
+  else if (ride.operator === "subway") await ensureSubwayFeed();
+
+  if (
+    panel.dataset.token !== token ||
+    panelVersions.get(panel) !== version ||
+    panel.closest("[hidden]")
+  )
+    return;
+
+  const container = panel.querySelector("#network-live");
+  if (!container) return;
+  let trains = [];
+
+  if (["kintetsu", "through"].includes(ride.operator) && state.railFeed) {
+    const feed = state.railFeed;
+    const measured =
+      !feed.stale &&
+      feed.source !== "prediction" &&
+      isFresh(feed.asOf ?? feed.sourceUpdatedAt ?? feed.capturedAt);
+    trains = (feed.trains ?? [])
+      .filter((train) => ["local", "express", "other"].includes(train.category))
+      .slice(0, 30)
+      .map((train) => ({
+        ...train,
+        estimated: !measured || train.predicted,
+      }));
+  } else if (ride.operator === "subway" && state.subwayFeed?.services?.length) {
+    trains = projectSubwayTrains({
+      feed: state.subwayFeed,
+      nowMinute: now.minute,
+      network: state.network,
+    });
+  }
+
+  if (!trains.length) {
+    updateHTML(
+      container,
+      '<p class="empty-state">表示できる列車がありません。</p>',
+    );
+    return;
+  }
+
+  const ids = routeIdsFor(ride);
+  const rideDirection =
+    ride.direction ??
+    (() => {
+      const a = ids.indexOf(ride.from);
+      const b = ids.indexOf(ride.to);
+      return b > a ? "south" : "north";
+    })();
+  const opposite = trains
+    .filter((train) => train.direction !== rideDirection)
+    .slice(0, 8);
+  const same = trains
+    .filter((train) => train.direction === rideDirection)
+    .slice(0, 8);
+
+  updateHTML(
+    container,
+    `${trainStrip(trains, ride, rideDirection)}<div class="train-group"><span>進行方向</span>${trainRows(same)}</div><div class="train-group"><span>反対方向</span>${trainRows(opposite)}</div>`,
+  );
+}
+
+function trainRows(trains) {
+  if (!trains.length)
+    return '<p class="fine-empty">表示中の列車はありません</p>';
+  return `<div class="train-rows">${trains
+    .map(
+      (train) =>
+        `<div class="train-row"><span class="train-arrow">${train.direction === "north" ? "←" : "→"}</span><div><b>${dot(train.estimated ? "prediction" : "live")}${esc(train.label ?? (train.category === "express" ? "急行" : "普通"))}</b><small>${esc(state.network.stops.get(train.from)?.name ?? train.from)} ${train.atStation ? "停車中" : "〜"} ${esc(state.network.stops.get(train.to)?.name ?? train.to)}</small></div><span class="delay ${train.delay ? "late" : ""}">${train.delay === null ? "—" : train.delay ? `+${train.delay}分` : "定刻"}</span></div>`,
+    )
+    .join("")}</div>`;
+}
+
+export async function refreshNetwork() {
+  if (!state.ride) return;
+  const panel = $("#network-panel");
+  if (["kintetsu", "through"].includes(state.ride.operator))
+    await ensureRailFeed(true);
+  else if (state.ride.operator === "subway") await ensureSubwayFeed(true);
+  renderNetworkPanel(panel, state.ride, tokyoNow());
+}
+
+function logHTML() {
+  const rows = realtimeLog();
+  return `<div class="debug-live" ${settings.debugLive ? "" : "hidden"}><div><b>更新間隔</b><span>${ARRIVAL_INTERVAL / 1000}秒</span></div>${
+    rows
+      .map(
+        (row) =>
+          `<div><b>${esc(row.key)}</b><span>${esc(row.source ?? "—")} · ${row.freshness ? new Date(row.freshness).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"}${row.error ? ` · ${esc(row.error)}` : ""}</span></div>`,
+      )
+      .join("") || '<div><b>ログ</b><span>まだありません</span></div>'
+  }</div>`;
+}
+
+const subwayOptions = () =>
+  subwayIds
+    .map(
+      (id) =>
+        `<option value="${id}">${esc(state.network?.stops.get(id)?.name ?? id)}</option>`,
+    )
+    .join("");
+
+export function renderSettings() {
+  const root = $("#settings-content");
+  root.innerHTML = `<section class="settings-section"><h2>自動案内</h2><div class="settings-card"><label class="setting-row"><span><b>自動乗車判定</b><small>移動に合わせて表示を切り替えます</small></span><input type="checkbox" data-setting="autoDetect" ${settings.autoDetect ? "checked" : ""}></label><label class="setting-row"><span><b>触覚フィードバック</b><small>便を判定したときに短く通知</small></span><input type="checkbox" data-setting="haptics" ${settings.haptics ? "checked" : ""}></label><label class="setting-row"><span><b>判定根拠を表示</b><small>必要なときだけ詳細を表示</small></span><input type="checkbox" data-setting="showConfidence" ${settings.showConfidence ? "checked" : ""}></label></div></section><section class="settings-section"><h2>定期券</h2><div class="settings-card"><label class="setting-row"><span><b>市バス</b><small>対象区間の追加額を0円として計算</small></span><input type="checkbox" data-setting="passCityBus" ${settings.passCityBus ? "checked" : ""}></label><label class="setting-row"><span><b>京都バス</b><small>登録した対象区間だけに適用</small></span><input type="checkbox" data-setting="passKyotoBus" ${settings.passKyotoBus ? "checked" : ""}></label><label class="setting-row"><span><b>地下鉄</b><small>設定区間内の追加額を0円として計算</small></span><input type="checkbox" data-setting="passSubway" ${settings.passSubway ? "checked" : ""}></label><div class="pass-range"><label>区間<select data-setting-value="passSubwayFrom">${subwayOptions()}</select></label><span>〜</span><label>区間<select data-setting-value="passSubwayTo">${subwayOptions()}</select></label></div><label class="pass-expiry">有効期限<input type="date" data-setting-value="passExpires" value="${esc(settings.passExpires ?? "")}"></label><p class="source-caption">未設定では通常運賃＝追加額です。実際の券面区間を優先してください。</p></div></section><section class="settings-section"><h2>近くの駅</h2><div class="settings-card slider-card"><label><span><b>地下鉄を表示する距離</b><small>候補に表示する範囲</small></span><strong>${settings.railGuideDistance}m</strong><input type="range" min="150" max="600" step="50" value="${settings.railGuideDistance}" data-setting-range="railGuideDistance"></label></div></section><section class="settings-section"><h2>対応路線</h2><div class="settings-card source-list"><div><b>地下鉄烏丸線</b><small>全線・近鉄直通</small></div><div><b>近鉄京都線</b><small>全線・烏丸線直通</small></div><div><b>京都バス</b><small>${KYOTO_ROUTES.join("・")}</small></div><div><b>京都市バス</b><small>${CITY_ROUTES.join("・")}・202八条口</small></div></div></section><section class="settings-section" id="info-section"><h2 data-info-title>情報</h2><div class="settings-card source-list"><div><b>出典</b><small>京都市交通局・近畿日本鉄道・京都バス・公共交通オープンデータセンター</small></div><div><b>運賃確認</b><small>公式運賃表を基準にし、未確認区間は確定額を表示しません</small></div><div><b>オープンデータ</b><small>公共交通オープンデータ基本ライセンスに基づき利用しています</small></div><div><b>現在地</b><small>位置情報は端末上で乗車判定に使用します</small></div></div>${logHTML()}</section>`;
+  const from = root.querySelector('[data-setting-value="passSubwayFrom"]');
+  const to = root.querySelector('[data-setting-value="passSubwayTo"]');
+  if (from) from.value = settings.passSubwayFrom ?? "K01";
+  if (to) to.value = settings.passSubwayTo ?? "K11";
+}
+
+export function setupSettings(onRender) {
+  let infoTaps = 0;
+  let lastTap = 0;
+  const root = $("#settings-content");
+  root.addEventListener("change", (event) => {
+    if (event.target.dataset.setting) {
+      settings[event.target.dataset.setting] = event.target.checked;
+      saveSettings();
+      onRender();
+    }
+    if (event.target.dataset.settingRange) {
+      settings[event.target.dataset.settingRange] = Number(event.target.value);
+      saveSettings();
+      renderSettings();
+      onRender();
+    }
+    if (event.target.dataset.settingValue) {
+      settings[event.target.dataset.settingValue] = event.target.value;
+      saveSettings();
+      onRender();
+    }
+  });
+  root.addEventListener("input", (event) => {
+    if (!event.target.dataset.settingRange) return;
+    settings[event.target.dataset.settingRange] = Number(event.target.value);
+    event.target.closest("label").querySelector("strong").textContent =
+      `${settings[event.target.dataset.settingRange]}m`;
+  });
+  root.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-info-title]")) return;
+    const now = Date.now();
+    infoTaps = now - lastTap < 1200 ? infoTaps + 1 : 1;
+    lastTap = now;
+    if (infoTaps >= 7) {
+      settings.debugLive = !settings.debugLive;
+      saveSettings();
+      infoTaps = 0;
+      renderSettings();
+    }
+  });
+  window.addEventListener("mymap-realtime-log", () => {
+    if (state.tab === "settings" && settings.debugLive) renderSettings();
+  });
 }

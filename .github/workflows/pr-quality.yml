@@ -1,0 +1,104 @@
+name: PR品質検証
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+
+  chromium:
+    name: Chromium UI + PWA
+    needs: core
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/chromium
+      - run: npm run test:pwa
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/chromium-pwa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-chromium-verification
+          path: browser-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  webkit-ui:
+    name: WebKit UI
+    needs: core
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx playwright install --with-deps webkit
+      - run: npm run test:browser
+        env:
+          BROWSER_ENGINE: webkit
+          BROWSER_ARTIFACT_DIR: browser-artifacts/webkit-ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-webkit-ui-verification
+          path: browser-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  webkit-pwa:
+    name: WebKit PWA
+    needs: core
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx playwright install --with-deps webkit
+      - run: npm run test:pwa
+        env:
+          BROWSER_ENGINE: webkit
+          BROWSER_ARTIFACT_DIR: browser-artifacts/webkit-pwa
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr-webkit-pwa-verification
+          path: browser-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7

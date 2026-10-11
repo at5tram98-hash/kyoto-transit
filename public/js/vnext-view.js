@@ -148,6 +148,7 @@ export function renderNow() {
   const guide = chooseNearbyGuide(
       { rail: near.rail, bus: near.bus },
       settings.railGuideDistance,
+      Infinity,
     ),
     moving = Number.isFinite(motion.speed) && motion.speed >= 2.8,
     ambiguous = state.rideCandidates?.length > 1;
@@ -156,18 +157,18 @@ export function renderNow() {
     `<section class="hero-card ${moving ? "detecting" : "neutral"}"><div class="hero-eyebrow">${moving ? '<span class="pulse-dot"></span>乗車中の便を確認中' : "NEARBY · 周辺案内"}</div><h2>${ambiguous ? "乗っている便を選択" : moving ? "移動中" : "近くから、出かけよう"}</h2><p>${guide ? `${esc(guide.stop.name)}まで約${Math.round(guide.meters)}m` : "近くの駅・停留所を現在地から探します。"}</p>${state.detectBusy ? '<div class="thin-progress"><i></i></div>' : ""}</section>`,
   );
   const nearby = near.all
-    .filter(
-      (s) =>
-        s.meters <=
-        (s.stop.type.includes("bus") ? 500 : settings.railGuideDistance),
-    )
+    .filter((s) => {
+      if (s.stop.type.includes("bus"))
+        return s.meters <= 500 || s.id === near.bus?.id;
+      return s.meters <= settings.railGuideDistance;
+    })
     .filter((s, i, a) => a.findIndex((x) => x.id === s.id) === i)
     .slice(0, 4);
   if (nearby.some((s) => s.stop.type === "subway")) requestNearbyFeed();
   updateHTML(
     nearPanel,
     nearby.length
-      ? `<section class="section-block nearby-guide"><div class="section-heading"><div><span class="section-label">歩いて行ける</span><h3>近くの駅・停留所</h3></div></div>${nearby.map((s) => `<div class="nearby-place"><button class="nearby-row" data-open-timetable="${esc(s.id)}"><span class="mode-symbol ${s.stop.type.includes("bus") ? "bus" : "subway"}">${icon(s.stop.type.includes("bus") ? "bus" : "train")}</span><span><b>${esc(s.stop.name)}</b><small>${esc((s.stop.lines ?? []).join("・"))}</small></span><strong>${Math.round(s.meters)}m</strong><span class="chevron">›</span></button>${s.stop.type === "subway" ? departureHTML(s.id) : ""}<div class="nearby-actions"><button class="secondary-action" data-start-here="${esc(s.id)}">ここから出発</button>${s.stop.type === "citybus" ? `<button class="secondary-action" data-open-arrivals="${esc(s.id)}">接近情報</button>` : ""}</div></div>`).join("")}</section>`
+      ? `<section class="section-block nearby-guide"><div class="section-heading"><div><span class="section-label">現在地から近い順</span><h3>近くの駅・停留所</h3></div></div>${nearby.map((s) => `<div class="nearby-place"><button class="nearby-row" data-open-timetable="${esc(s.id)}"><span class="mode-symbol ${s.stop.type.includes("bus") ? "bus" : "subway"}">${icon(s.stop.type.includes("bus") ? "bus" : "train")}</span><span><b>${esc(s.stop.name)}</b><small>${esc((s.stop.lines ?? []).join("・"))}</small></span><strong>${Math.round(s.meters)}m</strong><span class="chevron">›</span></button>${s.stop.type === "subway" ? departureHTML(s.id) : ""}<div class="nearby-actions"><button class="secondary-action" data-start-here="${esc(s.id)}">ここから出発</button>${s.stop.type === "citybus" ? `<button class="secondary-action" data-open-arrivals="${esc(s.id)}">接近情報</button>` : ""}</div></div>`).join("")}</section>`
       : "",
   );
 }
