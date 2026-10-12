@@ -41,6 +41,12 @@ jobs:
         env:
           BROWSER_ENGINE: webkit
           BROWSER_ARTIFACT_DIR: browser-artifacts/webkit
+      - name: Check real geographical basemap
+        run: npm run test:browser
+        env:
+          BROWSER_SPEC_ONLY: '1'
+          VERIFY_LIVE_MAP: '1'
+          BROWSER_ARTIFACT_DIR: browser-artifacts/real-map
       - uses: actions/upload-artifact@v4
         if: always()
         with:

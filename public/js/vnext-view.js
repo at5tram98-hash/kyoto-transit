@@ -1,3 +1,9 @@
+import {
+  groupCityBusRows,
+  busDirectionLabel,
+  busArrivalText,
+} from "./arrival-stability.js";
+import { isFresh } from "./realtime.js";
 import { nearbyDepartures } from "./nearby-departures.js";
 import { trajectory } from "./riding.js";
 import { chooseNearbyGuide, formatMinute } from "./vnext-core.js";
@@ -22,8 +28,14 @@ import { updateHTML } from "./view-rendering.js";
 import { heroModel, delayAnalysis, nearbyDirection } from "./now-model.js";
 import { loadNorth3Snapshot, north3Board, north3Day } from "./north3-feed.js";
 import { nextStationHero, timelineRow } from "./now-components.js";
-import { routeMapModel, routeMapHTML, renderRouteMap } from "./route-map.js";
+import {
+  routeMapModel,
+  routeMapHTML,
+  renderRouteMap,
+  setupRouteMaps,
+} from "./route-map.js";
 import { routeConfigFor } from "./bus-routes.js";
+import { openContextSheet } from "./context-sheet.js";
 import { resolveNowState } from "./ride-state-resolver.js";
 import {
   journeyProgress,
@@ -89,13 +101,41 @@ function north3DepartureHTML(stop) {
       "",
     )}<p class="source-note">保存した公式時刻表 · ダイヤ変更・大学休校日は要確認</p></div>`;
 }
-function departureHTML(stopId) {
+function nearbyBusHTML(stop) {
+  const data = state.busLive;
+  if (data?.stop !== (stop.fullName ?? stop.name))
+    return north3DepartureHTML(stop);
+  const rows = groupCityBusRows(data.results ?? [])
+    .filter((r) =>
+      (r.arrivals ?? [r]).some(
+        (a) => Number.isFinite(a.minutes) || Number.isFinite(a.stopsAway),
+      ),
+    )
+    .slice(0, 2);
+  const observed = data.source === "live" && !data.stale && isFresh(data.asOf);
+  return rows.length
+    ? `<div class="nearby-departures compact-departures">${rows.map((r) => `<div><span>${esc(r.route)} · ${esc(busDirectionLabel(r.route, r.dest))}</span><b>${esc(busArrivalText(r))}<small>${observed ? "実測" : "予測"}</small></b></div>`).join("")}</div>`
+    : north3DepartureHTML(stop);
+}
+function departureHTML(stopId, expanded = false) {
   const now = tokyoNow(),
     feed = state.subwayFeedDate === now.date ? state.subwayFeed : null;
   if (!feed)
     return `<div class="nearby-departures"><p class="source-note">${nearbyRequest ? "発車予定を確認中…" : "発車予定を取得できませんでした。"}${!nearbyRequest ? '<button class="plain-action" data-retry-nearby>再取得</button>' : ""}</p></div>`;
   const groups = nearbyDepartures(feed, stopId, now);
-  return `<div class="nearby-departures">${groups.map((g) => `<div><span>${g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面"}</span>${g.entries.length ? g.entries.map((e) => `<p><time>${formatMinute(e.depart)}</time><span>${esc(e.destination ?? "行先未取得")}行き</span></p>`).join("") : '<p class="source-note">1時間以内の発車予定はありません</p>'}</div>`).join("")}<p class="source-note">${feed.cached ? "保存した公式時刻表" : "公式時刻表"} · 発車予定${feed.meta?.stale ? " · ダイヤの変更を公式サイトで確認してください" : ""}</p></div>`;
+  if (!expanded) {
+    const populated = groups.filter((g) => g.entries.length);
+    if (!populated.length)
+      return '<p class="nearby-summary source-caption">発車予定は時刻表で確認できます</p>';
+    return `<div class="nearby-departures compact-departures">${populated
+      .map((g) => {
+        const e = g.entries[0];
+        return `<div><span>${g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面"}</span><time>${formatMinute(e.depart)}</time><b>${Math.max(0, Math.round(e.depart - now.minute))}分<small>発車予定</small></b></div>`;
+      })
+      .join("")}</div>`;
+  }
+
+  return `<div class="nearby-departures">${groups.map((g) => `<div><span>${g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面"}</span>${g.entries.length ? (expanded ? g.entries : g.entries.slice(0, 1)).map((e) => `<p><time>${formatMinute(e.depart)}</time><span>${esc(e.destination ?? "行先未取得")}行き</span></p>`).join("") : '<p class="source-note">1時間以内の発車予定はありません</p>'}</div>`).join("")}<p class="source-note">${feed.cached ? "保存した公式時刻表" : "公式時刻表"} · 発車予定${expanded && feed.meta?.stale ? " · ダイヤの変更を公式サイトで確認してください" : ""}</p></div>`;
 }
 function enterContext(next) {
   const view = $('[data-view="now"]'),
@@ -139,13 +179,20 @@ function enterContext(next) {
   }
 }
 function renderStatusPill() {
-  const b = $("#location-indicator"),
-    active = state.locationStatus === "active";
-  b.classList.toggle("active", active);
-  updateHTML(
-    b,
-    `${icon("location")}<span>${active ? "位置情報" : "確認"}</span>`,
-  );
+  const b = $("#location-indicator");
+  const labels = {
+    active: "取得中",
+    loading: "確認中",
+    denied: "端末の許可が必要",
+    unavailable: "電波を確認中",
+    unsupported: "この端末は未対応",
+    disabled: "OFF",
+    paused: "待機中",
+  };
+  b.classList.toggle("active", state.locationStatus === "active");
+  updateHTML(b, `${icon("location")}<span>現在地を再確認</span>`);
+  const label = $("#location-status");
+  if (label) label.textContent = labels[state.locationStatus] ?? "待機中";
 }
 function candidateHTML() {
   if (!state.rideCandidates?.length) return "";
@@ -159,8 +206,8 @@ function candidateHTML() {
 }
 export function renderNow() {
   updateRideAnchor();
-  if (state.tab !== "now") return;
   renderStatusPill();
+  if (state.tab !== "now") return;
   const root = $("#now-hero"),
     vehicle = $("#vehicle-panel"),
     networkPanel = $("#network-panel"),
@@ -177,35 +224,19 @@ export function renderNow() {
   enterContext("nearby");
   updateHTML(
     vehicle,
-    `${state.armedJourney ? `<section class="section-block armed-journey"><span class="section-label">案内開始の準備ができました</span><h3>${esc(serviceName(state.armedJourney.ride))} · ${esc(state.armedJourney.ride.destination)}行き</h3><p class="source-note">${esc(state.armedJourney.ride.userDestination?.name ?? "目的地")}で降車予定。位置・移動・対象便が一致したら乗車を確認します。</p><button class="secondary-action" data-board-armed>この便に乗車中 · 案内を開始</button><button class="plain-action" data-cancel-armed>解除</button></section>` : ""}${candidateHTML()}`,
+    `${state.armedJourney ? `<section class="section-block armed-journey" tabindex="-1"><span class="section-label">案内開始の準備ができました</span><h3>${esc(serviceName(state.armedJourney.ride))} · ${esc(state.armedJourney.ride.destination)}行き</h3><p class="source-note">${esc(state.armedJourney.ride.userDestination?.name ?? "目的地")}で降車予定。位置・移動・対象便が一致したら乗車を確認します。</p><button class="secondary-action" data-board-armed>この便に乗車中 · 案内を開始</button><button class="plain-action" data-cancel-armed>解除</button></section>` : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
-  if (state.locationStatus === "loading") {
-    updateHTML(
-      root,
-      '<section class="hero-card neutral"><div class="hero-eyebrow"><span class="pulse-dot"></span>現在地を確認中</div><h2>いまの移動を<br>確認しています</h2><p>接近情報は停留所を選んで確認できます。</p></section>',
-    );
-    updateHTML(nearPanel, "");
-    return;
-  }
-  if (["denied", "unavailable", "unsupported"].includes(state.locationStatus)) {
-    const denied = state.locationStatus === "denied";
-    updateHTML(
-      root,
-      `<section class="hero-card warning"><div class="hero-eyebrow">${denied ? "現在は未乗車です" : "現在地を確認できません"}</div><h2>${denied ? "検索から<br>案内を始めよう" : "現在地を<br>再取得します"}</h2><p>時刻表・経路検索・停留所の接近情報は引き続き使えます。</p><button class="primary-action" data-retry-location>位置情報を再取得</button></section>`,
-    );
-    updateHTML(nearPanel, "");
-    return;
-  }
-  const guide = chooseNearbyGuide(
-      { rail: near.rail, bus: near.bus },
-      settings.railGuideDistance,
-    ),
-    moving = Number.isFinite(motion.speed) && motion.speed >= 2.8,
-    ambiguous = state.rideCandidates?.length > 1;
+  const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
+  const locationNote =
+    state.locationStatus === "active"
+      ? ""
+      : state.locationStatus === "loading"
+        ? "現在地を確認中"
+        : "現在地は未取得 · 検索から案内できます";
   updateHTML(
     root,
-    `<section class="hero-card ${moving ? "detecting" : "neutral"}"><div class="hero-eyebrow">${moving ? '<span class="pulse-dot"></span>乗車中の便を確認中' : "未乗車 · 周辺案内"}</div><h2>${ambiguous ? "乗っている便を選択" : moving ? "移動中" : "近くから、出かけよう"}</h2><p>${guide ? `${esc(guide.stop.name)}まで約${Math.round(guide.meters)}m` : "近くの駅・停留所を現在地から探します。"}</p>${state.detectBusy ? '<div class="thin-progress"><i></i></div>' : ""}</section>`,
+    `<section class="hero-card idle-status"><span class="idle-symbol">${icon("fold")}</span><div><h2>現在は未乗車です</h2><p>${moving ? "移動中 · 対象の便を確認しています" : locationNote || "行き先を検索して、案内を準備"}</p></div></section>`,
   );
   const nearby = near.all
     .filter(
@@ -219,8 +250,16 @@ export function renderNow() {
   updateHTML(
     nearPanel,
     nearby.length
-      ? `<section class="section-block nearby-guide"><div class="section-heading"><div><span class="section-label">歩いて行ける</span><h3>近くの駅・停留所</h3></div></div>${nearby.map((s) => `<div class="nearby-place"><button class="nearby-row" data-open-timetable="${esc(s.id)}"><span class="mode-symbol ${s.stop.type.includes("bus") ? "bus" : "subway"}">${icon(s.stop.type.includes("bus") ? "bus" : "train")}</span><span><b>${esc(s.stop.name)}</b><small>${esc((s.stop.lines ?? []).join("・"))}</small></span><strong>${Math.round(s.meters)}m<small>${nearbyDirection(state.fix, s)}</small></strong><span class="chevron">›</span></button>${s.stop.type === "subway" ? departureHTML(s.id) : north3DepartureHTML(s.stop)}<div class="nearby-actions"><button class="secondary-action" data-start-here="${esc(s.id)}">ここから出発</button>${s.stop.type === "citybus" ? `<button class="secondary-action" data-open-arrivals="${esc(s.id)}">接近情報</button>` : ""}</div></div>`).join("")}</section>`
+      ? `<section class="section-block nearby-guide"><div class="section-heading"><h3>近くの駅・バス停</h3><span class="source-caption">距離順</span></div>${nearby.map((s) => `<button class="nearby-row" data-nearby-detail="${esc(s.id)}"><span class="mode-symbol ${s.stop.type.includes("bus") ? "bus" : "subway"}">${s.stop.type.includes("bus") ? esc(s.stop.lines?.[0] ?? "バス") : "K"}</span><span><b>${esc(s.stop.name)}</b><small>${esc(s.stop.lines?.join("・") ?? "")} · ${Math.round(s.meters)}m ${nearbyDirection(state.fix, s)}</small></span><span class="chevron">›</span></button>${s.stop.type === "subway" ? departureHTML(s.id) : nearbyBusHTML(s.stop)}`).join("")}</section>`
       : "",
+  );
+}
+export function nearbySheet(id) {
+  const stop = state.network.stops.get(id);
+  if (!stop) return;
+  openContextSheet(
+    stop.name,
+    `${stop.type === "subway" ? departureHTML(id, true) : north3DepartureHTML(stop)}<button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button>${stop.type === "citybus" ? `<button class="secondary-action" data-open-arrivals="${esc(id)}">接近情報を見る</button>` : ""}`,
   );
 }
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
@@ -273,10 +312,10 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
     let section = root.querySelector(".bus-mini-map");
     if (!section) {
       section = document.createElement("section");
-      section.className = "section-block bus-mini-map";
+      section.className = "bus-mini-map";
       section.innerHTML =
-        '<div class="section-heading"><h3>経路と現在地</h3><button class="plain-action" data-context-action="map">全画面</button></div><div class="route-map-host"></div>';
-      root.append(section);
+        '<div class="route-map-host"></div><button class="plain-action" data-context-action="map">地図を広げる ↗</button>';
+      root.querySelector(".personal-destination").before(section);
     }
     renderRouteMap(section.querySelector(".route-map-host"), map, model);
   }
@@ -344,6 +383,10 @@ let lastTrackIndex = null,
   manualScrollUntil = 0,
   lastAlertKey = null;
 export function setupNowInteractions() {
+  setupRouteMaps();
+  document.addEventListener("mymap-arrivals-updated", () => {
+    if (!state.ride) renderNow();
+  });
   for (const event of ["wheel", "touchstart", "pointerdown", "keydown"])
     window.addEventListener(
       event,
@@ -400,6 +443,8 @@ function renderHero(root, html, model) {
     root.firstElementChild.dataset.rideKey = model.observed.key;
     return;
   }
+  if (compact && !current.classList.contains("compact"))
+    current.querySelector(".station-overview")?.removeAttribute("open");
   current.className = next.className;
   for (const key of ["trainState", "phase", "line"])
     current.dataset[key] = next.dataset[key];

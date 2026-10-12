@@ -493,3 +493,36 @@ test("Rail positions use server-rendered official markup without launching a bro
   assert.equal(fallback.trains.length, 1);
   assert.equal(browserCalls, 1);
 });
+test("地理座標を実地図と同じMercator投影へ変換し、京都の南北順を保つ", async () => {
+  const { mapProject, mapViewport, routeMapHTML } = await import(
+    "../public/js/route-map.js"
+  );
+  const north = mapProject([135.75, 35.07], 15),
+    south = mapProject([135.75, 35.04], 15);
+  assert.ok(north[1] < south[1]);
+  assert.equal(north[0], south[0]);
+  const points = [
+      [135.75, 35.04],
+      [135.76, 35.07],
+    ],
+    view = mapViewport(points);
+  for (const p of points) {
+    const projected = mapProject(p, view.zoom);
+    assert.ok(Math.abs(projected[0] - view.center[0] * 2 ** view.zoom) < 210);
+    assert.ok(Math.abs(projected[1] - view.center[1] * 2 ** view.zoom) < 120);
+  }
+  const html = routeMapHTML(
+    {
+      points,
+      stops: [],
+      position: null,
+      source: "schedule",
+      approximate: true,
+    },
+    { lineId: "bus", bus: true },
+  );
+  assert.match(html, /https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png/);
+  assert.match(html, /© OpenStreetMap/);
+  assert.match(html, /路線は概略/);
+  assert.match(html, /data-map-zoom/);
+});

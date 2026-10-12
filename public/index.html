@@ -28,7 +28,7 @@
         <p class="eyebrow" id="view-subtitle">現在地に合わせて自動案内</p>
         <h1 id="view-title">今</h1>
       </div>
-      <button class="location-pill" id="location-indicator" type="button" aria-label="位置情報を確認">位置情報</button>
+      <button class="round-action" data-open-settings type="button" aria-label="設定を開く">•••</button>
     </header>
 
     <aside id="app-update" class="app-update" role="status" hidden><span>最新版を利用できます</span><button class="secondary-action" data-apply-update>更新して再開</button></aside>
@@ -49,7 +49,7 @@
         <div id="operations-root" aria-live="polite"></div>
       </section>
       <section class="view" data-view="settings" aria-label="設定" hidden>
-        <div id="settings-content"></div>
+        <section class="settings-section"><h2>位置情報</h2><div class="settings-card"><div class="setting-row"><span><b>現在地の自動取得</b><small id="location-status">確認中</small></span><button class="location-pill" id="location-indicator" type="button" aria-label="現在地を再確認">現在地を再確認</button></div><p class="source-caption">表示中は自動で取得し、バックグラウンドでは停止します。端末の位置情報の許可はブラウザー設定で変更できます。</p></div></section><div id="settings-content"></div>
       </section>
     </main>
 

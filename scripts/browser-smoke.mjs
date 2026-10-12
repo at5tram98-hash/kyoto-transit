@@ -155,9 +155,23 @@ async function fixture(page, scenario = {}) {
       await route.continue();
       return;
     }
+    if (url.hostname === "tile.openstreetmap.org") {
+      if (scenario.liveMap) {
+        await route.continue();
+        return;
+      }
+      // Transit/layout fixtures do not request third-party tiles repeatedly.
+      // Background-map availability is checked once by the production probe.
+      await route.fulfill({
+        status: 200,
+        contentType: "image/svg+xml",
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><rect width="256" height="256" fill="#e8ece7"/></svg>',
+      });
+      return;
+    }
     let data,
       status = 200;
-    const asOf = new Date().toISOString();
+    const asOf = new Date(await page.evaluate(() => Date.now())).toISOString();
     if (url.pathname === "/api/citybus/arrivals") {
       counts.bus++;
       if (scenario.failBus) {
@@ -654,6 +668,20 @@ try {
         .locator(".arrival-track-position")
         .first()
         .elementHandle();
+      scenario.stopsAway = 1;
+      await page.clock.runFor(20000);
+      await page.locator(".arrival-line.imminent").first().waitFor();
+      assert.equal(
+        await page
+          .locator(".arrival-line.imminent .arrival-minutes span")
+          .first()
+          .evaluate((el) => getComputedStyle(el).animationName),
+        "arrival-imminent",
+      );
+      assert.deepEqual(
+        await page.locator(".arrival-group-caption").allTextContents(),
+        ["10系統", "204系統", "205系統"],
+      );
       scenario.stopsAway = 2;
       await page.clock.runFor(20000);
       await page.waitForFunction(
@@ -726,6 +754,7 @@ try {
         "京都駅前",
       );
       scenario.failBus = true;
+      scenario.stopsAway = 1;
       await page.clock.runFor(20000);
       await page.waitForFunction(() =>
         document
@@ -800,6 +829,7 @@ try {
     try {
       const { page } = functional;
       await page.locator('[data-tab="timetable"]').click();
+      await page.locator(".planner-conditions > summary").click();
       await page.locator('[name="date"]').fill(date);
       await page.locator('[name="time"]').fill("10:00");
       await page.locator(".planner-submit").click();
@@ -1097,6 +1127,7 @@ try {
       });
       await page.locator('[data-tab="timetable"]').click();
       await page.locator(".planner-submit").click();
+      await page.locator(".planner-details summary").first().click();
       await page.locator("[data-board-route]").first().waitFor();
       await page.locator("[data-board-route]").first().click();
       await page.locator(".journey-display").waitFor();
@@ -1260,6 +1291,196 @@ try {
       );
     }
   }
+  // Additional visual handoff: C stays practical at all text sizes and GPS
+  // states. Form disclosures and result actions must remain usable.
+  for (const colorScheme of ["light", "dark"])
+    for (const scale of [1, 1.5, 2])
+      for (const gps of ["active", "denied"]) {
+        const run = await open({
+          colorScheme,
+          reducedMotion: gps === "denied" ? "reduce" : "no-preference",
+          time: "2026-10-11T01:00:00Z",
+          scenario: { gps, stopsAway: 1 },
+        });
+        try {
+          const { page } = run;
+          await page.evaluate(
+            (scale) =>
+              (document.documentElement.style.fontSize = `${16 * scale}px`),
+            scale,
+          );
+          assert.equal(
+            await page.locator(".topbar #location-indicator").count(),
+            0,
+          );
+          assert.match(
+            await page.locator("#now-hero").textContent(),
+            /現在は未乗車です/,
+          );
+          assert.equal(
+            await page.locator(".planner-conditions").getAttribute("open"),
+            null,
+          );
+          const swap = await page.locator(".planner-swap").boundingBox();
+          assert.ok(swap.width >= 44 && swap.height >= 44);
+          await page.locator(".planner-swap").click();
+          assert.equal(
+            await page.locator('[name="from"]').inputValue(),
+            "国際会館",
+          );
+          await page.locator(".planner-swap").click();
+          if (scale === 1) {
+            const search = await page.locator(".planner-submit").boundingBox();
+            assert.ok(search.y + search.height < 500);
+            if (gps === "active") {
+              const nearby = await page.locator(".nearby-guide").boundingBox();
+              assert.ok(nearby.y < 650);
+            }
+          }
+          await layout(page, `C ${colorScheme} ${scale}x GPS ${gps}`);
+          if (scale === 1)
+            await page.screenshot({
+              path: resolve(artifacts, `idle-${gps}-${colorScheme}-390.png`),
+              animations: "disabled",
+            });
+          await page.locator(".planner-conditions > summary").click();
+          await page.locator(".planner-options > summary").click();
+          await layout(
+            page,
+            `C search conditions ${colorScheme} ${scale}x ${gps}`,
+          );
+          await page.locator(".planner-submit").click();
+          await page.locator(".planner-result").first().waitFor();
+          const first = page.locator(".planner-result").first();
+          assert.equal(
+            await first
+              .locator(".planner-result-actions > .primary-action")
+              .count(),
+            1,
+          );
+          assert.equal(
+            await first.locator(".planner-details").getAttribute("open"),
+            null,
+          );
+          assert.equal(await page.locator("#planner-status").textContent(), ""); // Unrelated North 3 warning must not appear on a subway result.
+          await page.locator(".planner-details > summary").first().click();
+          await layout(page, `C route result ${colorScheme} ${scale}x ${gps}`);
+          if (scale === 1)
+            await page.screenshot({
+              path: resolve(
+                artifacts,
+                `route-result-${gps}-${colorScheme}-390.png`,
+              ),
+              animations: "disabled",
+              fullPage: true,
+            });
+          assert.equal(
+            await page
+              .locator(".arrival-card")
+              .first()
+              .evaluate((el) => getComputedStyle(el.parentElement).opacity),
+            "1",
+          );
+          assert.ok((await page.locator(".arrival-line.imminent").count()) > 0);
+          if (gps === "denied")
+            assert.equal(
+              await page
+                .locator(".arrival-line.imminent .arrival-minutes span")
+                .first()
+                .evaluate((el) => getComputedStyle(el).animationName),
+              "none",
+            );
+          await page.locator("[data-arm-route]").first().click();
+          await page.locator(".armed-journey").waitFor();
+          assert.equal(
+            await page
+              .locator('[data-view="now"]')
+              .getAttribute("data-context"),
+            "nearby",
+          );
+          await page.locator("[data-open-settings]").click();
+          await page
+            .locator('[data-view="settings"] #location-indicator')
+            .waitFor();
+          assert.deepEqual(run.errors, []);
+        } finally {
+          await run.context.close();
+        }
+      }
+  summary.checks.push(
+    "390px C: GPS ON/OFF, light/dark, 100–200% text, input swap, disclosed options, route comparison and armed selection, settings location control, meaningful one-stop approach emphasis",
+  );
+  if (process.env.VERIFY_LIVE_MAP === "1") {
+    const live = await open({
+      time: "2026-10-11T01:00:00Z",
+      scenario: { liveMap: true },
+    });
+    try {
+      const { page } = live;
+      const response = page.waitForResponse(
+        (r) =>
+          new URL(r.url()).hostname === "tile.openstreetmap.org" &&
+          r.status() === 200,
+      );
+      await setRide(page, "citybus");
+      const tile = await response;
+      assert.match(tile.headers()["content-type"] ?? "", /image\/png/);
+      const bytes = await tile.body();
+      assert.ok(bytes.length > 1024);
+      assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
+      await page.waitForFunction(() =>
+        [...document.querySelectorAll(".bus .map-tile")].every(
+          (tile) => tile.dataset.tileLoaded === "true",
+        ),
+      );
+      await page.screenshot({
+        path: resolve(artifacts, "bus-real-basemap-390.png"),
+        animations: "disabled",
+      });
+      assert.deepEqual(live.errors, []);
+      summary.checks.push(
+        "Real OpenStreetMap PNG download and rendered bus map",
+      );
+    } finally {
+      await live.context.close();
+    }
+  }
+  for (const colorScheme of ["light", "dark"])
+    for (const scale of [1, 2]) {
+      const run = await open({
+        width: 805,
+        height: 757,
+        colorScheme,
+        reducedMotion: "reduce",
+        time: "2026-10-11T01:00:00Z",
+      });
+      try {
+        const { page } = run;
+        await page.evaluate(
+          (scale) =>
+            (document.documentElement.style.fontSize = `${16 * scale}px`),
+          scale,
+        );
+        await page.locator(".planner-conditions > summary").click();
+        await layout(page, `805x757 search form ${colorScheme} ${scale}x`);
+        await page.locator(".planner-submit").click();
+        await page.locator(".planner-result").first().waitFor();
+        await page.locator(".planner-details > summary").first().click();
+        await layout(page, `805x757 comparison card ${colorScheme} ${scale}x`);
+        assert.ok(
+          Math.abs((await page.locator(".topbar").boundingBox()).y) <= 1,
+          "Header stays visible while comparing routes",
+        );
+        if (scale === 1)
+          await page.screenshot({
+            path: resolve(artifacts, `planner-805-${colorScheme}.png`),
+            animations: "disabled",
+          });
+        assert.deepEqual(run.errors, []);
+      } finally {
+        await run.context.close();
+      }
+    }
   // PDF v1.1: readable next station, through-service bridge, both North 3
   // directions, Dynamic Type, station sheets and shared journey state.
   for (const colorScheme of ["light", "dark"]) {
@@ -1340,6 +1561,11 @@ try {
           true,
           `Next station and personal destination fit together at ${textScale}x: ${JSON.stringify(dimensions)}`,
         );
+        if (textScale === 1)
+          await page.screenshot({
+            path: resolve(artifacts, `rail-hero-${colorScheme}-390.png`),
+            animations: "disabled",
+          });
         await page.locator('[data-station-detail="K09"]').first().click();
         await page.locator("#context-sheet[open]").waitFor();
         await layout(page, `PDF station sheet ${colorScheme} ${textScale}x`);
@@ -1357,18 +1583,49 @@ try {
         await layout(page, `PDF delay evidence ${colorScheme} ${textScale}x`);
         await page.locator("[data-context-close]").click();
         await page.locator('[data-context-action="map"]').click();
-        const fullMap = await page
-          .locator("#context-sheet")
-          .evaluate((el) => ({
-            top: el.getBoundingClientRect().top,
-            height: el.getBoundingClientRect().height,
-            viewport: innerHeight,
-          }));
+        const fullMap = await page.locator("#context-sheet").evaluate((el) => ({
+          top: el.getBoundingClientRect().top,
+          height: el.getBoundingClientRect().height,
+          viewport: innerHeight,
+        }));
         // WebKit quantizes viewport lengths to fractional CSS pixels; use the
         // same half-pixel tolerance as the surrounding viewport bounds checks.
         assert.ok(Math.abs(fullMap.top) <= 0.5);
         assert.ok(Math.abs(fullMap.height - fullMap.viewport) <= 0.5);
         await layout(page, `PDF fullscreen map ${colorScheme} ${textScale}x`);
+        const map = page.locator("#context-sheet .route-map");
+        assert.ok((await map.locator(".map-tile").count()) > 0);
+        await map
+          .locator(".map-tile[href]")
+          .first()
+          .waitFor({ state: "attached" });
+        const oldTile = await map
+          .locator(".map-tile")
+          .first()
+          .getAttribute("data-tile-src");
+        await map.locator('[data-map-zoom="1"]').click();
+        assert.notEqual(
+          await map.locator(".map-tile").first().getAttribute("data-tile-src"),
+          oldTile,
+        );
+        await map.locator("[data-map-reset]").click();
+        assert.match(
+          await map.locator(".map-attribution").textContent(),
+          /OpenStreetMap/,
+        );
+        await page.evaluate(() => {
+          window.__tile = document.querySelector("#context-sheet .map-tile");
+          window.__view.renderNow();
+        });
+        assert.equal(
+          await page.evaluate(
+            () =>
+              window.__tile ===
+              document.querySelector("#context-sheet .map-tile"),
+          ),
+          true,
+        );
+
         await page.locator("[data-context-close]").click();
         for (const direction of ["south", "north"]) {
           await page.evaluate((direction) => {

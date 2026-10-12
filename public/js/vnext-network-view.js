@@ -75,7 +75,7 @@ export async function renderNetworkPanel(panel, ride, now) {
   if (!container.querySelector(".live-track"))
     updateHTML(
       container,
-      '<div class="live-track" role="img"><div class="live-track-axis"></div><div class="live-track-opposite"></div><span class="live-track-self">この列車</span><div class="live-track-vehicles"></div></div><p class="source-note live-track-source"></p><div class="live-track-rows"></div>',
+      '<div class="live-track" role="img"><div class="live-track-axis"></div><div class="live-track-opposite"></div><span class="live-track-self">この列車</span><div class="live-track-vehicles"></div></div><p class="source-note live-track-source"></p><details class="live-track-detail"><summary>前方・反対方向の列車</summary><div class="live-track-rows"></div></details>',
     );
   updateTrainTrack(container, ride, trains, now);
   updateHTML(

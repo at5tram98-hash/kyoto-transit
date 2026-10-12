@@ -8,8 +8,8 @@ export function updateHTML(element, html) {
 }
 
 const rowViews = new WeakMap();
-const fields = ['service', 'destination', 'minutes', 'delay', 'details'];
-const easing = 'cubic-bezier(.22,.8,.25,1)';
+const fields = ["service", "destination", "minutes", "delay", "details"];
+const easing = "cubic-bezier(.22,.8,.25,1)";
 function animate(element, frames, options) {
   element.getAnimations?.().forEach((animation) => animation.cancel());
   element.animate?.(frames, { duration: 260, easing, ...options });
@@ -30,8 +30,8 @@ export function updateArrivalRows(root, rows, present) {
   markup.delete(root);
   const motion =
     !document.hidden &&
-    !root.closest('[hidden]') &&
-    !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    !root.closest("[hidden]") &&
+    !globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const reordered = previous.some(
     (el, i) => el.dataset.key !== String(rows[i]?.key),
   );
@@ -50,8 +50,8 @@ export function updateArrivalRows(root, rows, present) {
     let el = old.get(key),
       created = !el;
     if (created) {
-      el = document.createElement('article');
-      el.className = 'arrival-line';
+      el = document.createElement("article");
+      el.className = "arrival-line";
       el.dataset.key = key;
       el.innerHTML =
         '<div class="arrival-service" data-field="service"></div>' +
@@ -63,15 +63,34 @@ export function updateArrivalRows(root, rows, present) {
       rowViews.set(el, {});
     }
     const cached = rowViews.get(el);
+    const groupStart = Boolean(
+      view.groupLabel &&
+        (index === 0 ||
+          present(rows[index - 1]).groupLabel !== view.groupLabel),
+    );
+    el.classList.toggle("group-start", groupStart);
+    el.classList.toggle("imminent", Boolean(view.imminent));
+    let heading = el.querySelector(".arrival-group-caption");
+    if (groupStart && !heading) {
+      heading = document.createElement("h4");
+      heading.className = "arrival-group-caption";
+      el.prepend(heading);
+    }
+    if (heading) {
+      heading.hidden = !groupStart;
+      if (heading.textContent !== (view.groupLabel ?? ""))
+        heading.textContent = view.groupLabel ?? "";
+    }
+
     for (const field of fields) {
       if (cached[field] === view[field]) continue;
       const target = el.querySelector(`[data-field="${field}"]`);
       target.innerHTML = view[field];
       target.hidden = !view[field];
-      if (field === 'minutes' && !created && motion && index < 12) {
+      if (field === "minutes" && !created && motion && index < 12) {
         animate(target, [
-          { opacity: 0.4, transform: 'translateY(4px)' },
-          { opacity: 1, transform: 'translateY(0)' },
+          { opacity: 0.4, transform: "translateY(4px)" },
+          { opacity: 1, transform: "translateY(0)" },
         ]);
       }
       cached[field] = view[field];
@@ -84,18 +103,18 @@ export function updateArrivalRows(root, rows, present) {
           '<div class="arrival-track-labels"><span>6停留所以上前</span><span>この停留所</span></div>' +
           '<div class="arrival-track" aria-hidden="true">' +
           '<div class="arrival-track-stops">' +
-          '<i></i>'.repeat(7) +
-          '</div>' +
+          "<i></i>".repeat(7) +
+          "</div>" +
           '<div class="arrival-track-position"><span class="arrival-track-vehicle">' +
           '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="15" rx="4"/><path d="M4 11h16M8 19v2m8-2v2M8 15h.01M16 15h.01"/></svg>' +
-          '</span></div></div>';
+          "</span></div></div>";
       }
       const position = `${(1 - Math.min(6, Math.max(0, view.stopsAway)) / 6) * 100}%`;
       if (cached.position !== position)
-        approach.style.setProperty('--approach-position', position);
+        approach.style.setProperty("--approach-position", position);
       cached.position = position;
       approach.setAttribute(
-        'aria-label',
+        "aria-label",
         `公式接近位置：${Math.max(0, Math.round(view.stopsAway))}停留所前`,
       );
     }
@@ -106,8 +125,8 @@ export function updateArrivalRows(root, rows, present) {
       animate(
         el,
         [
-          { opacity: 0, transform: 'translateY(6px)' },
-          { opacity: 1, transform: 'translateY(0)' },
+          { opacity: 0, transform: "translateY(6px)" },
+          { opacity: 1, transform: "translateY(0)" },
         ],
         { delay: Math.min(index, 5) * 20 },
       );
@@ -122,7 +141,7 @@ export function updateArrivalRows(root, rows, present) {
       if (Math.abs(delta) > 1 && Math.abs(delta) < 160) {
         animate(el, [
           { transform: `translateY(${delta}px)` },
-          { transform: 'translateY(0)' },
+          { transform: "translateY(0)" },
         ]);
       }
     }

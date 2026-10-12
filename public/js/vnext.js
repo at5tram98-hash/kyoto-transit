@@ -27,7 +27,7 @@ import {
   resetRideDetection,
   startManualRide,
 } from "./vnext-detect.js";
-import { renderNow, setupNowInteractions } from "./vnext-view.js";
+import { renderNow, setupNowInteractions, nearbySheet } from "./vnext-view.js";
 import {
   setupContextSheet,
   openContextSheet,
@@ -149,6 +149,8 @@ function setupEvents() {
       renderNow();
     } else if (b.dataset.contextAction === "destination")
       destinationSheet(state.heroModel?.bus);
+    else if (b.dataset.nearbyDetail) nearbySheet(b.dataset.nearbyDetail);
+    else if (b.hasAttribute("data-open-settings")) setTab("settings");
     else if (b.dataset.contextAction === "map")
       openContextSheet(
         "経路と現在地",
@@ -202,10 +204,12 @@ function setupEvents() {
       routeSearch?.openBoard();
       timetables.select(b.dataset.openTimetable);
     } else if (b.dataset.openArrivals) {
+      $("#context-sheet").close();
       setTab("now");
       await arrivals?.selectStop(b.dataset.openArrivals, true);
     } else if (b.dataset.startHere) {
-      setTab("timetable");
+      $("#context-sheet").close();
+      setTab("now");
       routeSearch?.setFrom(b.dataset.startHere);
     } else if (b.dataset.rideCandidate !== undefined) {
       if (confirmRideCandidate(b.dataset.rideCandidate)) renderNow();
@@ -229,7 +233,12 @@ function setupEvents() {
       state.locationSession?.start({ retry: true });
   });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
+    document.documentElement.dataset.appHidden = String(document.hidden);
+    if (document.hidden) {
+      state.locationSession?.stop();
+      state.locationStatus = "paused";
+    } else {
+      state.locationSession?.start();
       renderNow();
       if (state.tab === "now") arrivals?.show();
       if (state.tab === "operations") operations.show();
@@ -310,6 +319,14 @@ async function init() {
         state.armedJourney = { ride, selectedAt: Date.now() };
         setTab("now");
         renderNow();
+        const card = $(".armed-journey");
+        card?.focus({ preventScroll: true });
+        card?.scrollIntoView({
+          block: "start",
+          behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "instant"
+            : "smooth",
+        });
       },
       network: state.network,
       settings,
@@ -323,6 +340,7 @@ async function init() {
     setupEvents();
     state.locationSession = createLocationSession({
       geolocation: navigator.geolocation,
+      permissions: navigator.permissions,
       loadData: async () => state.geo,
       onStatus: (s) => {
         state.locationStatus = s;

@@ -1,7 +1,7 @@
 // Read-only release checks. curl respects the cloud environment's proxy policy.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 const run = promisify(execFile),
   base = new URL(
@@ -220,6 +220,47 @@ if (health) {
       status: "optional_unconfigured",
       note: "ODPTキーが未設定。公式時刻表の案内を使用。",
     });
+}
+// A geographical basemap is required independently of transit-provider keys.
+try {
+  const dir = resolve(
+    process.env.PRODUCTION_REPORT_DIR ?? "/tmp/my-map-browser",
+  );
+  await mkdir(dir, { recursive: true });
+  const file = resolve(dir, "basemap.png");
+  const { stdout } = await run("curl", [
+    "--silent",
+    "--show-error",
+    "--fail",
+    "--max-time",
+    "20",
+    "--referer",
+    site.href,
+    "--user-agent",
+    "MyMap release verification (+https://github.com/at5tram98-hash/kyoto-transit)",
+    "--output",
+    file,
+    "--write-out",
+    "%{content_type}",
+    "https://tile.openstreetmap.org/15/28741/12975.png",
+  ]);
+  const tile = await readFile(file);
+  required(
+    stdout.includes("image/png") &&
+      tile.subarray(0, 8).toString("hex") === "89504e470d0a1a0a" &&
+      tile.length > 1024,
+    "背景地図の画像を確認できません",
+  );
+  checks.push({ name: "Geographic basemap", status: "passed" });
+} catch (e) {
+  const error = e.stderr?.trim() || e.message;
+  checks.push({
+    name: "Geographic basemap",
+    status: /CONNECT tunnel failed|Domain forbidden/.test(error)
+      ? "blocked"
+      : "failed",
+    error,
+  });
 }
 const result = {
   checkedAt: new Date().toISOString(),
