@@ -526,3 +526,17 @@ test("地理座標を実地図と同じMercator投影へ変換し、京都の南
   assert.match(html, /路線は概略/);
   assert.match(html, /data-map-zoom/);
 });
+
+test("近鉄線の長距離経路も端点を地図の外へ切らずに全体表示する", async () => {
+  const { mapProject, mapViewport } = await import("../public/js/route-map.js");
+  const points = [
+      [135.759, 35.0],
+      [135.785, 34.482],
+    ],
+    view = mapViewport(points, 180);
+  for (const p of points) {
+    const [x, y] = mapProject(p, view.zoom);
+    assert.ok(Math.abs(x - view.center[0] * 2 ** view.zoom) < 210);
+    assert.ok(Math.abs(y - view.center[1] * 2 ** view.zoom) < 90);
+  }
+});

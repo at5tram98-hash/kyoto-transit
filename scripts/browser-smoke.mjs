@@ -430,7 +430,7 @@ async function layout(page, label) {
     if (document.documentElement.scrollWidth > width + 1)
       out.push("document horizontal overflow");
     for (const el of document.querySelectorAll(
-      ".arrival-dest,.arrival-minutes,.arrival-delay,.arrival-route-badge,.planner-form input,.planner-form select,.tab-button,.setting-row,.board-controls select,.operation-title,.sheet[open],.journey-next-name,.journey-metrics strong,.stop-times,.target-train,.fold-timing dd,.sheet-field select,.nearby-row",
+      ".arrival-dest,.arrival-minutes,.arrival-delay,.arrival-route-badge,.planner-form input,.planner-form select,.tab-button,.setting-row,.board-controls select,.operation-title,.sheet[open],.journey-next-name,.journey-metrics strong,.stop-times,.target-train,.fold-timing dd,.sheet-field select,.nearby-row,.compact-departures b,.compact-departures time",
     )) {
       const r = el.getBoundingClientRect();
       if (!r.width || !r.height) continue;
@@ -1417,6 +1417,14 @@ try {
     });
     try {
       const { page } = live;
+      const failedMapResponses = [];
+      page.on("response", (r) => {
+        if (
+          new URL(r.url()).hostname === "tile.openstreetmap.org" &&
+          r.status() !== 200
+        )
+          failedMapResponses.push({ url: r.url(), status: r.status() });
+      });
       const response = page.waitForResponse(
         (r) =>
           new URL(r.url()).hostname === "tile.openstreetmap.org" &&
@@ -1428,10 +1436,30 @@ try {
       const bytes = await tile.body();
       assert.ok(bytes.length > 1024);
       assert.equal(bytes.subarray(0, 8).toString("hex"), "89504e470d0a1a0a");
-      await page.waitForFunction(() =>
-        [...document.querySelectorAll(".bus .map-tile")].every(
-          (tile) => tile.dataset.tileLoaded === "true",
-        ),
+      const tileStates = () =>
+        page.evaluate(() =>
+          [...document.querySelectorAll(".bus .map-tile")].map((img) => ({
+            url: img.src,
+            loaded: img.complete && img.naturalWidth === 256,
+            failed: img.dataset.tileFailed,
+          })),
+        );
+      try {
+        await page.waitForFunction(() =>
+          [...document.querySelectorAll(".bus .map-tile")].every(
+            (img) => img.complete && img.naturalWidth === 256,
+          ),
+        );
+      } catch (error) {
+        throw Error(
+          `${error.message}; tiles: ${JSON.stringify(await tileStates())}`,
+        );
+      }
+
+      assert.deepEqual(
+        failedMapResponses,
+        [],
+        "All visible map tiles return successfully",
       );
       await page.screenshot({
         path: resolve(artifacts, "bus-real-basemap-390.png"),
@@ -1596,7 +1624,7 @@ try {
         const map = page.locator("#context-sheet .route-map");
         assert.ok((await map.locator(".map-tile").count()) > 0);
         await map
-          .locator(".map-tile[href]")
+          .locator(".map-tile[src]")
           .first()
           .waitFor({ state: "attached" });
         const oldTile = await map

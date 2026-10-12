@@ -112,7 +112,7 @@ export function mapViewport(points, height = HEIGHT) {
     (Math.min(...ys) + Math.max(...ys)) / 2,
   ];
   const zoom = Math.max(
-    9,
+    4,
     Math.min(
       17,
       Math.floor(
@@ -146,7 +146,7 @@ function mapDrawing(map, view) {
       x++
     ) {
       tiles.push(
-        `<image class="map-tile" x="${x * 256 - left}" y="${y * 256 - top}" width="256" height="256" data-tile-src="https://tile.openstreetmap.org/${view.zoom}/${x}/${y}.png"/>`,
+        `<img class="map-tile" alt="" decoding="async" data-tile-src="https://tile.openstreetmap.org/${view.zoom}/${x}/${y}.png" style="left:${((x * 256 - left) / WIDTH) * 100}%;top:${((y * 256 - top) / (view.height ?? HEIGHT)) * 100}%;width:${(256 / WIDTH) * 100}%;height:${(256 / (view.height ?? HEIGHT)) * 100}%">`,
       );
     }
   }
@@ -160,10 +160,13 @@ function mapDrawing(map, view) {
         x <= WIDTH &&
         y >= 0 &&
         y <= (view.height ?? HEIGHT);
-      return `<g><circle cx="${x}" cy="${y}" r="4" class="map-stop"/>${label ? `<text x="${Math.max(5, Math.min(WIDTH - 5, x))}" y="${Math.max(16, Math.min((view.height ?? HEIGHT) - 8, y - 10))}" text-anchor="${x < 80 ? "start" : x > WIDTH - 80 ? "end" : "middle"}">${esc(s.name.replace(/（[^）]+）/g, "").replace("バスターミナル", "BT"))}</text>` : ""}</g>`;
+      return `<g data-map-stop="${esc(s.id)}"><circle cx="${x}" cy="${y}" r="4" class="map-stop"/><text ${label ? "" : "hidden"} x="${Math.max(5, Math.min(WIDTH - 5, x))}" y="${Math.max(16, Math.min((view.height ?? HEIGHT) - 8, y - 10))}" text-anchor="${x < 80 ? "start" : x > WIDTH - 80 ? "end" : "middle"}">${esc(s.name.replace(/（[^）]+）/g, "").replace("バスターミナル", "BT"))}</text></g>`;
     })
     .join("");
-  return `${tiles.join("")}<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}`;
+  return {
+    tiles: tiles.join(""),
+    overlay: `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}`,
+  };
 }
 const mapNote = (map) =>
   `${map.unavailable ? "経路変更・運休のため現在位置は未確認" : map.source === "location" ? "現在地を経路上に表示" : "現在地は時刻表から推定"}${map.approximate ? " · 路線は概略" : ""}`;
@@ -174,13 +177,16 @@ export function routeMapHTML(map, model, { expanded = false } = {}) {
   mapData.set(key, { ...map, nextId: model.nextStation?.id, model });
   // Only keep current journey contexts, not a growing history of GPS updates.
   if (mapData.size > 6) mapData.delete(mapData.keys().next().value);
-  const view = mapViewport(map.points);
-  return `<div class="route-map ${expanded ? "expanded" : ""}" data-map-key="${esc(key)}" data-line="${model.lineId}"><div class="map-canvas"><svg viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="道路・地名を含む${model.bus ? "バス" : "鉄道"}の地図。${mapNote(map)}">${mapDrawing({ ...map, nextId: model.nextStation?.id }, view)}</svg><div class="map-controls"><button data-map-zoom="1" aria-label="地図を拡大">＋</button><button data-map-zoom="-1" aria-label="地図を縮小">−</button><button data-map-reset aria-label="経路全体を表示">⌖</button></div><span class="map-load-note" hidden>背景地図を取得できません · 経路のみ表示</span><a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><p>${mapNote(map)}</p></div>`;
+  const view = mapViewport(map.points),
+    drawing = mapDrawing({ ...map, nextId: model.nextStation?.id }, view);
+  return `<div class="route-map ${expanded ? "expanded" : ""}" data-map-key="${esc(key)}" data-line="${model.lineId}"><div class="map-canvas"><div class="map-tiles">${drawing.tiles}</div><svg viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="道路・地名を含む${model.bus ? "バス" : "鉄道"}の地図。${mapNote(map)}">${drawing.overlay}</svg><div class="map-controls"><button data-map-zoom="1" aria-label="地図を拡大">＋</button><button data-map-zoom="-1" aria-label="地図を縮小">−</button><button data-map-reset aria-label="経路全体を表示">⌖</button></div><span class="map-load-note" hidden>背景地図を取得できません · 経路のみ表示</span><a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><p>${mapNote(map)}</p></div>`;
 }
 function draw(element, map, view) {
   const svg = element.querySelector("svg");
   svg.setAttribute("viewBox", `0 0 ${WIDTH} ${view.height ?? HEIGHT}`);
-  updateHTML(svg, mapDrawing(map, view));
+  const drawing = mapDrawing(map, view);
+  updateHTML(element.querySelector(".map-tiles"), drawing.tiles);
+  updateHTML(svg, drawing.overlay);
   viewports.set(element, view);
 }
 export function renderRouteMap(element, map, model) {
@@ -224,6 +230,30 @@ export function renderRouteMap(element, map, model) {
       for (const [i, axis] of ["cx", "cy"].entries())
         marker.setAttribute(axis, String(pos[i]));
     }
+    target
+      .querySelector("svg")
+      .setAttribute(
+        "aria-label",
+        `道路・地名を含む${model.bus ? "バス" : "鉄道"}の地図。${mapNote(map)}`,
+      );
+    [...target.querySelectorAll("[data-map-stop]")].forEach((stop, i) => {
+      const point = stop.querySelector("circle"),
+        label = stop.querySelector("text");
+      const x = Number(point.getAttribute("cx")),
+        y = Number(point.getAttribute("cy"));
+      label.toggleAttribute(
+        "hidden",
+        !(
+          (i === 0 ||
+            i === map.stops.length - 1 ||
+            stop.dataset.mapStop === next.nextId) &&
+          x >= 0 &&
+          x <= WIDTH &&
+          y >= 0 &&
+          y <= (view.height ?? HEIGHT)
+        ),
+      );
+    });
     updateHTML(target.querySelector("p"), mapNote(map));
   }
 }
@@ -231,8 +261,8 @@ export function setupRouteMaps() {
   const watched = new Set(),
     visible = new WeakSet();
   const loadTiles = (canvas) => {
-    for (const tile of canvas.querySelectorAll(".map-tile:not([href])"))
-      tile.setAttribute("href", tile.dataset.tileSrc);
+    for (const tile of canvas.querySelectorAll(".map-tile:not([src])"))
+      tile.src = tile.dataset.tileSrc;
   };
   const visibility = new IntersectionObserver(
     (entries) => {
@@ -299,7 +329,7 @@ export function setupRouteMaps() {
       e.target.dataset.tileLoaded = "true";
       if (note)
         note.hidden = Boolean(
-          e.target.closest("svg").querySelector("[data-tile-failed]"),
+          e.target.parentElement.querySelector("[data-tile-failed]"),
         )
           ? false
           : true;
@@ -321,7 +351,7 @@ export function setupRouteMaps() {
         : {
             ...view,
             zoom: Math.max(
-              9,
+              4,
               Math.min(18, view.zoom + Number(button.dataset.mapZoom)),
             ),
           },
@@ -349,13 +379,14 @@ export function setupRouteMaps() {
     if (!drag) return;
     drag.dx = e.clientX - drag.x;
     drag.dy = e.clientY - drag.y;
-    drag.element.querySelector("svg").style.transform =
-      `translate(${drag.dx}px,${drag.dy}px)`;
+    for (const layer of drag.element.querySelectorAll("svg,.map-tiles"))
+      layer.style.transform = `translate(${drag.dx}px,${drag.dy}px)`;
   });
   document.addEventListener("pointerup", () => {
     if (!drag) return;
     const { element, map, view, width, height, dx = 0, dy = 0 } = drag;
-    element.querySelector("svg").style.transform = "";
+    for (const layer of element.querySelectorAll("svg,.map-tiles"))
+      layer.style.transform = "";
     draw(element, map, {
       ...view,
       center: [
@@ -367,7 +398,9 @@ export function setupRouteMaps() {
     drag = null;
   });
   document.addEventListener("pointercancel", () => {
-    if (drag) drag.element.querySelector("svg").style.transform = "";
+    if (drag)
+      for (const layer of drag.element.querySelectorAll("svg,.map-tiles"))
+        layer.style.transform = "";
     drag = null;
   });
 }

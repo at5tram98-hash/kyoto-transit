@@ -354,7 +354,13 @@
   gap: 10px;
   align-items: center;
 }
+.compact-departures > div > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .compact-departures > div > b {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 0.875rem;
   text-align: right;
 }
@@ -744,6 +750,18 @@
   overflow: hidden;
   position: relative;
   background: #e9eee7;
+}
+.map-tiles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.map-tile {
+  position: absolute;
+  max-width: none;
+}
+.route-map .map-canvas > svg {
+  position: relative;
 }
 .route-map.expanded .map-canvas {
   touch-action: none;

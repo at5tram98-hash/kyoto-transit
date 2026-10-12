@@ -114,7 +114,7 @@ function nearbyBusHTML(stop) {
     .slice(0, 2);
   const observed = data.source === "live" && !data.stale && isFresh(data.asOf);
   return rows.length
-    ? `<div class="nearby-departures compact-departures">${rows.map((r) => `<div><span>${esc(r.route)} · ${esc(busDirectionLabel(r.route, r.dest))}</span><b>${esc(busArrivalText(r))}<small>${observed ? "実測" : "予測"}</small></b></div>`).join("")}</div>`
+    ? `<div class="nearby-departures compact-departures">${rows.map((r) => `<div><span>${esc(r.route)} · ${esc(busDirectionLabel(r.route, r.dest))}</span><b>${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${observed ? "実測" : "予測"}</small></b></div>`).join("")}</div>`
     : north3DepartureHTML(stop);
 }
 function departureHTML(stopId, expanded = false) {
