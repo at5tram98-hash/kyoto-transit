@@ -1746,6 +1746,15 @@ try {
             page,
             `PDF North 3 ${reverse ? "inbound" : "outbound"} ${colorScheme} ${textScale}x`,
           );
+          const destinationFit = await page
+            .locator(".personal-destination")
+            .evaluate(
+              (el) => el.getBoundingClientRect().bottom < innerHeight - 75,
+            );
+          assert.ok(
+            destinationFit,
+            `Bus next stop and alighting destination stay together at ${textScale}x`,
+          );
           if (textScale === 1)
             await page.screenshot({
               path: resolve(

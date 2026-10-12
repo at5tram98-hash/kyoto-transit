@@ -856,6 +856,16 @@
 .bus-mini-map {
   margin-top: 10px;
 }
+.mini-map-overview > summary {
+  display: none;
+}
+.compact .mini-map-overview > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  font-size: 0.75rem;
+}
 .bus-mini-map .plain-action {
   margin: 0;
   font-size: 0.75rem;

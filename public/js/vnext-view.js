@@ -314,8 +314,15 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
       section = document.createElement("section");
       section.className = "bus-mini-map";
       section.innerHTML =
-        '<div class="route-map-host"></div><button class="plain-action" data-context-action="map">地図を広げる ↗</button>';
+        '<details class="mini-map-overview" open><summary>地図・現在地</summary><div class="route-map-host"></div></details><button class="plain-action" data-context-action="map">地図を広げる ↗</button>';
       root.querySelector(".personal-destination").before(section);
+    }
+    const compact = root
+      .querySelector(".journey-display")
+      .classList.contains("compact");
+    if (section.dataset.compact !== String(compact)) {
+      section.querySelector(".mini-map-overview").open = !compact;
+      section.dataset.compact = String(compact);
     }
     renderRouteMap(section.querySelector(".route-map-host"), map, model);
   }
