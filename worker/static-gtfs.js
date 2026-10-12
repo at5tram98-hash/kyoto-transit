@@ -1,6 +1,6 @@
 import {unzipEntries,textEntry} from './zip.js';
 
-const CITY_ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208']);
+const CITY_ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208','北3']);
 const TEMP_WORDS=/臨時|特別|増発|オープンキャンパス|イベント|千灯|千日|運休|通過|迂回/;
 const dateISO=s=>{const m=String(s??'').match(/(20\d{2})[年\/.\-]?\s*(\d{1,2})[月\/.\-]?\s*(\d{1,2})/);return m?`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`:null;};
 const compactDate=s=>{const m=String(s??'').match(/(20\d{2})(\d{2})(\d{2})/);return m?`${m[1]}-${m[2]}-${m[3]}`:dateISO(s);};
@@ -30,14 +30,14 @@ export function parseCSV(text){
 }
 export function gtfsMinute(value){const m=String(value??'').match(/^(\d{1,2}):(\d{2}):(\d{2})$/);if(!m)return null;return Number(m[1])*60+Number(m[2])+Number(m[3])/60;}
 const ymd=s=>String(s??'').replace(/\D/g,'').replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
-const routeAllowed=(operator,r)=>{const short=String(r.route_short_name??'').normalize('NFKC').replace(/\s/g,''),long=String(r.route_long_name??'').normalize('NFKC');if(operator==='citybus')return CITY_ROUTES.has(short);if(operator==='kyotobus')return /(^|[^0-9])40([^0-9]|$)/.test(short)||/^特40$/.test(short)||/直行/.test(short)&&/40|産大|京都産業大学/.test(short+long)||/京都産業大学/.test(long)&&/国際会館|丸太町/.test(long);return true;};
+const routeAllowed=(operator,r)=>{const short=String(r.route_short_name??'').normalize('NFKC').replace(/\s/g,''),long=String(r.route_long_name??'').normalize('NFKC');if(operator==='citybus')return CITY_ROUTES.has(short);if(operator==='kyotobus')return short==='北3'||/(^|[^0-9])40([^0-9]|$)/.test(short)||/^特40$/.test(short)||/直行/.test(short)&&/40|産大|京都産業大学/.test(short+long)||/京都産業大学/.test(long)&&/国際会館|丸太町/.test(long);return true;};
 const categoryFor=(operator,r)=>operator==='kintetsu'&&/急行/.test(`${r.route_short_name} ${r.route_long_name}`)?'express':'local';
 
 export async function compactGtfsZip(bytes,{operator,source,version}){
   const entries=await unzipEntries(bytes),stops=parseCSV(textEntry(entries,'stops.txt')),routes=parseCSV(textEntry(entries,'routes.txt')).filter(r=>routeAllowed(operator,r)),routeIds=new Set(routes.map(r=>r.route_id)),trips=parseCSV(textEntry(entries,'trips.txt')).filter(t=>routeIds.has(t.route_id)),tripIds=new Set(trips.map(t=>t.trip_id));
   if(!routes.length||!trips.length)throw Error(`${operator}の対象路線がGTFSにありません。`);
   const times=new Map();for(const s of parseCSV(textEntry(entries,'stop_times.txt'))){if(!tripIds.has(s.trip_id))continue;const a=gtfsMinute(s.arrival_time),d=gtfsMinute(s.departure_time),seq=Number(s.stop_sequence);if(!Number.isFinite(a)||!Number.isFinite(d)||!Number.isFinite(seq))continue;if(!times.has(s.trip_id))times.set(s.trip_id,[]);times.get(s.trip_id).push({stopId:s.stop_id,seq,arrival:a,departure:d,pickup:s.pickup_type||'0',dropoff:s.drop_off_type||'0'});}
-  const usedStops=new Set(),shapeIds=new Set();const compactTrips=[];for(const t of trips){const rows=(times.get(t.trip_id)??[]).sort((a,b)=>a.seq-b.seq);if(rows.length<2)continue;rows.forEach(x=>usedStops.add(x.stopId));if(t.shape_id)shapeIds.add(t.shape_id);compactTrips.push({id:t.trip_id,routeId:t.route_id,serviceId:t.service_id,headsign:t.trip_headsign||'',direction:Number(t.direction_id)||0,shapeId:t.shape_id||null,stops:rows.map(x=>x.stopId),arrivals:rows.map(x=>x.arrival),departures:rows.map(x=>x.departure)});}
+  const usedStops=new Set(),shapeIds=new Set();const compactTrips=[];for(const t of trips){const rows=(times.get(t.trip_id)??[]).sort((a,b)=>a.seq-b.seq);if(rows.length<2)continue;rows.forEach(x=>usedStops.add(x.stopId));if(t.shape_id)shapeIds.add(t.shape_id);const descriptor=t.jp_trip_desc??t.trip_short_name??'';compactTrips.push({id:t.trip_id,routeId:t.route_id,serviceId:t.service_id,headsign:t.trip_headsign||'',direction:Number(t.direction_id)||0,shapeId:t.shape_id||null,operatingCompany:/京都バス/.test(descriptor)?'kyotobus':/京都市バス|京都市交通局/.test(descriptor)?'citybus':null,stops:rows.map(x=>x.stopId),arrivals:rows.map(x=>x.arrival),departures:rows.map(x=>x.departure)});}
   if(!compactTrips.length)throw Error(`${operator}の時刻データを軽量化できませんでした。`);
   const stopRows=stops.filter(s=>usedStops.has(s.stop_id)).map(s=>({id:s.stop_id,name:s.stop_name,code:s.stop_code||null,parent:s.parent_station||null,platform:s.platform_code||null,lat:Number(s.stop_lat)||null,lng:Number(s.stop_lon)||null}));
   const routeRows=routes.map(r=>({id:r.route_id,shortName:r.route_short_name||'',longName:r.route_long_name||'',type:Number(r.route_type)||3,category:categoryFor(operator,r)}));
@@ -48,9 +48,10 @@ export async function compactGtfsZip(bytes,{operator,source,version}){
   return {schemaVersion:2,operator,source,version,revisionDate:version?.versionDate??null,lastUpdated:new Date().toISOString(),validFrom:starts[0]??null,validTo:ends.at(-1)??null,stops:stopRows,routes:routeRows,trips:compactTrips,calendar,calendarDates,shapes};
 }
 
-export function serviceActive(feed,serviceId,date){const exception=feed.calendarDates?.filter(x=>x.serviceId===serviceId&&x.date===date).at(-1);if(exception)return exception.exception===1;const c=feed.calendar?.find(x=>x.serviceId===serviceId);if(!c||date<c.start||date>c.end)return false;const day=new Date(`${date}T00:00:00+09:00`).getDay(),idx=(day+6)%7;return Boolean(c.week[idx]);}
+export function serviceActive(feed,serviceId,date){const exception=feed.calendarDates?.filter(x=>x.serviceId===serviceId&&x.date===date).at(-1);if(exception)return exception.exception===1;const c=feed.calendar?.find(x=>x.serviceId===serviceId);if(!c||date<c.start||date>c.end)return false;const day=new Date(`${date}T00:00:00Z`).getUTCDay(),idx=(day+6)%7;return Boolean(c.week[idx]);}
 export function dateFeed(feed,date){
   const active=feed.trips.filter(t=>serviceActive(feed,t.serviceId,date)),bySig=new Map(),routes=new Map(feed.routes.map(r=>[r.id,r]));
-  for(const t of active){const r=routes.get(t.routeId);if(!r)continue;const sig=`${t.routeId}|${t.stops.join(',')}`;if(!bySig.has(sig))bySig.set(sig,{id:sig,operator:feed.operator,route:r.shortName||r.longName,label:r.shortName||r.longName||feed.operator,category:r.category??'local',stops:t.stops,trips:[]});bySig.get(sig).trips.push({id:t.id,date,arrivals:t.arrivals,departures:t.departures,headsign:t.headsign});}
+  const shapes=new Map((feed.shapes??[]).filter(s=>s.points?.length>=2&&s.points.every(p=>p.length===2&&p.every(Number.isFinite)&&Math.abs(p[0])<=180&&Math.abs(p[1])<=90)).map(s=>[s.id,s.points]));
+  for(const t of active){const r=routes.get(t.routeId);if(!r)continue;const sig=`${t.routeId}|${t.stops.join(',')}`;if(!bySig.has(sig))bySig.set(sig,{id:sig,operator:feed.operator,route:r.shortName||r.longName,label:r.shortName||r.longName||feed.operator,category:r.category??'local',stops:t.stops,trips:[],routeVariants:{}});const service=bySig.get(sig);if(shapes.has(t.shapeId))service.routeVariants[t.shapeId]={id:t.shapeId,shape:shapes.get(t.shapeId),verified:true,shapeEstimated:false,source:'GTFS shapes'};service.trips.push({id:t.id,date,arrivals:t.arrivals,departures:t.departures,headsign:t.headsign,shapeId:t.shapeId,operatingCompany:t.operatingCompany??r.operatingCompany??(r.shortName==='北3'?null:feed.operator)});}
   return {schemaVersion:1,source:feed.source,revisionDate:feed.revisionDate,lastUpdated:feed.lastUpdated,validDates:[date],stops:feed.stops.map(s=>({...s,type:feed.operator==='citybus'?'citybus':feed.operator==='kyotobus'?'kyotobus':feed.operator})),services:[...bySig.values()],walks:[]};
 }

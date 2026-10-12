@@ -249,6 +249,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
         ? state.subwayFeed
         : state.railFeed,
     previous: state.heroObservation,
+    motionSpeed: trajectory(state.samples).speed,
   });
   state.heroObservation = model.observed;
   state.heroModel = model;
@@ -416,7 +417,25 @@ function renderHero(root, html, model) {
   ]) {
     const target = current.querySelector(selector),
       source = next.querySelector(selector);
-    if (target && source) updateHTML(target, source.innerHTML);
+    if (selector === ".route-header" && target && source) {
+      const oldTokens = target.querySelector(".route-tokens"),
+        newTokens = source.querySelector(".route-tokens");
+      oldTokens.className = newTokens.className;
+      [...oldTokens.children].forEach((token, i) => {
+        const nextToken = newTokens.children[i];
+        token.className = nextToken.className;
+        token.hidden = nextToken.hidden;
+        updateHTML(token, nextToken.innerHTML);
+      });
+      updateHTML(
+        target.querySelector("div"),
+        source.querySelector("div").innerHTML,
+      );
+      const pill = target.querySelector(".status-pill"),
+        nextPill = source.querySelector(".status-pill");
+      pill.className = nextPill.className;
+      updateHTML(pill, nextPill.innerHTML);
+    } else if (target && source) updateHTML(target, source.innerHTML);
     else if (selector === ".station-en") {
       if (target && !source) target.remove();
       else if (source && !target)

@@ -20,6 +20,7 @@ import {
   saveSearchPair,
 } from "../public/js/search-history.js";
 import { matchArmedJourney } from "../public/js/ride-state-resolver.js";
+import { dateFeed, serviceActive } from "../worker/static-gtfs.js";
 const network = createNetwork(
     JSON.parse(readFileSync("public/data/bus-catalog.json")),
   ),
@@ -390,4 +391,66 @@ test("Native Kintetsu uses B05 at Takeda; a through ride after the boundary keep
     officialStops: ["K10", "K09", "K08"].map((id, i) => stop(id, 600 + i * 3)),
   };
   assert.equal(model(inside, 602).lineId, "K");
+});
+
+test("GTFS road shapes reach the selected bus journey and weekdays use the service date", () => {
+  const raw = {
+    operator: "citybus",
+    source: "fixture",
+    stops: [],
+    routes: [{ id: "r", shortName: "北3" }],
+    trips: [
+      {
+        id: "t",
+        routeId: "r",
+        serviceId: "weekday",
+        shapeId: "road",
+        stops: ["a", "b"],
+        arrivals: [600, 605],
+        departures: [600, 605],
+        headsign: "終点",
+      },
+    ],
+    calendar: [
+      {
+        serviceId: "weekday",
+        start: "2026-10-01",
+        end: "2026-10-31",
+        week: [true, true, true, true, true, false, false],
+      },
+    ],
+    shapes: [
+      {
+        id: "road",
+        points: [
+          [135.75, 35.04],
+          [135.75, 35.05],
+          [135.76, 35.05],
+        ],
+      },
+    ],
+  };
+  assert.equal(serviceActive(raw, "weekday", "2026-10-12"), true);
+  assert.equal(serviceActive(raw, "weekday", "2026-10-11"), false);
+  const f = dateFeed(raw, "2026-10-12");
+  assert.deepEqual(
+    f.services[0].routeVariants.road.shape,
+    raw.shapes[0].points,
+  );
+  assert.equal(f.services[0].trips[0].shapeId, "road");
+  const n = {
+      stops: new Map([
+        ["a", { name: "出発" }],
+        ["b", { name: "終点" }],
+      ]),
+    },
+    ride = scheduledJourney(
+      { serviceId: f.services[0].id, tripId: "t", from: "a", to: "b" },
+      f,
+      n,
+      "2026-10-12",
+    );
+  assert.equal(ride.routeVariant.verified, true);
+  raw.shapes[0].points[0][0] = NaN;
+  assert.deepEqual(dateFeed(raw, "2026-10-12").services[0].routeVariants, {});
 });

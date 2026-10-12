@@ -6,7 +6,14 @@ export function routeBadge(model, { small = false } = {}) {
   const badges = model.boundary?.codes ?? [
     model.bus ? (model.route ?? "バス") : model.lineId,
   ];
-  return `<span class="route-tokens ${model.boundary ? "boundary" : ""}">${badges.map((code) => `<span class="route-token ${small ? "small" : ""} ${code.startsWith("K") ? "line-k" : code.startsWith("B") ? "line-b" : "line-bus"}">${esc(code)}</span>`).join("")}</span>`;
+  return `<span class="route-tokens ${model.boundary ? "boundary" : ""}">${[
+    0, 1,
+  ]
+    .map((index) => {
+      const code = badges[index] ?? "";
+      return `<span class="route-token ${small ? "small" : ""} ${code.startsWith("K") ? "line-k" : code.startsWith("B") ? "line-b" : "line-bus"}" ${code ? "" : "hidden"}>${esc(code)}</span>`;
+    })
+    .join("")}</span>`;
 }
 export function statusPill(confidence, text, updated) {
   const labels = {

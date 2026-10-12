@@ -109,6 +109,7 @@ export function heroModel(
     locationStatus,
     feed,
     previous,
+    motionSpeed,
     at = Date.now(),
   } = {},
 ) {
@@ -132,9 +133,12 @@ export function heroModel(
     point = geo?.stops?.find((s) => s.id === current?.id);
   const scheduled = stopTime(current),
     hasStopTime = Number.isFinite(scheduled);
+  const measuredSpeed = Number.isFinite(fix?.speed) ? fix.speed : motionSpeed;
+  const speedUnknown = !Number.isFinite(measuredSpeed);
   const stationary =
     validFix &&
-    (fix.speed == null || fix.speed < 1.2) &&
+    !speedUnknown &&
+    measuredSpeed < 1.2 &&
     point &&
     distance(fix, point) <= Math.max(35, Math.min(75, fix.accuracy ?? 35));
   const departure = current?.departure ?? scheduled;
@@ -142,7 +146,7 @@ export function heroModel(
     current &&
     ((stationary &&
       (!hasStopTime || Math.abs(scheduled + shift - minute) <= 4)) ||
-      (!validFix &&
+      ((!validFix || speedUnknown) &&
         hasStopTime &&
         minute >= scheduled + shift &&
         minute < departure + shift + 0.35));
@@ -217,7 +221,7 @@ export function heroModel(
     ? "unavailable"
     : stale
       ? "stale"
-      : validFix && trainState === TRAIN_STATES.STOPPED && !display?.estimated
+      : stationary && trainState === TRAIN_STATES.STOPPED && !display?.estimated
         ? "confirmed"
         : "estimated";
   const arrivalEstimate =

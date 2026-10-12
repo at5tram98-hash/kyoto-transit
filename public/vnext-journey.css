@@ -1013,3 +1013,18 @@ a.plain-action {
 summary {
   min-height: 44px;
 }
+.sheet {
+  position: fixed;
+  inset: auto 0 max(8px, var(--safe-bottom)) 0;
+  margin: 0 auto;
+}
+.route-token {
+  transition:
+    background-color 750ms ease,
+    color 750ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-token {
+    transition: none;
+  }
+}

@@ -111,7 +111,11 @@ async function check(name, path, validate, { cors = true } = {}) {
     return data;
   } catch (e) {
     let message = e.stderr?.trim() || e.message;
-    if (["City bus arrivals", "Rail live positions"].includes(name)) {
+    if (
+      ["City bus arrivals", "North 3 arrivals", "Rail live positions"].includes(
+        name,
+      )
+    ) {
       try {
         const body = JSON.parse(e.stdout.split(/\r?\n\r?\n/).pop());
         if (typeof body.error === "string")
@@ -172,12 +176,27 @@ if (health) {
   );
   await check(
     "City bus arrivals",
-    "/api/citybus/arrivals?stop=" + encodeURIComponent("烏丸丸太町（地下鉄丸太町駅）"),
+    "/api/citybus/arrivals?stop=" +
+      encodeURIComponent("烏丸丸太町（地下鉄丸太町駅）"),
     (d) => {
       required(Array.isArray(d.results), "接近情報の形式が異なります");
       required(
         d.source === "live" && !d.stale,
         "市バスの実測データを確認できません",
+      );
+    },
+  );
+  await check(
+    "North 3 arrivals",
+    "/api/citybus/arrivals?stop=" + encodeURIComponent("東元町"),
+    (d) => {
+      required(
+        d.source === "live" && !d.stale,
+        "北3の実測接近情報を確認できません",
+      );
+      required(
+        d.results?.some((r) => r.route === "北3"),
+        "北3の方面がありません",
       );
     },
   );
