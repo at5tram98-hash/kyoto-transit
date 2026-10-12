@@ -1364,8 +1364,10 @@ try {
             height: el.getBoundingClientRect().height,
             viewport: innerHeight,
           }));
-        assert.equal(fullMap.top, 0);
-        assert.equal(fullMap.height, fullMap.viewport);
+        // WebKit quantizes viewport lengths to fractional CSS pixels; use the
+        // same half-pixel tolerance as the surrounding viewport bounds checks.
+        assert.ok(Math.abs(fullMap.top) <= 0.5);
+        assert.ok(Math.abs(fullMap.height - fullMap.viewport) <= 0.5);
         await layout(page, `PDF fullscreen map ${colorScheme} ${textScale}x`);
         await page.locator("[data-context-close]").click();
         for (const direction of ["south", "north"]) {
