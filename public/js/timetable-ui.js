@@ -3,6 +3,14 @@ import { searchStops } from "./network.js";
 import { formatTime } from "./router.js";
 import { officialTripLeg } from "./vehicle.js";
 import { boardingAvailable, scheduledBoarding } from "./journey-session.js";
+import { scheduledJourney } from "./journey-session.js";
+import {
+  loadNorth3Snapshot,
+  north3Board,
+  north3Feed,
+  north3Day,
+} from "./north3-feed.js";
+let fallbackNetwork;
 const esc = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -23,6 +31,64 @@ const kind = (e) =>
         ? "その他"
         : "種別未取得");
 export async function officialData(path, params = {}, signal) {
+  const localStop = fallbackNetwork?.stops.get(params.stop);
+  if (
+    localStop?.lines?.includes("北3") &&
+    (path === "/timetable/options" ||
+      String(params.direction).startsWith("north3:"))
+  ) {
+    const snapshot = await loadNorth3Snapshot();
+    if (signal?.aborted) throw signal.reason;
+    const name = localStop.fullName ?? localStop.name;
+    if (path === "/timetable/options") {
+      const row = snapshot.rows.find((r) => r.name === name);
+      if (row) {
+        const boards = ["north", "south"]
+          .filter((direction) =>
+            north3Board(snapshot, name, direction, "weekday"),
+          )
+          .map((direction) => ({
+            key: `north3:${direction}`,
+            label: `北3 · ${direction === "north" ? "京都産大前" : "北大路バスターミナル"}方面`,
+            routes: ["北3"],
+          }));
+        // Retain every existing direction and append the locally available route.
+        let remote = [];
+        try {
+          const url = new URL(path, CAPTURE_API);
+          url.searchParams.set("stop", params.stop);
+          const r = await fetch(url, {
+            signal: signal ?? AbortSignal.timeout(4000),
+          });
+          if (r.ok) remote = (await r.json()).boards ?? [];
+        } catch {
+          if (signal?.aborted) throw signal.reason;
+        }
+        return {
+          stop: params.stop,
+          name: localStop.name,
+          operator: "citybus",
+          boards: [...remote, ...boards],
+        };
+      }
+    } else if (path === "/timetable") {
+      const day = params.day === "auto" ? north3Day(params.date) : params.day;
+      if (!day)
+        throw Error(
+          "この日の運行カレンダーは未確認です。曜日を選択してください。",
+        );
+      const direction = params.direction.split(":")[1],
+        board = north3Board(snapshot, name, direction, day);
+      if (!board) throw Error("この方面の北3時刻表はありません。");
+      return {
+        ...board,
+        entries: board.entries.map((entry, i) => ({
+          ...entry,
+          tripId: `north3:${params.date}:${direction}:${i}`,
+        })),
+      };
+    }
+  }
   const url = new URL(path, CAPTURE_API);
   for (const [k, v] of Object.entries(params))
     if (v !== null && v !== undefined) url.searchParams.set(k, v);
@@ -63,6 +129,7 @@ export function mountTimetables({
   onBoard,
   loadSubwayFeed,
 }) {
+  fallbackNetwork = network;
   const root = document.querySelector("#timetable-root");
   let chosen = null,
     options = null,
@@ -156,7 +223,7 @@ export function mountTimetables({
         hours.get(h).push(e);
       }
       $("#timetable-entries").innerHTML =
-        `<div class="board-summary"><span>${esc(dayLabel[board.day] ?? board.day)}${board.platform ? `・${esc(board.platform)}番線` : ""}</span><small>${esc(board.effective ?? "")}</small></div>${hours.size ? `<div class="hour-table">${[...hours].map(([h, entries]) => `<div class="hour-row"><strong>${h % 24}<small>時</small></strong><div>${entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(e.destination)} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.destination ? `<span>${esc(e.destination)}</span>` : ""}</button>`).join("")}</div></div>`).join("")}</div>` : '<p class="empty-note">このダイヤの発車便はありません。</p>'}<p class="source-caption">公式取得 ${new Date(board.fetchedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })} · 時刻は予定</p><a class="plain" href="${esc(board.sourceURL)}" target="_blank" rel="noopener">公式時刻表の出典</a>${board.dayRequired ? '<p class="empty-note">平日A・B・水曜Aからダイヤを選んでください。</p>' : ""}`;
+        `<div class="board-summary"><span>${esc(dayLabel[board.day] ?? board.day)}${board.platform ? `・${esc(board.platform)}番線` : ""}</span><small>${esc(board.effective ?? "")}</small></div>${hours.size ? `<div class="hour-table">${[...hours].map(([h, entries]) => `<div class="hour-row"><strong>${h % 24}<small>時</small></strong><div>${entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(e.destination)} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.destination ? `<span>${esc(e.destination)}</span>` : ""}${e.operatingCompany === "kyotobus" ? "<span>京都バス · 休校日運休</span>" : ""}</button>`).join("")}</div></div>`).join("")}</div>` : '<p class="empty-note">このダイヤの発車便はありません。</p>'}<p class="source-caption">${board.cached ? "保存した公式時刻表 · 要確認" : "公式取得"} ${new Date(board.fetchedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })} · 時刻は予定</p><a class="plain" href="${esc(board.sourceURL)}" target="_blank" rel="noopener">公式時刻表の出典</a>${board.dayRequired ? '<p class="empty-note">平日A・B・水曜Aからダイヤを選んでください。</p>' : ""}`;
     } catch (e) {
       if (current === job && !controller.signal.aborted)
         $("#timetable-entries").innerHTML =
@@ -190,7 +257,29 @@ export function mountTimetables({
     $("#timetable-trip").showModal();
     try {
       let trip, ride;
-      if (options.operator === "subway") {
+      if (direction.startsWith("north3:")) {
+        const snapshot = await loadNorth3Snapshot(),
+          feed = north3Feed(snapshot, network, serviceDate, {
+            day: board.day,
+            schoolDay: true,
+          });
+        const service = feed?.services.find(
+          (s) => s.id === `north3-${direction.split(":")[1]}`,
+        );
+        ride =
+          service &&
+          scheduledJourney(
+            { serviceId: service.id, tripId: entry.tripId, from: id },
+            feed,
+            network,
+            serviceDate,
+          );
+        if (!ride) throw Error("この北3便の停留所時刻を確認できません。");
+        trip = {
+          title: `北3 ${ride.destination}行き`,
+          stops: ride.officialStops,
+        };
+      } else if (options.operator === "subway") {
         const feed = await loadSubwayFeed?.();
         if (signal.aborted || current !== tripJob) return;
         ride = scheduledBoarding(

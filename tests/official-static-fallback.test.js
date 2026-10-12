@@ -26,7 +26,7 @@ test('市バスfallbackは系統単位にまとめて上下方向を同じ取得
   assert.deepEqual(grouped.find(x=>x.route==='202').services.map(x=>x.id),['bus-202-eight-down','bus-202-eight-up']);
 });
 
-test('市バスCronバッチは全対応系統を重複なく4+4+3で網羅する',()=>{
-  assert.deepEqual(CITYBUS_ROUTE_BATCHES.map(x=>x.length),[4,4,3]);
-  assert.deepEqual([...new Set(CITYBUS_ROUTE_BATCHES.flat())].sort((a,b)=>Number(a)-Number(b)),['10','13','43','46','78','93','202','204','205','206','208'].sort((a,b)=>Number(a)-Number(b)));
+test('市バスCronバッチは全対応系統を重複なく4+4+4で網羅する',()=>{
+  assert.deepEqual(CITYBUS_ROUTE_BATCHES.map(x=>x.length),[4,4,4]);
+  assert.deepEqual([...new Set(CITYBUS_ROUTE_BATCHES.flat())].sort((a,b)=>Number(a)-Number(b)),['10','13','43','46','78','93','202','204','205','206','208','北3'].sort((a,b)=>Number(a)-Number(b)));
 });

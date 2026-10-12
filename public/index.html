@@ -35,6 +35,7 @@
     <main>
       <section class="view" data-view="now" aria-label="今">
         <div id="now-hero" aria-live="polite"></div>
+        <div id="now-search"></div>
         <div id="vehicle-panel"></div>
         <div id="network-panel"></div>
         <div id="arrivals-root" aria-live="polite"></div>
@@ -56,11 +57,17 @@
   </div>
 
   <dialog class="sheet" id="foldback-sheet">
+    <button class="sheet-drag-handle" type="button" aria-label="下へドラッグして閉じる"><span></span></button>
     <div class="sheet-header">
       <h2>折り返し乗車</h2>
       <button class="sheet-close" type="button" data-sheet-close aria-label="閉じる">×</button>
     </div>
     <div class="sheet-body" id="foldback-body"></div>
+  </dialog>
+  <dialog class="sheet" id="context-sheet" aria-labelledby="context-sheet-title">
+    <button class="sheet-drag-handle" type="button" aria-label="下へドラッグして閉じる"><span></span></button>
+    <div class="sheet-header"><h2 id="context-sheet-title">詳細</h2><button class="sheet-close" type="button" data-context-close aria-label="閉じる">×</button></div>
+    <div class="sheet-body" id="context-sheet-body"></div>
   </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
   <script id="app-entry" type="application/mymap-module" src="js/vnext.js"></script>

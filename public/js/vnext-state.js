@@ -121,6 +121,10 @@ export const state = {
   lastRideSeenAt: 0,
   foldbackRide: null,
   foldbackPlan: null,
+  heroObservation: null,
+  delayHistory: [],
+  armedJourney: null,
+  north3Snapshot: null,
 };
 export const haptic = () => {
   if (settings.haptics && navigator.vibrate) navigator.vibrate(8);

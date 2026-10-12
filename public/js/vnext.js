@@ -27,7 +27,15 @@ import {
   resetRideDetection,
   startManualRide,
 } from "./vnext-detect.js";
-import { renderNow } from "./vnext-view.js";
+import { renderNow, setupNowInteractions } from "./vnext-view.js";
+import {
+  setupContextSheet,
+  openContextSheet,
+  destinationSheet,
+  stationSheet,
+} from "./context-sheet.js";
+import { routeMapHTML } from "./route-map.js";
+import { delayAnalysis } from "./now-model.js";
 import {
   renderSettings,
   setupSettings,
@@ -111,7 +119,12 @@ function setTab(tab) {
     renderNow();
     arrivals?.show();
   } else arrivals?.pause();
-  if (tab === "timetable") routeSearch?.show();
+  if (tab === "timetable") {
+    const search = $("#route-search-root");
+    if (search?.parentElement !== $('[data-view="timetable"]'))
+      $('[data-view="timetable"]').prepend(search);
+    routeSearch?.show();
+  }
   if (tab === "operations") operations.show();
   if (tab === "settings") renderSettings();
   requestAnimationFrame(moveTabSelection);
@@ -119,6 +132,8 @@ function setTab(tab) {
   haptic();
 }
 function setupEvents() {
+  setupNowInteractions();
+  setupContextSheet(renderNow, openFoldback);
   $(".tabbar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-tab]");
     if (b) setTab(b.dataset.tab);
@@ -126,7 +141,33 @@ function setupEvents() {
   document.addEventListener("click", async (e) => {
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.hasAttribute("data-apply-update")) {
+    if (b.dataset.stationDetail) stationSheet(b.dataset.stationDetail);
+    else if (b.hasAttribute("data-board-armed")) {
+      if (state.armedJourney) boardRide(state.armedJourney.ride);
+    } else if (b.hasAttribute("data-cancel-armed")) {
+      state.armedJourney = null;
+      renderNow();
+    } else if (b.dataset.contextAction === "destination")
+      destinationSheet(state.heroModel?.bus);
+    else if (b.dataset.contextAction === "map")
+      openContextSheet(
+        "経路と現在地",
+        routeMapHTML(state.routeMap, state.heroModel, { expanded: true }),
+      );
+    else if (b.dataset.contextAction === "delay") {
+      const analysis = delayAnalysis(state.heroModel, state.delayHistory);
+      const samples = analysis.samples,
+        points = samples
+          .map(
+            (s, i) =>
+              `${20 + (i * 260) / Math.max(1, samples.length - 1)},${95 - Math.max(-5, Math.min(15, s.shift)) * 4}`,
+          )
+          .join(" ");
+      openContextSheet(
+        "遅れの根拠",
+        `<h3>${esc(analysis.conclusion)}</h3><p class="source-note">My Mapの推定です。公式の運行情報とは区別して表示します。</p><dl class="context-facts"><div><dt>時刻表</dt><dd>公式の予定時刻</dd></div><div><dt>現在位置</dt><dd>${state.heroModel.locationConfidence === "available" ? "GPSと停車位置を照合" : "未取得。ダイヤから推定"}</dd></div><div><dt>接近情報</dt><dd>${state.heroModel.dataSources.includes("接近") ? "取得データを参照" : "実測データは未取得"}</dd></div></dl>${samples.length > 1 ? `<svg class="delay-chart" viewBox="0 0 300 120" role="img" aria-label="観測した遅れの推移、推定"><path d="M20 95H280" class="map-grid"/><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="3"/></svg>` : '<p class="source-note">推移を表示するための観測データがまだ不足しています。</p>'}`,
+      );
+    } else if (b.hasAttribute("data-apply-update")) {
       if (updateRegistration?.waiting) {
         persistJourney(true);
         applyingUpdate = true;
@@ -260,6 +301,16 @@ async function init() {
       loadSubwayFeed: () => ensureSubwayFeed(),
     });
     routeSearch = mountRouteSearch({
+      onCurrentLocation: () => {
+        const stop = nearest().all[0]?.stop;
+        if (!stop) toast("現在位置は未取得です。出発地を入力してください");
+        return stop;
+      },
+      onArm: (ride) => {
+        state.armedJourney = { ride, selectedAt: Date.now() };
+        setTab("now");
+        renderNow();
+      },
       network: state.network,
       settings,
       tokyoNow,

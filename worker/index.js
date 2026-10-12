@@ -17,7 +17,8 @@ import {validBusStop} from './bus-stops.js';
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const KYOTO_BUS_VEHICLE='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_vehicle';
 const KYOTO_BUS_TRIP='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_trip_update';
-const ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208']);
+const ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208','北3']);
+const routeFromValue=value=>/^N030\d{5}$/.test(value.split(';')[0])?'北3':String(Number(value.slice(0,3)));
 const clean=s=>s.replace(/\s+/g,' ').trim();
 const error=(message,status=400,code=null)=>Response.json({error:message,...(code?{code}:{})},{status});
 const iso=ms=>new Date(ms).toISOString();
@@ -28,9 +29,9 @@ export function selectionURL(stop){
   return `${POC}selection.htm?${p}`;
 }
 export function approachURL(stop,value){
-  if(!/^\d{9};\d+:\d+:\d+(,\d+:\d+:\d+)*$/.test(value))throw Error('系統の情報が変更されています。停留所を選び直してください。');
+  if(!/^(?:\d{9}|N030\d{5});\d+:\d+:\d+(,\d+:\d+:\d+)*$/.test(value))throw Error('系統の情報が変更されています。停留所を選び直してください。');
   const [dest,raw]=value.split(';'),parts=raw.split(',').map(v=>v.split(':'));
-  if(!ROUTES.has(String(Number(dest.slice(0,3)))))throw Error('対象外の系統です。');
+  if(!ROUTES.has(routeFromValue(dest)))throw Error('対象外の系統です。');
   const p=new URLSearchParams({tabName:'approachGuidance',from:stop,fromType:'1',locale:'ja',bsid:'1',targetTabName:'busStopSearchTab',busStopName:stop,routeKeys:parts.map(v=>v[0]).join(','),fromDisplayPassNo:parts.map(v=>v[2]).join(','),fromSignpoleStringKey:parts.map(v=>v[1]).join(','),destinationCd:dest,routeKeynum:'1',autoRefreshTime:'0'});
   p.set('to','');p.set('toType','');p.set('mapFlag','false');p.set('existYn','N');
   for(const key of ['selectedLandmarkCatCd','fromlat','fromlng','tolat','tolng','fromSignpoleKey','routeLayoutCd','fromBusStopCd','toBusStopCd','routeKey','nextDiagramFlag','diaRevisedDate','timeTableDirevtionCd','searchDate','searchTime','fromBusStopKey','toBusStopKey','lineSelected','informationTextId','search_map_from','search_map_to','toDisplayPassNo','busCode','formerApproachLat','formerApproachLng','formerApproachGuidance','informationFromTextId','informationToTextId','informationRouteId','busstopCdnum','vehicleScrollPosition','routeSelectNo'])p.set(key,'');
@@ -41,8 +42,8 @@ export function parseBusChoices(html){
   for(const match of html.matchAll(/<li\b[^>]*>[\s\S]*?<\/li>/gi)){
     const block=match[0],b=block.match(/([A-ZＡ-Ｚ]\s*のりば)/);if(b)board=clean(b[1]);if(!block.includes('route-row-data'))continue;
     const input=block.match(/<input\b[^>]*name="rowCheckDataItem"[^>]*value="([^"]+)"/i);if(!input)continue;
-    const value=input[1],route=String(Number(value.slice(0,3)));if(!ROUTES.has(route))continue;
-    const dest=block.match(/id="destinationAbbreviation_data"[^>]*>([\s\S]*?)<\/p>/i)?.[1]??'',destination=clean(dest.replace(/<[^>]+>/g,' ')).replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
+    const value=input[1],route=routeFromValue(value);if(!ROUTES.has(route))continue;
+    const dest=block.match(/id="destinationAbbreviation_(?:div_)?data"[^>]*>([\s\S]*?)<\/p>/i)?.[1]??'',destination=clean(dest.replace(/<[^>]+>/g,' ')).replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
     if(destination)rows.push({boarding:board,value,destination,route});
   }
   return rows;

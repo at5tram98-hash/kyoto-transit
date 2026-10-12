@@ -49,8 +49,7 @@ export function scheduledJourney(leg, feed, network, date) {
     );
   const start = service?.stops?.indexOf(leg.from) ?? -1;
   if (!trip || start < 0) return null;
-  const stops = service.stops.slice(start).map((id, n) => {
-    const i = start + n;
+  const fullStops = service.stops.map((id, i) => {
     return {
       id,
       name: network.stops.get(id)?.name ?? id,
@@ -58,11 +57,12 @@ export function scheduledJourney(leg, feed, network, date) {
       departure: trip.departures[i],
       time: trip.arrivals[i] ?? trip.departures[i],
       estimated: Boolean(
-        feed.meta?.terminalArrivalDerived && i === service.stops.length - 1,
+        (feed.meta?.terminalArrivalDerived || service.terminalArrivalDerived) && i === service.stops.length - 1,
       ),
     };
   });
-  if (stops.length < 2 || !stops.every((s) => Number.isFinite(stopTime(s))))
+  const stops = fullStops.slice(start);
+  if (stops.length < 2 || (!service.terminalArrivalUnavailable && !stops.every((s) => Number.isFinite(stopTime(s)))))
     return null;
   return {
     kind: "ride",
@@ -71,11 +71,17 @@ export function scheduledJourney(leg, feed, network, date) {
     route: service.route,
     label: service.label,
     destination: trip.headsign ?? stops.at(-1).name,
+    userDestination: { id: leg.to ?? stops.at(-1).id, name: network.stops.get(leg.to)?.name ?? stops.at(-1).name },
+    operatingCompany: trip.operatingCompany ?? service.operatingCompany ?? service.operator,
+    operatingConditions: trip.operatingConditions ?? null,
+    dataConfidence: service.sourceConfidence ?? (feed.meta?.stale ? "stale" : "estimated"),
+    sourceUpdatedAt: service.sourceUpdatedAt ?? feed.lastUpdated,
     from: leg.from,
     to: stops.at(-1).id,
     depart: stops[0].departure,
     arrive: stopTime(stops.at(-1)),
     officialStops: stops,
+    fullOfficialStops: fullStops,
     tripId: trip.id,
     serviceId: service.id,
     serviceDate: trip.date ?? date,

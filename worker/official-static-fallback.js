@@ -2,11 +2,12 @@ import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import {createNetwork,normalize} from '../public/js/network.js';
 import {calendarDay} from './service-calendar.js';
 import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,parseKyotoSchedules,kyotoEntries} from './timetables.js';
+import {north3Feed} from '../public/js/north3-feed.js';
 
 const network=createNetwork(catalog);
 const CACHE_TTL=172800;
 const PARTIAL_TTL=300;
-export const CITYBUS_ROUTE_BATCHES=[['10','13','43','46'],['78','93','202','204'],['205','206','208']];
+export const CITYBUS_ROUTE_BATCHES=[['10','13','43','46'],['78','93','202','204'],['205','206','208','北3']];
 const cleanName=stop=>stop?.fullName??stop?.name??'';
 const unique=values=>[...new Set(values)];
 
@@ -57,7 +58,15 @@ async function readCityRouteFallback(env,route,services,date,day,fetcher){
   const key=`static:fallback:citybus-route:${route}:${date}`,raw=await env.LIVE_KV?.get(key);if(raw){try{const saved=JSON.parse(raw);if(Array.isArray(saved.services)&&saved.services.length)return saved;}catch{}}
   const source=catalog[route]?.source;if(!source)throw Error(`市バス${route}系統の公式時刻表URLがありません。`);
   const rows=parseCityCatalog(await officialText(source,fetcher,3600),source),timetableCache=new Map(),built=[],failed=[];
+  if(route==='北3'){
+    const currentRows=await mapLimit(rows,3,async row=>({...row,boards:await Promise.all(row.boards.map(async board=>{const parsed=await parsedBoard(board,fetcher,timetableCache);return {...board,days:Object.fromEntries(Object.entries(parsed.days).map(([kind,entries])=>[kind,entries.map(e=>[e.depart,e.operatingCompany==='kyotobus'?1:0])]))};}))}));
+    if(currentRows.some(row=>!row))throw Error('北3の全停留所時刻表を確認できませんでした。');
+    const current=north3Feed({rows:currentRows,effectiveFrom:'2026-03-20',source,capturedAt:new Date().toISOString()},network,date,{day});
+    if(!current?.services.every(s=>s.trips.length))throw Error('北3の便・停留所順を照合できませんでした。');
+    built.push(...current.services);
+  }else{
   for(const service of services){try{const value=await cityServiceFromRows(service,date,day,fetcher,rows,timetableCache);if(value)built.push(value);else failed.push(service.id);}catch(error){failed.push(service.id);await recordCityRouteError(env,route,service.id,error);}}
+  }
   if(!built.length)throw Error(`市バス${route}系統の公式時刻表fallbackを生成できませんでした。`);
   const value={route,date,services:built,expectedServices:services.length,availableServices:built.length,failed,capturedAt:new Date().toISOString()};
   if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:failed.length?PARTIAL_TTL:CACHE_TTL});return value;

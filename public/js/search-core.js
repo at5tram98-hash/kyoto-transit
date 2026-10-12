@@ -10,8 +10,9 @@ export function mergeTimetableFeeds(base,feeds){
     for(const service of feed.services??[]){
       const mapped=[];for(let i=0;i<service.stops.length;i++){const id=map.get(service.stops[i]);if(!id)continue;if(mapped.at(-1)?.id===id)continue;mapped.push({id,index:i});}
       if(mapped.length<2)continue;const positions=mapped.map(x=>x.index),dedup=mapped.map(x=>x.id);
-      const trips=(service.trips??[]).map(t=>({id:t.id,date:t.date,arrivals:positions.map(i=>t.arrivals[i]),departures:positions.map(i=>t.departures[i]),headsign:t.headsign})).filter(t=>t.arrivals.length===dedup.length&&t.arrivals.every(Number.isFinite)&&t.departures.every(Number.isFinite));
-      if(!trips.length)continue;services.push({...service,stops:dedup,trips,prototype:false});
+      const valid=(times)=>times.every((t,i)=>Number.isFinite(t)||(service.terminalArrivalUnavailable&&i===times.length-1&&t==null));
+      const trips=(service.trips??[]).map(t=>({...t,arrivals:positions.map(i=>t.arrivals[i]),departures:positions.map(i=>t.departures[i])})).filter(t=>t.arrivals.length===dedup.length&&valid(t.arrivals)&&valid(t.departures));
+      if(!trips.length)continue;services.push({...service,stops:dedup,trips,prototype:false,sourceConfidence:feed.meta?.stale?'stale':'estimated',sourceUpdatedAt:feed.lastUpdated??feed.meta?.lastUpdated});
     }
     if(feed.meta)sourceMeta.push(feed.meta);
   }

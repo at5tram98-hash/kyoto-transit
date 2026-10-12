@@ -1,7 +1,7 @@
 import {load} from 'cheerio/slim';
 
 const clean=value=>String(value??'').normalize('NFKC').replace(/\s+/g,' ').trim();
-const routeAlt=value=>{const text=clean(value);return /^\d{1,3}$/.test(text)?String(Number(text)):null;};
+const routeAlt=value=>{const text=clean(value);return /^\d{1,3}$/.test(text)?String(Number(text)):/^北\d{1,2}$/.test(text)?text:null;};
 
 function congestionFromText(words){
   return words.match(/大変混雑しています|たいへん混雑(?:しています)?|混雑しています|ゆったり立てます|ゆったり立てる|空席があります|空席あり|満員|やや混雑|混雑/)?.[0]??null;

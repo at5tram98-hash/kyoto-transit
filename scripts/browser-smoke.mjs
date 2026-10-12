@@ -489,741 +489,1001 @@ async function setRide(page, operator = "subway", known = true) {
 }
 
 try {
-  // Small iPhones, current phones, landscape, tablet, and desktop, both themes.
-  for (const colorScheme of ["light", "dark"])
-    for (const [width, height] of [
-      [320, 568],
-      [375, 667],
-      [390, 844],
-      [430, 932],
-      [844, 390],
-      [768, 1024],
-      [1280, 800],
-    ]) {
-      const scenario = {},
-        { context, page, errors } = await open({
-          width,
-          height,
-          colorScheme,
-          scenario,
-        });
-      try {
-        for (const tab of ["now", "timetable", "operations", "settings"]) {
-          if (tab !== "now") await page.locator(`[data-tab="${tab}"]`).click();
-          if (tab === "operations")
-            await page.locator(".operation-card").first().waitFor();
-          await layout(page, `${width}x${height} ${colorScheme} ${tab}`);
+  if (process.env.BROWSER_SPEC_ONLY !== "1") {
+    // Small iPhones, current phones, landscape, tablet, and desktop, both themes.
+    for (const colorScheme of ["light", "dark"])
+      for (const [width, height] of [
+        [320, 568],
+        [375, 667],
+        [390, 844],
+        [430, 932],
+        [844, 390],
+        [768, 1024],
+        [1280, 800],
+      ]) {
+        const scenario = {},
+          { context, page, errors } = await open({
+            width,
+            height,
+            colorScheme,
+            scenario,
+          });
+        try {
+          for (const tab of ["now", "timetable", "operations", "settings"]) {
+            if (tab !== "now")
+              await page.locator(`[data-tab="${tab}"]`).click();
+            if (tab === "operations")
+              await page.locator(".operation-card").first().waitFor();
+            await layout(page, `${width}x${height} ${colorScheme} ${tab}`);
+          }
+          await page.locator('[data-tab="now"]').click();
+          await page.locator("[data-arrival-change]").click();
+          await page.locator("#arrival-stop-search").fill("京都駅");
+          await layout(page, `${width} ${colorScheme} stop picker`);
+          await page.keyboard.press("Escape");
+          assert.equal(
+            await page
+              .locator("[data-arrival-change]")
+              .getAttribute("aria-expanded"),
+            "false",
+          );
+          if (width === 390)
+            await page.screenshot({
+              path: resolve(artifacts, `now-${colorScheme}.png`),
+              fullPage: true,
+              animations: "disabled",
+            });
+          for (const [operator, known] of [
+            ["subway", true],
+            ["kintetsu", true],
+            ["through", true],
+            ["citybus", true],
+            ["citybus", false],
+          ]) {
+            await setRide(page, operator, known);
+            await layout(
+              page,
+              `${width} ${colorScheme} onboard ${operator} ${known ? "timed" : "unknown times"}`,
+            );
+            assert.equal(
+              await page.locator("#ride-foldback").count(),
+              operator.includes("bus") ? 0 : 1,
+            );
+            assert.match(
+              await page.locator(".journey-stop-list").textContent(),
+              known ? /予定/ : /時刻未取得/,
+            );
+            if (
+              width === 390 &&
+              ["subway", "citybus"].includes(operator) &&
+              known
+            )
+              await page.screenshot({
+                path: resolve(artifacts, `${operator}-${colorScheme}.png`),
+                fullPage: true,
+                animations: "disabled",
+              });
+          }
+          await setRide(page);
+          await page.locator("#ride-foldback").click();
+          await layout(page, `${width} ${colorScheme} foldback choice sheet`);
+          await page.locator('[data-foldback-mode="train"]').click();
+          await page.locator("#target-station").selectOption("K08");
+          const now = await page.evaluate(
+            () => window.__state.tokyoNow().minute,
+          );
+          scenario.foldEntries = [
+            {
+              depart: now + 20,
+              category: "express",
+              destination: "大和西大寺・京都線経由",
+              tripId: "layout-train",
+            },
+          ];
+          await page.locator("[data-load-target-trains]").click();
+          await page.locator("[data-target-index]").first().waitFor();
+          await layout(page, `${width} ${colorScheme} foldback train list`);
+          await page.locator("[data-target-index]").first().click();
+          await layout(page, `${width} ${colorScheme} foldback result`);
+          await page.locator("[data-sheet-close]").click();
+          assert.deepEqual(errors, [], `${width} ${colorScheme} page errors`);
+        } finally {
+          await context.close();
         }
-        await page.locator('[data-tab="now"]').click();
-        await page.locator("[data-arrival-change]").click();
-        await page.locator("#arrival-stop-search").fill("京都駅");
-        await layout(page, `${width} ${colorScheme} stop picker`);
-        await page.keyboard.press("Escape");
-        assert.equal(
-          await page
-            .locator("[data-arrival-change]")
-            .getAttribute("aria-expanded"),
-          "false",
+      }
+    summary.checks.push(
+      "182 responsive layout checks; both themes, 4 tabs, stop picker, subway, Kintetsu, through, bus and all foldback steps",
+    );
+
+    const scenario = { stopsAway: 4 };
+    const { context, page, counts, errors } = await open({
+      scenario,
+      clock: true,
+    });
+    try {
+      await page.evaluate(() => {
+        window.__rows = [
+          ...document.querySelectorAll("#arrival-live .arrival-line"),
+        ];
+        window.__rowMutations = 0;
+        window.__observer = new MutationObserver(
+          (items) => (window.__rowMutations += items.length),
         );
-        if (width === 390)
+        window.__observer.observe(document.querySelector("#arrival-live"), {
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
+      });
+      const start = counts.bus;
+      for (let i = 0; i < 10; i++) {
+        await page.evaluate(() => window.__emitPosition());
+        await page.clock.runFor(100);
+      }
+      assert.equal(
+        counts.bus,
+        start,
+        "GPS updates must not trigger arrival requests",
+      );
+      await page.clock.runFor(20000);
+      await page.waitForFunction(
+        () =>
+          !document.querySelector("#arrival-live").hasAttribute("aria-busy"),
+      );
+      assert.equal(
+        counts.bus,
+        start + 1,
+        "Exactly one foreground refresh per interval",
+      );
+      assert.equal(
+        await page.evaluate(() => window.__rowMutations),
+        0,
+        "Timestamp-only responses must not replace any row content",
+      );
+      assert.equal(
+        await page.evaluate(() =>
+          window.__rows.every(
+            (el, i) =>
+              el ===
+              document.querySelectorAll("#arrival-live .arrival-line")[i],
+          ),
+        ),
+        true,
+      );
+      const marker = await page
+        .locator(".arrival-track-position")
+        .first()
+        .elementHandle();
+      scenario.stopsAway = 2;
+      await page.clock.runFor(20000);
+      await page.waitForFunction(
+        () =>
+          !document.querySelector("#arrival-live").hasAttribute("aria-busy"),
+      );
+      assert.equal(
+        await marker.evaluate(
+          (el) => el === document.querySelector(".arrival-track-position"),
+        ),
+        true,
+        "Observed movement must preserve the marker",
+      );
+      await page.waitForFunction(() =>
+        document
+          .querySelector(".arrival-approach:not([hidden])")
+          .style.getPropertyValue("--approach-position")
+          .startsWith("66.666"),
+      );
+      assert.match(
+        await page
+          .locator(".arrival-approach:not([hidden])")
+          .first()
+          .getAttribute("style"),
+        /66\.666/,
+      );
+      assert.equal(
+        await page
+          .locator(".arrival-line")
+          .filter({ has: page.locator('[aria-label^="204（高野"]') })
+          .locator(".arrival-minutes")
+          .textContent(),
+        "2停留所前6停留所前",
+      );
+      const beforeHidden = counts.bus;
+      await page.locator('[data-tab="settings"]').click();
+      await page.clock.runFor(60000);
+      assert.equal(
+        counts.bus,
+        beforeHidden,
+        "Other tabs must pause arrival polling",
+      );
+      await page.locator('[data-tab="now"]').click();
+      await page.clock.runFor(10);
+      await page.waitForFunction(
+        () =>
+          !document.querySelector("#arrival-live").hasAttribute("aria-busy"),
+      );
+      assert.equal(counts.bus, beforeHidden + 1);
+      // Switching stops aborts old work and prevents stale results under the new name.
+      scenario.delayStop = "山越中町";
+      scenario.waitForStop = new Promise(
+        (resolve) => (scenario.releaseStop = resolve),
+      );
+      await page.locator("[data-arrival-change]").click();
+      await page.locator("#arrival-stop-search").fill("山越中町");
+      await page.locator("[data-arrival-stop]").first().click();
+      await page.clock.runFor(10);
+      await page.locator("[data-arrival-change]").click();
+      await page.locator("#arrival-stop-search").fill("京都駅前");
+      await page.locator("[data-arrival-stop]").first().click();
+      await page.clock.runFor(100);
+      await page.waitForFunction(
+        () => window.__state.state.busLive?.stop === "京都駅前",
+      );
+      scenario.releaseStop();
+      await page.clock.runFor(100);
+      assert.equal(
+        await page.evaluate(() => window.__state.state.busLive.stop),
+        "京都駅前",
+      );
+      scenario.failBus = true;
+      await page.clock.runFor(20000);
+      await page.waitForFunction(() =>
+        document
+          .querySelector("#bus-update-status")
+          .textContent.includes("予測"),
+      );
+      assert.ok(
+        (await page.locator("#arrival-live .arrival-line").count()) > 0,
+        "Network failure must preserve cached arrivals",
+      );
+      assert.deepEqual(errors, []);
+      report.push({
+        gpsUpdates: 10,
+        extraGpsRequests: 0,
+        unchangedRowMutations: 0,
+        foregroundInterval: 20000,
+      });
+    } finally {
+      scenario.releaseStop?.();
+      await context.close();
+    }
+    summary.checks.push(
+      "GPS request suppression, stable DOM, observed movement, polling pause/resume, stop-change race, cached network fallback",
+    );
+
+    const reduced = await open({
+      reducedMotion: "reduce",
+      scenario: { corrupt: true },
+    });
+    try {
+      assert.equal(
+        await reduced.page
+          .locator(".arrival-track-position")
+          .first()
+          .evaluate((el) => getComputedStyle(el).transitionDuration),
+        "0s",
+      );
+      assert.equal(
+        await reduced.page.evaluate(
+          () =>
+            document
+              .querySelector("#arrival-live")
+              .getAnimations({ subtree: true }).length,
+        ),
+        0,
+      );
+      await layout(
+        reduced.page,
+        "reduced motion and corrupt saved preferences",
+      );
+      assert.deepEqual(reduced.errors, []);
+    } finally {
+      await reduced.context.close();
+    }
+    const denied = await open({ scenario: { gps: "denied" } });
+    try {
+      assert.match(
+        await denied.page.locator("#now-hero").textContent(),
+        /未乗車/,
+      );
+      assert.ok((await denied.page.locator(".arrival-line").count()) > 0);
+      await layout(denied.page, "location permission denied");
+      assert.deepEqual(denied.errors, []);
+    } finally {
+      await denied.context.close();
+    }
+    summary.checks.push(
+      "Reduced motion, corrupt local storage, and useful arrivals without location permission",
+    );
+
+    const functional = await open();
+    try {
+      const { page } = functional;
+      await page.locator('[data-tab="timetable"]').click();
+      await page.locator('[name="date"]').fill(date);
+      await page.locator('[name="time"]').fill("10:00");
+      await page.locator(".planner-submit").click();
+      await page.locator(".planner-result").first().waitFor();
+      assert.match(
+        await page.locator("#planner-results").textContent(),
+        /10:22/,
+      );
+      await layout(page, "Module Worker route search result");
+      await page.locator('[data-planner-view="board"]').click();
+      await page.locator("#timetable-search").fill("丸太町");
+      await page.locator('[data-timetable-stop="K07"]').click();
+      await page.locator(".minute-cell").first().waitFor();
+      await page.locator(".minute-cell").first().click();
+      await page.locator("#timetable-trip[open]").waitFor();
+      await layout(page, "station timetable detail sheet");
+      await page.locator("[data-close-trip]").click();
+      await page.locator('[data-tab="settings"]').click();
+      const checkbox = page.locator('[data-setting="passCityBus"]');
+      await checkbox.check();
+      assert.equal(
+        await page.evaluate(
+          () =>
+            JSON.parse(localStorage.getItem("mymap-vnext-settings"))
+              .passCityBus,
+        ),
+        true,
+      );
+      await page.locator('[data-tab="now"]').click();
+      await page.evaluate(() => {
+        const { state, settings, tokyoNow } = window.__state;
+        settings.autoDetect = false;
+        state.ride = {
+          operator: "subway",
+          from: "K07",
+          to: "K01",
+          destination: "国際会館",
+          category: "local",
+          direction: "north",
+          officialStops: [
+            { id: "K07", name: "丸太町", time: tokyoNow().minute - 1 },
+            { id: "K01", name: "国際会館", time: tokyoNow().minute + 10 },
+          ],
+        };
+        window.__view.renderNow();
+      });
+      await page.locator("#ride-foldback").click();
+      await page.locator("#foldback-sheet[open]").waitFor();
+      await layout(page, "foldback sheet");
+      await page.locator("[data-sheet-close]").click();
+      await page.locator("#ride-end").click();
+      assert.equal(await page.evaluate(() => window.__state.state.ride), null);
+      await page.evaluate(() => window.__emitPosition(34.984613, 135.758343));
+      await page
+        .locator("#kintetsu-arrival-card")
+        .waitFor({ state: "visible" });
+      await page.locator("#arrival-rail .arrival-line").first().waitFor();
+      await layout(page, "nearby Kintetsu arrival card");
+      assert.deepEqual(functional.errors, []);
+    } finally {
+      await functional.context.close();
+    }
+    summary.checks.push(
+      "Actual Module Web Worker search, station timetable/trip sheet, pass persistence, foldback sheet, end ride and contextual rail arrivals",
+    );
+
+    const foldScenario = {},
+      fold = await open({ scenario: foldScenario, clock: true });
+    try {
+      const { page } = fold;
+      await setRide(page);
+      const now = await page.evaluate(() => window.__state.tokyoNow().minute);
+      foldScenario.foldEntries = [1, 5, 15, 20, 40].map((offset, i) => ({
+        depart: now + offset,
+        category: i % 2 ? "express" : "local",
+        destination: i % 2 ? "大和西大寺" : "国際会館",
+        tripId: `fold-${i}`,
+      }));
+      assert.equal(
+        await page.locator('[data-view="now"]').getAttribute("data-context"),
+        "rail",
+      );
+      assert.match(await page.locator(".journey-delay").textContent(), /3分/);
+      const trainMarker = await page
+        .locator(".next-station-hero")
+        .elementHandle();
+      await page.evaluate(() => {
+        for (let i = 0; i < 5; i++) window.__view.renderNow();
+      });
+      assert.equal(
+        await trainMarker.evaluate(
+          (el) => el === document.querySelector(".next-station-hero"),
+        ),
+        true,
+      );
+      await page.locator("#ride-foldback").click();
+      await page.locator('[data-foldback-mode="train"]').click();
+      assert.ok(
+        (await page.locator("#target-station option").allTextContents()).some(
+          (name) => name.includes("京都"),
+        ),
+        "Terminus must be selectable",
+      );
+      await page.locator("#target-station").selectOption("K08");
+      await page.locator("[data-load-target-trains]").click();
+      await page.locator("[data-target-index]").first().waitFor();
+      assert.equal(fold.counts.boards.at(-1).direction, "north");
+      await page.locator('[data-target-index="0"]').click();
+      assert.match(await page.locator(".target-result").textContent(), /不足/);
+      assert.equal(
+        await page.locator("[data-save-foldback]").isDisabled(),
+        true,
+      );
+      await page.locator("#target-trains [data-load-target-trains]").click();
+      await page.locator('[data-target-index="2"]').waitFor();
+      await page.locator('[data-target-index="2"]').click();
+      assert.match(await page.locator(".target-result").textContent(), /確保/);
+      await layout(
+        page,
+        "selected opposite-direction train and transfer margin",
+      );
+      await page.screenshot({
+        path: resolve(artifacts, "foldback-selected.png"),
+        fullPage: true,
+        animations: "disabled",
+      });
+      await page.locator("[data-save-foldback]").click();
+      await page.locator(".foldback-plan").waitFor();
+      assert.equal(
+        await page.evaluate(() => window.__state.state.foldbackPlan.tripId),
+        "fold-2",
+      );
+      await page.evaluate(() => {
+        window.__state.state.rideShift = 12;
+        window.__view.renderNow();
+      });
+      assert.match(await page.locator(".foldback-plan").textContent(), /不足/);
+      await page.evaluate(() => {
+        window.__state.state.locationStatus = "unavailable";
+        window.__view.renderNow();
+      });
+      assert.equal(await page.locator(".journey-display").count(), 1);
+      assert.match(
+        await page.locator(".journey-location-status").textContent(),
+        /未取得/,
+      );
+      await page.evaluate(() => {
+        window.__state.state.locationStatus = "active";
+        window.__state.state.rideShift = 3;
+        window.__view.renderNow();
+      });
+      await page.locator("#ride-foldback").click();
+      await page.locator('[data-foldback-mode="station"]').click();
+      await page.locator("#fold-station").selectOption("K11");
+      await page.locator("[data-foldback-search]").click();
+      await page.locator("[data-target-index]").first().waitFor();
+      await layout(page, "foldback at the terminus");
+      assert.equal(fold.counts.boards.at(-1).stop, "K11");
+      assert.equal(fold.counts.boards.at(-1).direction, "north");
+      await page.locator("[data-foldback-home]").click();
+      await page.locator('[data-foldback-mode="train"]').click();
+      await page.locator("#target-station").selectOption("K08");
+      foldScenario.delayBoard = true;
+      foldScenario.waitForBoard = new Promise(
+        (resolve) => (foldScenario.releaseBoard = resolve),
+      );
+      await page.locator("[data-load-target-trains]").click();
+      await page.locator('#target-trains[aria-busy="true"]').waitFor();
+      await page.locator("#target-station").selectOption("K09");
+      foldScenario.releaseBoard();
+      foldScenario.delayBoard = false;
+      await page.clock.runFor(100);
+      assert.equal(
+        await page.locator("[data-target-index]").count(),
+        0,
+        "Changing station must discard the previous response",
+      );
+      foldScenario.missingReverse = true;
+      await page.locator("[data-load-target-trains]").click();
+      await page.waitForFunction(() =>
+        document
+          .querySelector("#target-trains")
+          .textContent.includes("反対方向の時刻表を取得できません"),
+      );
+      foldScenario.missingReverse = false;
+      foldScenario.failBoard = true;
+      await page.locator("[data-load-target-trains]").first().click();
+      await page.waitForFunction(() =>
+        document
+          .querySelector("#target-trains")
+          .textContent.includes("取得できませんでした"),
+      );
+      foldScenario.failBoard = false;
+      await page.locator("#target-trains [data-load-target-trains]").click();
+      await page.locator("[data-target-index]").first().waitFor();
+      await page.evaluate(() => {
+        window.__state.state.ride.officialStops[2].time = null;
+      });
+      await page.locator('[data-target-index="2"]').click();
+      assert.match(
+        await page.locator(".target-result").textContent(),
+        /確認できません/,
+      );
+      assert.equal(
+        await page.locator("[data-save-foldback]").isDisabled(),
+        true,
+      );
+      await page.locator("[data-sheet-close]").click();
+      await setRide(page, "citybus", false);
+      assert.equal(
+        await page.locator('[data-view="now"]').getAttribute("data-context"),
+        "bus",
+      );
+      assert.equal(await page.locator("#ride-foldback").count(), 0);
+      assert.equal(await page.locator("#network-panel").textContent(), "");
+      await page.locator("#ride-end").click();
+      assert.equal(
+        await page.locator('[data-view="now"]').getAttribute("data-context"),
+        "nearby",
+      );
+      assert.equal(
+        await page.evaluate(() => window.__state.state.foldbackPlan),
+        null,
+      );
+      await setRide(page, "kintetsu");
+      await page.evaluate(() => {
+        const { state } = window.__state;
+        state.ride.officialStops.forEach((stop) => (stop.time -= 8));
+        const point = state.geo.stops.find(
+          (s) => s.id === state.ride.officialStops[1].id,
+        );
+        window.__emitPosition(point.lat, point.lng);
+      });
+      assert.equal(
+        await page.evaluate(() => window.__state.state.rideShift),
+        6,
+        "Current GPS position must update the rail delay",
+      );
+      assert.match(await page.locator(".journey-delay").textContent(), /6分/);
+      assert.equal(
+        await page.locator(".journey-stop-list .current").count(),
+        1,
+      );
+      assert.deepEqual(fold.errors, []);
+    } finally {
+      foldScenario.releaseBoard?.();
+      await fold.context.close();
+    }
+    summary.checks.push(
+      "Favorite train selection and saving, terminus turnaround, margin changes with delay, missing times, underground continuity, reverse direction, stale request cancellation, retries and GPS-based rail delay",
+    );
+
+    const practicalFeed = {
+      ...subwayFeed,
+      services: [
+        ...subwayFeed.services,
+        {
+          id: "browser-reverse",
+          operator: "subway",
+          category: "local",
+          stops: ["K07", "K08", "K09"],
+          trips: [
+            {
+              id: "favorite-return",
+              date,
+              arrivals: [615, 620, 625],
+              departures: [615, 620, 625],
+              headsign: "四条",
+            },
+          ],
+        },
+      ],
+      stops: [
+        ...subwayFeed.stops,
+        { id: "K08", name: "烏丸御池" },
+        { id: "K09", name: "四条" },
+      ],
+    };
+    const practical = await open({
+      time: "2026-10-11T01:05:00Z",
+      scenario: { subwayFeed: practicalFeed },
+    });
+    try {
+      const { page } = practical;
+      await page.locator(".nearby-departures time").first().waitFor();
+      assert.match(
+        await page.locator(".nearby-departures").first().textContent(),
+        /10:05/,
+      );
+      await layout(page, "nearby official departures");
+      await page.screenshot({
+        path: resolve(artifacts, "nearby-departures.png"),
+        fullPage: true,
+        animations: "disabled",
+      });
+      await page.locator('[data-tab="timetable"]').click();
+      await page.locator(".planner-submit").click();
+      await page.locator("[data-board-route]").first().waitFor();
+      await page.locator("[data-board-route]").first().click();
+      await page.locator(".journey-display").waitFor();
+      assert.equal(
+        await page.locator('[data-view="now"]').getAttribute("data-context"),
+        "rail",
+      );
+      await page.reload();
+      await page.locator(".journey-display").waitFor();
+      assert.match(
+        await page.locator(".route-header").textContent(),
+        /国際会館/,
+      );
+      const favorite = await page.evaluate(async () => {
+        const search = new URL(
+          document.querySelector("script[type=module]").src,
+        ).search;
+        const m = await import(
+          new URL(`js/vnext-state.js${search}`, location.href)
+        );
+        const plan = {
+          rideKey: m.rideKey(m.state.ride),
+          stopId: "K07",
+          date: "2026-10-11",
+          day: "holiday",
+          depart: 615,
+          direction: "south",
+          destination: "四条",
+          buffer: 3,
+          tripId: "favorite-return",
+        };
+        m.state.foldbackPlan = plan;
+        m.persistJourney(true);
+        const view = await import(
+          new URL(`js/vnext-view.js${search}`, location.href)
+        );
+        view.renderNow();
+        return plan;
+      });
+      await page.reload();
+      await page.locator("[data-start-foldback]").waitFor();
+      assert.match(await page.locator(".foldback-plan").textContent(), /10:15/);
+      await layout(page, "restored favorite return train");
+      await page.locator("[data-start-foldback]").click();
+      await page.waitForFunction(() =>
+        document.querySelector(".route-header")?.textContent.includes("四条"),
+      );
+      assert.match(
+        await page.locator(".journey-stop-list").textContent(),
+        /烏丸御池/,
+      );
+      await page.screenshot({
+        path: resolve(artifacts, "return-journey.png"),
+        fullPage: true,
+        animations: "disabled",
+      });
+      assert.equal(
+        await page.evaluate(
+          () =>
+            JSON.parse(localStorage.getItem("mymap-active-journey-v1"))
+              .foldbackPlan,
+        ),
+        null,
+      );
+      await page.locator("#ride-end").click();
+      await page.reload();
+      await page.locator('[data-view="now"][data-context="nearby"]').waitFor();
+      assert.equal(
+        await page.evaluate(() =>
+          localStorage.getItem("mymap-active-journey-v1"),
+        ),
+        null,
+      );
+      await page.locator('[data-tab="timetable"]').click();
+      await page.locator('[data-planner-view="board"]').click();
+      await page.locator("#timetable-search").fill("丸太町");
+      await page.locator('[data-timetable-stop="K07"]').click();
+      await page.locator(".minute-cell").first().click();
+      await page.locator("[data-board-trip]").waitFor();
+      await layout(page, "manual boarding from official subway trip");
+      await page.locator("[data-board-trip]").click();
+      await page.locator(".journey-display").waitFor();
+      assert.equal(await page.locator("#timetable-trip[open]").count(), 0);
+      assert.deepEqual(practical.errors, []);
+    } finally {
+      await practical.context.close();
+    }
+    summary.checks.push(
+      "Manual boarding from route search and subway timetable, reload restoration, selected foldback restoration and return boarding, explicit end survives reload, nearby official departures",
+    );
+
+    if (server) {
+      const context = await browser.newContext({ serviceWorkers: "allow" }),
+        page = await context.newPage();
+      try {
+        await page.goto(`${base}/__sw-check`);
+        await page.evaluate(async () => {
+          await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+          await navigator.serviceWorker.ready;
+          if (!navigator.serviceWorker.controller)
+            await new Promise((resolve) =>
+              navigator.serviceWorker.addEventListener(
+                "controllerchange",
+                resolve,
+                { once: true },
+              ),
+            );
+        });
+        const before = serverRequests.get("/vnext-journey.css") ?? 0;
+        const assets = await page.evaluate(async () => {
+          const responses = await Promise.all([
+            fetch("/vnext-journey.css"),
+            fetch("/js/journey-core.js"),
+            fetch("/data/locations.json"),
+          ]);
+          return Promise.all(
+            responses.map(async (r) => ({
+              ok: r.ok,
+              bytes: (await r.text()).length,
+            })),
+          );
+        });
+        assert.ok(assets.every((r) => r.ok && r.bytes > 100));
+        assert.equal(
+          serverRequests.get("/vnext-journey.css"),
+          before,
+          "Precached assets must not be fetched again",
+        );
+        // WebKit's protocol offline mode can reject even SW-cached responses.
+        // Cut the actual origin connection in both engines instead, then prove
+        // an uncached request fails before checking the cached app shell.
+        originUnavailable = true;
+        assert.equal(
+          await page.evaluate(async () => {
+            try {
+              await fetch("/__network-check", { cache: "no-store" });
+              return true;
+            } catch {
+              return false;
+            }
+          }),
+          false,
+          "The origin must be unreachable during the offline checks",
+        );
+        assert.equal(
+          await page.evaluate(async () => {
+            const r = await fetch("/vnext-journey.css");
+            return r.ok && (await r.text()).includes(".journey-display");
+          }),
+          true,
+        );
+        await page.goto(base);
+        await page.locator("#now-hero .hero-card").waitFor();
+        await layout(page, "offline PWA navigation and app shell");
+      } finally {
+        originUnavailable = false;
+        await context.close();
+      }
+      summary.checks.push(
+        "Real Service Worker install, precached assets without extra network requests, offline CSS and offline app navigation",
+      );
+    }
+  }
+  // PDF v1.1: readable next station, through-service bridge, both North 3
+  // directions, Dynamic Type, station sheets and shared journey state.
+  for (const colorScheme of ["light", "dark"]) {
+    for (const textScale of [1, 1.5, 2]) {
+      const spec = await open({
+        colorScheme,
+        reducedMotion: "reduce",
+        time: "2026-10-13T01:01:00Z",
+      });
+      try {
+        const { page } = spec;
+        await page.evaluate(
+          (scale) =>
+            (document.documentElement.style.fontSize = `${16 * scale}px`),
+          textScale,
+        );
+        await page.evaluate(() => {
+          const { state, settings } = window.__state;
+          settings.autoDetect = false;
+          const ids = ["K08", "K09", "K10", "K11", "K12", "K13", "K14", "K15"];
+          state.ride = {
+            operator: "subway",
+            category: "local",
+            destination: "竹田",
+            from: ids[0],
+            to: ids.at(-1),
+            depart: 600,
+            userDestination: { id: "K11" },
+            officialStops: ids.map((id, i) => ({
+              id,
+              name: state.network.stops.get(id).name,
+              time: 600 + i * 2,
+              departure: 600 + i * 2,
+            })),
+          };
+          state.heroObservation = null;
+          state.rideShift = 0;
+          state.rideShiftKnown = false;
+          state.fix = null;
+          state.locationStatus = "denied";
+          window.__view.renderNow();
+        });
+        assert.equal(
+          await page.locator(".journey-display").getAttribute("data-phase"),
+          "APPROACHING",
+        );
+        assert.match(
+          await page.locator(".journey-next-name").textContent(),
+          /四条/,
+        );
+        assert.match(
+          await page.locator(".next-state-label").textContent(),
+          /まもなく/,
+        );
+        assert.match(
+          await page.locator(".next-station-hero").getAttribute("aria-label"),
+          /四条 K09.*目的地京都/,
+        );
+        const dimensions = await page
+          .locator(".personal-destination")
+          .evaluate((el) => ({
+            bottom: el.getBoundingClientRect().bottom,
+            viewport: innerHeight,
+            hero: el.closest(".journey-display").className,
+          }));
+        const fit = dimensions.bottom < dimensions.viewport - 75;
+        if (!fit)
           await page.screenshot({
-            path: resolve(artifacts, `now-${colorScheme}.png`),
+            path: resolve(
+              artifacts,
+              `hero-overflow-${colorScheme}-${textScale}x.png`,
+            ),
             fullPage: true,
             animations: "disabled",
           });
-        for (const [operator, known] of [
-          ["subway", true],
-          ["kintetsu", true],
-          ["through", true],
-          ["citybus", true],
-          ["citybus", false],
-        ]) {
-          await setRide(page, operator, known);
-          await layout(
-            page,
-            `${width} ${colorScheme} onboard ${operator} ${known ? "timed" : "unknown times"}`,
-          );
+        assert.equal(
+          fit,
+          true,
+          `Next station and personal destination fit together at ${textScale}x: ${JSON.stringify(dimensions)}`,
+        );
+        await page.locator('[data-station-detail="K09"]').first().click();
+        await page.locator("#context-sheet[open]").waitFor();
+        await layout(page, `PDF station sheet ${colorScheme} ${textScale}x`);
+        await page.locator('[data-choose-destination="K09"]').click();
+        assert.match(
+          await page.locator(".next-state-label").textContent(),
+          /次で降ります/,
+        );
+        await page.evaluate(() => {
+          window.__state.state.ride.userDestination = { id: "K11" };
+          window.__view.renderNow();
+        });
+        await layout(page, `PDF LCD ${colorScheme} ${textScale}x`);
+        await page.locator('[data-context-action="delay"]').click();
+        await layout(page, `PDF delay evidence ${colorScheme} ${textScale}x`);
+        await page.locator("[data-context-close]").click();
+        for (const direction of ["south", "north"]) {
+          await page.evaluate((direction) => {
+            const { state } = window.__state,
+              ids =
+                direction === "south"
+                  ? ["K14", "K15", "B06", "B07"]
+                  : ["B06", "K15", "K14", "K13"];
+            state.ride = {
+              operator: "through",
+              direction,
+              category: "local",
+              destination: direction === "south" ? "大和西大寺" : "国際会館",
+              from: ids[0],
+              to: ids.at(-1),
+              officialStops: ids.map((id, i) => ({
+                id,
+                name: state.network.stops.get(id).name,
+                time: 599 + i * 3,
+                departure: 599 + i * 3,
+              })),
+            };
+            state.heroObservation = null;
+            window.__view.renderNow();
+          }, direction);
           assert.equal(
-            await page.locator("#ride-foldback").count(),
-            operator.includes("bus") ? 0 : 1,
+            await page
+              .locator(".journey-display")
+              .getAttribute("data-train-state"),
+            "LINE_BOUNDARY",
           );
           assert.match(
-            await page.locator(".journey-stop-list").textContent(),
-            known ? /予定/ : /時刻未取得/,
+            await page.locator(".station-code").textContent(),
+            /K15.*B05|B05.*K15/,
           );
-          if (
-            width === 390 &&
-            ["subway", "citybus"].includes(operator) &&
-            known
-          )
+          await layout(
+            page,
+            `PDF Takeda ${direction} ${colorScheme} ${textScale}x`,
+          );
+        }
+        for (const reverse of [false, true]) {
+          await page.evaluate(async (reverse) => {
+            const { state, tokyoNow } = window.__state,
+              search = new URL(
+                document.querySelector("script[type=module]").src,
+              ).search;
+            const m = await import(
+              new URL(`js/north3-feed.js${search}`, location.href)
+            );
+            const snapshot = await m.loadNorth3Snapshot(),
+              feed = m.north3Feed(snapshot, state.network, tokyoNow().date, {
+                schoolDay: true,
+              }),
+              service = feed.services[reverse ? 1 : 0],
+              trip = service.trips.find((t) => t.departures[0] >= 600);
+            state.ride = {
+              operator: "citybus",
+              route: "北3",
+              operatingCompany: "kyotobus",
+              operatingConditions: { schoolDayRequired: true },
+              from: service.stops[0],
+              to: service.stops.at(-1),
+              destination: trip.headsign,
+              userDestination: { id: service.stops[6] },
+              officialStops: service.stops.map((id, i) => ({
+                id,
+                name: state.network.stops.get(id).name,
+                time: trip.arrivals[i],
+                departure: trip.departures[i],
+                estimated: i === 9,
+              })),
+            };
+            state.busTrail = [];
+            state.heroObservation = null;
+            state.busLive = null;
+            state.rideShift = 0;
+            state.fix = null;
+            window.__view.renderNow();
+          }, reverse);
+          assert.match(
+            await page.locator(".route-header").textContent(),
+            /北3.*North 3.*京都バス/,
+          );
+          assert.equal(
+            await page.locator(".journey-stop-list > li").count(),
+            10,
+          );
+          assert.equal(await page.locator("#ride-foldback").count(), 0);
+          await layout(
+            page,
+            `PDF North 3 ${reverse ? "inbound" : "outbound"} ${colorScheme} ${textScale}x`,
+          );
+          if (textScale === 1)
             await page.screenshot({
-              path: resolve(artifacts, `${operator}-${colorScheme}.png`),
+              path: resolve(
+                artifacts,
+                `north3-${reverse ? "inbound" : "outbound"}-${colorScheme}.png`,
+              ),
               fullPage: true,
               animations: "disabled",
             });
         }
-        await setRide(page);
-        await page.locator("#ride-foldback").click();
-        await layout(page, `${width} ${colorScheme} foldback choice sheet`);
-        await page.locator('[data-foldback-mode="train"]').click();
-        await page.locator("#target-station").selectOption("K08");
-        const now = await page.evaluate(() => window.__state.tokyoNow().minute);
-        scenario.foldEntries = [
-          {
-            depart: now + 20,
-            category: "express",
-            destination: "大和西大寺・京都線経由",
-            tripId: "layout-train",
-          },
-        ];
-        await page.locator("[data-load-target-trains]").click();
-        await page.locator("[data-target-index]").first().waitFor();
-        await layout(page, `${width} ${colorScheme} foldback train list`);
-        await page.locator("[data-target-index]").first().click();
-        await layout(page, `${width} ${colorScheme} foldback result`);
-        await page.locator("[data-sheet-close]").click();
-        assert.deepEqual(errors, [], `${width} ${colorScheme} page errors`);
+        const touch = await page.evaluate(() =>
+          [...document.querySelectorAll("button")]
+            .filter(
+              (el) =>
+                el.getBoundingClientRect().width &&
+                el.getBoundingClientRect().height,
+            )
+            .filter((el) => {
+              const r = el.getBoundingClientRect();
+              return r.width < 44 || r.height < 44;
+            })
+            .map((el) => el.className),
+        );
+        assert.deepEqual(
+          touch,
+          [],
+          `44px touch targets ${colorScheme} ${textScale}x`,
+        );
+        assert.deepEqual(spec.errors, []);
       } finally {
-        await context.close();
+        await spec.context.close();
       }
     }
-  summary.checks.push(
-    "182 responsive layout checks; both themes, 4 tabs, stop picker, subway, Kintetsu, through, bus and all foldback steps",
-  );
-
-  const scenario = { stopsAway: 4 };
-  const { context, page, counts, errors } = await open({
-    scenario,
-    clock: true,
-  });
-  try {
-    await page.evaluate(() => {
-      window.__rows = [
-        ...document.querySelectorAll("#arrival-live .arrival-line"),
-      ];
-      window.__rowMutations = 0;
-      window.__observer = new MutationObserver(
-        (items) => (window.__rowMutations += items.length),
-      );
-      window.__observer.observe(document.querySelector("#arrival-live"), {
-        childList: true,
-        characterData: true,
-        subtree: true,
-      });
-    });
-    const start = counts.bus;
-    for (let i = 0; i < 10; i++) {
-      await page.evaluate(() => window.__emitPosition());
-      await page.clock.runFor(100);
-    }
-    assert.equal(
-      counts.bus,
-      start,
-      "GPS updates must not trigger arrival requests",
-    );
-    await page.clock.runFor(20000);
-    await page.waitForFunction(
-      () => !document.querySelector("#arrival-live").hasAttribute("aria-busy"),
-    );
-    assert.equal(
-      counts.bus,
-      start + 1,
-      "Exactly one foreground refresh per interval",
-    );
-    assert.equal(
-      await page.evaluate(() => window.__rowMutations),
-      0,
-      "Timestamp-only responses must not replace any row content",
-    );
-    assert.equal(
-      await page.evaluate(() =>
-        window.__rows.every(
-          (el, i) =>
-            el === document.querySelectorAll("#arrival-live .arrival-line")[i],
-        ),
-      ),
-      true,
-    );
-    const marker = await page
-      .locator(".arrival-track-position")
-      .first()
-      .elementHandle();
-    scenario.stopsAway = 2;
-    await page.clock.runFor(20000);
-    await page.waitForFunction(
-      () => !document.querySelector("#arrival-live").hasAttribute("aria-busy"),
-    );
-    assert.equal(
-      await marker.evaluate(
-        (el) => el === document.querySelector(".arrival-track-position"),
-      ),
-      true,
-      "Observed movement must preserve the marker",
-    );
-    await page.waitForFunction(() =>
-      document
-        .querySelector(".arrival-approach:not([hidden])")
-        .style.getPropertyValue("--approach-position")
-        .startsWith("66.666"),
-    );
-    assert.match(
-      await page
-        .locator(".arrival-approach:not([hidden])")
-        .first()
-        .getAttribute("style"),
-      /66\.666/,
-    );
-    assert.equal(
-      await page
-        .locator(".arrival-line")
-        .filter({ has: page.locator('[aria-label^="204（高野"]') })
-        .locator(".arrival-minutes")
-        .textContent(),
-      "2停留所前6停留所前",
-    );
-    const beforeHidden = counts.bus;
-    await page.locator('[data-tab="settings"]').click();
-    await page.clock.runFor(60000);
-    assert.equal(
-      counts.bus,
-      beforeHidden,
-      "Other tabs must pause arrival polling",
-    );
-    await page.locator('[data-tab="now"]').click();
-    await page.clock.runFor(10);
-    await page.waitForFunction(
-      () => !document.querySelector("#arrival-live").hasAttribute("aria-busy"),
-    );
-    assert.equal(counts.bus, beforeHidden + 1);
-    // Switching stops aborts old work and prevents stale results under the new name.
-    scenario.delayStop = "山越中町";
-    scenario.waitForStop = new Promise(
-      (resolve) => (scenario.releaseStop = resolve),
-    );
-    await page.locator("[data-arrival-change]").click();
-    await page.locator("#arrival-stop-search").fill("山越中町");
-    await page.locator("[data-arrival-stop]").first().click();
-    await page.clock.runFor(10);
-    await page.locator("[data-arrival-change]").click();
-    await page.locator("#arrival-stop-search").fill("京都駅前");
-    await page.locator("[data-arrival-stop]").first().click();
-    await page.clock.runFor(100);
-    await page.waitForFunction(
-      () => window.__state.state.busLive?.stop === "京都駅前",
-    );
-    scenario.releaseStop();
-    await page.clock.runFor(100);
-    assert.equal(
-      await page.evaluate(() => window.__state.state.busLive.stop),
-      "京都駅前",
-    );
-    scenario.failBus = true;
-    await page.clock.runFor(20000);
-    await page.waitForFunction(() =>
-      document.querySelector("#bus-update-status").textContent.includes("予測"),
-    );
-    assert.ok(
-      (await page.locator("#arrival-live .arrival-line").count()) > 0,
-      "Network failure must preserve cached arrivals",
-    );
-    assert.deepEqual(errors, []);
-    report.push({
-      gpsUpdates: 10,
-      extraGpsRequests: 0,
-      unchangedRowMutations: 0,
-      foregroundInterval: 20000,
-    });
-  } finally {
-    scenario.releaseStop?.();
-    await context.close();
   }
   summary.checks.push(
-    "GPS request suppression, stable DOM, observed movement, polling pause/resume, stop-change race, cached network fallback",
+    "PDF v1.1 LCD hero, both Takeda directions, both North 3 directions, 100–200% text sizing, station/delay sheets, 44px touch targets",
   );
-
-  const reduced = await open({
-    reducedMotion: "reduce",
-    scenario: { corrupt: true },
-  });
-  try {
-    assert.equal(
-      await reduced.page
-        .locator(".arrival-track-position")
-        .first()
-        .evaluate((el) => getComputedStyle(el).transitionDuration),
-      "0s",
-    );
-    assert.equal(
-      await reduced.page.evaluate(
-        () =>
-          document
-            .querySelector("#arrival-live")
-            .getAnimations({ subtree: true }).length,
-      ),
-      0,
-    );
-    await layout(reduced.page, "reduced motion and corrupt saved preferences");
-    assert.deepEqual(reduced.errors, []);
-  } finally {
-    await reduced.context.close();
-  }
-  const denied = await open({ scenario: { gps: "denied" } });
-  try {
-    assert.match(await denied.page.locator("#now-hero").textContent(), /許可/);
-    assert.ok((await denied.page.locator(".arrival-line").count()) > 0);
-    await layout(denied.page, "location permission denied");
-    assert.deepEqual(denied.errors, []);
-  } finally {
-    await denied.context.close();
-  }
-  summary.checks.push(
-    "Reduced motion, corrupt local storage, and useful arrivals without location permission",
-  );
-
-  const functional = await open();
-  try {
-    const { page } = functional;
-    await page.locator('[data-tab="timetable"]').click();
-    await page.locator('[name="date"]').fill(date);
-    await page.locator('[name="time"]').fill("10:00");
-    await page.locator(".planner-submit").click();
-    await page.locator(".planner-result").first().waitFor();
-    assert.match(await page.locator("#planner-results").textContent(), /10:22/);
-    await layout(page, "Module Worker route search result");
-    await page.locator('[data-planner-view="board"]').click();
-    await page.locator("#timetable-search").fill("丸太町");
-    await page.locator('[data-timetable-stop="K07"]').click();
-    await page.locator(".minute-cell").first().waitFor();
-    await page.locator(".minute-cell").first().click();
-    await page.locator("#timetable-trip[open]").waitFor();
-    await layout(page, "station timetable detail sheet");
-    await page.locator("[data-close-trip]").click();
-    await page.locator('[data-tab="settings"]').click();
-    const checkbox = page.locator('[data-setting="passCityBus"]');
-    await checkbox.check();
-    assert.equal(
-      await page.evaluate(
-        () =>
-          JSON.parse(localStorage.getItem("mymap-vnext-settings")).passCityBus,
-      ),
-      true,
-    );
-    await page.locator('[data-tab="now"]').click();
-    await page.evaluate(() => {
-      const { state, settings, tokyoNow } = window.__state;
-      settings.autoDetect = false;
-      state.ride = {
-        operator: "subway",
-        from: "K07",
-        to: "K01",
-        destination: "国際会館",
-        category: "local",
-        direction: "north",
-        officialStops: [
-          { id: "K07", name: "丸太町", time: tokyoNow().minute - 1 },
-          { id: "K01", name: "国際会館", time: tokyoNow().minute + 10 },
-        ],
-      };
-      window.__view.renderNow();
-    });
-    await page.locator("#ride-foldback").click();
-    await page.locator("#foldback-sheet[open]").waitFor();
-    await layout(page, "foldback sheet");
-    await page.locator("[data-sheet-close]").click();
-    await page.locator("#ride-end").click();
-    assert.equal(await page.evaluate(() => window.__state.state.ride), null);
-    await page.evaluate(() => window.__emitPosition(34.984613, 135.758343));
-    await page.locator("#kintetsu-arrival-card").waitFor({ state: "visible" });
-    await page.locator("#arrival-rail .arrival-line").first().waitFor();
-    await layout(page, "nearby Kintetsu arrival card");
-    assert.deepEqual(functional.errors, []);
-  } finally {
-    await functional.context.close();
-  }
-  summary.checks.push(
-    "Actual Module Web Worker search, station timetable/trip sheet, pass persistence, foldback sheet, end ride and contextual rail arrivals",
-  );
-
-  const foldScenario = {},
-    fold = await open({ scenario: foldScenario, clock: true });
-  try {
-    const { page } = fold;
-    await setRide(page);
-    const now = await page.evaluate(() => window.__state.tokyoNow().minute);
-    foldScenario.foldEntries = [1, 5, 15, 20, 40].map((offset, i) => ({
-      depart: now + offset,
-      category: i % 2 ? "express" : "local",
-      destination: i % 2 ? "大和西大寺" : "国際会館",
-      tripId: `fold-${i}`,
-    }));
-    assert.equal(
-      await page.locator('[data-view="now"]').getAttribute("data-context"),
-      "rail",
-    );
-    assert.match(await page.locator(".journey-delay").textContent(), /3分/);
-    const trainMarker = await page
-      .locator(".journey-track-line>span")
-      .elementHandle();
-    await page.evaluate(() => {
-      for (let i = 0; i < 5; i++) window.__view.renderNow();
-    });
-    assert.equal(
-      await trainMarker.evaluate(
-        (el) => el === document.querySelector(".journey-track-line>span"),
-      ),
-      true,
-    );
-    await page.locator("#ride-foldback").click();
-    await page.locator('[data-foldback-mode="train"]').click();
-    assert.ok(
-      (await page.locator("#target-station option").allTextContents()).some(
-        (name) => name.includes("京都"),
-      ),
-      "Terminus must be selectable",
-    );
-    await page.locator("#target-station").selectOption("K08");
-    await page.locator("[data-load-target-trains]").click();
-    await page.locator("[data-target-index]").first().waitFor();
-    assert.equal(fold.counts.boards.at(-1).direction, "north");
-    await page.locator('[data-target-index="0"]').click();
-    assert.match(await page.locator(".target-result").textContent(), /不足/);
-    assert.equal(await page.locator("[data-save-foldback]").isDisabled(), true);
-    await page.locator("#target-trains [data-load-target-trains]").click();
-    await page.locator('[data-target-index="2"]').waitFor();
-    await page.locator('[data-target-index="2"]').click();
-    assert.match(await page.locator(".target-result").textContent(), /確保/);
-    await layout(page, "selected opposite-direction train and transfer margin");
-    await page.screenshot({
-      path: resolve(artifacts, "foldback-selected.png"),
-      fullPage: true,
-      animations: "disabled",
-    });
-    await page.locator("[data-save-foldback]").click();
-    await page.locator(".foldback-plan").waitFor();
-    assert.equal(
-      await page.evaluate(() => window.__state.state.foldbackPlan.tripId),
-      "fold-2",
-    );
-    await page.evaluate(() => {
-      window.__state.state.rideShift = 12;
-      window.__view.renderNow();
-    });
-    assert.match(await page.locator(".foldback-plan").textContent(), /不足/);
-    await page.evaluate(() => {
-      window.__state.state.locationStatus = "unavailable";
-      window.__view.renderNow();
-    });
-    assert.equal(await page.locator(".journey-display").count(), 1);
-    assert.match(
-      await page.locator(".journey-location-status").textContent(),
-      /復帰/,
-    );
-    await page.evaluate(() => {
-      window.__state.state.locationStatus = "active";
-      window.__state.state.rideShift = 3;
-      window.__view.renderNow();
-    });
-    await page.locator("#ride-foldback").click();
-    await page.locator('[data-foldback-mode="station"]').click();
-    await page.locator("#fold-station").selectOption("K11");
-    await page.locator("[data-foldback-search]").click();
-    await page.locator("[data-target-index]").first().waitFor();
-    await layout(page, "foldback at the terminus");
-    assert.equal(fold.counts.boards.at(-1).stop, "K11");
-    assert.equal(fold.counts.boards.at(-1).direction, "north");
-    await page.locator("[data-foldback-home]").click();
-    await page.locator('[data-foldback-mode="train"]').click();
-    await page.locator("#target-station").selectOption("K08");
-    foldScenario.delayBoard = true;
-    foldScenario.waitForBoard = new Promise(
-      (resolve) => (foldScenario.releaseBoard = resolve),
-    );
-    await page.locator("[data-load-target-trains]").click();
-    await page.locator('#target-trains[aria-busy="true"]').waitFor();
-    await page.locator("#target-station").selectOption("K09");
-    foldScenario.releaseBoard();
-    foldScenario.delayBoard = false;
-    await page.clock.runFor(100);
-    assert.equal(
-      await page.locator("[data-target-index]").count(),
-      0,
-      "Changing station must discard the previous response",
-    );
-    foldScenario.missingReverse = true;
-    await page.locator("[data-load-target-trains]").click();
-    await page.waitForFunction(() =>
-      document
-        .querySelector("#target-trains")
-        .textContent.includes("反対方向の時刻表を取得できません"),
-    );
-    foldScenario.missingReverse = false;
-    foldScenario.failBoard = true;
-    await page.locator("[data-load-target-trains]").first().click();
-    await page.waitForFunction(() =>
-      document
-        .querySelector("#target-trains")
-        .textContent.includes("取得できませんでした"),
-    );
-    foldScenario.failBoard = false;
-    await page.locator("#target-trains [data-load-target-trains]").click();
-    await page.locator("[data-target-index]").first().waitFor();
-    await page.evaluate(() => {
-      window.__state.state.ride.officialStops[2].time = null;
-    });
-    await page.locator('[data-target-index="2"]').click();
-    assert.match(
-      await page.locator(".target-result").textContent(),
-      /確認できません/,
-    );
-    assert.equal(await page.locator("[data-save-foldback]").isDisabled(), true);
-    await page.locator("[data-sheet-close]").click();
-    await setRide(page, "citybus", false);
-    assert.equal(
-      await page.locator('[data-view="now"]').getAttribute("data-context"),
-      "bus",
-    );
-    assert.equal(await page.locator("#ride-foldback").count(), 0);
-    assert.equal(await page.locator("#network-panel").textContent(), "");
-    await page.locator("#ride-end").click();
-    assert.equal(
-      await page.locator('[data-view="now"]').getAttribute("data-context"),
-      "nearby",
-    );
-    assert.equal(
-      await page.evaluate(() => window.__state.state.foldbackPlan),
-      null,
-    );
-    await setRide(page, "kintetsu");
-    await page.evaluate(() => {
-      const { state } = window.__state;
-      state.ride.officialStops.forEach((stop) => (stop.time -= 8));
-      const point = state.geo.stops.find(
-        (s) => s.id === state.ride.officialStops[1].id,
-      );
-      window.__emitPosition(point.lat, point.lng);
-    });
-    assert.equal(
-      await page.evaluate(() => window.__state.state.rideShift),
-      6,
-      "Current GPS position must update the rail delay",
-    );
-    assert.match(await page.locator(".journey-delay").textContent(), /6分/);
-    assert.equal(await page.locator(".journey-stop-list .current").count(), 1);
-    assert.deepEqual(fold.errors, []);
-  } finally {
-    foldScenario.releaseBoard?.();
-    await fold.context.close();
-  }
-  summary.checks.push(
-    "Favorite train selection and saving, terminus turnaround, margin changes with delay, missing times, underground continuity, reverse direction, stale request cancellation, retries and GPS-based rail delay",
-  );
-
-  const practicalFeed = {
-    ...subwayFeed,
-    services: [
-      ...subwayFeed.services,
-      {
-        id: "browser-reverse",
-        operator: "subway",
-        category: "local",
-        stops: ["K07", "K08", "K09"],
-        trips: [
-          {
-            id: "favorite-return",
-            date,
-            arrivals: [615, 620, 625],
-            departures: [615, 620, 625],
-            headsign: "四条",
-          },
-        ],
-      },
-    ],
-    stops: [
-      ...subwayFeed.stops,
-      { id: "K08", name: "烏丸御池" },
-      { id: "K09", name: "四条" },
-    ],
-  };
-  const practical = await open({
-    time: "2026-10-11T01:05:00Z",
-    scenario: { subwayFeed: practicalFeed },
-  });
-  try {
-    const { page } = practical;
-    await page.locator(".nearby-departures time").first().waitFor();
-    assert.match(
-      await page.locator(".nearby-departures").first().textContent(),
-      /10:05/,
-    );
-    await layout(page, "nearby official departures");
-    await page.screenshot({
-      path: resolve(artifacts, "nearby-departures.png"),
-      fullPage: true,
-      animations: "disabled",
-    });
-    await page.locator('[data-tab="timetable"]').click();
-    await page.locator(".planner-submit").click();
-    await page.locator("[data-board-route]").first().waitFor();
-    await page.locator("[data-board-route]").first().click();
-    await page.locator(".journey-display").waitFor();
-    assert.equal(
-      await page.locator('[data-view="now"]').getAttribute("data-context"),
-      "rail",
-    );
-    await page.reload();
-    await page.locator(".journey-display").waitFor();
-    assert.match(
-      await page.locator(".service-title").textContent(),
-      /国際会館/,
-    );
-    const favorite = await page.evaluate(async () => {
-      const search = new URL(document.querySelector("script[type=module]").src)
-        .search;
-      const m = await import(
-        new URL(`js/vnext-state.js${search}`, location.href)
-      );
-      const plan = {
-        rideKey: m.rideKey(m.state.ride),
-        stopId: "K07",
-        date: "2026-10-11",
-        day: "holiday",
-        depart: 615,
-        direction: "south",
-        destination: "四条",
-        buffer: 3,
-        tripId: "favorite-return",
-      };
-      m.state.foldbackPlan = plan;
-      m.persistJourney(true);
-      const view = await import(
-        new URL(`js/vnext-view.js${search}`, location.href)
-      );
-      view.renderNow();
-      return plan;
-    });
-    await page.reload();
-    await page.locator("[data-start-foldback]").waitFor();
-    assert.match(await page.locator(".foldback-plan").textContent(), /10:15/);
-    await layout(page, "restored favorite return train");
-    await page.locator("[data-start-foldback]").click();
-    await page.waitForFunction(() =>
-      document.querySelector(".service-title")?.textContent.includes("四条"),
-    );
-    assert.match(
-      await page.locator(".journey-stop-list").textContent(),
-      /烏丸御池/,
-    );
-    await page.screenshot({
-      path: resolve(artifacts, "return-journey.png"),
-      fullPage: true,
-      animations: "disabled",
-    });
-    assert.equal(
-      await page.evaluate(
-        () =>
-          JSON.parse(localStorage.getItem("mymap-active-journey-v1"))
-            .foldbackPlan,
-      ),
-      null,
-    );
-    await page.locator("#ride-end").click();
-    await page.reload();
-    await page.locator('[data-view="now"][data-context="nearby"]').waitFor();
-    assert.equal(
-      await page.evaluate(() =>
-        localStorage.getItem("mymap-active-journey-v1"),
-      ),
-      null,
-    );
-    await page.locator('[data-tab="timetable"]').click();
-    await page.locator('[data-planner-view="board"]').click();
-    await page.locator("#timetable-search").fill("丸太町");
-    await page.locator('[data-timetable-stop="K07"]').click();
-    await page.locator(".minute-cell").first().click();
-    await page.locator("[data-board-trip]").waitFor();
-    await layout(page, "manual boarding from official subway trip");
-    await page.locator("[data-board-trip]").click();
-    await page.locator(".journey-display").waitFor();
-    assert.equal(await page.locator("#timetable-trip[open]").count(), 0);
-    assert.deepEqual(practical.errors, []);
-  } finally {
-    await practical.context.close();
-  }
-  summary.checks.push(
-    "Manual boarding from route search and subway timetable, reload restoration, selected foldback restoration and return boarding, explicit end survives reload, nearby official departures",
-  );
-
-  if (server) {
-    const context = await browser.newContext({ serviceWorkers: "allow" }),
-      page = await context.newPage();
-    try {
-      await page.goto(`${base}/__sw-check`);
-      await page.evaluate(async () => {
-        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-        await navigator.serviceWorker.ready;
-        if (!navigator.serviceWorker.controller)
-          await new Promise((resolve) =>
-            navigator.serviceWorker.addEventListener(
-              "controllerchange",
-              resolve,
-              { once: true },
-            ),
-          );
-      });
-      const before = serverRequests.get("/vnext-journey.css") ?? 0;
-      const assets = await page.evaluate(async () => {
-        const responses = await Promise.all([
-          fetch("/vnext-journey.css"),
-          fetch("/js/journey-core.js"),
-          fetch("/data/locations.json"),
-        ]);
-        return Promise.all(
-          responses.map(async (r) => ({
-            ok: r.ok,
-            bytes: (await r.text()).length,
-          })),
-        );
-      });
-      assert.ok(assets.every((r) => r.ok && r.bytes > 100));
-      assert.equal(
-        serverRequests.get("/vnext-journey.css"),
-        before,
-        "Precached assets must not be fetched again",
-      );
-      // WebKit's protocol offline mode can reject even SW-cached responses.
-      // Cut the actual origin connection in both engines instead, then prove
-      // an uncached request fails before checking the cached app shell.
-      originUnavailable = true;
-      assert.equal(
-        await page.evaluate(async () => {
-          try {
-            await fetch("/__network-check", { cache: "no-store" });
-            return true;
-          } catch {
-            return false;
-          }
-        }),
-        false,
-        "The origin must be unreachable during the offline checks",
-      );
-      assert.equal(
-        await page.evaluate(async () => {
-          const r = await fetch("/vnext-journey.css");
-          return r.ok && (await r.text()).includes(".journey-display");
-        }),
-        true,
-      );
-      await page.goto(base);
-      await page.locator("#now-hero .hero-card").waitFor();
-      await layout(page, "offline PWA navigation and app shell");
-    } finally {
-      originUnavailable = false;
-      await context.close();
-    }
-    summary.checks.push(
-      "Real Service Worker install, precached assets without extra network requests, offline CSS and offline app navigation",
-    );
-  }
   summary.performance = report;
   await writeFile(
     resolve(artifacts, "report.json"),

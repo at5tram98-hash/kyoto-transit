@@ -1,3 +1,4 @@
+import { matchArmedJourney } from "./ride-state-resolver.js";
 import { kintetsuIds } from "./network.js";
 import { distance, segmentDistance } from "./mobility.js";
 import {
@@ -305,6 +306,9 @@ function mergeCandidates(...groups) {
 function applyRide(candidate) {
   const changed = rideKey(state.ride) !== rideKey(candidate.ride);
   state.ride = candidate.ride;
+  state.armedJourney = null;
+  state.heroObservation = null;
+  if (changed) state.delayHistory = [];
   state.rideSource = candidate.source;
   state.rideConfidence = candidate.score;
   state.lastRideSeenAt = Date.now();
@@ -417,9 +421,11 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       candidates = mergeCandidates(city, kyoto);
     }
     if (generation !== detectionGeneration || state.ride) return;
-    const decision = consensus.update(candidates, state.fix.timestamp);
+    candidates = matchArmedJourney(candidates, state.armedJourney, tokyoNow().minute);
+    const eligible = state.armedJourney ? candidates.filter(c=>c.armedMatch) : candidates;
+    const decision = consensus.update(eligible, state.fix.timestamp);
     state.rideConsensusCount = decision.count;
-    state.rideCandidates = decision.ambiguous ? decision.candidates : [];
+    state.rideCandidates = decision.confirmed ? [] : decision.candidates.length ? decision.candidates : candidates;
     if (decision.confirmed) {
       const selected =
         candidates.find(

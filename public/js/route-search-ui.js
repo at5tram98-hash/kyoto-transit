@@ -1,3 +1,4 @@
+import { readSearchPairs, saveSearchPair } from "./search-history.js";
 import { CAPTURE_API } from "./live.js";
 import { normalize } from "./network.js";
 import { formatTime } from "./router.js";
@@ -5,6 +6,7 @@ import { scheduledJourney, boardingAvailable } from "./journey-session.js";
 import { applyRealtime, mergeTimetableFeeds } from "./search-core.js";
 import { getCached, putCached } from "./realtime.js";
 import { relevantMissingOperators } from "./arrival-stability.js";
+import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
 
 const esc = (s) =>
   String(s ?? "").replace(
@@ -24,6 +26,13 @@ const operatorLabel = {
   through: "烏丸線・近鉄直通",
   citybus: "京都市バス",
   kyotobus: "京都バス",
+};
+const searchStorage = () => {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return null;
+  }
 };
 let plannerSequence = 0;
 async function api(path, params = {}, signal) {
@@ -100,7 +109,7 @@ async function loadOneFeed(operator, date, signal) {
     throw error;
   }
 }
-async function loadFeeds(date, signal) {
+async function loadFeeds(date, signal, network) {
   const operators = ["subway", "kintetsu", "citybus", "kyotobus"],
     feeds = [],
     missing = [],
@@ -116,6 +125,12 @@ async function loadFeeds(date, signal) {
       }
     }),
   );
+  if (!feeds.some((f) => f.services?.some((s) => s.route === "北3"))) {
+    try {
+      const local = north3Feed(await loadNorth3Snapshot(), network, date);
+      if (local) feeds.push(local);
+    } catch {}
+  }
   return { feeds, missing, cached };
 }
 async function loadRealtime(network, request, signal) {
@@ -197,7 +212,7 @@ async function planInWorker(base, feeds, request, passes, signal) {
     worker.postMessage({ id, ...payload });
   });
 }
-function routeHTML(route, network, rides = [], routeIndex = 0) {
+function routeHTML(route, network, rides = [], routeIndex = 0, current) {
   const name = (id) => network.stops.get(id)?.name ?? id,
     source = route.realtimeSource ?? "schedule";
   const legs = route.legs
@@ -216,12 +231,19 @@ function routeHTML(route, network, rides = [], routeIndex = 0) {
               ? "普通"
               : "",
         delay = realtime?.delay ? ` · +${realtime.delay}分` : "";
-      return `<div class="planner-leg ride"><time>${formatTime(leg.depart)}</time><span class="planner-line"></span><div><b>${dot(realtime?.source ?? "schedule")}${esc(service)}${kind ? ` ${kind}` : ""}</b><small>${esc(name(leg.from))} → ${esc(name(leg.to))}${leg.destination ? ` · ${esc(leg.destination)}行` : ""}${delay}</small><em>${formatTime(leg.arrive)}</em>${rides[legIndex] ? `<button class="secondary-action planner-board" data-board-route="${routeIndex}" data-board-leg="${legIndex}">この便に乗車中 · 案内を開始</button>` : ""}</div></div>`;
+      return `<div class="planner-leg ride"><time>${formatTime(leg.depart)}</time><span class="planner-line"></span><div><b>${dot(realtime?.source ?? "schedule")}${esc(service)}${kind ? ` ${kind}` : ""}</b><small>${esc(name(leg.from))} → ${esc(name(leg.to))}${leg.destination ? ` · ${esc(leg.destination)}行` : ""}${delay}</small><em>${formatTime(leg.arrive)}</em>${rides[legIndex] && boardingAvailable(rides[legIndex], current) ? `<button class="secondary-action planner-board" data-board-route="${routeIndex}" data-board-leg="${legIndex}">この便に乗車中 · 案内を開始</button>` : ""}${rides[legIndex] ? `<button class="secondary-action planner-board" data-arm-route="${routeIndex}" data-arm-leg="${legIndex}">この便で案内を準備</button>` : ""}</div></div>`;
     })
     .join("");
   return `<article class="planner-result"><div class="planner-result-head"><span class="planner-badge">${esc(route.optionLabel ?? "候補")}</span><span class="planner-quality" aria-label="運行データ反映状況">${dot(source)}</span></div><div class="planner-times"><strong>${formatTime(route.start)}</strong><span>→</span><strong>${formatTime(route.time)}</strong><small>${route.duration}分</small></div><div class="planner-metrics"><span>追加 <b>${route.fare.additional === 0 ? "0円" : yen(route.fare.additional)}</b></span><span>通常 ${yen(route.fare.normal)}</span><span>乗換 ${route.transfers}回</span></div><div class="planner-timeline">${legs}</div></article>`;
 }
-export function mountRouteSearch({ network, settings, tokyoNow, onBoard }) {
+export function mountRouteSearch({
+  network,
+  settings,
+  tokyoNow,
+  onBoard,
+  onArm,
+  onCurrentLocation,
+}) {
   const root = document.querySelector("#route-search-root"),
     timetable = document.querySelector("#timetable-root");
   if (!root) return { show() {}, setFrom() {}, openBoard() {} };
@@ -232,10 +254,16 @@ export function mountRouteSearch({ network, settings, tokyoNow, onBoard }) {
     lastMode = "route",
     boarding = [];
   const now = tokyoNow();
-  root.innerHTML = `<div class="planner-switch" role="tablist"><button class="active" data-planner-view="route" type="button">経路検索</button><button data-planner-view="board" type="button">駅時刻表</button></div><section id="planner-search"><form class="planner-form" id="planner-form"><datalist id="planner-stops">${stopOptions}</datalist><div class="planner-place-pair"><label><span>出発</span><input name="from" list="planner-stops" value="丸太町" autocomplete="off" required></label><button type="button" class="planner-swap" aria-label="出発と到着を入れ替える">⇅</button><label><span>到着</span><input name="to" list="planner-stops" value="国際会館" autocomplete="off" required></label></div><div class="planner-date-row"><label><span>日付</span><input type="date" name="date" value="${now.date}" required></label><label><span>時刻</span><input type="time" name="time" value="${now.time}" required></label><label><span>指定</span><select name="timeMode"><option value="departure">出発</option><option value="arrival">到着</option></select></label></div><details class="planner-options"><summary>検索条件</summary><div><label><span>近鉄</span><select name="trainType"><option value="all">普通・急行</option><option value="local">普通のみ</option><option value="express">急行のみ</option></select></label><label><span>乗換余裕</span><select name="buffer"><option value="1">1分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="10">10分</option></select></label><label><span>徒歩上限</span><select name="maxWalk"><option value="10">10分</option><option value="20" selected>20分</option><option value="30">30分</option></select></label></div></details><button class="primary-action planner-submit" type="submit">この条件で検索</button></form><div id="planner-status" aria-live="polite"></div><div id="planner-results"></div></section>`;
+  root.innerHTML = `<div class="planner-switch" role="tablist"><button class="active" data-planner-view="route" type="button">経路検索</button><button data-planner-view="board" type="button">駅時刻表</button></div><section id="planner-search"><form class="planner-form" id="planner-form"><datalist id="planner-stops">${stopOptions}</datalist><div class="planner-place-pair"><label><span>出発</span><input name="from" list="planner-stops" value="丸太町" autocomplete="off" required></label><button type="button" class="planner-swap" aria-label="出発と到着を入れ替える">⇅</button><label><span>到着</span><input name="to" list="planner-stops" value="国際会館" autocomplete="off" required></label></div><div class="planner-date-row"><label><span>日付</span><input type="date" name="date" value="${now.date}" required></label><label><span>時刻</span><input type="time" name="time" value="${now.time}" required></label><label><span>指定</span><select name="timeMode"><option value="departure">出発</option><option value="arrival">到着</option></select></label></div><details class="planner-options"><summary>検索条件</summary><div><label><span>近鉄</span><select name="trainType"><option value="all">普通・急行</option><option value="local">普通のみ</option><option value="express">急行のみ</option></select></label><label><span>乗換余裕</span><select name="buffer"><option value="1">1分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="10">10分</option></select></label><label><span>徒歩上限</span><select name="maxWalk"><option value="10">10分</option><option value="20" selected>20分</option><option value="30">30分</option></select></label></div></details><button class="primary-action planner-submit" type="submit">この条件で検索</button></form><div class="search-shortcuts"><button type="button" class="secondary-action" data-search-current>現在地から</button><button type="button" class="secondary-action" data-search-save>行き先を保存</button></div><div id="search-history"></div><div id="planner-status" aria-live="polite"></div><div id="planner-results"></div></section>`;
   const status = root.querySelector("#planner-status"),
     results = root.querySelector("#planner-results"),
     form = root.querySelector("#planner-form");
+  function historyView() {
+    const pairs = readSearchPairs(searchStorage());
+    root.querySelector("#search-history").innerHTML =
+      `<details class="search-history"><summary>履歴・よく使う行き先</summary>${["favorites", "history"].map((key) => `<div><p class="source-caption">${key === "favorites" ? "よく使う行き先" : "検索履歴"}</p>${pairs[key].map((pair, i) => `<button type="button" class="native-row" data-history-kind="${key}" data-history-index="${i}">${esc(pair.from)} → ${esc(pair.to)}</button>`).join("") || '<p class="source-note">まだありません</p>'}</div>`).join("")}</details>`;
+  }
+  historyView();
   function setMode(mode) {
     lastMode = mode;
     root
@@ -247,8 +275,39 @@ export function mountRouteSearch({ network, settings, tokyoNow, onBoard }) {
     if (timetable) timetable.hidden = mode !== "board";
   }
   root.addEventListener("click", (e) => {
+    const quick = e.target.closest("[data-history-kind]");
+    if (quick) {
+      const pair =
+        readSearchPairs(searchStorage())[quick.dataset.historyKind]?.[
+          Number(quick.dataset.historyIndex)
+        ];
+      if (pair) {
+        form.elements.from.value = pair.from;
+        form.elements.to.value = pair.to;
+      }
+    }
+    if (e.target.closest("[data-search-current]")) {
+      const stop = onCurrentLocation?.();
+      if (stop) form.elements.from.value = stop.name;
+    }
+    if (e.target.closest("[data-search-save]")) {
+      saveSearchPair(
+        searchStorage(),
+        { from: form.elements.from.value, to: form.elements.to.value },
+        { favorite: true },
+      );
+      historyView();
+    }
     const viewButton = e.target.closest("[data-planner-view]");
     if (viewButton) setMode(viewButton.dataset.plannerView);
+    const armButton = e.target.closest("[data-arm-route]");
+    if (armButton) {
+      const ride =
+        boarding[Number(armButton.dataset.armRoute)]?.[
+          Number(armButton.dataset.armLeg)
+        ];
+      if (ride) onArm?.(ride);
+    }
     const boardButton = e.target.closest("[data-board-route]");
     if (boardButton) {
       const ride =
@@ -283,6 +342,8 @@ export function mountRouteSearch({ network, settings, tokyoNow, onBoard }) {
         '<p class="planner-warning">駅・停留所と時刻を確認してください。</p>';
       return;
     }
+    saveSearchPair(searchStorage(), { from: from.name, to: to.name });
+    historyView();
     const request = {
       from: from.id,
       to: to.id,
@@ -296,7 +357,7 @@ export function mountRouteSearch({ network, settings, tokyoNow, onBoard }) {
     };
     status.innerHTML = '<p class="loading-note">時刻データを読み込み中…</p>';
     try {
-      const { feeds, missing } = await loadFeeds(request.date, signal);
+      const { feeds, missing } = await loadFeeds(request.date, signal, network);
       if (signal.aborted) return;
       if (!feeds.length)
         throw Error("この区間の時刻データを取得できませんでした。");
@@ -345,11 +406,11 @@ export function mountRouteSearch({ network, settings, tokyoNow, onBoard }) {
             l.kind === "ride"
               ? scheduledJourney(l, mapped, network, request.date)
               : null;
-          return boardingAvailable(ride, current) ? ride : null;
+          return ride;
         }),
       );
       results.innerHTML = adjusted
-        .map((r, i) => routeHTML(r, network, boarding[i], i))
+        .map((r, i) => routeHTML(r, network, boarding[i], i, current))
         .join("");
     } catch (err) {
       if (!signal.aborted)

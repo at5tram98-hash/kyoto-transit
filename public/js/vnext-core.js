@@ -1,7 +1,7 @@
 import {subwayIds,kintetsuIds,normalize} from './network.js';
 
-export const CITY_ROUTES=['10','13','43','46','78','93','202','204','205','206','208'];
-export const KYOTO_ROUTES=['40','特40','直行40','臨時'];
+export const CITY_ROUTES=['10','13','43','46','78','93','202','204','205','206','208','北3'];
+export const KYOTO_ROUTES=['40','特40','直行40','臨時','北3'];
 export const ALL_ROUTE_LABELS=[...CITY_ROUTES,...KYOTO_ROUTES];
 
 export const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
