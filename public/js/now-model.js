@@ -178,11 +178,10 @@ export function heroModel(
     after = stops[boundaryIndex + 1];
   const through =
     !bus &&
-    (ride.operator === "through" ||
-      (boundaryIndex >= 0 &&
-        before &&
-        after &&
-        lineOf(before) !== lineOf(after)));
+    boundaryIndex >= 0 &&
+    before &&
+    after &&
+    lineOf(before) !== lineOf(after);
   const approachingBoundary = through && displayIndex === boundaryIndex;
   const boundary = approachingBoundary
     ? {
@@ -197,7 +196,9 @@ export function heroModel(
       ? lineOf(before)
       : through && displayIndex > boundaryIndex
         ? lineOf(after)
-        : lineOf(display);
+        : ride.operator === "kintetsu"
+          ? "B"
+          : lineOf(display);
   const userDestination = stationModel(
     stops.find(
       (s) =>
@@ -229,6 +230,10 @@ export function heroModel(
       : null;
   const nextStation = routeUnavailable ? null : stationModel(display),
     nextNext = stationModel(stops[displayIndex + 1]);
+  if (nextStation?.id === "K15" && lineId === "B" && !boundary)
+    nextStation.code = "B05";
+  if (userDestination?.id === "K15" && ride.operator === "kintetsu")
+    userDestination.code = "B05";
   const nextIsDestination = nextStation?.id === userDestination?.id;
   const label = routeUnavailable
     ? "運行状況を確認中"

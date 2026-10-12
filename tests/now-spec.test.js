@@ -372,3 +372,22 @@ test("Armed North 3 requires matching route, direction, time and fresh approach 
   )[0];
   assert.equal(stale.score, 78);
 });
+
+test("Native Kintetsu uses B05 at Takeda; a through ride after the boundary keeps the local line", () => {
+  const native = {
+    ...rail,
+    operator: "kintetsu",
+    from: "B02",
+    officialStops: ["B02", "K15", "B06"].map((id, i) => stop(id, 600 + i * 3)),
+  };
+  const m = model(native, 602);
+  assert.equal(m.lineId, "B");
+  assert.equal(m.nextStation.code, "B05");
+  assert.equal(m.boundary, null);
+  const inside = {
+    ...rail,
+    operator: "through",
+    officialStops: ["K10", "K09", "K08"].map((id, i) => stop(id, 600 + i * 3)),
+  };
+  assert.equal(model(inside, 602).lineId, "K");
+});
