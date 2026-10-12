@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - "worker/**"
+      - "tests/**"
+      - "public/data/bus-catalog.json"
+      - "public/js/network.js"
+      - "public/js/north3-feed.js"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/worker.yml"
