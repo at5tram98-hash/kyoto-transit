@@ -1028,3 +1028,23 @@ summary {
     transition: none;
   }
 }
+.sheet.map-full-screen {
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+}
+.map-full-screen .sheet-drag-handle {
+  margin-top: env(safe-area-inset-top, 0px);
+}
+.map-full-screen .sheet-body {
+  height: calc(100dvh - 108px - env(safe-area-inset-top, 0px));
+}
+.map-full-screen .route-map.expanded svg {
+  height: max(
+    240px,
+    calc(100dvh - 240px - env(safe-area-inset-top, 0px) - var(--safe-bottom))
+  );
+}

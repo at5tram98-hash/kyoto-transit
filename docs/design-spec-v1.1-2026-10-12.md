@@ -36,10 +36,12 @@
 
 ## 実行する検証
 
-`npm run check`、`npm test`、`npm run build`、`npm run test:browser`、`npm run test:pwa`、Worker dry-run。ブラウザは既存194件に仕様42件を追加し、固定データでUIと状態を検証する。本番の実運行可用性は別の `npm run verify:production` で確認する。
+`npm run check`、`npm test`、`npm run build`、`npm run test:browser`、`npm run test:pwa`、Worker dry-run。ブラウザは既存194件に仕様48件を追加し、固定データでUIと状態を検証する。本番の実運行可用性は別の `npm run verify:production` で確認する。
 
 ## 公開に残る条件
 
 Cloudflare Workerには新しい北3接近識別子・停留所名・共同運行便を扱う変更を追加した。既存Workerへの公開はGitHub Actionsの `CLOUDFLARE_API_TOKEN` 設定が必要。北3を含むWorkerの公開、および正確な道路形状の取得が未完了の間は「仕様書の全項目を達成」と宣言しない。
 
 2026-10-12のPages検証 #194では、既存の地下鉄・市バス・近鉄APIの接続確認が成功した。北3の本番接近APIは別項目として追加確認する。GTFS形状を便→旅程→地図へ渡す処理とサービス日付の曜日判定も検証対象に追加した。
+
+近鉄の公式ページはサーバー出力だけで26駅・19列車を解析できたため、2.2秒上限の通常HTTP取得を優先し、既存のBrowser Rendering・視覚復旧をフォールバックとして維持した。地図は画面全体へ拡大する。

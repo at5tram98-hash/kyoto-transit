@@ -12,7 +12,11 @@ import {
 import { mergeTimetableFeeds } from "../public/js/search-core.js";
 import { scheduledJourney } from "../public/js/journey-session.js";
 import { parseHyperdia } from "../worker/timetables.js";
-import { parseBusChoices, approachURL } from "../worker/index.js";
+import {
+  parseBusChoices,
+  approachURL,
+  directRailSnapshot,
+} from "../worker/index.js";
 import { snapToPolyline, routeMapModel } from "../public/js/route-map.js";
 import { routeConfigFor } from "../public/js/bus-routes.js";
 import {
@@ -453,4 +457,39 @@ test("GTFS road shapes reach the selected bus journey and weekdays use the servi
   assert.equal(ride.routeVariant.verified, true);
   raw.shapes[0].points[0][0] = NaN;
   assert.deepEqual(dateFeed(raw, "2026-10-12").services[0].routeVariants, {});
+});
+
+test("A moving train near its upcoming platform does not skip straight to the following station", () => {
+  const p = geo.stops.find((s) => s.id === "K09"),
+    fix = { ...p, accuracy: 10, timestamp: at, speed: 6 };
+  const m = model(rail, 601.8, { fix, geo, locationStatus: "active" });
+  assert.equal(m.nextStation.id, "K09");
+  assert.equal(m.phase, "APPROACHING");
+  assert.equal(m.confidence, "estimated");
+});
+
+test("Rail positions use server-rendered official markup without launching a browser and retain fallback", async () => {
+  const html = `<body>2026/10/12 21:49 現在<div id="stations">${Array.from({ length: 26 }, (_, i) => `<div data-stationid="B${String(i + 1).padStart(2, "0")}"><span class="station-name">駅${i + 1}</span></div>`).join("")}</div><div id="train-points-up"><div class="cell-3"><div class="train-info-up"><span class="train-destination-text">大和西大寺</span><img src="tr_r_01.png"></div></div></div><div id="train-points-down"></div></body>`;
+  let browserCalls = 0;
+  const env = {
+      BROWSER: {
+        quickAction: async () => {
+          browserCalls++;
+          return new Response(html);
+        },
+      },
+    },
+    at = new Date("2026-10-12T12:50:00Z");
+  const direct = await directRailSnapshot(env, {
+    at,
+    fetcher: async () => new Response(html),
+  });
+  assert.equal(direct.trains.length, 1);
+  assert.equal(browserCalls, 0);
+  const fallback = await directRailSnapshot(env, {
+    at,
+    fetcher: async () => new Response("", { status: 503 }),
+  });
+  assert.equal(fallback.trains.length, 1);
+  assert.equal(browserCalls, 1);
 });

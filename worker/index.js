@@ -123,7 +123,17 @@ async function cityBusArrivals(request,env,url){
     return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results,meta:{mode,coverage:{available:success,total:unique.length}}};
   },12);
 }
-async function directRailSnapshot(env){
+export async function directRailSnapshot(env,{fetcher=fetch,at=new Date()}={}){
+  // The official page already includes the station/train markup. Prefer one
+  // ordinary request; keep Browser Rendering and visual recovery as fallbacks.
+  try{
+    const response=await fetcher(LOCATION_URL,{headers:{'Accept':'text/html','Cache-Control':'no-cache','User-Agent':'My Map/2.0 official transit reader'},signal:AbortSignal.timeout(2200)});
+    if(!response.ok){await response.body?.cancel();throw Error('公式列車ページを取得できませんでした。');}
+    const parsed=parseRailLocation(await boundedText(response)),updated=Date.parse(parsed.sourceUpdatedAt);
+    if(!Number.isFinite(updated)||at.getTime()-updated>240000||updated-at.getTime()>120000)throw Error('公式列車ページの更新を確認できません。');
+    if(shouldExpectRail(at)&&!parsed.trains.length)throw Error('公式列車ページの列車位置を確認できません。');
+    return parsed;
+  }catch{/* Retain the existing rendered and visual recovery paths. */}
   const r=await env.BROWSER.quickAction('content',{url:LOCATION_URL,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#stations .station-name',visible:true,timeout:4000},actionTimeout:4000});if(!r.ok){await r.body?.cancel();throw Error('近鉄の列車位置を取得できませんでした。');}
   let html=await boundedText(r);if(r.headers.get('content-type')?.includes('json')){const b=JSON.parse(html);html=typeof b.result==='string'?b.result:typeof b.content==='string'?b.content:'';}
   const parsed=parseRailLocation(html);if(shouldExpectRail()&&(!Array.isArray(parsed.trains)||parsed.trains.length===0))throw layoutChanged('kintetsu','運行時間帯に列車要素が0件でした。');return parsed;

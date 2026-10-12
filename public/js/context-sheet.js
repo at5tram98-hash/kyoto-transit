@@ -15,6 +15,10 @@ export function openContextSheet(title, body) {
   if (!dialog.open) opener = document.activeElement;
   $("#context-sheet-title").textContent = title;
   $("#context-sheet-body").innerHTML = body;
+  dialog.classList.toggle(
+    "map-full-screen",
+    Boolean(dialog.querySelector(".route-map.expanded")),
+  );
   if (!dialog.open) dialog.showModal();
   $("#context-sheet-body").scrollTop = 0;
 }
@@ -26,14 +30,18 @@ export function destinationSheet(bus = false) {
   );
 }
 export function stationSheet(id) {
-  const stop = state.ride?.officialStops?.find((s) => s.id === id);
+  const stop = (
+    state.ride?.fullOfficialStops ?? state.ride?.officialStops
+  )?.find((s) => s.id === id);
   if (!stop) return;
   const bus = ["citybus", "kyotobus"].includes(state.ride.operator),
     time = stopTime(stop),
     n = state.network.stops.get(id);
+  const activeIndex = state.ride.officialStops.findIndex((s) => s.id === id);
+  const canChoose = activeIndex >= (state.heroModel?.index ?? 0);
   openContextSheet(
     stop.name,
-    `<dl class="context-facts"><div><dt>到着予定</dt><dd>${Number.isFinite(time) ? formatMinute(time) : "時刻未取得"}</dd></div><div><dt>到着見込み（推定）</dt><dd>${Number.isFinite(time) ? formatMinute(Math.round(time + state.rideShift)) : "未確認"}</dd></div><div><dt>接続路線</dt><dd>${esc(n?.lines?.join("・") ?? "未確認")}</dd></div></dl><button class="primary-action" data-choose-destination="${esc(id)}">ここで降ります</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button>${!bus ? '<button class="secondary-action" data-context-foldback>この先の折り返しを探す</button>' : ""}`,
+    `<dl class="context-facts"><div><dt>到着予定</dt><dd>${Number.isFinite(time) ? formatMinute(time) : "時刻未取得"}</dd></div><div><dt>到着見込み（推定）</dt><dd>${Number.isFinite(time) ? formatMinute(Math.round(time + state.rideShift)) : "未確認"}</dd></div><div><dt>接続路線</dt><dd>${esc(n?.lines?.join("・") ?? "未確認")}</dd></div></dl><button class="primary-action" data-choose-destination="${esc(id)}" ${canChoose ? "" : "disabled"}>${canChoose ? "ここで降ります" : "通過した地点です"}</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button>${!bus ? '<button class="secondary-action" data-context-foldback>この先の折り返しを探す</button>' : ""}`,
   );
 }
 export function setupContextSheet(onChange, onFoldback) {

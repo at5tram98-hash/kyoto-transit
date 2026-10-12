@@ -1356,6 +1356,18 @@ try {
         await page.locator('[data-context-action="delay"]').click();
         await layout(page, `PDF delay evidence ${colorScheme} ${textScale}x`);
         await page.locator("[data-context-close]").click();
+        await page.locator('[data-context-action="map"]').click();
+        const fullMap = await page
+          .locator("#context-sheet")
+          .evaluate((el) => ({
+            top: el.getBoundingClientRect().top,
+            height: el.getBoundingClientRect().height,
+            viewport: innerHeight,
+          }));
+        assert.equal(fullMap.top, 0);
+        assert.equal(fullMap.height, fullMap.viewport);
+        await layout(page, `PDF fullscreen map ${colorScheme} ${textScale}x`);
+        await page.locator("[data-context-close]").click();
         for (const direction of ["south", "north"]) {
           await page.evaluate((direction) => {
             const { state } = window.__state,

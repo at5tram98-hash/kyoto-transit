@@ -157,6 +157,16 @@ export function heroModel(
         progress.arrival - minute >= -0.5
       ? TRAIN_STATES.APPROACHING
       : TRAIN_STATES.DEPARTED;
+  const approachingCurrent =
+    validFix &&
+    current &&
+    !stopped &&
+    currentIndex > 0 &&
+    hasStopTime &&
+    Math.abs(scheduled + shift - minute) <= 1.2 &&
+    (previous?.index ?? currentIndex) <= currentIndex &&
+    previous?.state !== TRAIN_STATES.STOPPED;
+  if (approachingCurrent) trainState = TRAIN_STATES.APPROACHING;
   const observed = reduceTrainState(
     previous,
     {
@@ -170,7 +180,7 @@ export function heroModel(
         ride.serviceId,
       ]),
       state: trainState,
-      index: stopped ? currentIndex : progress.nextIndex,
+      index: stopped || approachingCurrent ? currentIndex : progress.nextIndex,
     },
     at,
   );
