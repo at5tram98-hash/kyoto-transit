@@ -52,13 +52,13 @@ body {
   background-position: center;
 }
 
-/* Idle hero: intentionally occupies about one quarter of a phone viewport. */
+/* Idle status follows its content; the destination entry stays within reach. */
 [data-view="now"] .idle-status {
-  min-height: clamp(174px, 24dvh, 238px);
+  min-height: 104px;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 26px 22px;
+  gap: 14px;
+  padding: 20px 18px;
 }
 [data-view="now"] .idle-status .idle-symbol {
   width: 54px;
@@ -77,7 +77,7 @@ body {
   stroke-width: 1.7;
 }
 [data-view="now"] .idle-status h2 {
-  font-size: clamp(1.75rem, 7vw, 2.25rem);
+  font-size: 1.25rem;
   margin: 0 0 8px;
 }
 [data-view="now"] .idle-status p {
@@ -94,7 +94,7 @@ body {
   border: 0.5px solid var(--separator);
   border-radius: 22px;
   box-shadow: var(--shadow);
-  overflow: hidden;
+  overflow: visible;
 }
 .quick-destination {
   min-height: 58px;
@@ -175,7 +175,7 @@ body {
   margin-bottom: 11px;
 }
 .quick-time-mode button {
-  min-height: 38px;
+  min-height: 44px;
   border: 0;
   border-radius: 9px;
   background: transparent;

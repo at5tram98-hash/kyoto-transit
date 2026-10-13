@@ -461,7 +461,11 @@ export function mountArrivals({ network }) {
     }
   });
   root.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
+    if (
+      e.key === "Escape" &&
+      !root.querySelector("#arrival-stop-picker").hidden
+    ) {
+      e.preventDefault();
       root.querySelector("#arrival-stop-picker").hidden = true;
       stopButton.setAttribute("aria-expanded", "false");
       stopButton.focus();

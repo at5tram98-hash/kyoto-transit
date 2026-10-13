@@ -1,6 +1,7 @@
 // Real browser checks with deterministic upstream fixtures. These do not
 // certify the availability or accuracy of production transport providers.
 import assert from "node:assert/strict";
+import { runCoordinateAudit } from "./ui-coordinate-audit.mjs";
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -1332,20 +1333,36 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 }
 
 try {
-  await searchComparisonChecks({
-    baseline: process.env.BROWSER_COMPARISON_BASELINE === "1",
+  await runCoordinateAudit({
+    open,
+    setRide,
+    tabRoot,
+    searchScreen,
+    submitSearch,
+    settleNavigation,
+    backScreen,
+    artifacts,
+    summary,
+    baseline: process.env.BROWSER_UI_AUDIT_BASELINE === "1",
+    extended: process.env.BROWSER_UI_AUDIT === "1",
   });
+  if (process.env.BROWSER_UI_AUDIT !== "1")
+    await searchComparisonChecks({
+      baseline: process.env.BROWSER_COMPARISON_BASELINE === "1",
+    });
   if (
     process.env.BROWSER_COMPARISON_BASELINE !== "1" &&
     process.env.BROWSER_LEGACY_ONLY !== "1" &&
-    process.env.BROWSER_COMPARISON_ONLY !== "1"
+    process.env.BROWSER_COMPARISON_ONLY !== "1" &&
+    process.env.BROWSER_UI_AUDIT !== "1"
   ) {
     await navigationChecks();
     console.log("Navigation Flow A–F passed");
   }
   if (
     process.env.BROWSER_NAV_ONLY !== "1" &&
-    process.env.BROWSER_COMPARISON_ONLY !== "1"
+    process.env.BROWSER_COMPARISON_ONLY !== "1" &&
+    process.env.BROWSER_UI_AUDIT !== "1"
   ) {
     if (process.env.BROWSER_SPEC_ONLY !== "1") {
       // Small iPhones, current phones, landscape, tablet, and desktop, both themes.

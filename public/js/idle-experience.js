@@ -155,7 +155,7 @@ function renderQuickSearch() {
       <input name="destination" data-stop-input value="${esc(quickDraft.destination)}" placeholder="目的地を入力" autocomplete="off" aria-label="目的地">
     </label>
     <div id="quick-stop-suggestions" class="stop-suggestions" hidden></div>
-    <div class="quick-search-more${expanded ? " is-open" : ""}" data-quick-search-more aria-hidden="${expanded ? "false" : "true"}">
+    <div class="quick-search-more${expanded ? " is-open" : ""}" ${expanded ? "" : "hidden"} data-quick-search-more aria-hidden="${expanded ? "false" : "true"}">
       <div class="quick-time-mode" role="group" aria-label="出発または到着">
         <button type="button" data-quick-mode="departure" class="${quickDraft.mode === "departure" ? "active" : ""}">出発</button>
         <button type="button" data-quick-mode="arrival" class="${quickDraft.mode === "arrival" ? "active" : ""}">到着</button>
@@ -185,6 +185,7 @@ function renderQuickSearch() {
   autocomplete.bind(destination);
   const expand = () => {
     quickDraft.expanded = true;
+    more.hidden = false;
     more.classList.add("is-open");
     more.setAttribute("aria-hidden", "false");
   };

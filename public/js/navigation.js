@@ -610,6 +610,7 @@ export function initializeNavigation({
   document.addEventListener("keydown", (e) => {
     if (
       e.key === "Escape" &&
+      !e.defaultPrevented &&
       !document.querySelector("dialog[open]") &&
       state.stacks[state.tab].length
     ) {

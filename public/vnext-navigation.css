@@ -201,11 +201,15 @@ body:has(.navigation-app) {
 .navigation-screen .route-map.expanded .map-header {
   flex: none;
 }
+.navigation-screen:has(> .screen-bottom-action) {
+  padding-bottom: calc(72px + var(--safe-bottom));
+}
 .screen-bottom-action {
   position: sticky;
-  bottom: calc(-70px - var(--safe-bottom));
-  margin: 20px -14px calc(-84px - var(--safe-bottom));
-  padding: 12px 14px calc(82px + var(--safe-bottom));
+  bottom: 0;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
   background: var(--panel);
   border-top: 1px solid var(--separator);
 }
@@ -281,8 +285,8 @@ body:has(.navigation-app) {
     padding-inline: 10px;
   }
   .screen-bottom-action {
-    margin-inline: -10px;
-    padding-inline: 10px;
+    margin-inline: 0;
+    padding-inline: 12px;
   }
 }
 

@@ -274,7 +274,7 @@ export function renderNow() {
 export function nearbyDetailHTML(id) {
   const stop = state.network.stops.get(id);
   if (!stop) return '<p class="empty-state">駅・停留所が見つかりません。</p>';
-  return `${stop.type === "subway" ? departureHTML(id, true) : north3DepartureHTML(stop)}<button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button>${stop.type === "citybus" ? `<button class="secondary-action" data-open-arrivals="${esc(id)}">接近情報を見る</button>` : ""}`;
+  return `${stop.type === "subway" ? departureHTML(id, true) : north3DepartureHTML(stop)}<div class="screen-action-group"><button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button>${stop.type === "citybus" ? `<button class="secondary-action" data-open-arrivals="${esc(id)}">接近情報を見る</button>` : ""}</div>`;
 }
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
