@@ -3,14 +3,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+const executableSource = (source) =>
+  source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
 
 test("自動アナウンス補助はマイク許可ダイアログを起動しない", () => {
-  const source = read("../public/js/motion-assist.js");
+  const source = read("../public/js/motion-assist.js"),
+    executable = executableSource(source);
   assert.match(source, /permissions\.query\(\{ name: "microphone" \}\)/);
   assert.match(source, /status\.state === "granted"/);
-  assert.doesNotMatch(source, /getUserMedia\s*\(/);
-  assert.doesNotMatch(source, /requestPermission\s*\(/);
-  assert.doesNotMatch(source, /Notification\.requestPermission\s*\(/);
+  assert.doesNotMatch(executable, /getUserMedia\s*\(/);
+  assert.doesNotMatch(executable, /requestPermission\s*\(/);
+  assert.doesNotMatch(executable, /Notification\.requestPermission\s*\(/);
 });
 
 test("通知権限を自動要求するコードを公開JSに持たない", () => {
@@ -21,7 +26,11 @@ test("通知権限を自動要求するコードを公開JSに持たない", () 
     "../public/js/vnext-detect.js",
   ];
   for (const file of files)
-    assert.doesNotMatch(read(file), /Notification\.requestPermission\s*\(/, file);
+    assert.doesNotMatch(
+      executableSource(read(file)),
+      /Notification\.requestPermission\s*\(/,
+      file,
+    );
 });
 
 test("地図以外はピンチズームと長押し選択を抑え、入力と地図は例外にする", () => {
