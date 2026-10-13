@@ -1,4 +1,5 @@
 import { distance } from "./mobility.js";
+import { freshFix } from "./riding.js";
 import { state, serviceName, toast, rideKey } from "./vnext-state.js";
 
 const RETRY_MS = 30000,
@@ -100,12 +101,12 @@ function gpsSpeeds(samples, now) {
     .filter(
       (sample) =>
         sample &&
-        Number.isFinite(sample.timestamp) &&
+        freshFix(sample, now) &&
         sample.timestamp >= now - MOTION_WINDOW_MS &&
         sample.timestamp <= now + 5000 &&
         Number.isFinite(sample.lat) &&
         Number.isFinite(sample.lng) &&
-        (!Number.isFinite(sample.accuracy) || sample.accuracy <= 120),
+        sample.accuracy <= 100,
     )
     .sort((a, b) => a.timestamp - b.timestamp);
   const rows = [];
@@ -187,6 +188,7 @@ export function summarizeVehicleMotion(
     reasons.push("加速度の連続変化");
   }
   return {
+    observedAt: now,
     score: Math.min(6, score),
     reason: reasons.join("＋"),
     sensorSamples: sensor.length,

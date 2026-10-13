@@ -50,6 +50,29 @@ export function rankRides(legs,{network,geo,samples=[],minute,railFeed,busFeed,n
 }
 export function confidence(ranked){const a=ranked[0],margin=a?a.score-(ranked[1]?.score??0):0;return {level:!a?'未判定':a.score>=80&&margin>=20?'高':a.score>=55&&margin>=10?'中':'低',margin};}
 
+// Acceleration describes the rider's motion, not the identity of a service.
+// Keep the independent score for consensus so it cannot resolve an ambiguous
+// route or turn a weak schedule/location match into an automatic confirmation.
+export function applyRideMotionEvidence(candidates, evidence, {samples=[],now=Date.now()}={}){
+  const motion=trajectory(samples,now),fix=motion.points.at(-1);
+  if(!Number.isFinite(evidence?.score)||evidence.score<=0||
+    !Number.isFinite(evidence.observedAt)||now-evidence.observedAt>15000||evidence.observedAt>now+1000||
+    !fix||now-fix.timestamp>15000||motion.points.length<3||motion.span<20||
+    !Number.isFinite(motion.speed)||motion.speed<2.8||
+    !Number.isFinite(evidence.speed)||evidence.speed<2.8)return candidates;
+  const points=Math.min(6,Math.max(0,Math.round(evidence.score)));
+  if(!points)return candidates;
+  return candidates.map(candidate=>{
+    if(candidate.motionEvidence||!Number.isFinite(candidate.score)||candidate.score<55||
+      candidate.evidence?.some(item=>item.points<0))return candidate;
+    return {...candidate,confirmationScore:candidate.score,
+      score:Math.min(100,candidate.score+points),
+      source:candidate.source?`${candidate.source}＋加速度`:candidate.source,
+      evidence:[...(candidate.evidence??[]),{reason:evidence.reason||'加速度・減速度',points}],
+      motionEvidence:{...evidence,score:points}};
+  });
+}
+
 const routeToken=value=>normalize(String(value??'').replace(/系統|京都バス|直行/g,'').replace(/^0+/,''));
 const angleDiff=(a,b)=>Math.abs((a-b+540)%360-180);
 function bearingBetween(a,b){if(!a||!b)return null;const y=(b.lng-a.lng)*Math.cos(((a.lat+b.lat)/2)*Math.PI/180),x=b.lat-a.lat;if(Math.abs(x)+Math.abs(y)<1e-9)return null;return (Math.atan2(y,x)*180/Math.PI+360)%360;}
@@ -74,11 +97,12 @@ export function createRideConsensus({required=3,minScore=55,minMargin=8}={}){
   let key=null,count=0,lastFix=null;
   const reset=()=>{key=null;count=0;lastFix=null;};
   return {reset,update(candidates,fixTimestamp){
-    const rows=(candidates??[]).filter(c=>c&&(c.ride??c.leg)&&Number.isFinite(c.score)).slice(0,3),top=rows[0],second=rows[1],margin=top?top.score-(second?.score??0):0;
+    const independentScore=c=>Number.isFinite(c?.confirmationScore)?c.confirmationScore:c?.score,
+      rows=(candidates??[]).filter(c=>c&&(c.ride??c.leg)&&Number.isFinite(c.score)).sort((a,b)=>independentScore(b)-independentScore(a)).slice(0,3),top=rows[0],second=rows[1],topScore=independentScore(top),margin=top?topScore-(independentScore(second)??0):0;
     if(!top||!Number.isFinite(fixTimestamp)){reset();return {confirmed:null,candidates:[],count:0,margin};}
-    const ambiguous=second&&top.score>=minScore&&margin<minMargin;
+    const ambiguous=second&&topScore>=minScore&&margin<minMargin;
     if(ambiguous){key=null;count=0;lastFix=fixTimestamp;return {confirmed:null,candidates:rows,count:0,margin,ambiguous:true};}
-    if(top.score<minScore||margin<minMargin){reset();return {confirmed:null,candidates:top.score>=minScore?rows:[],count:0,margin};}
+    if(topScore<minScore||margin<minMargin){reset();return {confirmed:null,candidates:topScore>=minScore?rows:[],count:0,margin};}
     const next=rideKey(top.ride??top.leg);if(next!==key){key=next;count=0;lastFix=null;}
     if(fixTimestamp!==lastFix){count++;lastFix=fixTimestamp;}
     return {confirmed:count>=required?(top.ride??top.leg):null,candidates:count>=required?[]:[top],count,margin,ambiguous:false};

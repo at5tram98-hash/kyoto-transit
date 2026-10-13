@@ -7,6 +7,7 @@ import {
   freshFix,
   matchMeasuredVehicles,
   createRideConsensus,
+  applyRideMotionEvidence,
 } from "./riding.js";
 import { currentMotionEvidence } from "./motion-assist.js";
 import { getBusChoices, getBusData, getKyotoBusRT } from "./live.js";
@@ -305,23 +306,6 @@ function mergeCandidates(...groups) {
   return [...map.values()].sort((a, b) => b.score - a.score).slice(0, 3);
 }
 
-function applyMotionEvidence(candidates) {
-  const motion = currentMotionEvidence(state.samples);
-  if (!motion.score) return candidates;
-  return candidates
-    .map((candidate) => ({
-      ...candidate,
-      score: scoreClamp(candidate.score + motion.score),
-      source: `${candidate.source}＋加速度`,
-      evidence: [
-        ...(candidate.evidence ?? []),
-        { reason: motion.reason || "加速度・減速度", points: motion.score },
-      ],
-      motionEvidence: motion,
-    }))
-    .sort((a, b) => b.score - a.score);
-}
-
 function applyRide(candidate) {
   const changed = rideKey(state.ride) !== rideKey(candidate.ride);
   state.ride = candidate.ride;
@@ -445,7 +429,12 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       state.armedJourney,
       tokyoNow().minute,
     );
-    candidates = applyMotionEvidence(candidates);
+    const observedAt = Date.now();
+    candidates = applyRideMotionEvidence(
+      candidates,
+      currentMotionEvidence(state.samples, observedAt),
+      { samples: state.samples, now: observedAt },
+    );
     const eligible = state.armedJourney
         ? candidates.filter((candidate) => candidate.armedMatch)
         : candidates,
