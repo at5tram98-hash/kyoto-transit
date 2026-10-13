@@ -1,10 +1,14 @@
 import { installFastData } from "./fast-data.js";
 import { installIdleExperience } from "./idle-experience.js";
 import { installMotionAssist } from "./motion-assist.js";
+import { installInteractionGuard } from "./interaction-guard.js";
+import { installNorth3Live } from "./north3-live.js";
 
 function start() {
   installFastData();
   installIdleExperience();
+  installInteractionGuard();
+  installNorth3Live();
   installMotionAssist();
 }
 
