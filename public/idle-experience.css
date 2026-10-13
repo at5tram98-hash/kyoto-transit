@@ -1,0 +1,385 @@
+/* My Map idle/interaction refinements. Keep map gestures isolated from app chrome. */
+html,
+body,
+.app-shell,
+.view,
+button,
+summary,
+label,
+.native-row,
+.hero-card,
+.section-block {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+body {
+  -webkit-touch-callout: none;
+  overscroll-behavior-y: none;
+}
+.route-map-host,
+.map-host,
+[data-map],
+.maplibregl-map {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* Keep the Now header quiet and live-focused. */
+.topbar .eyebrow#view-subtitle {
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: .67rem;
+}
+.topbar .round-action[data-open-app-menu] {
+  font-size: 0;
+  position: relative;
+}
+.topbar .round-action[data-open-app-menu]::before,
+.topbar .round-action[data-open-app-menu]::after,
+.topbar .round-action[data-open-app-menu] {
+  background-image: radial-gradient(circle at center, currentColor 1.6px, transparent 1.8px);
+  background-size: 8px 8px;
+  background-repeat: repeat-x;
+  background-position: center;
+}
+
+/* Idle hero: intentionally occupies about one quarter of a phone viewport. */
+[data-view="now"] .idle-status {
+  min-height: clamp(174px, 24dvh, 238px);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 26px 22px;
+}
+[data-view="now"] .idle-status .idle-symbol {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: var(--panel-2);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+[data-view="now"] .idle-status .idle-symbol svg {
+  width: 27px;
+  height: 27px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+[data-view="now"] .idle-status h2 {
+  font-size: clamp(1.75rem, 7vw, 2.25rem);
+  margin: 0 0 8px;
+}
+[data-view="now"] .idle-status p {
+  font-size: .875rem;
+}
+
+/* Yahoo Transit-inspired compact destination-first search. */
+#now-search {
+  margin-bottom: 14px;
+}
+.quick-journey {
+  background: var(--panel);
+  border: .5px solid var(--separator);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.quick-destination {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 30px minmax(0,1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+.quick-search-symbol {
+  width: 17px;
+  height: 17px;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+  position: relative;
+  display: block;
+}
+.quick-search-symbol::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 2px;
+  right: -5px;
+  bottom: -2px;
+  border-radius: 2px;
+  background: var(--muted);
+  transform: rotate(45deg);
+  transform-origin: center;
+}
+.quick-destination input {
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.04rem;
+  font-weight: 650;
+  letter-spacing: -.01em;
+}
+.quick-destination input::placeholder {
+  color: var(--muted);
+  font-weight: 550;
+}
+.quick-search-more {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  padding: 0 14px;
+  border-top: 0 solid var(--separator);
+  transform: translateY(-4px);
+  transition: grid-template-rows .28s cubic-bezier(.22,.8,.25,1), opacity .2s ease, padding .28s ease, transform .28s ease, border-width .28s ease;
+  overflow: hidden;
+}
+.quick-search-more > * {
+  min-height: 0;
+}
+.quick-search-more.is-open {
+  grid-template-rows: auto;
+  opacity: 1;
+  padding: 14px;
+  border-top-width: 1px;
+  transform: none;
+}
+.quick-time-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  margin-bottom: 11px;
+}
+.quick-time-mode button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+}
+.quick-time-mode button.active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.quick-date-time {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.quick-date-time label,
+.quick-kintetsu,
+.planner-kintetsu-condition label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 650;
+}
+.quick-date-time input,
+.quick-kintetsu select,
+.planner-kintetsu-condition select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: .86rem;
+}
+.quick-kintetsu {
+  display: none;
+  margin-top: 10px;
+}
+.quick-kintetsu.is-visible {
+  display: grid;
+}
+.quick-search-submit {
+  width: 100%;
+  margin: 12px 0 0;
+  min-height: 46px;
+  border-radius: 13px;
+}
+.quick-recent-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 9px 2px 0;
+}
+.quick-recent-list::-webkit-scrollbar { display: none; }
+.quick-recent {
+  min-width: 126px;
+  max-width: 190px;
+  min-height: 48px;
+  border: .5px solid var(--separator);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 11px;
+  text-align: left;
+}
+.quick-recent span,
+.quick-recent small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-recent span { font-weight: 700; font-size: .84rem; }
+.quick-recent small { color: var(--muted); font-size: .67rem; margin-top: 2px; }
+
+/* Full route search: date/time are always visible. Detailed options remain a sheet. */
+#planner-form > .planner-date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(84px,.8fr);
+  gap: 8px;
+  padding-top: 11px;
+  margin-top: 4px;
+  border-top: 1px solid var(--separator);
+}
+#planner-form > .planner-date-row label { min-width: 0; }
+.planner-kintetsu-condition { display: none; padding-top: 10px; }
+.planner-kintetsu-condition.is-visible { display: block; }
+.planner-more-conditions { margin-top: 6px; }
+@media(max-width:430px) {
+  #planner-form > .planner-date-row { grid-template-columns: 1fr 1fr; }
+  #planner-form > .planner-date-row label:last-child { grid-column: 1 / -1; }
+}
+
+/* Nearby modes are recognizable before reading text. */
+.nearby-guide .nearby-row {
+  grid-template-columns: 52px minmax(0,1fr) auto;
+  gap: 11px;
+  min-height: 58px;
+}
+.nearby-guide .mode-symbol.enhanced-mode {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  display: grid;
+  grid-template-rows: 24px auto;
+  place-items: center;
+  line-height: 1;
+}
+.nearby-guide .mode-symbol.enhanced-mode svg {
+  width: 22px;
+  height: 22px;
+}
+.nearby-guide .mode-symbol.enhanced-mode small {
+  font-size: .48rem;
+  font-weight: 800;
+  margin: 0;
+  color: currentColor;
+  white-space: nowrap;
+}
+.north3-inline,
+.kintetsu-inline {
+  margin: 0 0 7px 59px;
+  padding-top: 3px;
+}
+.north3-inline > div,
+.kintetsu-inline > div {
+  min-height: 35px;
+}
+.north3-inline span b,
+.kintetsu-inline span b {
+  color: var(--text);
+}
+
+/* Search progress popup. */
+.search-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 36%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.search-loading-overlay[hidden] { display: none !important; }
+.search-loading-card {
+  width: min(286px, calc(100vw - 48px));
+  min-height: 156px;
+  border-radius: 26px;
+  background: color-mix(in srgb,var(--panel) 94%,transparent);
+  border: .5px solid var(--separator);
+  box-shadow: 0 22px 54px rgba(0,0,0,.16);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 20px;
+}
+.search-loading-card b { font-size: 1.08rem; }
+.search-loading-card small { color: var(--muted); font-size: .72rem; line-height: 1.4; }
+.search-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--separator);
+  border-top-color: var(--blue);
+  animation: mymap-spin .8s linear infinite;
+}
+@keyframes mymap-spin { to { transform: rotate(360deg); } }
+
+/* Independent top-right menu. */
+.app-menu-sheet .sheet-header > div h2 { margin: 1px 0 0; }
+.app-menu-actions { padding-top: 4px; }
+.app-menu-actions .native-list { border-radius: 18px; }
+.menu-operation-symbol {
+  border: 1.6px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--orange);
+  font-weight: 850;
+}
+
+/* Cleaner operation tab icon: hide the old gauge glyph and draw a status ring. */
+.tab-button[data-tab="operations"] svg { display: none; }
+.tab-button[data-tab="operations"]::before {
+  content: "!";
+  width: 19px;
+  height: 19px;
+  border: 1.8px solid currentColor;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: .72rem;
+  font-weight: 850;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+
+/* Explicit microphone fallback is secondary and never auto-starts. */
+.announcement-assist {
+  width: 100%;
+  margin: 10px 0 0;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+}
+.announcement-assist span { font-weight: 750; }
+.announcement-assist small { color: var(--muted); font-size: .66rem; font-weight: 550; }
+
+@media(prefers-reduced-motion: reduce) {
+  .quick-search-more,
+  .search-spinner { transition: none; animation: none; }
+}
