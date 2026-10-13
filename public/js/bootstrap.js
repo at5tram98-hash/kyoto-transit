@@ -33,6 +33,14 @@
     const script = document.createElement("script");
     script.type = "module";
     script.src = entry.src;
+    script.addEventListener(
+      "load",
+      () =>
+        import("./app-enhancements.js").catch((error) =>
+          console.warn("app enhancements", error),
+        ),
+      { once: true },
+    );
     entry.replaceWith(script);
   } catch {
     const hero = document.getElementById("now-hero");
