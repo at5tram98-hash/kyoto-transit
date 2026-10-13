@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   "name": "my-map-capture",
-  "main": "index.js",
+  "main": "entry.js",
   "compatibility_date": "2026-10-09",
   "compatibility_flags": ["nodejs_compat"],
   "keep_vars": true,
