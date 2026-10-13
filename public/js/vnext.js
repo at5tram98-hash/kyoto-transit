@@ -18,6 +18,7 @@ import {
   nearest,
   persistJourney,
   restoreJourney,
+  rideKey,
   toast,
 } from "./vnext-state.js";
 import {
@@ -27,15 +28,14 @@ import {
   resetRideDetection,
   startManualRide,
 } from "./vnext-detect.js";
-import { renderNow, setupNowInteractions, nearbySheet } from "./vnext-view.js";
+import { renderNow, setupNowInteractions } from "./vnext-view.js";
 import {
   setupContextSheet,
   openContextSheet,
   destinationSheet,
-  stationSheet,
 } from "./context-sheet.js";
-import { routeMapHTML } from "./route-map.js";
-import { delayAnalysis } from "./now-model.js";
+import { navigation, initializeNavigation } from "./navigation.js";
+import { registerNowScreens, validNowScreen } from "./now-navigation.js";
 import {
   renderSettings,
   setupSettings,
@@ -97,38 +97,21 @@ function moveTabSelection() {
   pill.style.transform = `translate3d(${rect.left - parent.left}px,0,0)`;
   nav.classList.add("tab-ready");
 }
-function setTab(tab) {
-  if (!["now", "timetable", "operations", "settings"].includes(tab)) return;
-  if (state.tab === tab) return;
+function syncTab(tab) {
   state.tab = tab;
-  $$("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== tab));
-  $$(".tab-button").forEach((b) => {
-    const active = b.dataset.tab === tab;
-    b.classList.toggle("active", active);
-    b.setAttribute("aria-current", active ? "page" : "false");
-  });
-  $("#view-title").textContent = {
-    now: "今",
-    timetable: "時刻表",
-    operations: "運行情報",
-    settings: "設定",
-  }[tab];
   $("#view-subtitle").textContent =
-    tab === "now" ? "現在地に合わせて自動案内" : "My Map";
+    tab === "now" ? "現在地に合わせて周辺案内" : "My Map";
   if (tab === "now") {
     renderNow();
     arrivals?.show();
   } else arrivals?.pause();
-  if (tab === "timetable") {
-    const search = $("#route-search-root");
-    if (search?.parentElement !== $('[data-view="timetable"]'))
-      $('[data-view="timetable"]').prepend(search);
-    routeSearch?.show();
-  }
-  if (tab === "operations") operations.show();
+  if (tab === "timetable") timetables?.show();
+  if (tab === "operations") operations?.show();
   if (tab === "settings") renderSettings();
   requestAnimationFrame(moveTabSelection);
-  window.scrollTo({ top: 0, behavior: "instant" });
+}
+function setTab(tab) {
+  navigation.selectTab(tab);
   haptic();
 }
 function setupEvents() {
@@ -141,7 +124,11 @@ function setupEvents() {
   document.addEventListener("click", async (e) => {
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.dataset.stationDetail) stationSheet(b.dataset.stationDetail);
+    if (b.dataset.stationDetail)
+      navigation.push("station", {
+        stopId: b.dataset.stationDetail,
+        journey: state.ride ? rideKey(state.ride) : null,
+      });
     else if (b.hasAttribute("data-board-armed")) {
       if (state.armedJourney) boardRide(state.armedJourney.ride);
     } else if (b.hasAttribute("data-cancel-armed")) {
@@ -149,27 +136,18 @@ function setupEvents() {
       renderNow();
     } else if (b.dataset.contextAction === "destination")
       destinationSheet(state.heroModel?.bus);
-    else if (b.dataset.nearbyDetail) nearbySheet(b.dataset.nearbyDetail);
+    else if (b.dataset.nearbyDetail)
+      navigation.push("nearby", { stopId: b.dataset.nearbyDetail });
     else if (b.hasAttribute("data-open-settings")) setTab("settings");
     else if (b.dataset.contextAction === "map")
-      openContextSheet(
-        "経路と現在地",
-        routeMapHTML(state.routeMap, state.heroModel, { expanded: true }),
-      );
-    else if (b.dataset.contextAction === "delay") {
-      const analysis = delayAnalysis(state.heroModel, state.delayHistory);
-      const samples = analysis.samples,
-        points = samples
-          .map(
-            (s, i) =>
-              `${20 + (i * 260) / Math.max(1, samples.length - 1)},${95 - Math.max(-5, Math.min(15, s.shift)) * 4}`,
-          )
-          .join(" ");
-      openContextSheet(
-        "遅れの根拠",
-        `<h3>${esc(analysis.conclusion)}</h3><p class="source-note">My Mapの推定です。公式の運行情報とは区別して表示します。</p><dl class="context-facts"><div><dt>時刻表</dt><dd>公式の予定時刻</dd></div><div><dt>現在位置</dt><dd>${state.heroModel.locationConfidence === "available" ? "GPSと停車位置を照合" : "未取得。ダイヤから推定"}</dd></div><div><dt>接近情報</dt><dd>${state.heroModel.dataSources.includes("接近") ? "取得データを参照" : "実測データは未取得"}</dd></div></dl>${samples.length > 1 ? `<svg class="delay-chart" viewBox="0 0 300 120" role="img" aria-label="観測した遅れの推移、推定"><path d="M20 95H280" class="map-grid"/><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="3"/></svg>` : '<p class="source-note">推移を表示するための観測データがまだ不足しています。</p>'}`,
-      );
-    } else if (b.hasAttribute("data-apply-update")) {
+      navigation.push("map", {
+        journey: state.ride ? rideKey(state.ride) : null,
+      });
+    else if (b.dataset.contextAction === "delay")
+      navigation.push("delay", {
+        journey: state.ride ? rideKey(state.ride) : null,
+      });
+    else if (b.hasAttribute("data-apply-update")) {
       if (updateRegistration?.waiting) {
         persistJourney(true);
         applyingUpdate = true;
@@ -200,22 +178,19 @@ function setupEvents() {
     } else if (b.hasAttribute("data-retry-location"))
       state.locationSession?.start({ retry: true });
     else if (b.dataset.openTimetable) {
-      setTab("timetable");
-      routeSearch?.openBoard();
       timetables.select(b.dataset.openTimetable);
     } else if (b.dataset.openArrivals) {
       $("#context-sheet").close();
-      setTab("now");
-      await arrivals?.selectStop(b.dataset.openArrivals, true);
+      navigation.push("arrivals", { stopId: b.dataset.openArrivals });
     } else if (b.dataset.startHere) {
       $("#context-sheet").close();
-      setTab("now");
       routeSearch?.setFrom(b.dataset.startHere);
     } else if (b.dataset.rideCandidate !== undefined) {
       if (confirmRideCandidate(b.dataset.rideCandidate)) renderNow();
     } else if (b.id === "ride-foldback" || b.hasAttribute("data-open-foldback"))
       openFoldback();
-    else if (b.id === "ride-operations") setTab("operations");
+    else if (b.id === "ride-operations")
+      navigation.push("operation", { id: state.ride?.operator });
     else if (b.id === "ride-end") {
       state.ride = null;
       state.foldbackPlan = null;
@@ -226,6 +201,7 @@ function setupEvents() {
       state.rideSource = null;
       resetRideDetection();
       persistJourney(true);
+      navigation.root("now");
       renderNow();
       arrivals?.show();
     } else if (b.id === "network-refresh") refreshNetwork();
@@ -266,7 +242,7 @@ function setupEvents() {
 }
 function boardRide(ride) {
   if (!startManualRide(ride)) return false;
-  setTab("now");
+  navigation.root("now");
   renderNow();
   arrivals?.show();
   return true;
@@ -317,7 +293,7 @@ async function init() {
       },
       onArm: (ride) => {
         state.armedJourney = { ride, selectedAt: Date.now() };
-        setTab("now");
+        navigation.root("now");
         renderNow();
         const card = $(".armed-journey");
         card?.focus({ preventScroll: true });
@@ -337,7 +313,24 @@ async function init() {
     arrivals = mountArrivals({ network: state.network });
     renderSettings();
     setupSettings(renderNow);
+    registerNowScreens({ arrivals, onFoldback: openFoldback });
+    initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
     setupEvents();
+    [$('[data-view="now"]'), $('[data-view="timetable"]')].forEach((root) =>
+      root.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-open-search],[data-search-to]");
+        if (b) routeSearch.open(b.dataset.searchTo);
+      }),
+    );
+    document.addEventListener("mymap-navigation-change", () => {
+      requestAnimationFrame(moveTabSelection);
+      if (
+        state.tab === "now" &&
+        ["root", "arrivals"].includes(navigation.route.type)
+      )
+        arrivals.show();
+      else arrivals.pause();
+    });
     state.locationSession = createLocationSession({
       geolocation: navigator.geolocation,
       permissions: navigator.permissions,
@@ -366,7 +359,11 @@ async function init() {
         updateBusTrail(bus?.id, bus?.meters ?? Infinity);
         renderNow();
         autoDetectRide(false, renderNow);
-        if (state.tab === "now") arrivals.show();
+        if (
+          state.tab === "now" &&
+          ["root", "arrivals"].includes(navigation.route.type)
+        )
+          arrivals.show();
       },
     });
     state.locationSession.start();

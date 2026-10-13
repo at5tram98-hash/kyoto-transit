@@ -1,3 +1,4 @@
+import { navigation } from "./navigation.js";
 import { journeyProgress } from "./journey-core.js";
 import { subwayIds, kintetsuIds } from "./network.js";
 import {
@@ -178,54 +179,97 @@ const subwayOptions = () =>
         `<option value="${id}">${esc(state.network?.stops.get(id)?.name ?? id)}</option>`,
     )
     .join("");
-export function renderSettings() {
-  const root = $("#settings-content");
-  root.innerHTML = `<section class="settings-section"><h2>自動案内</h2><div class="settings-card"><label class="setting-row"><span><b>自動乗車判定</b><small>移動に合わせて表示を切り替えます</small></span><input type="checkbox" data-setting="autoDetect" ${settings.autoDetect ? "checked" : ""}></label><label class="setting-row"><span><b>触覚フィードバック</b><small>便を判定したときに短く通知</small></span><input type="checkbox" data-setting="haptics" ${settings.haptics ? "checked" : ""}></label><label class="setting-row"><span><b>判定根拠を表示</b><small>必要なときだけ詳細を表示</small></span><input type="checkbox" data-setting="showConfidence" ${settings.showConfidence ? "checked" : ""}></label></div></section><section class="settings-section"><h2>定期券</h2><div class="settings-card"><label class="setting-row"><span><b>市バス</b><small>対象区間の追加額を0円として計算</small></span><input type="checkbox" data-setting="passCityBus" ${settings.passCityBus ? "checked" : ""}></label><label class="setting-row"><span><b>京都バス</b><small>登録した対象区間だけに適用</small></span><input type="checkbox" data-setting="passKyotoBus" ${settings.passKyotoBus ? "checked" : ""}></label><label class="setting-row"><span><b>地下鉄</b><small>設定区間内の追加額を0円として計算</small></span><input type="checkbox" data-setting="passSubway" ${settings.passSubway ? "checked" : ""}></label><div class="pass-range"><label>区間<select data-setting-value="passSubwayFrom">${subwayOptions()}</select></label><span>〜</span><label>区間<select data-setting-value="passSubwayTo">${subwayOptions()}</select></label></div><label class="pass-expiry">有効期限<input type="date" data-setting-value="passExpires" value="${esc(settings.passExpires ?? "")}"></label><p class="source-caption">未設定では通常運賃＝追加額です。実際の券面区間を優先してください。</p></div></section><section class="settings-section"><h2>近くの駅</h2><div class="settings-card slider-card"><label><span><b>地下鉄を表示する距離</b><small>候補に表示する範囲</small></span><strong>${settings.railGuideDistance}m</strong><input type="range" min="150" max="600" step="50" value="${settings.railGuideDistance}" data-setting-range="railGuideDistance"></label></div></section><section class="settings-section"><h2>対応路線</h2><div class="settings-card source-list"><div><b>地下鉄烏丸線</b><small>全線・近鉄直通</small></div><div><b>近鉄京都線</b><small>全線・烏丸線直通</small></div><div><b>京都バス</b><small>${KYOTO_ROUTES.join("・")}</small></div><div><b>京都市バス</b><small>${CITY_ROUTES.join("・")}・202八条口</small></div></div></section><section class="settings-section" id="info-section"><h2 data-info-title>情報</h2><div class="settings-card source-list"><div><b>出典</b><small>京都市交通局・近畿日本鉄道・京都バス・公共交通オープンデータセンター</small></div><div><b>運賃確認</b><small>公式運賃表を基準にし、未確認区間は確定額を表示しません</small></div><div><b>オープンデータ</b><small>公共交通オープンデータ基本ライセンスに基づき利用しています</small></div><div><b>現在地</b><small>位置情報は端末上で乗車判定に使用します</small></div></div>${logHTML()}</section>`;
+export function renderSettings(
+  root = $("#settings-content"),
+  category = "home",
+) {
+  root.innerHTML = `<section class="settings-section"><h2>自動案内</h2><div class="settings-card"><label class="setting-row"><span><b>自動乗車判定</b><small>移動に合わせて表示を切り替えます</small></span><input type="checkbox" data-setting="autoDetect" ${settings.autoDetect ? "checked" : ""}></label><label class="setting-row"><span><b>触覚フィードバック</b><small>便を判定したときに短く通知</small></span><input type="checkbox" data-setting="haptics" ${settings.haptics ? "checked" : ""}></label><label class="setting-row"><span><b>判定根拠を表示</b><small>必要なときだけ詳細を表示</small></span><input type="checkbox" data-setting="showConfidence" ${settings.showConfidence ? "checked" : ""}></label></div></section><section class="settings-section"><h2>定期券</h2><div class="settings-card"><label class="setting-row"><span><b>市バス</b><small>対象区間の追加額を0円として計算</small></span><input type="checkbox" data-setting="passCityBus" ${settings.passCityBus ? "checked" : ""}></label><label class="setting-row"><span><b>京都バス</b><small>登録した対象区間だけに適用</small></span><input type="checkbox" data-setting="passKyotoBus" ${settings.passKyotoBus ? "checked" : ""}></label><label class="setting-row"><span><b>地下鉄</b><small>設定区間内の追加額を0円として計算</small></span><input type="checkbox" data-setting="passSubway" ${settings.passSubway ? "checked" : ""}></label><div class="pass-range"><label>区間<select data-setting-value="passSubwayFrom">${subwayOptions()}</select></label><span>〜</span><label>区間<select data-setting-value="passSubwayTo">${subwayOptions()}</select></label></div><label class="pass-expiry">有効期限<input type="date" data-setting-value="passExpires" value="${esc(settings.passExpires ?? "")}"></label><p class="source-caption">未設定では通常運賃＝追加額です。実際の券面区間を優先してください。</p></div></section><section class="settings-section"><h2>近くの駅</h2><div class="settings-card slider-card"><label><span><b>地下鉄を表示する距離</b><small>候補に表示する範囲</small></span><strong>${settings.railGuideDistance}m</strong><input type="range" min="150" max="600" step="50" value="${settings.railGuideDistance}" data-setting-range="railGuideDistance"></label></div></section><section class="settings-section"><h2>対応路線</h2><div class="settings-card source-list"><div><b>地下鉄烏丸線</b><small>全線・近鉄直通</small></div><div><b>近鉄京都線</b><small>全線・烏丸線直通</small></div><div><b>京都バス</b><small>${KYOTO_ROUTES.join("・")}</small></div><div><b>京都市バス</b><small>${CITY_ROUTES.join("・")}・202八条口</small></div></div></section><section class="settings-section info-section"><h2 data-info-title>情報</h2><div class="settings-card source-list"><div><b>出典</b><small>京都市交通局・近畿日本鉄道・京都バス・公共交通オープンデータセンター</small></div><div><b>運賃確認</b><small>公式運賃表を基準にし、未確認区間は確定額を表示しません</small></div><div><b>オープンデータ</b><small>公共交通オープンデータ基本ライセンスに基づき利用しています</small></div><div><b>現在地</b><small>位置情報は端末上で乗車判定に使用します</small></div></div>${logHTML()}</section>`;
   const from = root.querySelector('[data-setting-value="passSubwayFrom"]'),
     to = root.querySelector('[data-setting-value="passSubwayTo"]');
   if (from) from.value = settings.passSubwayFrom ?? "K01";
   if (to) to.value = settings.passSubwayTo ?? "K11";
+  const sections = [...root.querySelectorAll(":scope>.settings-section")];
+  const categories = {
+    pass: [1, "定期券"],
+    distance: [2, "近くの駅"],
+    routes: [3, "対応路線"],
+    info: [4, "情報・出典"],
+  };
+  if (category === "home") {
+    root.replaceChildren(sections[0]);
+    const rows = document.createElement("div");
+    rows.className = "native-list";
+    rows.innerHTML = Object.entries(categories)
+      .map(
+        ([id, [, title]]) =>
+          `<button class="native-row" data-setting-page="${id}"><span><b>${title}</b></span><span class="chevron">›</span></button>`,
+      )
+      .join("");
+    root.append(rows);
+  } else root.replaceChildren(sections[categories[category]?.[0] ?? 4]);
 }
 export function setupSettings(onRender) {
   let infoTaps = 0,
     lastTap = 0;
-  const root = $("#settings-content");
-  root.addEventListener("change", (e) => {
-    if (e.target.dataset.setting) {
-      settings[e.target.dataset.setting] = e.target.checked;
-      saveSettings();
-      onRender();
-    }
-    if (e.target.dataset.settingRange) {
-      settings[e.target.dataset.settingRange] = Number(e.target.value);
-      saveSettings();
-      renderSettings();
-      onRender();
-    }
-    if (e.target.dataset.settingValue) {
-      settings[e.target.dataset.settingValue] = e.target.value;
-      saveSettings();
-      onRender();
-    }
-  });
-  root.addEventListener("input", (e) => {
-    if (e.target.dataset.settingRange) {
-      settings[e.target.dataset.settingRange] = Number(e.target.value);
-      e.target.closest("label").querySelector("strong").textContent =
-        `${settings[e.target.dataset.settingRange]}m`;
-    }
-  });
-  root.addEventListener("click", (e) => {
-    if (!e.target.closest("[data-info-title]")) return;
-    const now = Date.now();
-    infoTaps = now - lastTap < 1200 ? infoTaps + 1 : 1;
-    lastTap = now;
-    if (infoTaps >= 7) {
-      settings.debugLive = !settings.debugLive;
-      saveSettings();
-      infoTaps = 0;
-      renderSettings();
-    }
+  function bind(root, category = "home") {
+    root.addEventListener("change", (e) => {
+      if (e.target.dataset.setting) {
+        settings[e.target.dataset.setting] = e.target.checked;
+        saveSettings();
+        onRender();
+      }
+      if (e.target.dataset.settingRange) {
+        settings[e.target.dataset.settingRange] = Number(e.target.value);
+        saveSettings();
+        renderSettings(root, category);
+        onRender();
+      }
+      if (e.target.dataset.settingValue) {
+        settings[e.target.dataset.settingValue] = e.target.value;
+        saveSettings();
+        onRender();
+      }
+    });
+    root.addEventListener("input", (e) => {
+      if (e.target.dataset.settingRange) {
+        settings[e.target.dataset.settingRange] = Number(e.target.value);
+        e.target.closest("label").querySelector("strong").textContent =
+          `${settings[e.target.dataset.settingRange]}m`;
+      }
+    });
+    root.addEventListener("click", (e) => {
+      const row = e.target.closest("[data-setting-page]");
+      if (row) {
+        navigation.push("setting", { id: row.dataset.settingPage });
+        return;
+      }
+      if (!e.target.closest("[data-info-title]")) return;
+      const now = Date.now();
+      infoTaps = now - lastTap < 1200 ? infoTaps + 1 : 1;
+      lastTap = now;
+      if (infoTaps >= 7) {
+        settings.debugLive = !settings.debugLive;
+        saveSettings();
+        infoTaps = 0;
+        renderSettings(root, category);
+      }
+    });
+  }
+  bind($("#settings-content"));
+  navigation.register("setting", {
+    title: (r) =>
+      ({
+        pass: "定期券",
+        distance: "近くの駅",
+        routes: "対応路線",
+        info: "情報・出典",
+      })[r.params.id] ?? "詳細設定",
+    create({ element, route }) {
+      bind(element, route.params.id);
+    },
+    onShow({ element, route }) {
+      renderSettings(element, route.params.id);
+    },
   });
   window.addEventListener("mymap-realtime-log", () => {
     if (state.tab === "settings" && settings.debugLive) renderSettings();

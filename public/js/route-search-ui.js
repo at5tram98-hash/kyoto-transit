@@ -1,3 +1,5 @@
+import { navigation } from "./navigation.js";
+import { setupSheetGestures } from "./context-sheet.js";
 import { readSearchPairs, saveSearchPair } from "./search-history.js";
 import { CAPTURE_API } from "./live.js";
 import { normalize } from "./network.js";
@@ -212,7 +214,14 @@ async function planInWorker(base, feeds, request, passes, signal) {
     worker.postMessage({ id, ...payload });
   });
 }
-function routeHTML(route, network, rides = [], routeIndex = 0, current) {
+function routeHTML(
+  route,
+  network,
+  rides = [],
+  routeIndex = 0,
+  current,
+  detail = false,
+) {
   const name = (id) => network.stops.get(id)?.name ?? id;
   const available = route.legs
     .map((leg, i) => ({ leg, i }))
@@ -235,7 +244,7 @@ function routeHTML(route, network, rides = [], routeIndex = 0, current) {
       return `<div class="planner-leg ride"><time>${formatTime(leg.depart)}</time><span class="planner-line"></span><div><b>${esc(leg.route ? `${leg.route}系統` : (operatorLabel[leg.operator] ?? leg.label))}</b><small>${esc(name(leg.from))} → ${esc(name(leg.to))}</small><small>${esc(leg.destination ?? "行先未確認")}行 · ${formatTime(leg.arrive)}着${leg.realtime?.delay ? ` · +${leg.realtime.delay}分` : ""}</small>${ride && boardingAvailable(ride, current) ? `<button class="plain-action planner-board" data-board-route="${routeIndex}" data-board-leg="${legIndex}">この便に乗車中 · 案内を開始 ›</button>` : ""}${ride && first?.i !== legIndex ? `<button class="plain-action" data-arm-route="${routeIndex}" data-arm-leg="${legIndex}">この区間で案内を準備 ›</button>` : ""}</div></div>`;
     })
     .join("");
-  return `<article class="planner-result"><div class="planner-result-head"><span class="planner-badge">${esc(route.optionLabel ?? "候補")}</span><span class="planner-quality">${dot(route.realtimeSource ?? "schedule")}${route.realtimeSource === "live" ? "運行情報反映" : "時刻表"}</span></div><div class="planner-times"><strong>${formatTime(route.start)}</strong><span>→</span><strong>${formatTime(route.time)}</strong><small><b>${route.duration}</b>分</small></div><p class="planner-route-summary">${esc(line)}</p><div class="planner-metrics"><span>乗換 ${route.transfers}回</span><span>徒歩 ${walk}分</span><span>追加 <b>${yen(route.fare.additional)}</b>${route.fare.additional !== route.fare.normal ? `<small>通常 ${yen(route.fare.normal)}</small>` : ""}</span></div><div class="planner-result-actions">${first ? `<button class="primary-action" data-arm-route="${routeIndex}" data-arm-leg="${first.i}">この経路を選ぶ</button>` : ""}<details class="planner-details"><summary>経路の詳細</summary><div class="planner-timeline">${legs}</div></details></div></article>`;
+  return `<article class="planner-result"><div class="planner-result-head"><span class="planner-badge">${esc(route.optionLabel ?? "候補")}</span><span class="planner-quality">${dot(route.realtimeSource ?? "schedule")}${route.realtimeSource === "live" ? "運行情報反映" : "時刻表"}</span></div><div class="planner-times"><strong>${formatTime(route.start)}</strong><span>→</span><strong>${formatTime(route.time)}</strong><small><b>${route.duration}</b>分</small></div><p class="planner-route-summary">${esc(line)}</p><div class="planner-metrics"><span>乗換 ${route.transfers}回</span><span>徒歩 ${walk}分</span><span>追加 <b>${yen(route.fare.additional)}</b>${route.fare.additional !== route.fare.normal ? `<small>通常 ${yen(route.fare.normal)}</small>` : ""}</span></div><div class="planner-result-actions">${detail ? `<div class="planner-timeline">${legs}</div>${first ? `<div class="screen-bottom-action"><button class="primary-action" data-arm-route="${routeIndex}" data-arm-leg="${first.i}">この経路を使う</button></div>` : ""}` : `<button class="native-row planner-open-route" data-open-route="${routeIndex}"><span>経路詳細</span><span class="chevron">›</span></button>`}</div></article>`;
 }
 export function mountRouteSearch({
   network,
@@ -253,12 +262,234 @@ export function mountRouteSearch({
     .join("");
   let controller = null,
     lastMode = "route",
-    boarding = [];
+    boarding = [],
+    adjustedRoutes = [],
+    resultStatus = "",
+    requestDescription = "",
+    searchRevision = 0;
   const now = tokyoNow();
-  root.innerHTML = `<div class="planner-switch" role="tablist"><button class="active" data-planner-view="route" type="button">経路検索</button><button data-planner-view="board" type="button">駅時刻表</button></div><section id="planner-search"><form class="planner-form" id="planner-form"><datalist id="planner-stops">${stopOptions}</datalist><div class="planner-place-pair"><label><span>出発</span><input name="from" list="planner-stops" value="丸太町" autocomplete="off" required></label><button type="button" class="planner-swap" aria-label="出発と到着を入れ替える">⇅</button><label><span>到着</span><input name="to" list="planner-stops" value="国際会館" autocomplete="off" required></label></div><details class="planner-conditions"><summary><span>日時・検索条件</span><span id="planner-date-summary">${esc(now.time)} 出発</span></summary><div class="planner-date-row"><label><span>日付</span><input type="date" name="date" value="${now.date}" required></label><label><span>時刻</span><input type="time" name="time" value="${now.time}" required></label><label><span>指定</span><select name="timeMode"><option value="departure">出発</option><option value="arrival">到着</option></select></label></div><details class="planner-options"><summary>検索条件</summary><div><label><span>近鉄</span><select name="trainType"><option value="all">普通・急行</option><option value="local">普通のみ</option><option value="express">急行のみ</option></select></label><label><span>乗換余裕</span><select name="buffer"><option value="1">1分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="10">10分</option></select></label><label><span>徒歩上限</span><select name="maxWalk"><option value="10">10分</option><option value="20" selected>20分</option><option value="30">30分</option></select></label></div></details></details><button class="primary-action planner-submit" type="submit">経路を検索</button></form><div class="search-shortcuts"><button type="button" class="secondary-action" data-search-current>現在地から</button><button type="button" class="secondary-action" data-search-save>行き先を保存</button></div><div id="search-history"></div><div id="planner-status" aria-live="polite"></div><div id="planner-results"></div></section>`;
-  const status = root.querySelector("#planner-status"),
-    results = root.querySelector("#planner-results"),
+  root.innerHTML = `<section id="planner-search"><form class="planner-form" id="planner-form"><datalist id="planner-stops">${stopOptions}</datalist><div class="planner-place-pair"><label><span>出発</span><input name="from" list="planner-stops" value="丸太町" autocomplete="off" required></label><button type="button" class="planner-swap" aria-label="出発と到着を入れ替える">⇅</button><label><span>到着</span><input name="to" list="planner-stops" value="国際会館" autocomplete="off" required></label></div><details class="planner-conditions"><summary><span>日時・検索条件</span><span id="planner-date-summary">${esc(now.time)} 出発</span></summary><div class="planner-date-row"><label><span>日付</span><input type="date" name="date" value="${now.date}" required></label><label><span>時刻</span><input type="time" name="time" value="${now.time}" required></label><label><span>指定</span><select name="timeMode"><option value="departure">出発</option><option value="arrival">到着</option></select></label></div><details class="planner-options"><summary>検索条件</summary><div><label><span>近鉄</span><select name="trainType"><option value="all">普通・急行</option><option value="local">普通のみ</option><option value="express">急行のみ</option></select></label><label><span>乗換余裕</span><select name="buffer"><option value="1">1分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="10">10分</option></select></label><label><span>徒歩上限</span><select name="maxWalk"><option value="10">10分</option><option value="20" selected>20分</option><option value="30">30分</option></select></label></div></details></details><button class="primary-action planner-submit" type="submit">経路を検索</button></form><div class="search-shortcuts"><button type="button" class="secondary-action" data-search-current>現在地から</button><button type="button" class="secondary-action" data-search-save>行き先を保存</button></div><div id="search-history"></div><div id="search-inline-status" aria-live="polite"></div></section>`;
+  const inlineStatus = root.querySelector("#search-inline-status"),
     form = root.querySelector("#planner-form");
+  const conditions = form.querySelector(".planner-conditions"),
+    filter = document.createElement("dialog");
+  filter.id = "search-filter";
+  filter.className = "sheet";
+  filter.setAttribute("aria-labelledby", "search-filter-title");
+  filter.innerHTML =
+    '<button type="button" class="sheet-drag-handle" aria-label="下へドラッグして閉じる"><span></span></button><div class="sheet-header"><h2 id="search-filter-title">日時・検索条件</h2><button class="sheet-close" type="button" data-search-filter-done aria-label="完了">✓</button></div><div class="sheet-body planner-form"></div>';
+  const summary = conditions.querySelector("summary"),
+    dateSummary = summary.querySelector("#planner-date-summary");
+  const openFilter = document.createElement("button");
+  openFilter.type = "button";
+  openFilter.className = "planner-conditions";
+  openFilter.innerHTML = "<span>日時・検索条件</span>";
+  openFilter.append(dateSummary);
+  conditions
+    .querySelectorAll("input,select")
+    .forEach((el) => el.setAttribute("form", "planner-form"));
+  filter
+    .querySelector(".sheet-body")
+    .append(...[...conditions.children].filter((el) => el !== summary));
+  conditions.replaceWith(openFilter);
+  document.body.append(filter);
+  openFilter.addEventListener("click", () => filter.showModal());
+  filter
+    .querySelector("[data-search-filter-done]")
+    .addEventListener("click", () => filter.close());
+  setupSheetGestures();
+  let resultFrame = null,
+    snapshots = new Map(),
+    restoredSearch = false;
+  function validSnapshot(x) {
+    return (
+      x &&
+      Number.isSafeInteger(x.revision) &&
+      Array.isArray(x.routes) &&
+      Array.isArray(x.boarding) &&
+      x.routes.length <= 12 &&
+      x.routes.every(
+        (r) =>
+          [
+            r.start,
+            r.time,
+            r.duration,
+            r.transfers,
+            r.fare?.additional,
+            r.fare?.normal,
+          ].every(Number.isFinite) &&
+          Array.isArray(r.legs) &&
+          r.legs.length < 40 &&
+          r.legs.every((l) => [l.depart, l.arrive].every(Number.isFinite)),
+      )
+    );
+  }
+  function restoreSearch() {
+    if (restoredSearch) return;
+    restoredSearch = true;
+    const inputs = navigation.recalled("search-input");
+    if (inputs && typeof inputs === "object")
+      for (const name of [
+        "from",
+        "to",
+        "date",
+        "time",
+        "timeMode",
+        "trainType",
+        "buffer",
+        "maxWalk",
+      ]) {
+        if (typeof inputs[name] === "string" && inputs[name].length < 200)
+          form.elements[name].value = inputs[name];
+      }
+    const saved = navigation.recalled("search-data");
+    if (Array.isArray(saved))
+      for (const x of saved.slice(-5))
+        if (validSnapshot(x)) {
+          snapshots.set(x.revision, { ...x, status: "" });
+          searchRevision = Math.max(searchRevision, x.revision);
+        }
+  }
+  function publish() {
+    snapshots.set(searchRevision, {
+      revision: searchRevision,
+      routes: adjustedRoutes,
+      boarding,
+      description: requestDescription,
+      status: resultStatus,
+    });
+    while (snapshots.size > 5) snapshots.delete(snapshots.keys().next().value);
+    renderResults();
+  }
+  const status = {
+    set innerHTML(html) {
+      resultStatus = html;
+      publish();
+    },
+    get innerHTML() {
+      return resultStatus;
+    },
+  };
+  function renderResults() {
+    if (!resultFrame) return;
+    const revision = Number(resultFrame.dataset.searchRevision),
+      data = snapshots.get(revision);
+    resultFrame.querySelector(".search-request").textContent =
+      data?.description ?? "";
+    resultFrame.querySelector("[data-planner-status]").innerHTML =
+      data?.status ?? '<p class="empty-state">経路を再検索してください。</p>';
+    resultFrame.querySelector("[data-planner-results]").innerHTML = (
+      data?.routes ?? []
+    )
+      .map((r, i) => routeHTML(r, network, data.boarding[i], i, tokyoNow()))
+      .join("");
+  }
+  function handleRouteAction(e) {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const revision = Number(
+        b.closest("[data-search-revision]")?.dataset.searchRevision,
+      ),
+      rides = snapshots.get(revision)?.boarding;
+    if (b.dataset.openRoute !== undefined)
+      navigation.push("route", {
+        index: Number(b.dataset.openRoute),
+        revision,
+      });
+    if (b.dataset.armRoute !== undefined) {
+      const ride =
+        rides?.[Number(b.dataset.armRoute)]?.[Number(b.dataset.armLeg)];
+      if (ride) onArm?.(ride);
+    }
+    if (b.dataset.boardRoute !== undefined) {
+      const ride =
+        rides?.[Number(b.dataset.boardRoute)]?.[Number(b.dataset.boardLeg)];
+      if (ride && boardingAvailable(ride, tokyoNow())) onBoard?.(ride);
+    }
+  }
+  const searchHome = root.parentElement;
+  navigation.register("search", {
+    title: "経路検索",
+    singleton: true,
+    create() {
+      root.hidden = false;
+      return root;
+    },
+    onShow({ element }) {
+      restoreSearch();
+      root.hidden = false;
+      element.append(root);
+    },
+    onFocus() {
+      form.elements.to.focus({ preventScroll: true });
+    },
+    capture() {
+      navigation.remember(
+        "search-input",
+        Object.fromEntries(
+          [
+            "from",
+            "to",
+            "date",
+            "time",
+            "timeMode",
+            "trainType",
+            "buffer",
+            "maxWalk",
+          ].map((name) => [name, form.elements[name].value]),
+        ),
+      );
+    },
+    onDispose({ element }) {
+      if (root.parentElement === element) {
+        root.hidden = true;
+        searchHome.append(root);
+      }
+    },
+  });
+  navigation.register("results", {
+    title: "検索結果",
+    singleton: true,
+    create({ element }) {
+      element.innerHTML =
+        '<p class="source-caption search-request"></p><div data-planner-status aria-live="polite"></div><div data-planner-results></div>';
+      element.addEventListener("click", handleRouteAction);
+    },
+    onShow({ element, route }) {
+      restoreSearch();
+      element.dataset.searchRevision = route.params.revision;
+      resultFrame = element;
+      renderResults();
+    },
+    onDispose({ element }) {
+      if (resultFrame === element) resultFrame = null;
+    },
+  });
+  navigation.register("route", {
+    title: "経路詳細",
+    create({ element }) {
+      element.addEventListener("click", handleRouteAction);
+    },
+    onShow({ element, route }) {
+      restoreSearch();
+      const i = route.params.index,
+        data = snapshots.get(route.params.revision);
+      element.dataset.searchRevision = route.params.revision;
+      if (!data?.routes[i]) {
+        element.innerHTML =
+          '<p class="empty-state">経路を再検索してください。</p>';
+        return;
+      }
+      element.innerHTML = routeHTML(
+        data.routes[i],
+        network,
+        data.boarding[i],
+        i,
+        tokyoNow(),
+        true,
+      );
+    },
+  });
   function historyView() {
     const pairs = readSearchPairs(searchStorage());
     root.querySelector("#search-history").innerHTML =
@@ -267,13 +498,6 @@ export function mountRouteSearch({
   historyView();
   function setMode(mode) {
     lastMode = mode;
-    root
-      .querySelectorAll("[data-planner-view]")
-      .forEach((button) =>
-        button.classList.toggle("active", button.dataset.plannerView === mode),
-      );
-    root.querySelector("#planner-search").hidden = mode !== "route";
-    if (timetable) timetable.hidden = mode !== "board";
   }
   root.addEventListener("click", (e) => {
     const quick = e.target.closest("[data-history-kind]");
@@ -299,24 +523,6 @@ export function mountRouteSearch({
       );
       historyView();
     }
-    const viewButton = e.target.closest("[data-planner-view]");
-    if (viewButton) setMode(viewButton.dataset.plannerView);
-    const armButton = e.target.closest("[data-arm-route]");
-    if (armButton) {
-      const ride =
-        boarding[Number(armButton.dataset.armRoute)]?.[
-          Number(armButton.dataset.armLeg)
-        ];
-      if (ride) onArm?.(ride);
-    }
-    const boardButton = e.target.closest("[data-board-route]");
-    if (boardButton) {
-      const ride =
-        boarding[Number(boardButton.dataset.boardRoute)]?.[
-          Number(boardButton.dataset.boardLeg)
-        ];
-      if (ride && boardingAvailable(ride, tokyoNow())) onBoard?.(ride);
-    }
     if (e.target.closest(".planner-swap")) {
       const fromInput = form.elements.from,
         toInput = form.elements.to,
@@ -325,13 +531,15 @@ export function mountRouteSearch({
       toInput.value = temp;
     }
   });
-  form.addEventListener("change", () => {
+  const dateChanged = () => {
     root.querySelector("#planner-date-summary").textContent =
       `${form.elements.date.value} ${form.elements.time.value} ${form.elements.timeMode.value === "arrival" ? "到着" : "出発"}`;
-  });
+  };
+  form.addEventListener("change", dateChanged);
+  filter.addEventListener("change", dateChanged);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    form.querySelector(".planner-conditions").open = false;
+    if (filter.open) filter.close();
     const active = document.activeElement;
     if (active instanceof HTMLInputElement) active.blur();
     controller?.abort();
@@ -343,13 +551,18 @@ export function mountRouteSearch({
         form.elements.to.value,
       ),
       start = minuteValue(form.elements.time.value);
-    results.innerHTML = "";
-    boarding = [];
+
     if (!from || !to || !Number.isFinite(start)) {
-      status.innerHTML =
+      inlineStatus.innerHTML =
         '<p class="planner-warning">駅・停留所と時刻を確認してください。</p>';
       return;
     }
+    inlineStatus.innerHTML = "";
+    searchRevision++;
+    adjustedRoutes = [];
+    boarding = [];
+    requestDescription = `${from.name} → ${to.name} · ${form.elements.date.value} ${form.elements.time.value}`;
+    navigation.push("results", { revision: searchRevision });
     saveSearchPair(searchStorage(), { from: from.name, to: to.name });
     historyView();
     const request = {
@@ -428,19 +641,12 @@ export function mountRouteSearch({
           return ride;
         }),
       );
-      results.innerHTML =
-        '<h3 class="planner-results-title" tabindex="-1">経路候補</h3>' +
-        adjusted
-          .map((r, i) => routeHTML(r, network, boarding[i], i, current))
-          .join("");
-      const heading = results.querySelector(".planner-results-title");
-      heading.focus({ preventScroll: true });
-      heading.scrollIntoView({
-        block: "start",
-        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "instant"
-          : "smooth",
-      });
+      adjustedRoutes = adjusted;
+      publish();
+      navigation.remember(
+        "search-data",
+        [...snapshots.values()].map(({ status, ...data }) => data),
+      );
     } catch (err) {
       if (!signal.aborted)
         status.innerHTML = `<p class="planner-warning">${esc(err.message)}</p>`;
@@ -451,8 +657,10 @@ export function mountRouteSearch({
     show() {
       setMode(lastMode);
     },
-    openBoard() {
-      setMode("board");
+    openBoard() {},
+    open(to) {
+      if (to) form.elements.to.value = to;
+      navigation.push("search");
     },
     setFrom(value) {
       const stop = network.stops.get(value);
@@ -462,7 +670,7 @@ export function mountRouteSearch({
       form.elements.time.value = current.time;
       form.elements.timeMode.value = "departure";
       setMode("route");
-      form.elements.to.focus();
+      navigation.push("search");
     },
   };
 }

@@ -20,10 +20,12 @@
   <link rel="stylesheet" href="vnext-tabbar.css">
   <link rel="stylesheet" href="stability.css">
   <link rel="stylesheet" href="vnext-journey.css">
+  <link rel="stylesheet" href="vnext-navigation.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
+      <button class="navigation-back" data-navigation-back hidden type="button"><b aria-hidden="true">‹</b><span>今</span></button>
       <div class="topbar-copy">
         <p class="eyebrow" id="view-subtitle">現在地に合わせて自動案内</p>
         <h1 id="view-title">今</h1>
@@ -36,14 +38,17 @@
       <section class="view" data-view="now" aria-label="今">
         <div id="now-hero" aria-live="polite"></div>
         <div id="now-search"></div>
+        <div id="ride-actions"></div>
         <div id="vehicle-panel"></div>
-        <div id="network-panel"></div>
-        <div id="arrivals-root" aria-live="polite"></div>
+        <div id="ride-stops-source" data-navigation-source hidden></div>
+        <div id="network-panel" data-navigation-source hidden></div>
+        <div id="arrivals-root" data-navigation-source hidden aria-live="polite"></div>
         <div id="nearby-panel"></div>
       </section>
       <section class="view" data-view="timetable" aria-label="時刻表" hidden>
-        <div id="route-search-root"></div>
-        <div id="timetable-root" hidden></div>
+        <button class="native-row navigation-search-entry" data-open-search><span><b>経路を検索</b><small>出発地と行き先から調べる</small></span><span class="chevron">›</span></button>
+        <div id="route-search-root" data-navigation-source hidden></div>
+        <div id="timetable-root"></div>
       </section>
       <section class="view" data-view="operations" aria-label="運行情報" hidden>
         <div id="operations-root" aria-live="polite"></div>

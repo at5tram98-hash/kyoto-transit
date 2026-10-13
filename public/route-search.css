@@ -87,8 +87,14 @@
 }
 .planner-conditions {
   border-top: 1px solid var(--separator);
-}
-.planner-conditions > summary {
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--blue);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -98,7 +104,7 @@
   cursor: pointer;
   min-height: 44px;
 }
-.planner-conditions > summary span:last-child {
+.planner-conditions span:last-child {
   color: var(--muted);
   text-align: right;
 }

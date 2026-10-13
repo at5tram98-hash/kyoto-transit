@@ -1,3 +1,4 @@
+import { animateState as animate } from "./navigation-motion.js";
 // Preserve DOM nodes when the visible content has not changed.
 const markup = new WeakMap();
 export function updateHTML(element, html) {
@@ -9,12 +10,6 @@ export function updateHTML(element, html) {
 
 const rowViews = new WeakMap();
 const fields = ["service", "destination", "minutes", "delay", "details"];
-const easing = "cubic-bezier(.22,.8,.25,1)";
-function animate(element, frames, options) {
-  element.getAnimations?.().forEach((animation) => animation.cancel());
-  element.animate?.(frames, { duration: 260, easing, ...options });
-}
-
 // Compare the presentation, not timestamps or diagnostic metadata. Unchanged
 // responses must not replace rows, restart their animations, or announce them.
 export function updateArrivalRows(root, rows, present) {

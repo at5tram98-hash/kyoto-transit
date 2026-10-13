@@ -1,3 +1,4 @@
+import { navigation } from "./navigation.js";
 import { CAPTURE_API } from "./live.js";
 import { searchStops } from "./network.js";
 import { formatTime } from "./router.js";
@@ -140,14 +141,85 @@ export function mountTimetables({
     tripJob = 0,
     activeTrip = null,
     boardForToday = false;
-  root.innerHTML = `<div class="native-search"><span aria-hidden="true">⌕</span><input id="timetable-search" type="search" placeholder="駅・停留所・系統を検索" aria-label="時刻表を検索" autocomplete="off"></div><div id="timetable-stop-list"></div><section id="timetable-board" hidden></section><dialog class="sheet" id="timetable-trip"><div class="sheet-handle"></div><div class="sheet-heading"><h2>この便の停車時刻</h2><button class="plain" data-close-trip>完了</button></div><div id="timetable-trip-content"></div></dialog>`;
-  const $ = (s) => root.querySelector(s);
+  root.innerHTML = `<div class="native-search"><span aria-hidden="true">⌕</span><input id="timetable-search" type="search" placeholder="駅・停留所・系統を検索" aria-label="時刻表を検索" autocomplete="off"></div><div id="timetable-stop-list"></div><section id="timetable-board" hidden></section><section id="timetable-trip" hidden><div id="timetable-trip-content"></div></section>`;
+  const boardElement = root.querySelector("#timetable-board"),
+    tripElement = root.querySelector("#timetable-trip");
+  const $ = (s) =>
+    s === "#timetable-board"
+      ? boardElement
+      : s === "#timetable-trip"
+        ? tripElement
+        : (root.querySelector(s) ??
+          boardElement.querySelector(s) ??
+          tripElement.querySelector(s));
+  navigation.register("board", {
+    title: (r) => network.stops.get(r.params.stopId)?.name ?? "駅時刻表",
+    singleton: true,
+    create() {
+      boardElement.hidden = false;
+      return boardElement;
+    },
+    onShow({ element, route }) {
+      element.append(boardElement);
+      boardElement.hidden = false;
+      if (chosen !== route.params.stopId || !options)
+        return select(route.params.stopId);
+    },
+    onDispose({ element }) {
+      if (boardElement.parentElement === element) {
+        boardElement.hidden = true;
+        root.append(boardElement);
+      }
+    },
+  });
+  navigation.register("trip", {
+    title: "この便の停車時刻",
+    singleton: true,
+    create() {
+      tripElement.hidden = false;
+      return tripElement;
+    },
+    async onShow({ element, route }) {
+      element.append(tripElement);
+      tripElement.hidden = false;
+      if (!board || chosen !== route.params.stopId) {
+        tripElement.querySelector("#timetable-trip-content").innerHTML =
+          '<p class="loading-note">選択した便を確認中…</p>';
+        await select(route.params.stopId);
+      }
+      if (!board) {
+        tripElement.querySelector("#timetable-trip-content").innerHTML =
+          '<p class="empty-note">便情報を取得できません。駅時刻表から再確認してください。</p>';
+        return;
+      }
+      const index = route.params.tripId
+        ? board?.entries.findIndex((e) => e.tripId === route.params.tripId)
+        : route.params.index;
+      if (!Number.isInteger(index) || index < 0) {
+        tripElement.querySelector("#timetable-trip-content").innerHTML =
+          '<p class="empty-note">選択した便の情報を再確認してください。</p>';
+        return;
+      }
+      if (!activeTrip || tripElement.dataset.index !== String(index))
+        return openTrip(index);
+    },
+    onHide() {
+      tripController?.abort();
+    },
+    onDispose({ element }) {
+      if (tripElement.parentElement === element) {
+        tripElement.hidden = true;
+        root.append(tripElement);
+      }
+    },
+  });
+
   function closeTrip() {
     tripController?.abort();
     tripJob++;
     activeTrip = null;
   }
-  $("#timetable-trip").addEventListener("close", closeTrip);
+
   function list() {
     const q = $("#timetable-search").value,
       favorites = getState().favorites ?? [],
@@ -165,13 +237,17 @@ export function mountTimetables({
     return `<div class="native-list">${stops.map((s) => `<button class="native-row" data-timetable-stop="${esc(s.id)}"><span class="system-symbol ${s.type.includes("bus") ? "bus" : s.type === "subway" ? "subway" : "rail"}">${transitSymbol(s.type.includes("bus"))}</span><span><b>${esc(s.name)}</b><small>${esc(s.lines.join("・"))}</small></span><span class="chev">›</span></button>`).join("")}</div>`;
   }
   async function select(id) {
+    if (chosen !== id) {
+      options = null;
+      board = null;
+    }
     chosen = id;
     closeTrip();
-    if ($("#timetable-trip").open) $("#timetable-trip").close();
+
     controller?.abort();
     controller = new AbortController();
     const current = ++job;
-    $("#timetable-stop-list").hidden = true;
+
     $("#timetable-board").hidden = false;
     $("#timetable-board").innerHTML =
       '<p class="loading-note" role="status">公式の時刻表を取得中…</p>';
@@ -184,27 +260,40 @@ export function mountTimetables({
       if (current !== job) return;
       options = data;
       $("#timetable-board").innerHTML =
-        `<button class="plain" data-timetable-back>‹ 駅・停留所</button><h2 class="board-place">${esc(options.name)}</h2><div class="board-controls"><label>方面<select id="timetable-direction">${options.boards.map((b) => `<option value="${esc(b.key)}">${esc(b.label)}</option>`).join("")}</select></label><label>ダイヤ<select id="timetable-day"><option value="auto">今日</option>${Object.entries(
+        `<h2 class="board-place">${esc(options.name)}</h2><div class="board-controls"><label>方面<select id="timetable-direction">${options.boards.map((b) => `<option value="${esc(b.key)}">${esc(b.label)}</option>`).join("")}</select></label><label>ダイヤ<select id="timetable-day"><option value="auto">今日</option>${Object.entries(
           dayLabel,
         )
           .map(([k, v]) => `<option value="${k}">${v}</option>`)
           .join(
             "",
           )}</select></label></div><div id="timetable-entries" aria-live="polite"></div>`;
+      const saved = navigation.recalled("timetable-selection");
+      if (saved?.stopId === id) {
+        if (options.boards.some((b) => b.key === saved.direction))
+          $("#timetable-direction").value = saved.direction;
+        if (saved.day === "auto" || dayLabel[saved.day])
+          $("#timetable-day").value = saved.day;
+      }
       await loadBoard();
     } catch (e) {
       if (current === job && !controller.signal.aborted)
         $("#timetable-board").innerHTML =
-          `<button class="plain" data-timetable-back>‹ 戻る</button><p class="empty-note">${esc(e.message)}</p>`;
+          `<p class="empty-note">${esc(e.message)}</p>`;
     }
   }
   async function loadBoard() {
+    closeTrip();
     controller?.abort();
     controller = new AbortController();
     const signal = controller.signal,
       current = ++job,
       direction = $("#timetable-direction").value,
       day = $("#timetable-day").value;
+    navigation.remember("timetable-selection", {
+      stopId: chosen,
+      direction,
+      day,
+    });
     $("#timetable-entries").innerHTML =
       '<p class="loading-note" role="status">発車時刻を取得中…</p>';
     try {
@@ -232,12 +321,10 @@ export function mountTimetables({
   }
   root.addEventListener("input", (e) => {
     if (e.target.id === "timetable-search") {
-      $("#timetable-board").hidden = true;
-      $("#timetable-stop-list").hidden = false;
       list();
     }
   });
-  root.addEventListener("change", (e) => {
+  boardElement.addEventListener("change", (e) => {
     if (["timetable-direction", "timetable-day"].includes(e.target.id))
       loadBoard();
   });
@@ -254,7 +341,7 @@ export function mountTimetables({
       today = boardForToday;
     $("#timetable-trip-content").innerHTML =
       '<p class="loading-note" role="status">停車時刻を取得中…</p>';
-    $("#timetable-trip").showModal();
+    tripElement.dataset.index = String(index);
     try {
       let trip, ride;
       if (direction.startsWith("north3:")) {
@@ -315,7 +402,11 @@ export function mountTimetables({
           network,
         );
       }
-      if (signal.aborted || current !== tripJob || !$("#timetable-trip").open)
+      if (
+        signal.aborted ||
+        current !== tripJob ||
+        navigation.route.type !== "trip"
+      )
         return;
       activeTrip = today ? ride : null;
       $("#timetable-trip-content").innerHTML =
@@ -326,19 +417,28 @@ export function mountTimetables({
           `<p class="empty-note">${esc(err.message)}</p><button class="secondary-action" data-retry-trip="${index}">再取得</button>`;
     }
   }
-  root.addEventListener("click", (e) => {
+  const handleClick = (e) => {
+    if (
+      e.currentTarget === root &&
+      e.target.closest("#timetable-board,#timetable-trip")
+    )
+      return;
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.dataset.timetableStop) select(b.dataset.timetableStop);
+    if (b.dataset.timetableStop)
+      navigation.push("board", { stopId: b.dataset.timetableStop });
     else if (b.hasAttribute("data-timetable-back")) {
       controller?.abort();
       job++;
-      $("#timetable-board").hidden = true;
-      $("#timetable-stop-list").hidden = false;
+
       list();
-    } else if (b.hasAttribute("data-close-trip")) $("#timetable-trip").close();
+    } else if (b.hasAttribute("data-close-trip")) navigation.pop();
     else if (b.dataset.timetableEntry !== undefined)
-      openTrip(b.dataset.timetableEntry);
+      navigation.push("trip", {
+        index: Number(b.dataset.timetableEntry),
+        stopId: chosen,
+        tripId: board.entries[Number(b.dataset.timetableEntry)]?.tripId ?? null,
+      });
     else if (b.dataset.retryTrip !== undefined) openTrip(b.dataset.retryTrip);
     else if (
       b.hasAttribute("data-board-trip") &&
@@ -346,14 +446,17 @@ export function mountTimetables({
       boardingAvailable(activeTrip, now())
     ) {
       const ride = activeTrip;
-      if (onBoard?.(ride)) $("#timetable-trip").close();
+      onBoard?.(ride);
     }
-  });
+  };
+  [root, boardElement, tripElement].forEach((el) =>
+    el.addEventListener("click", handleClick),
+  );
   list();
   return {
     select(id) {
-      setTab("timetable");
-      return select(id);
+      navigation.root("timetable");
+      navigation.push("board", { stopId: id });
     },
     show() {
       if (!chosen) list();
@@ -363,7 +466,44 @@ export function mountTimetables({
 export function mountOperations() {
   const root = document.querySelector("#operations-root");
   let last = 0,
-    busy = false;
+    busy = false,
+    latest = null;
+  navigation.register("operation", {
+    title: "運行情報",
+    onShow({ element, route }) {
+      void refresh().then(() => {
+        const lines =
+          latest?.lines?.filter(
+            (l) =>
+              !route.params.id ||
+              (route.params.id === "through"
+                ? ["kintetsu", "subway"].includes(l.id)
+                : l.id === route.params.id),
+          ) ?? [];
+        element.innerHTML = lines.length
+          ? lines.map(operationHTML).join("")
+          : `<p class="empty-state">運行情報を取得できません。</p><button class="secondary-action" data-operation-retry>再取得</button>`;
+      });
+      element.onclick = (e) => {
+        if (e.target.closest("[data-operation-retry]"))
+          void refresh(true).then(() => navigation.refresh());
+      };
+    },
+    update({ element, route }) {
+      const lines =
+        latest?.lines?.filter(
+          (l) =>
+            !route.params.id ||
+            (route.params.id === "through"
+              ? ["kintetsu", "subway"].includes(l.id)
+              : l.id === route.params.id),
+        ) ?? [];
+      if (lines.length) element.innerHTML = lines.map(operationHTML).join("");
+    },
+  });
+  function operationHTML(l) {
+    return `<article class="operation-card"><h2>${esc(l.name)}</h2><p>${esc(l.summary)}</p><div class="operation-routes">${l.routes.map((r) => `<span>${esc(r)}</span>`).join("")}</div>${l.notices.length ? `<ul class="operation-notices">${l.notices.map((n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)} ›</a></li>`).join("")}</ul>` : ""}<small>${l.fetchedAt ? "取得 " + new Date(l.fetchedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) : "取得できませんでした"}</small></article>`;
+  }
   root.innerHTML =
     '<p class="empty-note">対応路線の最新情報を自動取得します</p>';
   async function refresh(force = false) {
@@ -373,7 +513,8 @@ export function mountOperations() {
     try {
       const d = await officialData("/operations");
       last = Date.now();
-      root.innerHTML = `<div class="operations-head"><span>公式情報を確認</span><button class="plain" data-operations-refresh>更新</button></div>${d.lines.map((l) => `<article class="operation-card"><div class="operation-title"><span class="system-symbol ${l.id === "subway" ? "subway" : l.id === "kintetsu" ? "rail" : "bus"}">${transitSymbol(l.id.includes("bus"))}</span><h2>${esc(l.name)}</h2><span class="status-dot ${l.status}"></span></div><p>${esc(l.summary)}</p><div class="operation-routes">${l.routes.map((r) => `<span>${esc(r)}</span>`).join("")}</div>${l.notices.length ? `<ul class="operation-notices">${l.notices.map((n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.title)} ›</a></li>`).join("")}</ul>` : ""}<small>${l.fetchedAt ? "取得 " + new Date(l.fetchedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) : "取得できませんでした"}</small></article>`).join("")}<p class="source-caption">${esc(d.notice)}</p>`;
+      latest = d;
+      root.innerHTML = `<div class="operations-head"><span>公式情報を確認</span><button class="plain-action" data-operations-refresh>更新</button></div><div class="native-list">${d.lines.map((l) => `<button class="native-row" data-operation-id="${esc(l.id)}"><span><b>${esc(l.name)}</b><small>${esc(l.summary)}</small></span><span class="chevron">›</span></button>`).join("")}</div><p class="source-caption">${esc(d.notice)}</p>`;
     } catch (e) {
       root.innerHTML = `<p class="empty-note">${esc(e.message)}</p><button class="plain" data-operations-refresh>再取得</button>`;
     } finally {
@@ -383,6 +524,8 @@ export function mountOperations() {
   }
   root.addEventListener("click", (e) => {
     if (e.target.closest("[data-operations-refresh]")) refresh(true);
+    const b = e.target.closest("[data-operation-id]");
+    if (b) navigation.push("operation", { id: b.dataset.operationId });
   });
   return { show: refresh };
 }

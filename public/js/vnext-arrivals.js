@@ -1,3 +1,4 @@
+import { navigation } from "./navigation.js";
 import { searchStops } from "./network.js";
 import {
   $,
@@ -421,7 +422,10 @@ export function mountArrivals({ network }) {
       railRoot().removeAttribute("aria-busy");
     }
   }
-  const active = () => !document.hidden && state.tab === "now";
+  const active = () =>
+    !document.hidden &&
+    state.tab === "now" &&
+    ["root", "arrivals"].includes(navigation.route.type);
   const busLoop = createLiveLoop({
       run: refreshBus,
       active,

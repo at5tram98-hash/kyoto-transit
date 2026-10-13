@@ -189,11 +189,39 @@ function draw(element, map, view) {
   updateHTML(svg, drawing.overlay);
   viewports.set(element, view);
 }
+const savedViewports = new Map();
+export function rememberMapViewport(host, key) {
+  const element = host.querySelector(".route-map"),
+    view = element && viewports.get(element);
+  if (view) savedViewports.set(key, { ...view, center: [...view.center] });
+  if (savedViewports.size > 24)
+    savedViewports.delete(savedViewports.keys().next().value);
+  return view;
+}
+export function restoreMapViewport(host, key, saved = null) {
+  const valid =
+    saved &&
+    Number.isFinite(saved.zoom) &&
+    saved.zoom >= 4 &&
+    saved.zoom <= 18 &&
+    Array.isArray(saved.center) &&
+    saved.center.length === 2 &&
+    saved.center.every(Number.isFinite);
+  const element = host.querySelector(".route-map"),
+    view = savedViewports.get(key) ?? (valid ? saved : null),
+    map = element && mapData.get(element.dataset.mapKey);
+  if (view && map) draw(element, map, view);
+}
 export function renderRouteMap(element, map, model) {
   const key = JSON.stringify([map.points, map.stops.map((s) => s.id)]);
   const current = element.querySelector(".route-map");
   if (!current || current.dataset.mapKey !== key) {
-    updateHTML(element, routeMapHTML(map, model));
+    updateHTML(
+      element,
+      routeMapHTML(map, model, {
+        expanded: Boolean(current?.classList.contains("expanded")),
+      }),
+    );
     return;
   }
   const next = { ...map, nextId: model.nextStation?.id, model };
@@ -201,7 +229,7 @@ export function renderRouteMap(element, map, model) {
   // Preserve loaded background tiles and user pan/zoom on position refresh.
   for (const target of [
     current,
-    ...document.querySelectorAll(".sheet[open] .route-map"),
+    ...document.querySelectorAll(".navigation-current .route-map.expanded"),
   ]) {
     if (target.dataset.mapKey !== key) continue;
     target.dataset.line = model.lineId;
@@ -361,6 +389,11 @@ export function setupRouteMaps() {
   document.addEventListener("pointerdown", (e) => {
     const canvas = e.target.closest(".route-map.expanded .map-canvas");
     if (!canvas || e.target.closest("button,a")) return;
+    const main = document.querySelector("main"),
+      depth = Number(
+        document.querySelector(".app-shell")?.dataset.navigationDepth,
+      );
+    if (depth > 0 && e.clientX < main.getBoundingClientRect().left + 24) return;
     const element = canvas.closest(".route-map"),
       map = mapData.get(element.dataset.mapKey);
     if (!map) return;

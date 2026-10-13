@@ -1,0 +1,287 @@
+/* Navigation owns the app viewport; feature styles own only their contents. */
+:root {
+  --motion-fast: 160ms;
+  --motion-standard: 220ms;
+  --motion-navigation: 340ms;
+  --motion-spring: 260ms;
+  --motion-easing: cubic-bezier(0.22, 0.8, 0.25, 1);
+}
+.navigation-app {
+  height: var(--app-height, 100dvh);
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body:has(.navigation-app) {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.navigation-app .topbar {
+  flex: none;
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  position: relative;
+  min-height: 76px;
+  align-items: center;
+}
+.navigation-app main {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  max-width: 760px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.navigation-app .view,
+.navigation-screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: auto;
+  padding: 6px 14px calc(84px + var(--safe-bottom));
+  background: var(--bg);
+  animation: none;
+  -webkit-overflow-scrolling: touch;
+}
+.navigation-screen:focus {
+  outline: none;
+}
+.navigation-details {
+  display: contents;
+}
+.navigation-edge {
+  position: fixed;
+  left: max(0px, calc((100vw - 760px) / 2));
+  top: var(--navigation-top, 76px);
+  bottom: calc(74px + var(--safe-bottom));
+  width: 24px;
+  z-index: 10;
+  pointer-events: none;
+  touch-action: pan-y;
+}
+.navigation-back {
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  max-width: 36%;
+  padding: 0;
+  font-size: 1rem;
+  text-align: left;
+}
+.navigation-back b {
+  font-size: 2rem;
+  font-weight: 400;
+  line-height: 1;
+}
+.navigation-back span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.navigation-app:not([data-navigation-depth="0"]) .topbar {
+  min-height: calc(56px + env(safe-area-inset-top, 0px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  padding-bottom: 8px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  align-items: center;
+}
+.navigation-app:not([data-navigation-depth="0"]) .navigation-back {
+  max-width: 100%;
+}
+.navigation-app:not([data-navigation-depth="0"]) .topbar-copy {
+  text-align: center;
+}
+.navigation-app:not([data-navigation-depth="0"]) .topbar .eyebrow {
+  display: none;
+}
+.navigation-app:not([data-navigation-depth="0"]) .topbar h1 {
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.navigation-app:not([data-navigation-depth="0"]) .round-action {
+  justify-self: end;
+}
+.navigation-search-entry {
+  border-radius: 14px;
+  margin: 10px 0 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 64px;
+  color: var(--text);
+}
+.navigation-search-entry b {
+  color: var(--blue);
+  font-size: 1.125rem;
+}
+.navigation-recent h3 {
+  margin: 18px 8px 8px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.ride-action-list .native-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.navigation-screen .section-block {
+  box-shadow: none;
+}
+.navigation-app .bus-mini-map {
+  padding: 0;
+}
+.mini-map-open {
+  position: relative;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: var(--panel-2);
+  color: var(--blue);
+  text-align: left;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.mini-map-open > .route-map-host {
+  display: block;
+  pointer-events: none;
+  height: 88px;
+  overflow: hidden;
+}
+.mini-map-open .map-canvas {
+  height: 88px;
+}
+.mini-map-open .route-map svg {
+  height: 100%;
+}
+.mini-map-open .route-map-caption,
+.mini-map-open .map-attribution {
+  display: none;
+}
+.mini-map-open > span:last-child {
+  display: block;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+}
+.navigation-fullscreen .tabbar {
+  display: none;
+}
+.navigation-fullscreen .navigation-screen {
+  padding: 0;
+  overflow: hidden;
+}
+.navigation-fullscreen .navigation-edge {
+  bottom: 0;
+}
+.navigation-screen .route-map.expanded {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  margin: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.navigation-screen .route-map.expanded .map-canvas {
+  flex: 1;
+  min-height: 100px;
+  height: auto;
+}
+.navigation-screen .route-map.expanded svg {
+  height: 100%;
+}
+.navigation-screen .route-map.expanded .map-header {
+  flex: none;
+}
+.screen-bottom-action {
+  position: sticky;
+  bottom: calc(-70px - var(--safe-bottom));
+  margin: 20px -14px calc(-84px - var(--safe-bottom));
+  padding: 12px 14px calc(82px + var(--safe-bottom));
+  background: var(--panel);
+  border-top: 1px solid var(--separator);
+}
+.screen-bottom-action .primary-action {
+  width: 100%;
+  margin: 0;
+  min-height: 48px;
+}
+.navigation-app[data-keyboard="true"] .tabbar {
+  visibility: hidden;
+  pointer-events: none;
+}
+.navigation-app[data-keyboard="true"] .view,
+.navigation-app[data-keyboard="true"] .navigation-screen {
+  padding-bottom: 20px;
+}
+.navigation-app[data-keyboard="true"] .screen-bottom-action {
+  position: static;
+  margin-bottom: 0;
+  padding-bottom: 16px;
+}
+.sheet-drag-handle {
+  touch-action: none;
+}
+.sheet::backdrop {
+  background: rgba(0, 0, 0, var(--sheet-backdrop, 0.32));
+}
+.sheet {
+  display: none;
+}
+.sheet[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sheet-body {
+  min-height: 0;
+  overscroll-behavior-y: contain;
+}
+.navigation-app button:active {
+  opacity: 0.75;
+}
+.navigation-app .native-row:active {
+  background: var(--panel-2);
+}
+.navigation-app input {
+  font-size: max(16px, 1rem);
+}
+.navigation-app .native-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.navigation-app .board-controls {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.navigation-app .board-controls select {
+  width: 100%;
+  min-width: 0;
+}
+@media (prefers-contrast: more) {
+  .navigation-back,
+  .chevron {
+    color: var(--text);
+  }
+  .native-list,
+  .navigation-search-entry {
+    outline: 1px solid var(--separator);
+  }
+}
+@media (max-width: 430px) {
+  .navigation-app .view,
+  .navigation-screen {
+    padding-inline: 10px;
+  }
+  .screen-bottom-action {
+    margin-inline: -10px;
+    padding-inline: 10px;
+  }
+}

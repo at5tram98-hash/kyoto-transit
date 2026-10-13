@@ -226,6 +226,17 @@ try {
     m.persistJourney(true);
     v.renderNow();
   });
+  await page.locator('[data-navigation-screen="trains"]').click();
+  await page.locator(".live-track").waitFor();
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".app-shell").dataset.navigationBusy === "false",
+  );
+  await page.locator("[data-navigation-back]").click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector(".app-shell").dataset.navigationBusy === "false",
+  );
   const other = await context.newPage();
   await other.goto(base);
   await controlled(other);
@@ -296,7 +307,9 @@ try {
   const unavailableVersion = async () =>
     page.evaluate(async (base) => {
       try {
-        const response = await fetch(`${base}js/journey-core.js?v=dddddddddddd`);
+        const response = await fetch(
+          `${base}js/journey-core.js?v=dddddddddddd`,
+        );
         return {
           status: response.status,
           ok: response.ok,
@@ -317,13 +330,16 @@ try {
       : { status: 410, ok: false, body: "This app version is unavailable" },
     "Offline requests must never receive a different release's module",
   );
-  const cachedStyle = await page.evaluate(async ({ base, version }) => {
-    const response = await fetch(
-      `${base}vnext.css?v=${version}&offline-probe=after-rejection`,
-      { cache: "no-store" },
-    );
-    return { status: response.status, body: await response.text() };
-  }, { base, version: versions[1] });
+  const cachedStyle = await page.evaluate(
+    async ({ base, version }) => {
+      const response = await fetch(
+        `${base}vnext.css?v=${version}&offline-probe=after-rejection`,
+        { cache: "no-store" },
+      );
+      return { status: response.status, body: await response.text() };
+    },
+    { base, version: versions[1] },
+  );
   assert.equal(cachedStyle.status, 200);
   assert.equal(
     cachedStyle.body,

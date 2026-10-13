@@ -58,7 +58,7 @@ export function nextStationHero(model, ride, progress) {
     <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
       <div class="next-state-label">${esc(model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(next?.name ?? "確認中")}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(model.boundary ? model.boundary.codes.join(" / ") : next.code)}</span>` : ""}</div>
       ${next?.en ? `<div class="station-en">${esc(next.en)}</div>` : ""}<p class="next-countdown">${esc(duration)}</p>
-      <p class="destination-progress">${model.routeUnavailable ? "停車順を確認中" : model.nextIsDestination ? (model.bus ? "この停留所で降ります" : "この駅で降ります") : `「${esc(destination?.name ?? "未設定")}」まであと${model.remainingStops}${model.bus ? "停留所" : "駅"}`}</p>
+      <p class="destination-progress">${model.routeUnavailable ? "停車順を確認中" : model.nextIsDestination ? (model.bus ? "この停留所で降ります" : "この駅で降ります") : `「${esc(destination?.name ?? "未設定")}」まであと<span class="remaining-number">${model.remainingStops}</span>${model.bus ? "停留所" : "駅"}`}</p>
       <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? "停留所の並び" : "停車駅の並び"}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(s.name)}</b></span>`).join("")}</div></details>
     </div>
     <button class="personal-destination" data-context-action="destination"><span><small>あなたの降車${model.bus ? "停留所" : "駅"}</small><b>${esc(destination?.name ?? "設定する")} ${model.bus ? "" : esc(destination?.code)}</b></span><strong>${estimateTime(model.destinationArrival, model.confidence)}</strong></button>
