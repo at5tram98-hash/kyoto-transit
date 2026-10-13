@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { resolve, extname, sep } from "node:path";
 import { chromium, webkit } from "playwright";
 
-const dist = resolve("dist"),
+const dist = resolve(process.env.BROWSER_DIST_DIR ?? "dist"),
   artifacts = resolve(
     process.env.BROWSER_ARTIFACT_DIR ?? "/tmp/my-map-browser",
   );
@@ -1032,12 +1032,321 @@ async function navigationChecks() {
   );
 }
 
+async function searchComparisonChecks({ baseline = false } = {}) {
+  const fullFeed = {
+    ...subwayFeed,
+    stops: [
+      { id: "K07", name: "丸太町" },
+      { id: "K04", name: "北大路" },
+      { id: "K01", name: "国際会館" },
+    ],
+    services: [
+      {
+        ...subwayFeed.services[0],
+        stops: ["K07", "K04", "K01"],
+        platforms: ["1", "1", "1"],
+        trips: [605, 615, 630].map((m, i) => ({
+          id: `comparison-${i}`,
+          date,
+          arrivals: [m, m + 5, m + 17],
+          departures: [m, m + 5, m + 17],
+          headsign: "国際会館",
+        })),
+      },
+    ],
+  };
+  for (const colorScheme of ["light", "dark"])
+    for (const scale of baseline ? [1] : [1, 1.5, 2]) {
+      const run = await open({
+          colorScheme,
+          reducedMotion: scale === 2 ? "reduce" : "no-preference",
+          time: "2026-10-11T01:00:00Z",
+          scenario: {
+            subwayFeed: fullFeed,
+            gps: scale === 2 ? "denied" : "active",
+            standalone: scale === 2,
+          },
+        }),
+        { page } = run;
+      try {
+        await page.evaluate(
+          (scale) =>
+            (document.documentElement.style.fontSize = `${16 * scale}px`),
+          scale,
+        );
+        await searchScreen(page);
+        if (baseline) {
+          await page.screenshot({
+            path: resolve(artifacts, `search-${colorScheme}-390.png`),
+          });
+          await submitSearch(page);
+          await page
+            .locator(".navigation-current [data-open-route]")
+            .first()
+            .waitFor();
+          await settleNavigation(page);
+          await page.screenshot({
+            path: resolve(artifacts, `results-${colorScheme}-390.png`),
+          });
+          await page
+            .locator(".navigation-current [data-open-route]")
+            .first()
+            .click();
+          await settleNavigation(page);
+          await page.screenshot({
+            path: resolve(artifacts, `route-${colorScheme}-390.png`),
+          });
+          continue;
+        }
+        // A rail/bus name is never selected by an invisible heuristic.
+        await page.locator("[name=to]").fill("京都");
+        await page.waitForFunction(() =>
+          Object.values(
+            JSON.parse(sessionStorage.getItem("mymap-navigation-v1") ?? "{}")
+              .ui ?? {},
+          ).some((screen) =>
+            screen.fields?.some((f) => f.name === "to" && f.value === "京都"),
+          ),
+        );
+        assert.ok(
+          await page
+            .locator("#planner-suggestions [data-stop-id=K11]")
+            .isVisible(),
+        );
+        assert.ok(
+          await page
+            .locator("#planner-suggestions [data-stop-id=B01]")
+            .isVisible(),
+        );
+        await page.locator("#planner-suggestions [data-stop-id=B01]").click();
+        assert.equal(await page.locator("[name=toId]").inputValue(), "B01");
+        await page.locator("[name=to]").fill("K01");
+        await page.locator("#planner-suggestions [data-stop-id=K01]").waitFor();
+        await page.locator("[name=to]").press("ArrowDown");
+        assert.match(
+          (await page
+            .locator("[name=to]")
+            .getAttribute("aria-activedescendant")) ?? "",
+          /planner-suggestions-0/,
+        );
+        await page.locator("[name=to]").press("Enter");
+        assert.equal(await page.locator("[name=to]").inputValue(), "国際会館");
+        assert.equal(await page.locator("[name=toId]").inputValue(), "K01");
+        await page.locator("[data-add-via]").click();
+        await page.locator("[name=via0]").fill("北大路");
+        await page.locator("#planner-suggestions [data-stop-id=K04]").click();
+        await page.locator('[data-dwell-index="0"]').selectOption("5");
+        await layout(page, `comparison search ${colorScheme} ${scale}x`);
+        if (scale === 1)
+          await page.screenshot({
+            path: resolve(artifacts, `search-${colorScheme}-390.png`),
+          });
+        await submitSearch(page);
+        await page
+          .locator(".navigation-current [data-open-route]")
+          .first()
+          .waitFor();
+        await settleNavigation(page);
+        assert.match(
+          await page
+            .locator(".navigation-current .search-request")
+            .textContent(),
+          /北大路/,
+        );
+        await page
+          .locator(".navigation-current [data-result-order]")
+          .selectOption("fare");
+        await layout(page, `comparison results ${colorScheme} ${scale}x`);
+        if (scale === 1)
+          await page.screenshot({
+            path: resolve(artifacts, `results-${colorScheme}-390.png`),
+          });
+        await page
+          .locator(".navigation-current .planner-result")
+          .first()
+          .click({ position: { x: 20, y: 30 } });
+        await settleNavigation(page);
+        assert.match(
+          await page
+            .locator(".navigation-current .planner-timeline")
+            .textContent(),
+          /滞在 5分/,
+        );
+        assert.match(
+          await page
+            .locator(".navigation-current .planner-timeline")
+            .textContent(),
+          /のりば 1/,
+        );
+        await page.locator(".navigation-current [data-save-route]").click();
+        assert.match(
+          await page
+            .locator(".navigation-current [data-route-feedback]")
+            .textContent(),
+          /保存しました/,
+        );
+        await page.evaluate(() =>
+          Object.defineProperty(navigator, "share", {
+            configurable: true,
+            value: async (data) => {
+              window.__sharedSearch = data;
+            },
+          }),
+        );
+        await page.locator(".navigation-current [data-share-route]").click();
+        const shared = await page.evaluate(() => window.__sharedSearch.url);
+        assert.ok(shared.includes("routeSearch="));
+        await layout(page, `comparison route ${colorScheme} ${scale}x`);
+        if (scale === 1)
+          await page.screenshot({
+            path: resolve(artifacts, `route-${colorScheme}-390.png`),
+          });
+        await backScreen(page);
+        assert.equal(
+          await page
+            .locator(".navigation-current [data-result-order]")
+            .inputValue(),
+          "fare",
+        );
+        await page.locator(".navigation-current [data-edit-search]").click();
+        await settleNavigation(page);
+        assert.equal(await page.locator("[name=via0]").inputValue(), "北大路");
+        assert.equal(
+          await page.locator('[data-dwell-index="0"]').inputValue(),
+          "5",
+        );
+        await page.locator(".search-history > summary").click();
+        assert.equal(
+          await page.locator("[data-history-kind=favorites]").count(),
+          1,
+        );
+        await page.locator("[data-delete-kind=favorites]").click();
+        assert.equal(
+          await page.locator("[data-history-kind=favorites]").count(),
+          0,
+        );
+        assert.ok(await page.locator("[data-history-kind=history]").count());
+        await submitSearch(page);
+        await page
+          .locator(".navigation-current [data-open-route]")
+          .first()
+          .waitFor();
+        await settleNavigation(page);
+        await page.locator(".navigation-current [data-next-departure]").click();
+        await page.waitForFunction(() =>
+          document
+            .querySelector(".navigation-current .search-request")
+            ?.textContent.includes("10:06"),
+        );
+        await page
+          .locator(".navigation-current [data-open-route]")
+          .first()
+          .waitFor();
+        await settleNavigation(page);
+        assert.match(
+          await page
+            .locator(".navigation-current .planner-times")
+            .textContent(),
+          /10:06/,
+        );
+        await page.reload();
+        await page
+          .locator(".navigation-current [data-open-route]")
+          .first()
+          .waitFor();
+        await settleNavigation(page);
+        await page.locator(".navigation-current [data-edit-search]").click();
+        await settleNavigation(page);
+        assert.equal(await page.locator("[name=via0]").inputValue(), "北大路");
+        assert.equal(await page.locator("[name=time]").inputValue(), "10:06");
+        // A shared link reconstructs conditions, not an unverified cached itinerary.
+        await page.goto(shared);
+        await page.locator(".navigation-current #planner-form").waitFor();
+        await settleNavigation(page);
+        assert.equal(await page.locator("[name=via0]").inputValue(), "北大路");
+        assert.equal(await page.locator("[name=time]").inputValue(), "10:00");
+        assert.ok(!page.url().includes("routeSearch="));
+        assert.deepEqual(run.errors, []);
+      } catch (error) {
+        await page.screenshot({
+          path: resolve(
+            artifacts,
+            `comparison-failure-${colorScheme}-${scale}.png`,
+          ),
+        });
+        console.error(
+          "Comparison diagnostic",
+          JSON.stringify({
+            errors: run.errors,
+            screen: await page.locator("body").innerText(),
+          }),
+        );
+        throw error;
+      } finally {
+        await run.context.close();
+      }
+    }
+  if (baseline) return;
+  // Quick search on the home keeps its existing functionality and uses the same IDs.
+  const run = await open({
+      time: "2026-10-11T01:00:00Z",
+      scenario: { gps: "denied", subwayFeed: fullFeed },
+    }),
+    { page } = run;
+  try {
+    await page.locator("[name=destination]").fill("京都");
+    await page.locator("#quick-stop-suggestions [data-stop-id=K11]").click();
+    assert.equal(await page.locator("[name=destination]").inputValue(), "京都");
+    await page.locator("[name=destination]").fill("国際会館");
+    await page.locator("#quick-stop-suggestions [data-stop-id=K01]").click();
+    await page.locator(".quick-search-submit").click();
+    await page
+      .locator(".navigation-current [data-open-route]")
+      .first()
+      .waitFor();
+    await settleNavigation(page);
+    assert.match(
+      await page.locator(".navigation-current .search-request").textContent(),
+      /国際会館/,
+    );
+    await page.locator(".navigation-current [data-edit-search]").click();
+    await settleNavigation(page);
+    await page.locator("[name=to]").fill("存在しない地点");
+    await submitSearch(page);
+    await settleNavigation(page);
+    assert.equal(
+      await page.locator("#search-loading-overlay").isVisible(),
+      false,
+    );
+    assert.match(
+      await page.locator("#search-inline-status").textContent(),
+      /候補から選択/,
+    );
+    assert.deepEqual(run.errors, []);
+  } finally {
+    await run.context.close();
+  }
+  summary.checks.push(
+    "Competitor comparison improvements: operator-specific autocomplete and keyboard selection, via/dwell search, sort identity, edit/next departure, save/delete, share/reload state, quick search and invalid-input feedback; 390px light/dark 100–200%",
+  );
+}
+
 try {
-  if (process.env.BROWSER_LEGACY_ONLY !== "1") {
+  await searchComparisonChecks({
+    baseline: process.env.BROWSER_COMPARISON_BASELINE === "1",
+  });
+  if (
+    process.env.BROWSER_COMPARISON_BASELINE !== "1" &&
+    process.env.BROWSER_LEGACY_ONLY !== "1" &&
+    process.env.BROWSER_COMPARISON_ONLY !== "1"
+  ) {
     await navigationChecks();
     console.log("Navigation Flow A–F passed");
   }
-  if (process.env.BROWSER_NAV_ONLY !== "1") {
+  if (
+    process.env.BROWSER_NAV_ONLY !== "1" &&
+    process.env.BROWSER_COMPARISON_ONLY !== "1"
+  ) {
     if (process.env.BROWSER_SPEC_ONLY !== "1") {
       // Small iPhones, current phones, landscape, tablet, and desktop, both themes.
       for (const colorScheme of ["light", "dark"])

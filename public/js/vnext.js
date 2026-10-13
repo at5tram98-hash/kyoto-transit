@@ -315,6 +315,7 @@ async function init() {
     setupSettings(renderNow);
     registerNowScreens({ arrivals, onFoldback: openFoldback });
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
+    routeSearch.restoreShared();
     setupEvents();
     [$('[data-view="now"]'), $('[data-view="timetable"]')].forEach((root) =>
       root.addEventListener("click", (e) => {

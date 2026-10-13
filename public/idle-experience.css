@@ -32,8 +32,8 @@ body {
 /* Keep the Now header quiet and live-focused. */
 .topbar .eyebrow#view-subtitle {
   text-transform: uppercase;
-  letter-spacing: .12em;
-  font-size: .67rem;
+  letter-spacing: 0.12em;
+  font-size: 0.67rem;
 }
 .topbar .round-action[data-open-app-menu] {
   font-size: 0;
@@ -42,7 +42,11 @@ body {
 .topbar .round-action[data-open-app-menu]::before,
 .topbar .round-action[data-open-app-menu]::after,
 .topbar .round-action[data-open-app-menu] {
-  background-image: radial-gradient(circle at center, currentColor 1.6px, transparent 1.8px);
+  background-image: radial-gradient(
+    circle at center,
+    currentColor 1.6px,
+    transparent 1.8px
+  );
   background-size: 8px 8px;
   background-repeat: repeat-x;
   background-position: center;
@@ -77,7 +81,7 @@ body {
   margin: 0 0 8px;
 }
 [data-view="now"] .idle-status p {
-  font-size: .875rem;
+  font-size: 0.875rem;
 }
 
 /* Yahoo Transit-inspired compact destination-first search. */
@@ -85,8 +89,9 @@ body {
   margin-bottom: 14px;
 }
 .quick-journey {
+  position: relative;
   background: var(--panel);
-  border: .5px solid var(--separator);
+  border: 0.5px solid var(--separator);
   border-radius: 22px;
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -94,7 +99,7 @@ body {
 .quick-destination {
   min-height: 58px;
   display: grid;
-  grid-template-columns: 30px minmax(0,1fr);
+  grid-template-columns: 30px minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 0 16px;
@@ -129,7 +134,7 @@ body {
   color: var(--text);
   font-size: 1.04rem;
   font-weight: 650;
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
 }
 .quick-destination input::placeholder {
   color: var(--muted);
@@ -142,7 +147,12 @@ body {
   padding: 0 14px;
   border-top: 0 solid var(--separator);
   transform: translateY(-4px);
-  transition: grid-template-rows .28s cubic-bezier(.22,.8,.25,1), opacity .2s ease, padding .28s ease, transform .28s ease, border-width .28s ease;
+  transition:
+    grid-template-rows 0.28s cubic-bezier(0.22, 0.8, 0.25, 1),
+    opacity 0.2s ease,
+    padding 0.28s ease,
+    transform 0.28s ease,
+    border-width 0.28s ease;
   overflow: hidden;
 }
 .quick-search-more > * {
@@ -175,7 +185,7 @@ body {
 .quick-time-mode button.active {
   background: var(--panel);
   color: var(--text);
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 .quick-date-time {
   display: grid;
@@ -188,7 +198,7 @@ body {
   display: grid;
   gap: 5px;
   color: var(--muted);
-  font-size: .72rem;
+  font-size: 0.72rem;
   font-weight: 650;
 }
 .quick-date-time input,
@@ -203,7 +213,7 @@ body {
   color: var(--text);
   padding: 8px 10px;
   font: inherit;
-  font-size: .86rem;
+  font-size: 0.86rem;
 }
 .quick-kintetsu {
   display: none;
@@ -225,12 +235,14 @@ body {
   scrollbar-width: none;
   padding: 9px 2px 0;
 }
-.quick-recent-list::-webkit-scrollbar { display: none; }
+.quick-recent-list::-webkit-scrollbar {
+  display: none;
+}
 .quick-recent {
   min-width: 126px;
   max-width: 190px;
   min-height: 48px;
-  border: .5px solid var(--separator);
+  border: 0.5px solid var(--separator);
   border-radius: 14px;
   background: var(--panel);
   color: var(--text);
@@ -238,31 +250,56 @@ body {
   text-align: left;
 }
 .quick-recent span,
-.quick-recent small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.quick-recent span { font-weight: 700; font-size: .84rem; }
-.quick-recent small { color: var(--muted); font-size: .67rem; margin-top: 2px; }
+.quick-recent small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quick-recent span {
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+.quick-recent small {
+  color: var(--muted);
+  font-size: 0.67rem;
+  margin-top: 2px;
+}
 
 /* Full route search: date/time are always visible. Detailed options remain a sheet. */
 #planner-form > .planner-date-row {
   display: grid;
-  grid-template-columns: 1fr 1fr minmax(84px,.8fr);
+  grid-template-columns: 1fr 1fr minmax(84px, 0.8fr);
   gap: 8px;
   padding-top: 11px;
   margin-top: 4px;
   border-top: 1px solid var(--separator);
 }
-#planner-form > .planner-date-row label { min-width: 0; }
-.planner-kintetsu-condition { display: none; padding-top: 10px; }
-.planner-kintetsu-condition.is-visible { display: block; }
-.planner-more-conditions { margin-top: 6px; }
-@media(max-width:430px) {
-  #planner-form > .planner-date-row { grid-template-columns: 1fr 1fr; }
-  #planner-form > .planner-date-row label:last-child { grid-column: 1 / -1; }
+#planner-form > .planner-date-row label {
+  min-width: 0;
+}
+.planner-kintetsu-condition {
+  display: none;
+  padding-top: 10px;
+}
+.planner-kintetsu-condition.is-visible {
+  display: block;
+}
+.planner-more-conditions {
+  margin-top: 6px;
+}
+@media (max-width: 430px) {
+  #planner-form > .planner-date-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  #planner-form > .planner-date-row label:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Nearby modes are recognizable before reading text. */
 .nearby-guide .nearby-row {
-  grid-template-columns: 52px minmax(0,1fr) auto;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
   gap: 11px;
   min-height: 58px;
 }
@@ -280,7 +317,7 @@ body {
   height: 22px;
 }
 .nearby-guide .mode-symbol.enhanced-mode small {
-  font-size: .48rem;
+  font-size: 0.48rem;
   font-weight: 800;
   margin: 0;
   color: currentColor;
@@ -312,14 +349,16 @@ body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
-.search-loading-overlay[hidden] { display: none !important; }
+.search-loading-overlay[hidden] {
+  display: none !important;
+}
 .search-loading-card {
   width: min(286px, calc(100vw - 48px));
   min-height: 156px;
   border-radius: 26px;
-  background: color-mix(in srgb,var(--panel) 94%,transparent);
-  border: .5px solid var(--separator);
-  box-shadow: 0 22px 54px rgba(0,0,0,.16);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  border: 0.5px solid var(--separator);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.16);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -328,22 +367,38 @@ body {
   gap: 8px;
   padding: 20px;
 }
-.search-loading-card b { font-size: 1.08rem; }
-.search-loading-card small { color: var(--muted); font-size: .72rem; line-height: 1.4; }
+.search-loading-card b {
+  font-size: 1.08rem;
+}
+.search-loading-card small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
 .search-spinner {
   width: 34px;
   height: 34px;
   border-radius: 50%;
   border: 3px solid var(--separator);
   border-top-color: var(--blue);
-  animation: mymap-spin .8s linear infinite;
+  animation: mymap-spin 0.8s linear infinite;
 }
-@keyframes mymap-spin { to { transform: rotate(360deg); } }
+@keyframes mymap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Independent top-right menu. */
-.app-menu-sheet .sheet-header > div h2 { margin: 1px 0 0; }
-.app-menu-actions { padding-top: 4px; }
-.app-menu-actions .native-list { border-radius: 18px; }
+.app-menu-sheet .sheet-header > div h2 {
+  margin: 1px 0 0;
+}
+.app-menu-actions {
+  padding-top: 4px;
+}
+.app-menu-actions .native-list {
+  border-radius: 18px;
+}
 .menu-operation-symbol {
   border: 1.6px solid currentColor;
   border-radius: 50%;
@@ -353,7 +408,9 @@ body {
 }
 
 /* Cleaner operation tab icon: hide the old gauge glyph and draw a status ring. */
-.tab-button[data-tab="operations"] svg { display: none; }
+.tab-button[data-tab="operations"] svg {
+  display: none;
+}
 .tab-button[data-tab="operations"]::before {
   content: "!";
   width: 19px;
@@ -362,7 +419,7 @@ body {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: .72rem;
+  font-size: 0.72rem;
   font-weight: 850;
   line-height: 1;
   margin-bottom: 1px;
@@ -376,10 +433,19 @@ body {
   display: grid;
   gap: 2px;
 }
-.announcement-assist span { font-weight: 750; }
-.announcement-assist small { color: var(--muted); font-size: .66rem; font-weight: 550; }
+.announcement-assist span {
+  font-weight: 750;
+}
+.announcement-assist small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 550;
+}
 
-@media(prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) {
   .quick-search-more,
-  .search-spinner { transition: none; animation: none; }
+  .search-spinner {
+    transition: none;
+    animation: none;
+  }
 }

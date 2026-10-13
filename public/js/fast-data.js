@@ -3,6 +3,7 @@ import { tokyoNow } from "./vnext-state.js";
 
 const OPERATIONS_CACHE_KEY = "mymap-operations-cache-v2";
 const feedJobs = new Map();
+const FEED_TTL = 5 * 60 * 1000;
 let operationsJob = null;
 
 const esc = (s) =>
@@ -32,17 +33,51 @@ async function fetchJSON(path, params = {}, timeout = 6500) {
   }
 }
 
-export function getStaticFeed(operator, date = tokyoNow().date) {
+export function getStaticFeed(
+  operator,
+  date = tokyoNow().date,
+  { signal } = {},
+) {
   const key = `${operator}:${date}`;
-  if (!feedJobs.has(key))
-    feedJobs.set(
-      key,
-      fetchJSON("/api/static/feed", { operator, date }).catch((error) => {
-        feedJobs.delete(key);
-        throw error;
-      }),
+  if (feedJobs.has(key) && Date.now() - feedJobs.get(key).started > FEED_TTL)
+    feedJobs.delete(key);
+  if (!feedJobs.has(key)) {
+    const entry = { started: Date.now(), promise: null };
+    entry.promise = fetchJSON(
+      "/api/static/feed",
+      { operator, date },
+      4000,
+    ).catch((error) => {
+      if (feedJobs.get(key) === entry) feedJobs.delete(key);
+      throw error;
+    });
+    feedJobs.set(key, entry);
+  }
+  const job = feedJobs.get(key).promise;
+  while (feedJobs.size > 16) feedJobs.delete(feedJobs.keys().next().value);
+  if (!signal) return job;
+  // Cancelling a search must not abort a feed shared by another screen.
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      signal.removeEventListener("abort", abort);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    if (signal.aborted) {
+      abort();
+      return;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+    job.then(
+      (value) => {
+        signal.removeEventListener("abort", abort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", abort);
+        reject(error);
+      },
     );
-  return feedJobs.get(key);
+  });
 }
 
 export function getKintetsuFeed(date = tokyoNow().date) {
@@ -69,8 +104,11 @@ export function getOperations() {
 
 export function readOperationsCache(maxAge = 10 * 60 * 1000) {
   try {
-    const value = JSON.parse(localStorage.getItem(OPERATIONS_CACHE_KEY) || "null");
-    if (!value?.data || Date.now() - Number(value.savedAt) > maxAge) return null;
+    const value = JSON.parse(
+      localStorage.getItem(OPERATIONS_CACHE_KEY) || "null",
+    );
+    if (!value?.data || Date.now() - Number(value.savedAt) > maxAge)
+      return null;
     return value.data;
   } catch {
     return null;

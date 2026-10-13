@@ -1,9 +1,5 @@
-import {
-  state,
-  tokyoNow,
-  icon,
-  toast,
-} from "./vnext-state.js";
+import { state, tokyoNow, icon, toast } from "./vnext-state.js";
+import { mountStopAutocomplete } from "./stop-autocomplete.js";
 import { readSearchPairs } from "./search-history.js";
 import { loadNorth3Snapshot, north3Board, north3Day } from "./north3-feed.js";
 import { formatMinute } from "./vnext-core.js";
@@ -42,6 +38,7 @@ const KINTETSU_NAMES = new Set([
 
 let quickDraft = {
   destination: "",
+  destinationId: "",
   mode: "departure",
   date: "",
   time: "",
@@ -104,16 +101,21 @@ function ensureMenu() {
 
   dialog.addEventListener("click", (event) => {
     if (event.target.closest("[data-app-menu-close]")) return dialog.close();
-    const action = event.target.closest("[data-app-menu-action]")?.dataset.appMenuAction;
+    const action = event.target.closest("[data-app-menu-action]")?.dataset
+      .appMenuAction;
     if (!action) return;
     dialog.close();
     if (["timetable", "operations", "settings"].includes(action))
       document.querySelector(`[data-tab="${action}"]`)?.click();
-    if (action === "location") document.querySelector("#location-indicator")?.click();
+    if (action === "location")
+      document.querySelector("#location-indicator")?.click();
     if (action === "search") {
       document.querySelector('[data-tab="timetable"]')?.click();
       setTimeout(
-        () => document.querySelector('[data-view="timetable"] [data-open-search]')?.click(),
+        () =>
+          document
+            .querySelector('[data-view="timetable"] [data-open-search]')
+            ?.click(),
         0,
       );
     }
@@ -126,13 +128,15 @@ function quickRecentHTML() {
     pairs = readSearchPairs(localStorage);
   } catch {}
   const rows = [...pairs.favorites, ...pairs.history]
-    .filter((pair, index, all) => all.findIndex((x) => x.to === pair.to) === index)
+    .filter(
+      (pair, index, all) => all.findIndex((x) => x.to === pair.to) === index,
+    )
     .slice(0, 3);
   if (!rows.length) return "";
   return `<div class="quick-recent-list">${rows
     .map(
       (pair) =>
-        `<button type="button" class="quick-recent" data-quick-destination="${esc(pair.to)}"><span>${esc(pair.to)}</span><small>${esc(pair.from)}から</small></button>`,
+        `<button type="button" class="quick-recent" data-quick-destination="${esc(pair.to)}" data-quick-stop-id="${esc(pair.toId ?? "")}"><span>${esc(pair.to)}</span><small>${esc(pair.from)}から</small></button>`,
     )
     .join("")}</div>`;
 }
@@ -143,12 +147,14 @@ function renderQuickSearch() {
   const now = tokyoNow();
   if (!quickDraft.date) quickDraft.date = now.date;
   if (!quickDraft.time) quickDraft.time = now.time;
-  const expanded = quickDraft.expanded || Boolean(quickDraft.destination.trim());
+  const expanded =
+    quickDraft.expanded || Boolean(quickDraft.destination.trim());
   root.innerHTML = `<form class="quick-journey" id="quick-journey-form">
     <label class="quick-destination">
       <span class="quick-search-symbol" aria-hidden="true"></span>
-      <input name="destination" list="planner-stops" value="${esc(quickDraft.destination)}" placeholder="目的地を入力" autocomplete="off" aria-label="目的地">
+      <input name="destination" data-stop-input value="${esc(quickDraft.destination)}" placeholder="目的地を入力" autocomplete="off" aria-label="目的地">
     </label>
+    <div id="quick-stop-suggestions" class="stop-suggestions" hidden></div>
     <div class="quick-search-more${expanded ? " is-open" : ""}" data-quick-search-more aria-hidden="${expanded ? "false" : "true"}">
       <div class="quick-time-mode" role="group" aria-label="出発または到着">
         <button type="button" data-quick-mode="departure" class="${quickDraft.mode === "departure" ? "active" : ""}">出発</button>
@@ -167,6 +173,16 @@ function renderQuickSearch() {
     destination = form.elements.destination,
     more = form.querySelector("[data-quick-search-more]"),
     kintetsu = form.querySelector(".quick-kintetsu");
+  const autocomplete = mountStopAutocomplete({
+    container: form,
+    list: form.querySelector("#quick-stop-suggestions"),
+    network: state.network,
+    onSelect(input, stop) {
+      quickDraft.destination = input.value;
+      quickDraft.destinationId = stop?.id ?? "";
+    },
+  });
+  autocomplete.bind(destination);
   const expand = () => {
     quickDraft.expanded = true;
     more.classList.add("is-open");
@@ -180,9 +196,9 @@ function renderQuickSearch() {
   form.querySelectorAll("[data-quick-mode]").forEach((button) =>
     button.addEventListener("click", () => {
       quickDraft.mode = button.dataset.quickMode;
-      form.querySelectorAll("[data-quick-mode]").forEach((x) =>
-        x.classList.toggle("active", x === button),
-      );
+      form
+        .querySelectorAll("[data-quick-mode]")
+        .forEach((x) => x.classList.toggle("active", x === button));
     }),
   );
   form.elements.quickDate.addEventListener(
@@ -204,6 +220,7 @@ function renderQuickSearch() {
   root.querySelectorAll("[data-quick-destination]").forEach((button) =>
     button.addEventListener("click", () => {
       quickDraft.destination = button.dataset.quickDestination;
+      quickDraft.destinationId = button.dataset.quickStopId;
       quickDraft.expanded = true;
       root.innerHTML = "";
       renderQuickSearch();
@@ -225,14 +242,19 @@ function submitQuickSearch(form) {
   quickDraft.time = form.elements.quickTime.value;
   quickDraft.trainType = form.elements.quickTrainType.value;
   document.querySelector("[data-search-current]")?.click();
-  planner.elements.to.value = destination;
+  planner.dispatchEvent(
+    new CustomEvent("mymap-search-draft", {
+      detail: { to: destination, toId: quickDraft.destinationId, via: [] },
+    }),
+  );
   planner.elements.date.value = quickDraft.date;
   planner.elements.time.value = quickDraft.time;
   planner.elements.timeMode.value = quickDraft.mode;
   planner.elements.trainType.value = quickDraft.trainType;
   planner.dispatchEvent(new Event("change", { bubbles: true }));
-  showSearchLoading();
-  planner.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  planner.dispatchEvent(
+    new Event("submit", { bubbles: true, cancelable: true }),
+  );
 }
 
 function refinePlanner() {
@@ -244,7 +266,8 @@ function refinePlanner() {
     dateRow = filter.querySelector(".planner-date-row"),
     trainSelect = filter.querySelector('select[name="trainType"]'),
     trainLabel = trainSelect?.closest("label");
-  if (dateRow && conditionsButton) planner.insertBefore(dateRow, conditionsButton);
+  if (dateRow && conditionsButton)
+    planner.insertBefore(dateRow, conditionsButton);
   if (conditionsButton) {
     conditionsButton.classList.add("planner-more-conditions");
     const label = conditionsButton.querySelector("span:first-child");
@@ -258,7 +281,10 @@ function refinePlanner() {
   }
   if (trainLabel) kintetsu.append(trainLabel);
   const sync = () => {
-    const visible = usesKintetsu(planner.elements.from.value, planner.elements.to.value);
+    const visible = usesKintetsu(
+      planner.elements.from.value,
+      planner.elements.to.value,
+    );
     kintetsu.classList.toggle("is-visible", visible);
   };
   planner.elements.from.addEventListener("input", sync);
@@ -274,11 +300,15 @@ function showSearchLoading() {
   overlay.dataset.started = String(Date.now());
   clearInterval(loadingTimer);
   loadingTimer = setInterval(() => {
-    const loading = document.querySelector("[data-planner-status] .loading-note"),
+    const loading = document.querySelector(
+        "[data-planner-status] .loading-note",
+      ),
       result = document.querySelector("[data-planner-results] .planner-result"),
-      warning = document.querySelector("[data-planner-status] .planner-warning"),
+      warning = document.querySelector(
+        "[data-planner-status] .planner-warning",
+      ),
       started = Number(overlay.dataset.started || Date.now());
-    if ((!loading && (result || warning)) || Date.now() - started > 25000) {
+    if (result || (!loading && warning) || Date.now() - started > 25000) {
       overlay.hidden = true;
       clearInterval(loadingTimer);
     }
@@ -293,15 +323,10 @@ function ensureSearchLoading() {
   overlay.hidden = true;
   overlay.setAttribute("role", "status");
   overlay.setAttribute("aria-live", "polite");
-  overlay.innerHTML = '<div class="search-loading-card"><span class="search-spinner" aria-hidden="true"></span><b>検索中</b><small>最適な経路と運行情報を確認しています</small></div>';
+  overlay.innerHTML =
+    '<div class="search-loading-card"><span class="search-spinner" aria-hidden="true"></span><b>検索中</b><small>最適な経路と運行情報を確認しています</small></div>';
   document.body.append(overlay);
-  document.addEventListener(
-    "submit",
-    (event) => {
-      if (event.target?.id === "planner-form") showSearchLoading();
-    },
-    true,
-  );
+  document.addEventListener("mymap-search-started", showSearchLoading);
 }
 
 function modeMarkup(stop) {
@@ -314,23 +339,37 @@ function modeMarkup(stop) {
 }
 
 async function appendNorth3(row, stop) {
-  if (!stop?.lines?.includes("北3") || row.parentElement?.querySelector(`.north3-inline[data-for="${CSS.escape(stop.id)}"]`)) return;
+  if (
+    !stop?.lines?.includes("北3") ||
+    row.parentElement?.querySelector(
+      `.north3-inline[data-for="${CSS.escape(stop.id)}"]`,
+    )
+  )
+    return;
   try {
     const snapshot = await loadNorth3Snapshot(),
       now = tokyoNow(),
       day = north3Day(now.date);
     if (!day || !row.isConnected) return;
     const boards = ["north", "south"]
-      .map((direction) => north3Board(snapshot, stop.fullName ?? stop.name, direction, day))
-      .filter(Boolean),
+        .map((direction) =>
+          north3Board(snapshot, stop.fullName ?? stop.name, direction, day),
+        )
+        .filter(Boolean),
       entries = boards
         .flatMap((board) =>
           board.entries
-            .filter((entry) => entry.depart >= now.minute && entry.depart < now.minute + 60 && !entry.operatingConditions)
+            .filter(
+              (entry) =>
+                entry.depart >= now.minute &&
+                entry.depart < now.minute + 60 &&
+                !entry.operatingConditions,
+            )
             .slice(0, 2)
             .map((entry) => ({
               ...entry,
-              destination: board.direction === "north" ? "京都産大前" : "北大路BT",
+              destination:
+                board.direction === "north" ? "京都産大前" : "北大路BT",
             })),
         )
         .sort((a, b) => a.depart - b.depart)
@@ -350,7 +389,13 @@ async function appendNorth3(row, stop) {
 }
 
 async function appendKintetsu(row, stop) {
-  if (stop?.type !== "kintetsu" || row.parentElement?.querySelector(`.kintetsu-inline[data-for="${CSS.escape(stop.id)}"]`)) return;
+  if (
+    stop?.type !== "kintetsu" ||
+    row.parentElement?.querySelector(
+      `.kintetsu-inline[data-for="${CSS.escape(stop.id)}"]`,
+    )
+  )
+    return;
   try {
     const feed = await getKintetsuFeed(),
       now = tokyoNow(),
@@ -360,7 +405,12 @@ async function appendKintetsu(row, stop) {
       if (index < 0) continue;
       for (const trip of service.trips ?? []) {
         const depart = trip.departures?.[index] ?? trip.arrivals?.[index];
-        if (!Number.isFinite(depart) || depart < now.minute || depart > now.minute + 60) continue;
+        if (
+          !Number.isFinite(depart) ||
+          depart < now.minute ||
+          depart > now.minute + 60
+        )
+          continue;
         rows.push({
           depart,
           category: trip.category ?? service.category ?? "local",
@@ -403,11 +453,21 @@ function installObservers() {
     nearby = document.querySelector("#nearby-panel"),
     subtitle = document.querySelector("#view-subtitle");
   if (nowSearch)
-    new MutationObserver(renderQuickSearch).observe(nowSearch, { childList: true, subtree: false });
+    new MutationObserver(renderQuickSearch).observe(nowSearch, {
+      childList: true,
+      subtree: false,
+    });
   if (nearby)
-    new MutationObserver(refineNearby).observe(nearby, { childList: true, subtree: true });
+    new MutationObserver(refineNearby).observe(nearby, {
+      childList: true,
+      subtree: true,
+    });
   if (subtitle)
-    new MutationObserver(syncTopbar).observe(subtitle, { childList: true, characterData: true, subtree: true });
+    new MutationObserver(syncTopbar).observe(subtitle, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
 }
 
 export function installIdleExperience() {
@@ -425,12 +485,15 @@ export function installIdleExperience() {
   setupPlanner();
 
   document.addEventListener("click", (event) => {
-    if (event.target.closest("[data-open-app-menu]")) document.querySelector("#app-menu-sheet")?.showModal();
+    if (event.target.closest("[data-open-app-menu]"))
+      document.querySelector("#app-menu-sheet")?.showModal();
   });
   document.addEventListener("mymap-navigation-change", () => {
     syncTopbar();
     renderQuickSearch();
     refineNearby();
   });
-  document.querySelector(".tabbar")?.addEventListener("click", () => requestAnimationFrame(syncTopbar));
+  document
+    .querySelector(".tabbar")
+    ?.addEventListener("click", () => requestAnimationFrame(syncTopbar));
 }

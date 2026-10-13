@@ -25,6 +25,7 @@
   display: none;
 }
 .planner-form {
+  position: relative;
   background: var(--panel);
   border-radius: 20px;
   padding: 12px 14px;
@@ -194,6 +195,7 @@
   outline: none;
 }
 .planner-result {
+  position: relative;
   background: var(--panel);
   border-radius: 20px;
   padding: 16px;
@@ -272,6 +274,16 @@
   border-radius: 12px;
   font-size: 0.875rem;
 }
+.planner-open-route::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+}
+.planner-open-route:focus-visible::after {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
 .planner-details > summary {
   min-height: 44px;
   display: flex;
@@ -349,4 +361,141 @@
 .source-dot.schedule {
   background: var(--muted);
   opacity: 0.55;
+}
+
+/* Search-only controls. Their layout follows the existing inset list rhythm. */
+.stop-suggestions {
+  position: absolute;
+  z-index: 8;
+  left: 14px;
+  right: 14px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px #0002;
+  padding: 4px 0;
+}
+.stop-suggestion {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 52px;
+  padding: 10px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+.stop-suggestion + .stop-suggestion {
+  border-top: 1px solid var(--separator);
+}
+.stop-suggestion b {
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+.stop-suggestion small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.stop-suggestion[aria-selected="true"] {
+  background: var(--panel-2);
+}
+.planner-add-via {
+  min-height: 44px;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+.planner-via-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 4px 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--separator);
+}
+.planner-via-row > label {
+  display: grid;
+  grid-template-columns: 3.3em minmax(0, 1fr);
+  align-items: center;
+}
+.planner-via-row > button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.planner-via-row .planner-via-dwell {
+  grid-column: 1;
+}
+.planner-result-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.planner-result-toolbar button {
+  min-height: 44px;
+  padding: 8px 4px;
+  font-size: 0.8125rem;
+}
+.planner-result-toolbar label {
+  max-width: 100%;
+}
+.planner-result-toolbar select {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  padding: 8px;
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.search-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.search-history-row .plain-action {
+  min-height: 44px;
+  padding: 8px;
+  font-size: 0.75rem;
+}
+.planner-leg-stops summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--blue);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.planner-leg-stops ol {
+  padding: 0;
+  list-style: none;
+  margin: 0 0 12px;
+}
+.planner-leg-stops li {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--separator);
+  font-size: 0.75rem;
+}
+.planner-leg-stops li span {
+  overflow-wrap: anywhere;
+}
+.planner-share-link {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 8px 0;
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--separator);
 }
