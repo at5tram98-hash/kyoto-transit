@@ -8,6 +8,7 @@ import {
   matchMeasuredVehicles,
   createRideConsensus,
 } from "./riding.js";
+import { currentMotionEvidence } from "./motion-assist.js";
 import { getBusChoices, getBusData, getKyotoBusRT } from "./live.js";
 import { officialTripLeg } from "./vehicle.js";
 import {
@@ -303,6 +304,24 @@ function mergeCandidates(...groups) {
   }
   return [...map.values()].sort((a, b) => b.score - a.score).slice(0, 3);
 }
+
+function applyMotionEvidence(candidates) {
+  const motion = currentMotionEvidence(state.samples);
+  if (!motion.score) return candidates;
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      score: scoreClamp(candidate.score + motion.score),
+      source: `${candidate.source}＋加速度`,
+      evidence: [
+        ...(candidate.evidence ?? []),
+        { reason: motion.reason || "加速度・減速度", points: motion.score },
+      ],
+      motionEvidence: motion,
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
 function applyRide(candidate) {
   const changed = rideKey(state.ride) !== rideKey(candidate.ride);
   state.ride = candidate.ride;
@@ -421,11 +440,22 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       candidates = mergeCandidates(city, kyoto);
     }
     if (generation !== detectionGeneration || state.ride) return;
-    candidates = matchArmedJourney(candidates, state.armedJourney, tokyoNow().minute);
-    const eligible = state.armedJourney ? candidates.filter(c=>c.armedMatch) : candidates;
-    const decision = consensus.update(eligible, state.fix.timestamp);
+    candidates = matchArmedJourney(
+      candidates,
+      state.armedJourney,
+      tokyoNow().minute,
+    );
+    candidates = applyMotionEvidence(candidates);
+    const eligible = state.armedJourney
+        ? candidates.filter((candidate) => candidate.armedMatch)
+        : candidates,
+      decision = consensus.update(eligible, state.fix.timestamp);
     state.rideConsensusCount = decision.count;
-    state.rideCandidates = decision.confirmed ? [] : decision.candidates.length ? decision.candidates : candidates;
+    state.rideCandidates = decision.confirmed
+      ? []
+      : decision.candidates.length
+        ? decision.candidates
+        : candidates;
     if (decision.confirmed) {
       const selected =
         candidates.find(
