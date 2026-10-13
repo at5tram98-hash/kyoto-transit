@@ -238,6 +238,7 @@ try {
       document.querySelector(".app-shell").dataset.navigationBusy === "false",
   );
   const other = await context.newPage();
+  await other.clock.install({ time: new Date("2026-10-11T01:05:00Z") });
   await other.goto(base);
   await controlled(other);
   const existingDocument = await page
@@ -297,7 +298,21 @@ try {
     "The origin must be unreachable during the offline checks",
   );
   await page.reload();
-  await page.locator(".journey-display").waitFor();
+  await page
+    .locator(".journey-display")
+    .waitFor()
+    .catch(async (error) => {
+      const diagnostic = await page.evaluate(() => ({
+        url: location.href,
+        time: new Date().toISOString(),
+        body: document.body.innerText,
+        script: document.querySelector("script[type=module]")?.src,
+        history: history.state?.mymapNavigation,
+        journey: localStorage.getItem("mymap-active-journey-v1"),
+      }));
+      await page.screenshot({ path: "/tmp/mymap-pwa-offline-failure.png" });
+      throw Error(`${error.message}; ${JSON.stringify(diagnostic)}`);
+    });
   await page.locator(".foldback-plan").waitFor();
   assert.match(
     await page.locator("script[type=module]").getAttribute("src"),
