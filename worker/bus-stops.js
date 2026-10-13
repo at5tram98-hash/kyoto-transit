@@ -1,11 +1,13 @@
 import catalog from '../public/data/bus-catalog.json' with { type: 'json' };
+import north3 from '../public/data/north3-timetables.json' with { type: 'json' };
 import { shortName } from '../public/js/network.js';
 
-const supported = new Set(
-  Object.values(catalog).flatMap((route) =>
+const supported = new Set([
+  ...Object.values(catalog).flatMap((route) =>
     route.names.flatMap((name) => [name, shortName(name)]),
   ),
-);
+  ...north3.rows.flatMap((row) => [row.name, shortName(row.name)]),
+]);
 
 export function validBusStop(stop, configured) {
   if (typeof stop !== 'string' || !stop) return false;
