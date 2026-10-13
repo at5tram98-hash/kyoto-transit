@@ -1,0 +1,64 @@
+/* App chrome behaves like a native UI. Maps keep pan and pinch gestures. */
+.app-shell,
+.view,
+.topbar,
+.tabbar,
+button,
+summary,
+.native-row {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input,
+textarea,
+[contenteditable="true"] {
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.route-map-host,
+.map-host,
+[data-map],
+.maplibregl-map,
+.maplibregl-canvas-container,
+.maplibregl-canvas {
+  touch-action: pan-x pan-y pinch-zoom !important;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.quick-destination {
+  grid-template-columns: 30px minmax(0,1fr) 46px;
+}
+.quick-advanced-search {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0;
+  padding: 3px;
+}
+.quick-advanced-search > span {
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 750;
+}
+.quick-advanced-search > small {
+  font-size: .48rem;
+  line-height: 1;
+  color: var(--muted);
+  font-weight: 700;
+  margin-top: 2px;
+}
+.north3-live {
+  margin: 0 0 7px 59px;
+}
+.north3-live span b {
+  color: var(--text);
+}
