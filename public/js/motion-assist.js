@@ -1,32 +1,15 @@
-import { state, serviceName, toast } from "./vnext-state.js";
+import { state, serviceName, toast, rideKey } from "./vnext-state.js";
+
+const RETRY_MS = 30000;
+let recognitionActive = false,
+  lastAttemptAt = 0,
+  lastCandidateSignature = "";
 
 function normalized(value) {
   return String(value ?? "")
     .toLowerCase()
     .replace(/[\s・ーｰ\-]/g, "")
     .replace(/京都市バス|京都バス|地下鉄|近鉄|烏丸線|京都線|系統/g, "");
-}
-
-function derivedMotion() {
-  const points = (state.samples ?? [])
-    .filter((p) => Number.isFinite(p?.timestamp))
-    .slice(-8);
-  if (points.length < 2) return { span: 0, acceleration: null };
-  const samples = [];
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1],
-      b = points[i],
-      dt = (b.timestamp - a.timestamp) / 1000;
-    if (dt <= 0 || dt > 35) continue;
-    if (Number.isFinite(a.speed) && Number.isFinite(b.speed))
-      samples.push((b.speed - a.speed) / dt);
-  }
-  return {
-    span: (points.at(-1).timestamp - points[0].timestamp) / 1000,
-    acceleration: samples.length
-      ? samples.reduce((sum, value) => sum + value, 0) / samples.length
-      : null,
-  };
 }
 
 function speechCtor() {
@@ -62,72 +45,113 @@ function bestCandidate(transcript) {
   return ranked[0].index;
 }
 
-function addSpeechAssist() {
-  const block = document.querySelector(".ride-choice-block");
-  if (!block || block.querySelector("[data-announcement-assist]")) return;
+function uncertainCandidates() {
   const candidates = state.rideCandidates ?? [];
-  if (!candidates.length || !speechCtor()) return;
+  if (!candidates.length) return false;
   const top = candidates[0]?.score ?? 0,
-    second = candidates[1]?.score ?? 0,
-    uncertain = top < 72 || (candidates.length > 1 && top - second < 14);
-  if (!uncertain) return;
+    second = candidates[1]?.score ?? 0;
+  return top < 72 || (candidates.length > 1 && top - second < 14);
+}
 
-  const motion = derivedMotion(),
-    button = document.createElement("button");
-  button.type = "button";
-  button.className = "secondary-action announcement-assist";
-  button.dataset.announcementAssist = "";
-  button.innerHTML = `<span>アナウンスで確認</span><small>判定が曖昧なときだけ使用 · マイクはタップ後のみ</small>`;
-  button.title = Number.isFinite(motion.acceleration)
-    ? `移動継続 ${Math.round(motion.span)}秒 / 推定加速度 ${motion.acceleration.toFixed(2)}m/s²`
-    : `移動継続 ${Math.round(motion.span)}秒`;
-  block.append(button);
+function candidateSignature() {
+  return (state.rideCandidates ?? [])
+    .map((candidate) => `${rideKey(candidate?.ride)}:${Math.round(candidate?.score ?? 0)}`)
+    .join("|");
+}
 
-  button.addEventListener("click", () => {
-    const Recognition = speechCtor();
-    if (!Recognition) return;
-    const recognition = new Recognition();
-    recognition.lang = "ja-JP";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 3;
-    button.disabled = true;
-    button.querySelector("span").textContent = "アナウンスを確認中…";
-    recognition.onresult = (event) => {
-      const alternatives = [...event.results]
-        .flatMap((result) => [...result])
-        .map((item) => item.transcript);
-      const match = alternatives
-        .map(bestCandidate)
-        .find((index) => Number.isInteger(index));
-      if (Number.isInteger(match)) {
-        const choice = document.querySelector(`[data-ride-candidate="${match}"]`);
-        if (choice) {
-          toast("アナウンスと候補が一致しました");
-          choice.click();
-          return;
-        }
-      }
-      toast("アナウンスだけでは便を確定できませんでした");
-    };
-    recognition.onerror = () => toast("マイクから確認できませんでした");
-    recognition.onend = () => {
-      if (!button.isConnected) return;
-      button.disabled = false;
-      button.querySelector("span").textContent = "アナウンスで確認";
-    };
-    try {
-      recognition.start();
-    } catch {
-      button.disabled = false;
-      toast("マイクを開始できませんでした");
+async function microphoneAlreadyGranted() {
+  if (!globalThis.navigator) return false;
+  try {
+    if (navigator.permissions?.query) {
+      const status = await navigator.permissions.query({ name: "microphone" });
+      if (status.state === "granted") return true;
+      if (status.state === "denied" || status.state === "prompt") return false;
     }
-  });
+  } catch {}
+
+  // Safari/WebKit may not expose microphone through Permissions API. Device
+  // labels are only populated after microphone permission has already been
+  // granted, so this fallback does not trigger a permission prompt.
+  try {
+    if (navigator.mediaDevices?.enumerateDevices) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.some(
+        (device) => device.kind === "audioinput" && Boolean(device.label?.trim()),
+      );
+    }
+  } catch {}
+  return false;
+}
+
+function confirmFromTranscript(event) {
+  const alternatives = [...event.results]
+    .flatMap((result) => [...result])
+    .map((item) => item.transcript);
+  const match = alternatives
+    .map(bestCandidate)
+    .find((index) => Number.isInteger(index));
+  if (!Number.isInteger(match)) return false;
+  const choice = document.querySelector(`[data-ride-candidate="${match}"]`);
+  if (!choice) return false;
+  toast("アナウンスと候補が一致しました");
+  choice.click();
+  return true;
+}
+
+async function autoSpeechAssist() {
+  if (
+    recognitionActive ||
+    document.hidden ||
+    state.ride ||
+    !uncertainCandidates() ||
+    !speechCtor()
+  )
+    return;
+
+  const signature = candidateSignature(),
+    now = Date.now();
+  if (!signature) return;
+  if (signature === lastCandidateSignature && now - lastAttemptAt < RETRY_MS) return;
+  if (!(await microphoneAlreadyGranted())) return;
+  if (document.hidden || state.ride || !uncertainCandidates()) return;
+
+  const Recognition = speechCtor();
+  if (!Recognition) return;
+  const recognition = new Recognition();
+  recognition.lang = "ja-JP";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 3;
+  recognitionActive = true;
+  lastAttemptAt = Date.now();
+  lastCandidateSignature = signature;
+
+  recognition.onresult = (event) => confirmFromTranscript(event);
+  recognition.onerror = (event) => {
+    // Automatic assist must never open a permission flow or add UI. If the
+    // browser revokes/blocks access, quietly fall back to GPS/timetable/live
+    // evidence and wait for a later permission-granted state.
+    if (["not-allowed", "service-not-allowed"].includes(event.error))
+      lastCandidateSignature = "";
+  };
+  recognition.onend = () => {
+    recognitionActive = false;
+  };
+
+  try {
+    recognition.start();
+  } catch {
+    recognitionActive = false;
+  }
 }
 
 export function installMotionAssist() {
   const panel = document.querySelector("#vehicle-panel");
   if (!panel) return;
-  const observer = new MutationObserver(addSpeechAssist);
+  const observer = new MutationObserver(() => void autoSpeechAssist());
   observer.observe(panel, { childList: true, subtree: true });
-  addSpeechAssist();
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void autoSpeechAssist();
+  });
+  void autoSpeechAssist();
 }
