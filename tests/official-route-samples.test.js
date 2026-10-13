@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createNetwork} from '../public/js/network.js';
 import {mergeTimetableFeeds,searchTimetable} from '../public/js/search-core.js';
+import {north3Feed} from '../public/js/north3-feed.js';
 import {compileKintetsuTrips} from '../worker/manual-rail-feed.js';
 import {calendarDay} from '../worker/service-calendar.js';
 
 const catalog=JSON.parse(readFileSync(new URL('../public/data/bus-catalog.json',import.meta.url),'utf8'));
+const north3Snapshot=JSON.parse(readFileSync(new URL('../public/data/north3-timetables.json',import.meta.url),'utf8'));
 const baseNetwork=createNetwork(catalog);
 const passes={subway:false,citybus:false,kyotobus:false,expires:''};
 const tm=s=>{const [h,m]=s.split(':').map(Number);return h*60+m;};
@@ -43,4 +45,18 @@ test('公式照合: 近鉄直通の丸太町→国際会館 10:50→11:02',()=>{
 
 test('祝日判定: 2026-10-12は休日ダイヤ',()=>{assert.equal(calendarDay('2026-10-12','kintetsu'),'holiday');});
 
-test.todo('丸太町→国際会館→京産大: 京都バスGTFSの国際会館発と京産大着を一次データで照合する（ODPT secret登録後）');
+test('北3公式時刻表: 両方向10停留所・京都産大終点・共同運行便を保持',()=>{
+  const feed=north3Feed(north3Snapshot,baseNetwork,'2026-10-13',{schoolDay:true});
+  assert.ok(feed);
+  assert.equal(feed.services.length,2);
+  const north=feed.services.find(service=>service.id==='north3-north');
+  const south=feed.services.find(service=>service.id==='north3-south');
+  assert.ok(north&&south);
+  assert.equal(north.stops.length,10);
+  assert.equal(south.stops.length,10);
+  assert.equal(baseNetwork.stops.get(north.stops.at(-1))?.name,'京都産大前');
+  assert.equal(baseNetwork.stops.get(south.stops.at(-1))?.name,'北大路バスターミナル');
+  assert.ok(north.trips.some(row=>row.operatingCompany==='kyotobus'));
+  assert.ok(north.trips.every(row=>row.arrivals.length===10));
+  assert.equal(north3Snapshot.source,'https://www2.city.kyoto.lg.jp/kotsu/busdia/keitou/kto/N0030.htm');
+});
