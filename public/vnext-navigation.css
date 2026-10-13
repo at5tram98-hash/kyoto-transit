@@ -285,3 +285,8 @@ body:has(.navigation-app) {
     padding-inline: 10px;
   }
 }
+
+.navigation-interacting {
+  user-select: none;
+  -webkit-user-select: none;
+}

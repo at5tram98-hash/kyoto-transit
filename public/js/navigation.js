@@ -549,6 +549,7 @@ export function initializeNavigation({
       clean(drag.current);
       clean(drag.parent);
       drag = null;
+      viewport.classList.remove("navigation-interacting");
     }
     capture();
     const rootChange = rootRestore,
@@ -653,6 +654,8 @@ export function initializeNavigation({
       return;
     if (busy || sheet || !state.stacks[state.tab].length || e.button > 0)
       return;
+    if (e.pointerType === "mouse") e.preventDefault();
+    viewport.classList.add("navigation-interacting");
     const current = getFrame(currentRoute(state)),
       parent = getFrame(
         state.stacks[state.tab].at(-2) ?? {
@@ -686,9 +689,11 @@ export function initializeNavigation({
       time = performance.now();
     if (!drag.started && Math.abs(dy) > 12 && Math.abs(dy) > dx) {
       drag = null;
+      viewport.classList.remove("navigation-interacting");
       return;
     }
-    if (dx < 8 && !drag.started) return;
+    if (!drag.started && (dx < 8 || dx < Math.abs(dy) * 1.25)) return;
+    e.preventDefault();
     if (!drag.started) viewport.setPointerCapture(e.pointerId);
     drag.started = true;
     drag.velocity = (e.clientX - drag.lastX) / Math.max(1, time - drag.lastAt);
@@ -710,6 +715,7 @@ export function initializeNavigation({
     if (!drag) return;
     const value = drag;
     drag = null;
+    viewport.classList.remove("navigation-interacting");
     if (!value.started) {
       showOnly(value.current);
       return;

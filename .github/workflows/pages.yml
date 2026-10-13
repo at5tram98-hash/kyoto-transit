@@ -28,12 +28,6 @@ jobs:
         run: node --input-type=module -e 'import {readFileSync,appendFileSync} from "node:fs"; const version=readFileSync("dist/sw.js","utf8").match(/const VERSION = "([a-f0-9]{12})"/)[1]; appendFileSync(process.env.GITHUB_OUTPUT,`version=${version}\n`);'
       - name: Install browsers for UI regression checks
         run: npx playwright install --with-deps chromium webkit
-      - name: Check responsive UI and journeys in Chromium
-        run: |
-          npm run test:browser
-          npm run test:pwa
-        env:
-          BROWSER_ARTIFACT_DIR: browser-artifacts/chromium
       - name: Check responsive UI and journeys in WebKit
         run: |
           npm run test:browser
@@ -41,6 +35,12 @@ jobs:
         env:
           BROWSER_ENGINE: webkit
           BROWSER_ARTIFACT_DIR: browser-artifacts/webkit
+      - name: Check responsive UI and journeys in Chromium
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/chromium
       - name: Check real geographical basemap
         run: npm run test:browser
         env:
