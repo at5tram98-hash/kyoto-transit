@@ -744,11 +744,33 @@ async function navigationChecks() {
           await page.mouse.move(203, y, { steps: 5 });
           await page.waitForTimeout(140);
           await page.mouse.up();
-          await page.waitForFunction(
-            () =>
-              document.querySelector(".navigation-current")?.dataset.screen ===
-              "stops",
-          );
+          await page
+            .waitForFunction(
+              () =>
+                document.querySelector(".navigation-current")?.dataset
+                  .screen === "stops",
+            )
+            .catch(async (error) => {
+              const diagnostic = await page.evaluate(() => ({
+                url: location.href,
+                busy: document.querySelector(".app-shell").dataset
+                  .navigationBusy,
+                screen: document.querySelector(".navigation-current")?.dataset
+                  .screen,
+                transform: getComputedStyle(
+                  document.querySelector(".navigation-current"),
+                ).transform,
+                route: window.__navigation.navigation.route,
+                history: history.state?.mymapNavigation,
+                parent: document
+                  .querySelector("main")
+                  .getBoundingClientRect()
+                  .toJSON(),
+              }));
+              throw Error(
+                `${error.message}; scale=${scale} reduce=${reduce} theme=${colorScheme}; ${JSON.stringify(diagnostic)}`,
+              );
+            });
           await settleNavigation(page);
           const returned = await stops.evaluate((e) => e.scrollTop);
           assert.ok(
