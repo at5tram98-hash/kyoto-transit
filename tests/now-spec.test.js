@@ -473,8 +473,14 @@ test("Rail positions use server-rendered official markup without launching a bro
   let browserCalls = 0;
   const env = {
       BROWSER: {
-        quickAction: async () => {
+        quickAction: async (_action, options) => {
           browserCalls++;
+          // Background requests never settle, but train markup is ready once
+          // its own selector appears. Station-only extraction is incomplete.
+          if (options.gotoOptions.waitUntil === 'networkidle2')
+            throw Error('Navigation timeout: background traffic');
+          if (!options.waitForSelector.selector.includes('.train-info-'))
+            return new Response(html.replace(/<div class="train-info-up">[\s\S]*?<\/div>/, ''));
           return new Response(html);
         },
       },
@@ -492,6 +498,22 @@ test("Rail positions use server-rendered official markup without launching a bro
   });
   assert.equal(fallback.trains.length, 1);
   assert.equal(browserCalls, 1);
+});
+
+test('Rail recovery accepts an empty overnight diagram without waiting for nonexistent trains',async()=>{
+  const html=`<body>2026/10/13 02:00 現在<div id="stations">${Array.from({length:26},(_,i)=>`<div data-stationid="B${String(i+1).padStart(2,'0')}"><span class="station-name">駅${i+1}</span></div>`).join('')}</div><div id="train-points-up"></div><div id="train-points-down"></div></body>`;
+  const env={BROWSER:{quickAction:async(_action,options)=>{
+    if(options.waitForSelector.selector.includes('.train-info-'))throw Error('No overnight train selector exists');
+    return new Response(html);
+  }}};
+  const result=await directRailSnapshot(env,{at:new Date('2026-10-12T17:00:00Z'),fetcher:async()=>new Response('',{status:503})});
+  assert.equal(result.trains.length,0);
+  assert.equal(result.stations.length,26);
+});
+
+test('Rail recovery preserves the Browser Run HTTP failure in its diagnostic',async()=>{
+  const env={BROWSER:{quickAction:async()=>new Response('navigation timed out',{status:422})}};
+  await assert.rejects(()=>directRailSnapshot(env,{fetcher:async()=>new Response('',{status:503})}),/HTTP 422/);
 });
 test("地理座標を実地図と同じMercator投影へ変換し、京都の南北順を保つ", async () => {
   const { mapProject, mapViewport, routeMapHTML } = await import(

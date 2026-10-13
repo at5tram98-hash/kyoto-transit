@@ -124,6 +124,7 @@ async function cityBusArrivals(request,env,url){
   },12);
 }
 export async function directRailSnapshot(env,{fetcher=fetch,at=new Date()}={}){
+  const expectTrains=shouldExpectRail(at);
   // The official page already includes the station/train markup. Prefer one
   // ordinary request; keep Browser Rendering and visual recovery as fallbacks.
   try{
@@ -131,12 +132,20 @@ export async function directRailSnapshot(env,{fetcher=fetch,at=new Date()}={}){
     if(!response.ok){await response.body?.cancel();throw Error('公式列車ページを取得できませんでした。');}
     const parsed=parseRailLocation(await boundedText(response)),updated=Date.parse(parsed.sourceUpdatedAt);
     if(!Number.isFinite(updated)||at.getTime()-updated>240000||updated-at.getTime()>120000)throw Error('公式列車ページの更新を確認できません。');
-    if(shouldExpectRail(at)&&!parsed.trains.length)throw Error('公式列車ページの列車位置を確認できません。');
+    if(expectTrains&&!parsed.trains.length)throw Error('公式列車ページの列車位置を確認できません。');
     return parsed;
   }catch{/* Retain the existing rendered and visual recovery paths. */}
-  const r=await env.BROWSER.quickAction('content',{url:LOCATION_URL,gotoOptions:{waitUntil:'networkidle2',timeout:4000},waitForSelector:{selector:'#stations .station-name',visible:true,timeout:4000},actionTimeout:4000});if(!r.ok){await r.body?.cancel();throw Error('近鉄の列車位置を取得できませんでした。');}
+  // The station list can appear before the train data, while unrelated assets
+  // keep networkidle pending. Wait for the data we parse, not every connection.
+  const r=await env.BROWSER.quickAction('content',{
+    url:LOCATION_URL,
+    gotoOptions:{waitUntil:'domcontentloaded',timeout:8000},
+    waitForSelector:{selector:expectTrains?'#train-points-up .train-info-up, #train-points-down .train-info-down':'#stations .station-name',visible:true,timeout:8000},
+    actionTimeout:8000,
+  });
+  if(!r.ok){await r.body?.cancel();throw Error(`近鉄の列車位置を取得できませんでした（HTTP ${r.status}）。`);}
   let html=await boundedText(r);if(r.headers.get('content-type')?.includes('json')){const b=JSON.parse(html);html=typeof b.result==='string'?b.result:typeof b.content==='string'?b.content:'';}
-  const parsed=parseRailLocation(html);if(shouldExpectRail()&&(!Array.isArray(parsed.trains)||parsed.trains.length===0))throw layoutChanged('kintetsu','運行時間帯に列車要素が0件でした。');return parsed;
+  const parsed=parseRailLocation(html);if(expectTrains&&(!Array.isArray(parsed.trains)||parsed.trains.length===0))throw layoutChanged('kintetsu','運行時間帯に列車要素が0件でした。');return parsed;
 }
 async function railSnapshot(env){
   let directError=null;try{return await directRailSnapshot(env);}catch(e){directError=e;}
