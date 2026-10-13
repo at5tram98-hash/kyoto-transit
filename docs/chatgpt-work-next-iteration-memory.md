@@ -42,7 +42,13 @@ UI整理では、未乗車ホームの閉じた検索に残っていた透明な
 - https://support.google.com/maps/answer/6142130?hl=ja&co=GENIE.Platform%3DiOS
 - https://support.google.com/maps/answer/144339?hl=ja&co=GENIE.Platform%3DiOS
 
-## 次の改修で最優先に実装すること
+## 公開後の実測で見つかった安定性の課題
+
+公開build `d054dc9865ae` のUI／PWA／地理タイルは両ブラウザーで通過し、Pagesへ公開済み。公開CIの最後の実接続確認は市バスAPIの502 timeoutで失敗した。ローカル再確認では北3のstaleと市バスの実測未確認も観測した。2026-10-13 22:54:35 UTCに同じbuildを固定して検証し、必須接続項目すべてpassed。Workerと「実測・非stale」条件は変えていない。
+
+この最終成功だけで接近APIを常に安定と判定しない。**P0として欠測率・取得時間・方面別coverageを継続計測する。** `worker/index.js` の市バス選択ページ再取得、同時要求、cache期限、全方面／個別fallbackと `worker/bus-refresh.js` を調査する。必要な場合もappの4秒timeoutを安易に延長せず、古いキャッシュを実測として表示しない。京都バスODPTは従来どおりoptional未設定、公式時刻表を使う。
+
+## 次の機能改修で最優先に実装すること
 
 **経路詳細からの区間便選択を完成させる。**
 

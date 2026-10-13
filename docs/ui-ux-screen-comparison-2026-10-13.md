@@ -122,6 +122,7 @@ Googleの候補カードの左右スワイプ[G1]は候補や交通機関の切�
 
 ## 5. 次回の優先順位と実測
 
+0. **P0 実接近APIの安定性**：公開後の検証で市バスの502／古いデータへの切替を観測し、再確認時には復旧した。欠測率・取得時間・方面別coverageを継続計測し、選択ページの再取得、同時要求、キャッシュ／期限、fallbackを調査する。待ち時間を無制限に延ばしたり、古い値を実測として合格にしたりしない。
 1. **P1 区間の便選択**：時刻ボタン→同じ区間・方向の便→経路全体の再計算→確認→同じ経路詳細へ。詳細はPush、短い並べ替え・絞り込みはSheet。
 2. **P1 経路全体の移動状態**：現在の案内準備は主に選んだ乗車区間を保持する。複数Legの乗換・徒歩・次の便まで通して案内する状態設計が必要。
 3. **P1 保存先の再利用**：自宅／職場、交通機関を区別した保存先ラベル、固定路線、最近の入力、前便の再検索。
@@ -129,6 +130,22 @@ Googleの候補カードの左右スワイプ[G1]は候補や交通機関の切�
 5. **P2 データ拡張**：施設／住所、運休回避、日跨ぎの始発／終電、車椅子・混雑。UIを置くだけで完成にしない。
 
 競合実機との比較は、同じ駅・日付・時間・回線で入力→結果→詳細→他便→案内開始を各5回。操作数、入力誤選択、発車変更後の接続整合、戻り位置を計測。MyMapはiPhone Safariとホーム画面PWA、VoiceOver、キーボード、OSのEdge Back、Reduce Motion、100/150/200%、弱い回線／オフラインを確認する。別途、実到着との誤差、乗換歩行時間、実測欠測率、北3の運行会社・休校日、K/B境界を現地と公式資料で確認する。
+
+### 追加実測の記録項目
+
+5回の操作確認は操作差の発見用であり、P95応答時間の判定には使わない。速度比較は条件ごとに30回以上、cold／warmを分け、同じ端末・同じ回線で測る。未対応の機能は「未対応」と記録し、所要時間0として有利に集計しない。
+
+|測定対象|記録する値・ケース|現在の証拠／追加すべき測定|
+|---|---|---|
+|検索開始から結果|入力条件、操作数、最初の候補表示と更新完了までの時間、エラー数。烏丸、近鉄直通、北3、徒歩乗換|MyMapのfixtureで操作・状態を確認済み。競合実機と同じ回線での30回測定は未実施|
+|便変更|元／選択tripId、運行日、操作数、後続便、徒歩・余裕、着時刻、料金、案内対象|MyMapの区間便変更は未実装。Googleの手順はG1で確認。実装後に全値が一致することを検証|
+|戻る・状態保持|戻る前後の画面ID、scrollTop、入力、選択、地図zoom。ゆっくり・途中取消・flick・OS Back|MyMapの自動Browser検証は通過。iPhone SafariのOS Edge Gestureと競合の実機は追加確認|
+|指と画面の追従|指の移動量と画面の移動量、フレーム間隔、取消時の跳躍、Reduce Motion|MyMapは自動テストで1:1追従を確認。iPhone上の録画・フレーム計測は未実施|
+|キーボードと拡大文字|各CTAのrect、keyboard上端、tabbar rect、中心のhit、フォーカス順・読み上げ名|今回の座標監査＋viewport検証済み。iPhoneのSoftware Keyboard・VoiceOverは追加実測|
+|接近・遅延の精度|観測地点、予測発行時刻、上流更新時刻、実到着時刻、誤差、欠測／staleの割合|fixtureの表示と更新制御は確認済み。現地の実到着との誤差は未計測。出典名を実測精度の証明にしない|
+|乗換情報|実歩行時間、出口・改札・ホーム、エレベーター、乗車位置、接続可能性|取得済み番線の表示は確認済み。未取得の設備・乗車位置データは現地と公式資料で補う|
+|北3・直通の境界|運行会社、大学休校日、曜日、急行通過、K/B境界、24:xx|モデルの回帰テストは通過。現場の停車／運行条件との一致は別途確認|
+|保存先の識別|同名駅・会社違い・方面違い・再検索日・施設名。誤って別地点を選ばないこと|検索の地点ID保持は確認済み。自宅／職場と施設保存は次回実装対象|
 
 ## 6. 今回の実装と検証
 
@@ -156,7 +173,9 @@ Googleの候補カードの左右スワイプ[G1]は候補や交通機関の切�
 - [変更前272状態の座標](/workspace/artifacts/mymap-ui-coordinate-audit/before/coordinates.json)
 - [変更後272状態の座標](/workspace/artifacts/mymap-ui-coordinate-audit/after/coordinates.json)
 
-ギャラリーの390px・Light・100%画像はHTML内に埋め込み、Dark・拡大文字・805pxの画像は同じ成果物フォルダーから開ける。画像を加工して差分を隠していない。GitHubで読む場合、ローカル成果物のリンクはクラウド環境のファイルを指す。再生成は `BROWSER_UI_AUDIT=1 BROWSER_ARTIFACT_DIR=<保存先> npm run test:browser`。
+ギャラリーの390px・Light・100%画像はHTML内に埋め込み、Dark・拡大文字・805pxの画像は同じ成果物フォルダーから開ける。画像を加工して差分を隠していない。座標監査では地図の背景も試験用の単色タイルを使うため、画像だけで本番の地理背景の状態を判定しない。実際のOpenStreetMap PNGの取得・全表示タイルの読込・描画はCIの `VERIFY_LIVE_MAP=1` で別に検証し、`bus-real-basemap-390.png` を記録する。
+
+GitHubで読む場合、ローカル成果物のリンクはクラウド環境のファイルを指す。再生成は `BROWSER_UI_AUDIT=1 BROWSER_ARTIFACT_DIR=<保存先> npm run test:browser`。
 
 座標の改善を静止画だけで合格にせず、検索・案内・戻る・選択・保存・通知・折返し・地図の既存ブラウザーテストも通す。実機のVoiceOver、OSのSafari Edge Gesture、競合のnative appの操作座標とモーション、実到着に対する予測誤差は今回のクラウド測定の範囲外。
 
@@ -175,4 +194,16 @@ Googleの候補カードの左右スワイプ[G1]は候補や交通機関の切�
 |Navigation Flow A–F|App／Browser／Swipe Back、1:1追従、30%取消／50%確定、高速flick、PointerCancel、縦scroll／map／sheet／tabとの競合、タブ・入力・scroll・zoom・reloadの保持を通過|
 |既存運行・性能回帰|烏丸・近鉄・直通・バス・北3・GPS ON/OFF・接近・運賃・定期・折返し等を通過。GPS更新10回で余分なGPS request 0、変化のない接近行のmutation 0|
 
-クラウドの測定資料は `mymap-ui-coordinate-audit` 成果物フォルダー。公開CIと公開版の接続確認は公開後に追記する。
+クラウドの測定資料は `mymap-ui-coordinate-audit` 成果物フォルダー。
+
+### 公開CIと実接続
+
+アプリのcommitは `6705553`、[公開CI run 38477924639](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38477924639)。WebKit／ChromiumのUI・PWA、実地理タイル、Worker dry-run、Pages build／deployはすべてsuccess。公開後の接続jobは市バスAPIの502（`The operation was aborted due to timeout`）でfailureになった。CI全体がgreenだったとは報告しない。
+
+同じ公開buildを固定して、古いデータを合格にしない既存の検証条件で再確認した。初回のローカル確認では市バス502と北3のstale、2回目は市バスの実測未確認を記録した。**2026-10-13 22:54:35 UTCの最終確認では必須項目すべてpassed**：公開HTML／Service Worker／module／CSSの一致、Worker bindings、当日の地下鉄全ダイヤ、両方面、公式発車、市バス、北3、近鉄実測位置、地理背景。京都バスODPTは従来どおりoptional未設定で、公式時刻表を利用。
+
+- [CI状態の記録](/workspace/artifacts/mymap-ui-coordinate-audit/validation/github-ci.json)
+- [初回の接続失敗記録](/workspace/artifacts/mymap-ui-coordinate-audit/production/production-report.json)
+- [最終の公開版・実接続記録](/workspace/artifacts/mymap-ui-coordinate-audit/production-final/production-report.json)
+
+最終確認は復旧した時点の接続の証拠であり、継続的な稼働率・到着予測精度の保証ではない。この不安定性はUI整理と区間便選択の未実装と分け、次回のP0観測・改善項目に残す。今回、Workerや検証の「実測・非stale」条件を変更して通過させていない。
