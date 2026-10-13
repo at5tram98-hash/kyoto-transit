@@ -258,7 +258,7 @@ async function init() {
     ]
       .map(
         ([id, label]) =>
-          `<button class="tab-button ${id === "now" ? "active" : ""}" data-tab="${id}" aria-current="${id === "now" ? "page" : "false"}">${icon(id)}<span>${label}</span></button>`,
+          `<button class="tab-button ${id === "now" ? "active" : ""}" data-tab="${id}"${id === "settings" ? " data-open-settings" : ""} aria-current="${id === "now" ? "page" : "false"}">${icon(id)}<span>${label}</span></button>`,
       )
       .join("");
   requestAnimationFrame(moveTabSelection);
