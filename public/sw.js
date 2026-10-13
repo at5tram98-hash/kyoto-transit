@@ -64,13 +64,30 @@ async function navigation(request) {
     return Response.error();
   }
 }
+async function cachedStatic(cache, request, version) {
+  // WebKit has historically been less consistent than Chromium around
+  // Cache.match({ ignoreSearch: true }) when a request has more than one query
+  // parameter. Match the canonical precache URL explicitly first, then retain
+  // ignoreSearch as a compatibility fallback.
+  const requestUrl = new URL(request.url);
+  const canonical = new URL(requestUrl.href);
+  canonical.search = "";
+  if (canonical.pathname.endsWith(".js") && version)
+    canonical.searchParams.set("v", version);
+
+  let cached = await cache.match(request);
+  if (!cached && canonical.href !== requestUrl.href)
+    cached = await cache.match(canonical.href);
+  if (!cached) cached = await cache.match(request, { ignoreSearch: true });
+  return cached;
+}
 async function staticAsset(request) {
   const version = new URL(request.url).searchParams.get("v"),
     target = version ? `mymap-static-${version}` : CACHE;
   // Never serve another release's module as an offline fallback.
   if (await caches.has(target)) {
     const cache = await caches.open(target),
-      cached = await cache.match(request, { ignoreSearch: true });
+      cached = await cachedStatic(cache, request, version);
     if (cached) return cached;
   }
   if (version && version !== VERSION)
