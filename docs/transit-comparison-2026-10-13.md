@@ -75,8 +75,20 @@
 - ユニット299件を通過。追加9件は同名地点、候補検索、並べ替えの参照保持、徒歩・日跨ぎの次便、共有条件検証、保存互換、共有通信の中断・再試行・TTL・容量上限を検証。
 - Chromium の全ブラウザ回帰328レイアウトを通過。新規操作18レイアウトを含む。390px Light/Dark、100/150/200%、Reduce Motion、GPS拒否、Standalone相当を検証。
 - 最終調整後の新規18レイアウトを再実行。候補が入力の自動保存後にも残ること、カード全体タップ、経由・滞在、比較順、編集・次便、保存・削除、共有リンクの再読込、ホーム簡易検索、入力エラーを検証。
-- Chromium の PWA 更新・複数クライアント・オフライン・旧Worker移行10シナリオを通過。
+- Chromium の PWA 更新・複数クライアント・オフライン・旧Worker移行9シナリオを通過。
 - 公開済み main の実運行接続検証は通過。京都バス ODPT は任意キー未設定のため公式時刻表を使用。これは実到着精度や全地域対応の保証ではない。
 - WebKit、実地理タイル、公開した版の確認は GitHub Actions の結果を本ドキュメント末尾に記録する。
 
 比較画像は `/workspace/artifacts/mymap-transit-comparison/comparison.html`。検証用ダイヤ・GPSによる390pxのBefore/Afterであり、競合の実機操作と実運行の精度を測定したものではない。残存課題は上記の追加実測・データ整備の項目。
+
+### 本番確認結果
+
+- 実装コミット: `f5b9bd7ad0f3af0fe7194f5ba370e414741a3d60`。
+- 公開ビルド: `0c1a8378b3b6`。
+- [Pages検証・公開](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38421878533): build、WebKit・Chromiumの画面/PWA、実地理タイル、Worker dry-run、deploy、公開サイト・実運行APIの確認がすべて成功。
+- [Worker公開](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38421879116): 成功。
+- 公開後に `EXPECTED_BUILD_VERSION=0c1a8378b3b6 npm run verify:production` を再実行し成功。地下鉄全ダイヤ・時刻表・発車、市バス・北3接近、近鉄実測列車位置、地理タイルを確認。京都バス ODPT の実測は任意キー未設定で、公式時刻表による案内を継続。
+- Navigation回帰はApp Back／Browser Back／Swipe Backの同一親への復帰、指との1:1追従、30%キャンセル・50%確定・Flick・PointerCancel、縦スクロール／地図／Sheetとの競合、タブ復帰、スクロール／入力／地図Zoom／再読込の保存を両エンジンで確認。
+- 390px Light/Dark、文字100/150/200%、Reduce Motion ON/OFF、GPS ON/OFF、Standalone相当を含む。実機SafariのOS Edge Gesture、VoiceOver、ソフトウェアキーボードは追加実測対象。
+
+スクリーンショット比較・検証JSON: `/workspace/artifacts/mymap-transit-comparison/`。この最後の追記は検証記録のみで、公開アプリのビルド内容を変更しない。
