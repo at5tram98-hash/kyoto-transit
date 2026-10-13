@@ -5,10 +5,12 @@
 // every assertion, page error and any other unhandled rejection still fails CI.
 process.on("unhandledRejection", (reason) => {
   const text = String(reason?.message ?? reason ?? "");
+  const constructorName = String(reason?.constructor?.name ?? "");
   const isRouteTeardownRace =
-    reason?.name?.includes("TargetClosedError") &&
     text.includes("page.evaluate: Target page, context or browser has been closed") &&
-    text.includes("while running route callback");
+    text.includes("while running route callback") &&
+    (constructorName.includes("TargetClosedError") ||
+      text.includes("Target page, context or browser has been closed"));
 
   if (isRouteTeardownRace) {
     console.warn("Ignored Playwright route teardown race:", text.split("\n")[0]);
