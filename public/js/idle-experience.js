@@ -155,10 +155,10 @@ function renderQuickSearch() {
         <button type="button" data-quick-mode="arrival" class="${quickDraft.mode === "arrival" ? "active" : ""}">到着</button>
       </div>
       <div class="quick-date-time">
-        <label><span>日付</span><input type="date" name="date" value="${esc(quickDraft.date)}"></label>
-        <label><span>時刻</span><input type="time" name="time" value="${esc(quickDraft.time)}"></label>
+        <label><span>日付</span><input type="date" name="quickDate" value="${esc(quickDraft.date)}"></label>
+        <label><span>時刻</span><input type="time" name="quickTime" value="${esc(quickDraft.time)}"></label>
       </div>
-      <label class="quick-kintetsu${usesKintetsu(quickDraft.destination) ? " is-visible" : ""}"><span>近鉄の列車</span><select name="trainType"><option value="all"${quickDraft.trainType === "all" ? " selected" : ""}>普通・急行</option><option value="local"${quickDraft.trainType === "local" ? " selected" : ""}>普通のみ</option><option value="express"${quickDraft.trainType === "express" ? " selected" : ""}>急行のみ</option></select></label>
+      <label class="quick-kintetsu${usesKintetsu(quickDraft.destination) ? " is-visible" : ""}"><span>近鉄の列車</span><select name="quickTrainType"><option value="all"${quickDraft.trainType === "all" ? " selected" : ""}>普通・急行</option><option value="local"${quickDraft.trainType === "local" ? " selected" : ""}>普通のみ</option><option value="express"${quickDraft.trainType === "express" ? " selected" : ""}>急行のみ</option></select></label>
       <button type="submit" class="primary-action quick-search-submit">検索</button>
     </div>
   </form>${quickRecentHTML()}`;
@@ -185,11 +185,17 @@ function renderQuickSearch() {
       );
     }),
   );
-  form.elements.date.addEventListener("change", () => (quickDraft.date = form.elements.date.value));
-  form.elements.time.addEventListener("change", () => (quickDraft.time = form.elements.time.value));
-  form.elements.trainType.addEventListener(
+  form.elements.quickDate.addEventListener(
     "change",
-    () => (quickDraft.trainType = form.elements.trainType.value),
+    () => (quickDraft.date = form.elements.quickDate.value),
+  );
+  form.elements.quickTime.addEventListener(
+    "change",
+    () => (quickDraft.time = form.elements.quickTime.value),
+  );
+  form.elements.quickTrainType.addEventListener(
+    "change",
+    () => (quickDraft.trainType = form.elements.quickTrainType.value),
   );
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -215,9 +221,9 @@ function submitQuickSearch(form) {
     return;
   }
   quickDraft.destination = destination;
-  quickDraft.date = form.elements.date.value;
-  quickDraft.time = form.elements.time.value;
-  quickDraft.trainType = form.elements.trainType.value;
+  quickDraft.date = form.elements.quickDate.value;
+  quickDraft.time = form.elements.quickTime.value;
+  quickDraft.trainType = form.elements.quickTrainType.value;
   document.querySelector("[data-search-current]")?.click();
   planner.elements.to.value = destination;
   planner.elements.date.value = quickDraft.date;
