@@ -1,3 +1,7 @@
+import { currentMotionEvidence } from "./motion-assist.js";
+import { readSavedPlaces, toggleSavedPlace } from "./saved-places.js";
+import { setupSheetGestures } from "./context-sheet.js";
+import { trajectory } from "./riding.js";
 import { mountBusStopPreview } from "./bus-stop-preview.js";
 import { navigation } from "./navigation.js";
 import {
@@ -86,12 +90,37 @@ export function registerNowScreens({ arrivals, onFoldback }) {
     onDispose: source("#arrivals-root").onDispose,
   });
   const previews = new Map();
+  function placeSurface(element, stop) {
+    const position = state.geo.stops.find((s) => s.id === stop.id);
+    const point =
+      position && Number.isFinite(position.lng) && Number.isFinite(position.lat)
+        ? [position.lng, position.lat]
+        : null;
+    element.classList.add("place-screen");
+    element.innerHTML = `<div class="place-map" aria-label="${esc(stop.name)}の小地図">${point ? routeMapHTML({ points: [point], stops: [{ ...stop, ...position }], position: null, place: true, source: "schedule" }, { bus: stop.type.includes("bus"), lineId: stop.type === "subway" ? "K" : "B" }) : '<p class="source-note">地図の位置データは未取得です</p>'}</div><section class="place-sheet" data-detent="${parseFloat(getComputedStyle(document.documentElement).fontSize) > 20 ? "large" : "medium"}" aria-label="${esc(stop.name)}の次便と操作"><button type="button" class="sheet-drag-handle" aria-label="停留所詳細の高さを変更"><span></span></button><div class="sheet-header"><h2>${esc(stop.name)}</h2><button type="button" class="plain-action" data-save-place="${esc(stop.id)}" aria-pressed="${readSavedPlaces().includes(stop.id)}">${readSavedPlaces().includes(stop.id) ? "保存済み" : "保存"}</button></div><div class="sheet-body" data-place-content></div></section>`;
+    const panel = element.querySelector(".place-sheet");
+    panel.addEventListener("mymap-sheet-dismiss", () => navigation.pop());
+    element.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-save-place]");
+      if (b) {
+        const saved = toggleSavedPlace(b.dataset.savePlace);
+        b.textContent = saved ? "保存済み" : "保存";
+        b.setAttribute("aria-pressed", String(saved));
+      }
+    });
+    setupSheetGestures();
+  }
   function fillStop(context, html, show = false) {
     const { element, route } = context,
-      saved = previews.get(element);
-    updateHTML(element, html(route.params.stopId));
-    const host = element.querySelector("[data-bus-stop-preview]"),
-      stop = state.network.stops.get(route.params.stopId);
+      saved = previews.get(element),
+      stop = state.network.stops.get(route.params.stopId),
+      bus = stop?.type.includes("bus");
+    if (bus && !element.querySelector("[data-place-content]"))
+      placeSurface(element, stop);
+    const content = element.querySelector("[data-place-content]") ?? element;
+    updateHTML(content, html(route.params.stopId));
+    const host = content.querySelector("[data-bus-stop-preview]");
+    if (host && stop) host.dataset.operator = stop.type;
     if (!host || !stop) {
       saved?.dispose();
       previews.delete(element);
@@ -117,7 +146,23 @@ export function registerNowScreens({ arrivals, onFoldback }) {
       previews.delete(element);
     },
   });
+  const placeToolbar = (route) => {
+    const stop = state.network.stops.get(route.params.stopId);
+    if (!stop || stop.type.includes("bus")) return "";
+    const saved = readSavedPlaces().includes(stop.id);
+    return `<button type="button" class="plain-action" data-save-place="${esc(stop.id)}" aria-pressed="${saved}">${saved ? "保存済み" : "保存"}</button>`;
+  };
+  const onPlaceToolbar = ({ event }) => {
+    const b = event.target.closest("[data-save-place]");
+    if (b) {
+      const saved = toggleSavedPlace(b.dataset.savePlace);
+      b.textContent = saved ? "保存済み" : "保存";
+      b.setAttribute("aria-pressed", String(saved));
+    }
+  };
   navigation.register("station", {
+    toolbar: placeToolbar,
+    onToolbar: onPlaceToolbar,
     title: (r) =>
       state.network.stops.get(r.params.stopId)?.name ?? "駅・停留所",
     create({ element }) {
@@ -141,6 +186,8 @@ export function registerNowScreens({ arrivals, onFoldback }) {
     ...stopLifecycle(stationDetailHTML),
   });
   navigation.register("nearby", {
+    toolbar: placeToolbar,
+    onToolbar: onPlaceToolbar,
     title: (r) => state.network.stops.get(r.params.stopId)?.name ?? "近く",
     ...stopLifecycle(nearbyDetailHTML),
   });
@@ -156,7 +203,7 @@ export function registerNowScreens({ arrivals, onFoldback }) {
         .join(" ");
     updateHTML(
       element,
-      `<section class="section-block"><h2>${esc(a.conclusion)}</h2><p class="source-note">My Mapの推定です。公式の運行情報とは区別して表示します。</p><dl class="context-facts"><div><dt>時刻表</dt><dd>公式の予定時刻</dd></div><div><dt>現在位置</dt><dd>${state.heroModel.locationConfidence === "available" ? "GPSと停車位置を照合" : "未取得。ダイヤから推定"}</dd></div><div><dt>接近情報</dt><dd>${state.heroModel.dataSources.includes("接近") ? "取得データを参照" : "実測データは未取得"}</dd></div></dl>${samples.length > 1 ? `<svg class="delay-chart" viewBox="0 0 300 120" role="img" aria-label="観測した遅れの推移、推定"><path d="M20 95H280" class="map-grid"/><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="3"/></svg>` : '<p class="source-note">推移を表示するための観測データがまだ不足しています。</p>'}</section>`,
+      `<section class="section-block"><h2>${esc(a.conclusion)}</h2><p class="source-note">My Mapの推定です。公式の運行情報とは区別して表示します。</p><dl class="context-facts"><div><dt>時刻表</dt><dd>公式の予定時刻</dd></div><div><dt>現在位置</dt><dd>${state.heroModel.locationConfidence === "available" ? "GPSと停車位置を照合" : "未取得。ダイヤから推定"}</dd></div><div><dt>接近情報</dt><dd>${state.heroModel.dataSources.includes("接近") ? "取得データを参照" : "実測データは未取得"}</dd></div></dl><details class="ride-diagnostics"><summary>位置情報・乗車判定の詳細</summary><dl class="context-facts"><div><dt>GPS精度</dt><dd>${Number.isFinite(state.fix?.accuracy) ? `${Math.round(state.fix.accuracy)}m` : "未取得"}</dd></div><div><dt>速度</dt><dd>${Number.isFinite(trajectory(state.samples).speed) ? `${(trajectory(state.samples).speed * 3.6).toFixed(1)}km/h` : "未取得"}</dd></div><div><dt>加速度</dt><dd>${Number.isFinite(currentMotionEvidence().peakAcceleration) ? `${currentMotionEvidence().peakAcceleration.toFixed(2)}m/s²` : "未取得"}</dd></div><div><dt>一致度</dt><dd>${Number.isFinite(state.rideConfidence) ? `${Math.round(state.rideConfidence)} / 100` : "未確認"}</dd></div><div><dt>判定根拠</dt><dd>${esc(state.rideSource ?? "未確認")}</dd></div></dl></details>${samples.length > 1 ? `<svg class="delay-chart" viewBox="0 0 300 120" role="img" aria-label="観測した遅れの推移、推定"><path d="M20 95H280" class="map-grid"/><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="3"/></svg>` : '<p class="source-note">推移を表示するための観測データがまだ不足しています。</p>'}</section>`,
     );
   };
   navigation.register("delay", {

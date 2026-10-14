@@ -102,22 +102,18 @@ export function nextStationHero(model, ride, progress) {
       Math.max(start + 4, Math.min(progress.stops.length, start + 4)),
     );
   const strip = progress.stops.slice(start, end).map((s) => stationModel(s));
-  const source =
-    model.locationConfidence === "available"
-      ? `現在地：${progress.stops[progress.currentIndex]?.name ?? progress.previous?.name ?? "駅間"}付近`
-      : "現在位置は未取得 · 時刻表から推定";
-  return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}">
+  return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-operator="${esc(model.bus ? (ride.operatingCompany ?? ride.operator) : ride.operator)}" data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}">
     ${model.routeUnavailable || (model.delayMinutes ?? 0) >= 10 ? `<p class="journey-warning" role="status">${model.routeUnavailable ? "運休・経路変更を確認してください。現在位置は未確認です。" : `約${model.delayMinutes}分の遅れ（推定）。運行情報をご確認ください。`}</p>` : ""}
-    <div class="route-header">${routeBadge({ ...model, route: ride.route })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : "系統"}` : model.lineId === "K" ? "烏丸線" : "近鉄京都線")} <span>${esc(model.destination ?? "行先確認中")}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? "京都バス運行" : ride.operatingCompany === "citybus" ? "京都市バス運行" : (ride.operatingCompany ?? (ride.route === "北3" ? "京都市バス · 便により京都バス" : "運行事業者を確認中"))) : model.serviceType)}${model.boundary ? " · 乗換不要" : ""}</p></div>${statusPill(model.confidence)}</div>
+    <div class="route-header">${routeBadge({ ...model, route: ride.route })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : "系統"}` : model.lineId === "K" ? "烏丸線" : "近鉄京都線")} <span>${esc(model.destination ?? "行先確認中")}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? "京都バス運行" : ride.operatingCompany === "citybus" ? "京都市バス運行" : (ride.operatingCompany ?? (ride.route === "北3" ? "京都市バス · 便により京都バス" : ride.operator === "kyotobus" ? "京都バス" : "京都市バス"))) : model.serviceType)}${model.boundary ? " · 乗換不要" : ""}</p></div></div>
     <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
-      <div class="next-state-label">${esc(model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(next?.name ?? "確認中")}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(model.boundary ? model.boundary.codes.join(" / ") : next.code)}</span>` : ""}</div>
+      <div class="next-state-label">${esc(model.label === "に到着" ? "停車中" : model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(next?.name ?? "確認中")}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(model.boundary ? model.boundary.codes.join(" / ") : next.code)}</span>` : ""}</div>
       ${next?.en ? `<div class="station-en">${esc(next.en)}</div>` : ""}<p class="next-countdown">${esc(duration)}</p>
       <p class="destination-progress">${model.routeUnavailable ? "停車順を確認中" : model.nextIsDestination ? (model.bus ? "この停留所で降ります" : "この駅で降ります") : `「${esc(destination?.name ?? "未設定")}」まであと<span class="remaining-number">${model.remainingStops}</span>${model.bus ? "停留所" : "駅"}`}</p>
       <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? "停留所の並び" : "停車駅の並び"}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(s.name)}</b></span>`).join("")}</div></details>
     </div>
     <button class="personal-destination" data-context-action="destination"><span><small>あなたの降車${model.bus ? "停留所" : "駅"}</small><b>${esc(destination?.name ?? "設定する")} ${model.bus ? "" : esc(destination?.code)}</b></span><strong>${estimateTime(model.destinationArrival, model.confidence)}</strong></button>
     ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? `<p class="through-notice">${model.boundary.phase === "stopped" ? "竹田に停車中。" : "竹田で"}${model.boundary.nextLine === "B" ? "近鉄京都線" : "地下鉄烏丸線"}へ直通 · ${esc(model.serviceType)} ${esc(model.destination)}行き · 乗換不要</p>` : ""}
-    <div class="ride-meta"><span class="position-source journey-location-status">${esc(source)}</span><span class="journey-delay">${model.delayMinutes === null ? "遅れ情報未取得" : `約${model.delayMinutes}分${model.delayMinutes > 0 ? "の遅れ" : "・ほぼ定刻"}（推定）`}</span></div>
+    ${model.delayMinutes > 0 ? `<p class="journey-delay">約${model.delayMinutes}分の遅れ（推定）</p>` : ""}
     ${model.confidence === "stale" ? `<p class="source-note">${statusPill("stale", null, model.lastUpdated)} · 保存したダイヤの予定時刻を表示</p>` : ""}
 
   </section>`;

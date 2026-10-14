@@ -508,3 +508,74 @@ test("降車地点の変更は元の後続旅程への自動進行を無効と�
     false,
   );
 });
+
+test("別便の確定でRealtimeを再照合しても選択tripIdを維持し、遅れを二重加算しない", async () => {
+  const { planWorkerJob } = await import("../public/js/planner-worker.js");
+  const req = { ...request, to: "b" };
+  const initial = planRoutes(network, req, passes)[0];
+  const option = choose(initial, 0, "later", req);
+  const nowEpoch = Date.parse(`${date}T00:00:00Z`);
+  const realtime = {
+    subway: {
+      asOf: new Date(nowEpoch).toISOString(),
+      source: "live",
+      trains: [
+        { tripId: "later", serviceId: "rail", serviceDate: date, delay: 5 },
+      ],
+    },
+  };
+  const result = planWorkerJob({
+    base,
+    feeds,
+    request: req,
+    passes,
+    action: "replace-leg",
+    journey: initial,
+    legIndex: 0,
+    choiceKey: option.key,
+    realtime,
+    realtimeContext: { nowMinute: 480, nowEpoch },
+    nowEpoch,
+  }).journey;
+  assert.equal(result.legs[0].tripId, "later");
+  assert.equal(result.legs[0].depart, 500);
+  assert.equal(result.legs[0].arrive, 510);
+  assert.equal(result.legs[0].realtimeApplied, true);
+  assert.equal(result.estimatedTime, 510);
+  assert.equal(initial.legs[0].tripId, "current");
+});
+
+test("選便の実測遅れは公式停車時刻と分けて案内へ渡し、古い・違う便の値は無効化する", async () => {
+  const { selectedRideShift, boardingAvailable } =
+    await import("../public/js/journey-session.js");
+  const epoch = Date.parse(`${date}T00:00:00Z`);
+  const leg = {
+    ...original.legs[0],
+    realtimeApplied: true,
+    realtime: {
+      exact: true,
+      source: "live",
+      delay: 20,
+      asOf: new Date(epoch).toISOString(),
+    },
+  };
+  const ride = scheduledJourney(leg, network, base, date);
+  assert.equal(ride.officialStops[0].departure, 480);
+  assert.equal(selectedRideShift(ride, epoch), 20);
+  assert.equal(boardingAvailable(ride, { date, minute: 515 }, epoch), true);
+  assert.equal(selectedRideShift(ride, epoch + 90001), null);
+  assert.equal(
+    selectedRideShift({ ...ride, tripId: "different" }, epoch),
+    null,
+  );
+  assert.equal(
+    selectedRideShift(
+      {
+        ...ride,
+        selectedObservation: { ...ride.selectedObservation, exact: false },
+      },
+      epoch,
+    ),
+    null,
+  );
+});

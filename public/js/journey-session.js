@@ -1,3 +1,4 @@
+import { isFresh } from "./realtime.js";
 import { journeyClock, stopTime, reverseDirection } from "./journey-core.js";
 import { normalize } from "./network.js";
 
@@ -21,7 +22,20 @@ export const journeyKey = (ride) =>
       ])
     : "";
 
-export function boardingAvailable(ride, now) {
+export function selectedRideShift(ride, at = Date.now()) {
+  const observation = ride?.selectedObservation;
+  return observation?.exact === true &&
+    observation.source === "live" &&
+    observation.tripId === ride.tripId &&
+    observation.serviceId === ride.serviceId &&
+    observation.serviceDate === ride.serviceDate &&
+    Number.isFinite(observation.delay) &&
+    Math.abs(observation.delay) <= 120 &&
+    isFresh(observation.asOf, 90000, at)
+    ? observation.delay
+    : null;
+}
+export function boardingAvailable(ride, now, at = Date.now()) {
   if (
     !ride ||
     !operators.has(ride.operator) ||
@@ -30,6 +44,7 @@ export function boardingAvailable(ride, now) {
   )
     return false;
   const clock = journeyClock(ride, now),
+    shift = selectedRideShift(ride, at) ?? 0,
     start = ride.depart ?? stopTime(ride.officialStops[0]),
     end =
       ride.arrive ??
@@ -40,8 +55,8 @@ export function boardingAvailable(ride, now) {
   return (
     Number.isFinite(start) &&
     Number.isFinite(end) &&
-    clock.minute >= start - 10 &&
-    clock.minute <= end + 10
+    clock.minute >= start + shift - 10 &&
+    clock.minute <= end + shift + 10
   );
 }
 
@@ -76,7 +91,7 @@ export function scheduledJourney(leg, feed, network, date) {
       time: originalTime(trip.arrivals[i] ?? trip.departures[i]),
       estimated: Boolean(
         (feed.meta?.terminalArrivalDerived || service.terminalArrivalDerived) &&
-          i === service.stops.length - 1,
+        i === service.stops.length - 1,
       ),
     };
   });
@@ -117,6 +132,16 @@ export function scheduledJourney(leg, feed, network, date) {
     serviceId: service.id,
     serviceDate: trip.serviceDate ?? trip.date ?? date,
     fullTerminus: true,
+    ...(leg.realtimeApplied && leg.realtime?.exact
+      ? {
+          selectedObservation: {
+            ...leg.realtime,
+            tripId: trip.id,
+            serviceId: service.id,
+            serviceDate: trip.serviceDate ?? trip.date ?? date,
+          },
+        }
+      : {}),
   };
 }
 

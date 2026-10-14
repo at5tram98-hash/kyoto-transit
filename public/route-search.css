@@ -31,6 +31,88 @@
   padding: 12px 14px;
   margin: 0 0 8px;
 }
+.place-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--color-accent);
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.place-dot.origin {
+  background: var(--color-accent);
+}
+.planner-date-entry {
+  margin: 12px 0 8px;
+  border-top: 1px solid var(--separator);
+  font-size: var(--type-secondary);
+}
+.planner-filter-fields {
+  display: grid;
+  gap: 18px;
+}
+.planner-filter-fields label {
+  display: grid;
+  gap: 8px;
+}
+.result-places {
+  margin: 8px 0 4px;
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+.result-search-condition {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  font: inherit;
+  font-size: var(--type-caption);
+  padding: 6px 0;
+}
+.result-search-condition .search-request {
+  flex: 1;
+}
+.result-departure-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.result-departure-toolbar button {
+  padding: 8px 4px;
+}
+.result-departure-toolbar time {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--type-secondary);
+}
+.result-order {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 13px;
+  background: var(--surface-secondary);
+  margin: 12px 0;
+}
+.result-order button {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  min-height: 44px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.result-order button.active {
+  background: var(--surface-primary);
+  color: var(--color-link);
+  box-shadow: var(--shadow);
+}
 .planner-place-pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
@@ -39,7 +121,7 @@
 }
 .planner-place-pair label {
   display: grid;
-  grid-template-columns: 2.7em minmax(0, 1fr);
+  grid-template-columns: 3.6em minmax(0, 1fr);
   align-items: center;
   min-height: 48px;
   grid-column: 1;
@@ -72,14 +154,14 @@
   background: var(--panel-2);
   color: var(--text);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--type-body);
   min-height: 44px;
   padding: 9px 10px;
 }
 .planner-place-pair input {
   background: transparent;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--type-body);
 }
 .planner-form input:focus-visible,
 .planner-form select:focus-visible {
@@ -195,6 +277,7 @@
   outline: none;
 }
 .planner-result {
+  border-inline-start: 4px solid var(--transport-color);
   position: relative;
   container-type: inline-size;
   background: var(--panel);
@@ -218,7 +301,7 @@
   align-items: center;
   gap: 5px;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
 }
 .planner-times {
   display: flex;
@@ -245,11 +328,38 @@
   color: var(--text);
 }
 .planner-route-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
   font-size: 0.8125rem;
   font-weight: 650;
   line-height: 1.5;
   margin: 8px 0;
   overflow-wrap: anywhere;
+}
+.route-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 7px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+  font-size: var(--type-caption);
+}
+.route-mode-badge svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.route-mode-transfer {
+  color: var(--muted);
 }
 .planner-metrics {
   display: flex;
@@ -336,7 +446,7 @@
   content: "";
   position: absolute;
   left: 4px;
-  top: 10px;
+  top: 0.55em;
   bottom: -8px;
   width: 2px;
   background: var(--journey-line-color, var(--separator));
@@ -345,7 +455,7 @@
   content: "";
   position: absolute;
   left: 1px;
-  top: 10px;
+  top: 0.55em;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -358,19 +468,9 @@
 .journey-final .planner-line::before {
   display: none;
 }
-.journey-ride[data-operator="subway"] {
-  --journey-line-color: var(--green);
-}
-.journey-ride[data-operator="kintetsu"],
-.journey-ride[data-operator="through"] {
-  --journey-line-color: var(--purple);
-}
-.journey-ride[data-operator="citybus"],
-.journey-ride[data-operator="kyotobus"] {
-  --journey-line-color: var(--blue);
-}
 .journey-ride {
   position: relative;
+  --journey-line-color: var(--transport-color);
 }
 .planner-clock,
 .journey-departure {
@@ -380,6 +480,7 @@
   font-variant-numeric: tabular-nums;
 }
 .journey-departure {
+  align-self: start;
   width: 100%;
   min-height: 44px;
   border: 0;
@@ -389,12 +490,12 @@
 }
 .planner-clock > b,
 .journey-departure > b {
-  font-size: 0.875rem;
+  font-size: var(--type-body);
   white-space: nowrap;
 }
 .journey-departure > small,
 .planner-clock > small {
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
   margin-top: 2px;
 }
 .journey-departure > small {
@@ -419,9 +520,20 @@
   font-size: 0.75rem;
   padding-top: 10px;
 }
+.journey-transfer {
+  --journey-line-color: var(--color-walk);
+}
+.planner-leg.walk .planner-line::before {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--color-walk) 0 5px,
+    transparent 5px 9px
+  );
+}
 .journey-wait,
 .journey-dwell,
 .planner-leg.walk {
+  --journey-line-color: var(--color-walk);
   color: var(--muted);
 }
 .journey-arrival-platform {
@@ -503,7 +615,7 @@
 }
 .trip-choice-row small {
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
 }
 .trip-choice-description > b {
   font-size: 0.8125rem;
@@ -540,24 +652,62 @@
 }
 
 /* Search-only controls. Their layout follows the existing inset list rhythm. */
-.stop-suggestions {
-  position: absolute;
-  z-index: 8;
-  left: 14px;
-  right: 14px;
-  overflow-y: auto;
-  background: var(--panel);
-  border: 1px solid var(--separator);
+/* Suggestions occupy their own full-screen input surface. */
+.suggestion-screen.sheet {
+  inset: var(--viewport-top, 0px) 0 auto;
+  margin: 0 auto;
+  width: min(100%, 760px);
+  max-width: 100%;
+  height: var(--app-height, 100dvh);
+  max-height: 100dvh;
+  border-radius: 0;
+  background: var(--surface-primary);
+  padding: env(safe-area-inset-top, 0px) 0 var(--safe-bottom);
+}
+.suggestion-screen[open] {
+  display: flex;
+  flex-direction: column;
+}
+.suggestion-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--material-navigation);
+  flex: none;
+}
+.suggestion-toolbar input {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
   border-radius: 12px;
-  box-shadow: 0 6px 18px #0002;
+  padding: 10px 12px;
+  background: var(--surface-secondary);
+  font-size: 1.0625rem;
+}
+.suggestion-body {
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 0 16px;
+}
+.stop-suggestions {
+  background: var(--surface-primary);
   padding: 4px 0;
+}
+.suggestion-section {
+  font-size: var(--type-caption);
+  color: var(--muted);
+  margin: 20px 0 8px;
 }
 .stop-suggestion {
   display: grid;
-  gap: 3px;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  min-height: 52px;
-  padding: 10px;
+  min-height: 64px;
+  padding: 10px 0;
   text-align: left;
   border: 0;
   background: transparent;
@@ -567,17 +717,21 @@
 .stop-suggestion + .stop-suggestion {
   border-top: 1px solid var(--separator);
 }
-.stop-suggestion b {
-  font-size: 0.9375rem;
+.stop-suggestion b,
+.stop-suggestion small {
+  display: block;
   overflow-wrap: anywhere;
+}
+.stop-suggestion b {
+  font-size: var(--type-body);
 }
 .stop-suggestion small {
   color: var(--muted);
-  font-size: 0.75rem;
-  overflow-wrap: anywhere;
+  font-size: var(--type-caption);
+  margin-top: 4px;
 }
 .stop-suggestion[aria-selected="true"] {
-  background: var(--panel-2);
+  background: var(--blue-soft);
 }
 .planner-add-via {
   min-height: 44px;

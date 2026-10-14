@@ -2,14 +2,25 @@ import { animateState as animate } from "./navigation-motion.js";
 // Preserve DOM nodes when the visible content has not changed.
 const markup = new WeakMap();
 export function updateHTML(element, html) {
-  if (markup.get(element) === html) return false;
+  if (markup.get(element) === html || element.innerHTML === html) {
+    markup.set(element, html);
+    return false;
+  }
   element.innerHTML = html;
   markup.set(element, html);
   return true;
 }
 
 const rowViews = new WeakMap();
-const fields = ["service", "destination", "minutes", "delay", "details", "source"];
+const fields = [
+  "service",
+  "destination",
+  "minutes",
+  "delay",
+  "details",
+  "source",
+  "second",
+];
 // Compare the presentation, not timestamps or diagnostic metadata. Unchanged
 // responses must not replace rows, restart their animations, or announce them.
 export function updateArrivalRows(root, rows, present) {
@@ -55,33 +66,30 @@ export function updateArrivalRows(root, rows, present) {
         '<span class="arrival-delay" data-field="delay"></span>' +
         '<div class="arrival-details" data-field="details"></div>' +
         '<div class="arrival-source" data-field="source"></div>' +
-        '<div class="arrival-approach" data-field="approach" hidden></div>';
+        '<div class="arrival-second" data-field="second" hidden></div>' +
+        '<div class="arrival-approach" data-field="approach" hidden></div>' +
+        '<button type="button" class="arrival-toggle" aria-expanded="false"><span class="sr-only">接近情報の詳細</span></button>';
+      const toggle = el.querySelector(".arrival-toggle");
+      toggle.addEventListener("click", () => {
+        const expanded = el.classList.toggle("expanded");
+        toggle.setAttribute("aria-expanded", String(expanded));
+      });
       rowViews.set(el, {});
     }
     const cached = rowViews.get(el);
-    const groupStart = Boolean(
-      view.groupLabel &&
-        (index === 0 ||
-          present(rows[index - 1]).groupLabel !== view.groupLabel),
-    );
-    el.classList.toggle("group-start", groupStart);
     el.classList.toggle("imminent", Boolean(view.imminent));
-    let heading = el.querySelector(".arrival-group-caption");
-    if (groupStart && !heading) {
-      heading = document.createElement("h4");
-      heading.className = "arrival-group-caption";
-      el.prepend(heading);
-    }
-    if (heading) {
-      heading.hidden = !groupStart;
-      if (heading.textContent !== (view.groupLabel ?? ""))
-        heading.textContent = view.groupLabel ?? "";
-    }
-
+    el.classList.toggle("delayed", Boolean(view.delayed));
+    el.dataset.operator = view.operator ?? "citybus";
+    const toggle = el.querySelector(".arrival-toggle");
+    if (toggle)
+      toggle.setAttribute(
+        "aria-label",
+        `${row.route ?? row.label ?? ""} ${row.dest ?? ""} 接近の詳細を${el.classList.contains("expanded") ? "閉じる" : "開く"}`,
+      );
     for (const field of fields) {
       if (cached[field] === view[field]) continue;
       const target = el.querySelector(`[data-field="${field}"]`);
-      target.innerHTML = view[field];
+      target.innerHTML = view[field] ?? "";
       target.hidden = !view[field];
       if (field === "minutes" && !created && motion && index < 12) {
         animate(target, [
@@ -110,7 +118,8 @@ export function updateArrivalRows(root, rows, present) {
         approach.style.setProperty("--approach-position", position);
       cached.position = position;
       const label = `${view.approachLabel ?? "公式接近位置"}：${Math.max(0, Math.round(view.stopsAway))}停留所前`;
-      if (approach.getAttribute("aria-label") !== label) approach.setAttribute("aria-label", label);
+      if (approach.getAttribute("aria-label") !== label)
+        approach.setAttribute("aria-label", label);
     }
     if (el !== before) root.insertBefore(el, before);
     before = el.nextElementSibling;
@@ -140,4 +149,51 @@ export function updateArrivalRows(root, rows, present) {
       }
     }
   }
+}
+
+// Nearby buttons retain identity while GPS changes distance or the next bus.
+// Only the four visible location records are keyed; this is not a screen store.
+export function updateNearbyPanel(element, html) {
+  if (markup.get(element) === html) return;
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const next = template.content.querySelector(".nearby-guide"),
+    current = element.querySelector(".nearby-guide");
+  if (!next || !current) {
+    updateHTML(element, html);
+    return;
+  }
+  const focus = document.activeElement;
+  const old = new Map(
+    [...current.querySelectorAll("[data-nearby-key]")].map((node) => [
+      node.dataset.nearbyKey,
+      node,
+    ]),
+  );
+  let before = current.querySelector("[data-nearby-key]");
+  for (const item of [...next.querySelectorAll("[data-nearby-key]")]) {
+    const existing = old.get(item.dataset.nearbyKey),
+      node = existing ?? item;
+    if (existing) {
+      updateHTML(
+        existing.querySelector("[data-nearby-copy]"),
+        item.querySelector("[data-nearby-copy]").innerHTML,
+      );
+      updateHTML(
+        existing.querySelector("[data-nearby-departures]"),
+        item.querySelector("[data-nearby-departures]").innerHTML,
+      );
+    }
+    if (node !== before) current.insertBefore(node, before);
+    before = node.nextElementSibling;
+    old.delete(item.dataset.nearbyKey);
+  }
+  for (const node of old.values()) node.remove();
+  if (
+    focus instanceof HTMLElement &&
+    focus.isConnected &&
+    element.contains(focus)
+  )
+    focus.focus({ preventScroll: true });
+  markup.set(element, html);
 }

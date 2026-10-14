@@ -1,3 +1,4 @@
+import { operationStatus, journeyOperationStatus } from "./operation-status.js";
 import { updateHTML } from "./view-rendering.js";
 import { navigation } from "./navigation.js";
 import { CAPTURE_API } from "./live.js";
@@ -126,6 +127,7 @@ export function stopTable(
 export function mountTimetables({
   network,
   getState,
+  getNearby = () => [],
   now,
   setTab,
   onBoard,
@@ -222,20 +224,60 @@ export function mountTimetables({
   }
 
   function list() {
-    const q = $("#timetable-search").value,
+    const q = $("#timetable-search").value.trim(),
       favorites = getState().favorites ?? [],
-      all = searchStops(network, q).slice(0, q ? 50 : 12),
-      saved = !q
-        ? favorites.map((id) => network.stops.get(id)).filter(Boolean)
-        : [];
-    $("#timetable-stop-list").innerHTML =
-      (saved.length
-        ? '<h2 class="native-section-label">よく使う場所</h2>' + rows(saved)
-        : "") +
-      `<h2 class="native-section-label">${q ? "検索結果" : "駅・停留所"}</h2>${rows(all)}${!all.length ? '<p class="empty-note">対応する場所が見つかりません</p>' : ""}`;
+      saved = favorites.map((id) => network.stops.get(id)).filter(Boolean),
+      nearby = getNearby()
+        .map((x) => x.stop)
+        .filter((s) => s && !favorites.includes(s.id))
+        .slice(0, 5);
+    const section = (title, stops) =>
+      stops.length
+        ? `<h2 class="native-section-label">${title}</h2>${rows(stops)}`
+        : "";
+    $("#timetable-stop-list").innerHTML = q
+      ? section("検索結果", searchStops(network, q).slice(0, 50)) ||
+        '<p class="empty-note">対応する場所が見つかりません</p>'
+      : section("よく使う", saved) +
+        section("近く", nearby) +
+        `<h2 class="native-section-label">路線から探す</h2><div class="native-list">${[
+          ["subway", "地下鉄烏丸線"],
+          ["kintetsu", "近鉄京都線"],
+          ["citybus", "京都市バス"],
+          ["kyotobus", "京都バス"],
+        ]
+          .map(
+            ([id, label]) =>
+              `<button class="native-row" data-timetable-line="${id}" data-operator="${id}"><span class="transport-icon">${transitSymbol(id.includes("bus"))}</span><span><b>${label}</b></span><span class="chevron">›</span></button>`,
+          )
+          .join("")}</div>`;
   }
+  navigation.register("timetable-line", {
+    title: (route) =>
+      ({
+        subway: "地下鉄烏丸線",
+        kintetsu: "近鉄京都線",
+        citybus: "京都市バス",
+        kyotobus: "京都バス",
+      })[route.params.id] ?? "路線",
+    onShow({ element, route }) {
+      element.innerHTML = rows(
+        [...network.stops.values()].filter((s) => s.type === route.params.id),
+      );
+    },
+    create({ element }) {
+      element.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-timetable-stop]");
+        if (b) navigation.push("board", { stopId: b.dataset.timetableStop });
+      });
+    },
+  });
+  root.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-timetable-line]");
+    if (b) navigation.push("timetable-line", { id: b.dataset.timetableLine });
+  });
   function rows(stops) {
-    return `<div class="native-list">${stops.map((s) => `<button class="native-row" data-timetable-stop="${esc(s.id)}"><span class="system-symbol ${s.type.includes("bus") ? "bus" : s.type === "subway" ? "subway" : "rail"}">${transitSymbol(s.type.includes("bus"))}</span><span><b>${esc(s.name)}</b><small>${esc(s.lines.join("・"))}</small></span><span class="chev">›</span></button>`).join("")}</div>`;
+    return `<div class="native-list">${stops.map((s) => `<button class="native-row" data-timetable-stop="${esc(s.id)}"><span class="transport-icon" data-operator="${esc(s.type)}">${transitSymbol(s.type.includes("bus"))}</span><span><b>${esc(s.name)}</b><small>${esc(s.lines.join("・"))}</small></span><span class="chev">›</span></button>`).join("")}</div>`;
   }
   async function select(id) {
     if (chosen !== id) {
@@ -260,6 +302,8 @@ export function mountTimetables({
       );
       if (current !== job) return;
       options = data;
+      boardElement.dataset.operator =
+        options.operator ?? network.stops.get(id)?.type;
       $("#timetable-board").innerHTML =
         `<h2 class="board-place">${esc(options.name)}</h2><div class="board-controls"><label>方面<select id="timetable-direction">${options.boards.map((b) => `<option value="${esc(b.key)}">${esc(b.label)}</option>`).join("")}</select></label><label>ダイヤ<select id="timetable-day"><option value="auto">今日</option>${Object.entries(
           dayLabel,
@@ -267,7 +311,7 @@ export function mountTimetables({
           .map(([k, v]) => `<option value="${k}">${v}</option>`)
           .join(
             "",
-          )}</select></label></div><div id="timetable-entries" aria-live="polite"></div>`;
+          )}</select></label></div><div class="board-day-segments" role="group" aria-label="ダイヤを選択">${["weekday", "saturday", "holiday"].map((day) => `<button type="button" data-board-day="${day}" aria-pressed="false">${dayLabel[day]}</button>`).join("")}</div><div id="timetable-entries" aria-live="polite"></div>`;
       const saved = navigation.recalled("timetable-selection");
       if (saved?.stopId === id) {
         if (options.boards.some((b) => b.key === saved.direction))
@@ -295,6 +339,11 @@ export function mountTimetables({
       direction,
       day,
     });
+    boardElement
+      .querySelectorAll("[data-board-day]")
+      .forEach((b) =>
+        b.setAttribute("aria-pressed", String(b.dataset.boardDay === day)),
+      );
     $("#timetable-entries").innerHTML =
       '<p class="loading-note" role="status">発車時刻を取得中…</p>';
     try {
@@ -305,6 +354,29 @@ export function mountTimetables({
       );
       if (current !== job) return;
       board = data;
+      if (Array.isArray(board.dayKeys)) {
+        boardElement
+          .querySelectorAll("[data-board-day]")
+          .forEach(
+            (button) =>
+              (button.disabled = !board.dayKeys.includes(
+                button.dataset.boardDay,
+              )),
+          );
+        [...$("#timetable-day").options].forEach(
+          (option) =>
+            (option.disabled =
+              option.value !== "auto" && !board.dayKeys.includes(option.value)),
+        );
+      }
+      boardElement
+        .querySelectorAll("[data-board-day]")
+        .forEach((b) =>
+          b.setAttribute(
+            "aria-pressed",
+            String(b.dataset.boardDay === (day === "auto" ? board.day : day)),
+          ),
+        );
       boardForToday = day === "auto";
       const hours = new Map();
       for (const e of board.entries) {
@@ -313,7 +385,7 @@ export function mountTimetables({
         hours.get(h).push(e);
       }
       $("#timetable-entries").innerHTML =
-        `<div class="board-summary"><span>${esc(dayLabel[board.day] ?? board.day)}${board.platform ? `・${esc(board.platform)}番線` : ""}</span><small>${esc(board.effective ?? "")}</small></div>${hours.size ? `<div class="hour-table">${[...hours].map(([h, entries]) => `<div class="hour-row"><strong>${h % 24}<small>時</small></strong><div>${entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(e.destination)} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.destination ? `<span>${esc(e.destination)}</span>` : ""}${e.operatingCompany === "kyotobus" ? "<span>京都バス · 休校日運休</span>" : ""}</button>`).join("")}</div></div>`).join("")}</div>` : '<p class="empty-note">このダイヤの発車便はありません。</p>'}<p class="source-caption">${board.cached ? "保存した公式時刻表 · 要確認" : "公式取得"} ${new Date(board.fetchedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })} · 時刻は予定</p><a class="plain" href="${esc(board.sourceURL)}" target="_blank" rel="noopener">公式時刻表の出典</a>${board.dayRequired ? '<p class="empty-note">平日A・B・水曜Aからダイヤを選んでください。</p>' : ""}`;
+        `<div class="board-summary"><span>${esc(dayLabel[board.day] ?? board.day)}${board.platform ? `・${esc(board.platform)}番線` : ""}</span><small>${esc(board.effective ?? "")}</small></div>${hours.size ? `<div class="hour-table">${[...hours].map(([h, entries]) => `<div class="hour-row"><strong>${h % 24}<small>時</small></strong><div>${entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(e.destination)} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.originating === true || /当駅始発|この駅始発/.test(e.note ?? "") ? '<small class="originating-badge">当駅始発</small>' : ""}${e.platform ? `<small>${esc(e.platform)}のりば</small>` : ""}${e.destination ? `<span>${esc(e.destination)}</span>` : ""}${e.operatingCompany === "kyotobus" ? "<span>京都バス · 休校日運休</span>" : ""}</button>`).join("")}</div></div>`).join("")}</div>` : '<p class="empty-note">このダイヤの発車便はありません。</p>'}<p class="source-caption">${board.cached ? "保存した公式時刻表 · 要確認" : "公式取得"} ${new Date(board.fetchedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })} · 時刻は予定</p><a class="plain" href="${esc(board.sourceURL)}" target="_blank" rel="noopener">公式時刻表の出典</a>${board.dayRequired ? '<p class="empty-note">平日A・B・水曜Aからダイヤを選んでください。</p>' : ""}`;
     } catch (e) {
       if (current === job && !controller.signal.aborted)
         $("#timetable-entries").innerHTML =
@@ -323,6 +395,13 @@ export function mountTimetables({
   root.addEventListener("input", (e) => {
     if (e.target.id === "timetable-search") {
       list();
+    }
+  });
+  boardElement.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-board-day]");
+    if (b) {
+      $("#timetable-day").value = b.dataset.boardDay;
+      void loadBoard();
     }
   });
   boardElement.addEventListener("change", (e) => {
@@ -464,7 +543,10 @@ export function mountTimetables({
     },
   };
 }
-export function mountOperations({ getUsedOperators = () => [] } = {}) {
+export function mountOperations({
+  getUsedOperators = () => [],
+  getCurrentOperators = getUsedOperators,
+} = {}) {
   const root = document.querySelector("#operations-root");
   let last = 0,
     busy = false,
@@ -517,7 +599,15 @@ export function mountOperations({ getUsedOperators = () => [] } = {}) {
       latest = d;
       renderOverview();
     } catch (e) {
-      root.innerHTML = `<p class="empty-note">${esc(e.message)}</p><button class="plain" data-operations-refresh>再取得</button>`;
+      if (!latest)
+        root.innerHTML = `<p class="empty-note">${esc(e.message)}</p><button class="plain" data-operations-refresh>再取得</button>`;
+      else {
+        renderOverview();
+        root.insertAdjacentHTML(
+          "afterbegin",
+          '<p class="source-note" role="status">更新できません。前回取得した情報を表示しています。</p>',
+        );
+      }
     } finally {
       busy = false;
       root.removeAttribute("aria-busy");
@@ -532,15 +622,23 @@ export function mountOperations({ getUsedOperators = () => [] } = {}) {
       ),
       selected = latest.lines.filter((l) => used.has(l.id)),
       others = latest.lines.filter((l) => !used.has(l.id)),
+      summary = journeyOperationStatus(latest.lines, getCurrentOperators()),
       list = (lines) =>
-        `<div class="native-list">${lines.map((l) => `<button class="native-row" data-operation-id="${esc(l.id)}"><span><b>${esc(l.name)}</b><small>${esc(l.summary)}</small></span><span class="chevron">›</span></button>`).join("")}</div>`;
+        `<div class="native-list">${lines
+          .map((l) => {
+            const status = operationStatus(l);
+            return `<button class="native-row operation-row" data-operation-id="${esc(l.id)}" data-status="${status.kind}"><span class="operation-indicator" aria-label="${status.label}">${status.symbol}</span><span><b>${esc(l.name)}</b><small>${esc(l.summary)}</small></span><span class="chevron">›</span></button>`;
+          })
+          .join("")}</div>`;
     updateHTML(
       root,
-      `<div class="operations-head"><span>公式情報を確認</span><button class="plain-action" data-operations-refresh>更新</button></div>${selected.length ? `<p class="source-caption">乗車・検索した経路</p>${list(selected)}<p class="source-caption">その他の対応路線</p>` : ""}${list(others)}<p class="source-caption">${esc(latest.notice)}</p>`,
+      `<section class="operation-summary" data-status="${summary.kind}"><p class="native-section-label">現在の移動</p><h2>${summary.kind === "success" ? "✓ " : summary.kind === "danger" ? "! " : ""}${esc(summary.title)}</h2><p>${esc(summary.detail)}</p></section><div class="operations-head"><span>公式情報</span><button class="plain-action" data-operations-refresh>更新</button></div>${selected.length ? `<h3 class="native-section-label">現在の経路に関係する路線</h3>${list(selected)}` : ""}<h3 class="native-section-label">${selected.length ? "その他の路線" : "すべての路線"}</h3>${list(others)}<div class="native-list"><button class="native-row" data-operations-arrivals><span>バス・列車の接近情報</span><span class="chevron">›</span></button></div><p class="source-caption">${esc(latest.notice)}</p>`,
     );
   }
   root.addEventListener("click", (e) => {
     if (e.target.closest("[data-operations-refresh]")) refresh(true);
+    if (e.target.closest("[data-operations-arrivals]"))
+      navigation.push("arrivals");
     const b = e.target.closest("[data-operation-id]");
     if (b) navigation.push("operation", { id: b.dataset.operationId });
   });

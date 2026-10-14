@@ -41,11 +41,12 @@ export const tokyoNow = () => {
   return { date: p[0], time: p[1], minute: minuteOf(p[1]) };
 };
 const icons = {
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
+  more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
   now: '<path d="M4 12a8 8 0 1 0 16 0A8 8 0 0 0 4 12Z"/><path d="M12 7v5l3 2"/>',
   timetable:
     '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4m8-4v4M4 10h16M8 14h3m2 0h3m-8 3h3m2 0h3"/>',
-  operations:
-    '<path d="M4 16c2-5 4-7 8-7s6 2 8 7"/><circle cx="12" cy="17" r="2"/><path d="M7 11 5 8m12 3 2-3M12 7V3"/>',
+  operations: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/>',
   settings:
     '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L14.5 3h-5l-.4 3.1a8 8 0 0 0-1.7 1l-2.4-1-2 3.4L5.1 11a7 7 0 0 0 0 2L3 14.5 5 18l2.4-1a8 8 0 0 0 1.7 1l.4 3h5l.4-3a8 8 0 0 0 1.7 1l2.4 1 2-3.5-2.1-1.5a7 7 0 0 0 .1-1Z"/>',
   location: '<path d="m12 3 7 18-7-5-7 5Z"/>',

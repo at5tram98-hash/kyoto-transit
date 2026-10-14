@@ -13,6 +13,14 @@ export async function journeyUpgradeChecks({
   artifacts,
   summary,
 }) {
+  async function openChoices(page, index) {
+    await page
+      .locator(`.navigation-current [data-change-leg="${index}"]`)
+      .click();
+    await page.locator("#trip-choice-sheet [data-more-trips]").waitFor();
+    await page.locator("#trip-choice-sheet [data-more-trips]").click();
+    await settleNavigation(page);
+  }
   const date = "2026-10-11",
     feed = {
       validDates: [date],
@@ -141,7 +149,7 @@ export async function journeyUpgradeChecks({
           .first()
           .click();
         await shot("original");
-        await page.locator('.navigation-current [data-change-leg="0"]').click();
+        await openChoices(page, 0);
         await page
           .locator(".navigation-current .trip-choice-row")
           .first()
@@ -178,7 +186,7 @@ export async function journeyUpgradeChecks({
           "",
         );
         await shot("updated");
-        await page.locator('.navigation-current [data-change-leg="1"]').click();
+        await openChoices(page, 1);
         await page
           .locator(".navigation-current .trip-choice-row")
           .first()
@@ -199,7 +207,7 @@ export async function journeyUpgradeChecks({
           .waitFor();
         await page.locator('.tabbar [data-tab="timetable"]').click();
         await settleNavigation(page);
-        await page.locator('.tabbar [data-tab="now"]').click();
+        await page.locator('.tabbar [data-tab="search"]').click();
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-screen"),
@@ -229,7 +237,7 @@ export async function journeyUpgradeChecks({
             .textContent(),
           "10:41",
         );
-        await page.locator('.navigation-current [data-change-leg="0"]').click();
+        await openChoices(page, 0);
         await page
           .locator(".navigation-current .trip-choice-row")
           .first()
@@ -325,8 +333,8 @@ export async function journeyUpgradeChecks({
           resolve(artifacts, `journey-failure-${colorScheme}-${scale}.json`),
           JSON.stringify(
             await page.evaluate(() => ({
-              route: window.__navigation.navigation.route,
-              data: window.__navigation.navigation.recalled("search-data"),
+              route: window.__navigation?.navigation.route,
+              data: window.__navigation?.navigation.recalled("search-data"),
               screen: document.querySelector(".navigation-current")?.dataset,
             })),
             null,
@@ -360,7 +368,10 @@ export async function journeyUpgradeChecks({
           scale,
         );
         await searchScreen(page);
+        await page.locator("[data-search-date]").click();
         await page.locator('[name="time"]').fill("10:06");
+        await page.locator("#search-date [data-search-sheet-done]").click();
+        await settleNavigation(page);
         await submitSearch(page);
         await page
           .locator(".navigation-current [data-open-route]")

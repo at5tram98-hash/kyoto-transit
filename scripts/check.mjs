@@ -1,21 +1,161 @@
-import {readFileSync,readdirSync,existsSync,statSync} from 'node:fs';
-import {spawnSync} from 'node:child_process';
-import {resolve,relative} from 'node:path';
-const root=resolve(new URL('../',import.meta.url).pathname);
-for(const dir of ['public/js','scripts','tests','worker'])for(const file of readdirSync(resolve(root,dir))){if(!/\.(m?js)$/.test(file))continue;const r=spawnSync(process.execPath,['--check',resolve(root,dir,file)],{encoding:'utf8'});if(r.status){console.error(r.stderr);process.exit(r.status);}}
-const html=readFileSync(resolve(root,'public/index.html'),'utf8'),rawIds=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]),ids=new Set(rawIds);if(ids.size!==rawIds.length)throw Error('HTMLに重複するIDがあります。');
-for(const required of ['view-title','view-subtitle','location-indicator','now-hero','vehicle-panel','network-panel','nearby-panel','timetable-root','arrivals-root','operations-root','settings-content','foldback-sheet','foldback-body','toast'])if(!ids.has(required))throw Error(`公開UIの必須IDがありません：${required}`);
-const views=[...html.matchAll(/data-view="([^"]+)"/g)].map(x=>x[1]);if(JSON.stringify(views)!==JSON.stringify(['now','timetable','operations','settings']))throw Error('公開タブは 今・時刻表・運行情報・設定 の4つにしてください。');
-const nowStart=html.indexOf('data-view="now"'),timetableStart=html.indexOf('data-view="timetable"'),arrivalsAt=html.indexOf('id="arrivals-root"');if(!(nowStart<arrivalsAt&&arrivalsAt<timetableStart))throw Error('接近情報は「今」タブ内に配置してください。');if(!html.includes('vnext-tabbar.css'))throw Error('アニメーション付きタブバーCSSが読み込まれていません。');
-for(const m of html.matchAll(/(?:src|href)="([^"]+)"/g)){if(/^(?:https?:|#|data:|\.\/$)/.test(m[1]))continue;const file=m[1].split(/[?#]/)[0];if(!existsSync(resolve(root,'public',file)))throw Error(`ファイルがありません：${file}`);}
-const publicRoot=resolve(root,'public'),forbidden=[/OCR/gi,/tesseract/gi,/Yahoo!/gi,/Yahoo！/g,/試作/g,/シミュレーション/g,/接近画面を取り込む/g,/画像読み取り/g];
-const violations=[];function scan(dir){for(const name of readdirSync(dir)){const p=resolve(dir,name),s=statSync(p);if(s.isDirectory()){scan(p);continue;}if(!/\.(?:html|js|css|json|webmanifest|svg)$/i.test(name))continue;const text=readFileSync(p,'utf8');for(const rx of forbidden){rx.lastIndex=0;if(rx.test(text))violations.push(`${relative(publicRoot,p)}: ${rx.source}`);}}}scan(publicRoot);if(violations.length)throw Error(`公開物に旧実装の残骸があります:\n${violations.join('\n')}`);
-const arrivals=readFileSync(resolve(root,'public/js/vnext-arrivals.js'),'utf8'),realtime=readFileSync(resolve(root,'public/js/realtime.js'),'utf8'),worker=readFileSync(resolve(root,'worker/index.js'),'utf8'),core=readFileSync(resolve(root,'public/js/vnext-core.js'),'utf8'),planner=readFileSync(resolve(root,'public/js/route-search-ui.js'),'utf8'),plannerWorker=readFileSync(resolve(root,'public/js/planner-worker.js'),'utf8'),visual=readFileSync(resolve(root,'worker/visual-fallback.js'),'utf8'),vnext=readFileSync(resolve(root,'public/js/vnext.js'),'utf8'),sw=readFileSync(resolve(root,'public/sw.js'),'utf8'),build=readFileSync(resolve(root,'scripts/build.mjs'),'utf8');
-if(!/ARRIVAL_INTERVAL\s*=\s*20000/.test(realtime))throw Error('接近情報の更新間隔は20秒にしてください。');if(!/FETCH_TIMEOUT\s*=\s*4000/.test(realtime))throw Error('リアルタイム通信のタイムアウトは4秒にしてください。');if(arrivals.includes('recognizeImage')||arrivals.includes('getOfficialImage'))throw Error('接近情報に画像取得処理が残っています。');
-for(const path of ["'/api/bus/rt'","'/api/citybus/arrivals'","'/api/rail/live'"])if(!worker.includes(path))throw Error(`Worker APIがありません：${path}`);if(!worker.includes('ODPT_CONSUMER_KEY')||!worker.includes('LIVE_KV'))throw Error('ODPT secret/KVフォールバックが構成されていません。');if(!worker.includes('layout_changed')||!worker.includes('diagnostic'))throw Error('HTML構造変更の検知・予測フォールバックが構成されていません。');
-if(!worker.includes("from './citybus-all.js'")||worker.includes('stopsAway*2'))throw Error('市バス全方面一括取得または公式位置の忠実表示が崩れています。');
-if(!vnext.includes('serviceWorker.register')||!sw.includes('__BUILD_VERSION__')||!sw.includes('__PRECACHE__')||!/replace\(['"]__BUILD_VERSION__['"],\s*version\)/.test(build))throw Error('PWAのバージョン付きService Workerが構成されていません。');
-if(core.includes('buildSubwayTrip')||/stepMinutes\s*=\s*2/.test(core))throw Error('地下鉄の固定2分刻み合成ロジックを公開コードへ戻さないでください。');
-if(!/new Worker\(\s*new URL\(['"]\.\/planner-worker\.js['"]/.test(planner)||!plannerWorker.includes('planWorkerJob'))throw Error('経路探索をModule Web Workerで実行してください。');
-if(!worker.includes("from './visual-fallback.js'")||!visual.includes("quickAction('json'"))throw Error('公式HTML構造変更時の検証付き視覚フォールバックが構成されていません。');
-JSON.parse(readFileSync(resolve(root,'public/manifest.webmanifest'),'utf8'));console.log('構文・公開残骸ゼロ・全方面接近・PWA・実時刻地下鉄・Web Worker探索・20秒更新・4秒timeout・リアルタイムAPI・視覚/予測フォールバックを検証しました。');
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { resolve, relative } from "node:path";
+const root = resolve(new URL("../", import.meta.url).pathname);
+for (const dir of ["public/js", "scripts", "tests", "worker"])
+  for (const file of readdirSync(resolve(root, dir))) {
+    if (!/\.(m?js)$/.test(file)) continue;
+    const r = spawnSync(
+      process.execPath,
+      ["--check", resolve(root, dir, file)],
+      { encoding: "utf8" },
+    );
+    if (r.status) {
+      console.error(r.stderr);
+      process.exit(r.status);
+    }
+  }
+const html = readFileSync(resolve(root, "public/index.html"), "utf8"),
+  rawIds = [...html.matchAll(/\bid="([^"]+)"/g)].map((x) => x[1]),
+  ids = new Set(rawIds);
+if (ids.size !== rawIds.length) throw Error("HTMLに重複するIDがあります。");
+for (const required of [
+  "route-search-root",
+  "screen-toolbar",
+  "view-title",
+  "view-subtitle",
+  "location-indicator",
+  "now-hero",
+  "vehicle-panel",
+  "network-panel",
+  "nearby-panel",
+  "timetable-root",
+  "arrivals-root",
+  "operations-root",
+  "settings-content",
+  "foldback-sheet",
+  "foldback-body",
+  "toast",
+])
+  if (!ids.has(required))
+    throw Error(`公開UIの必須IDがありません：${required}`);
+const views = [...html.matchAll(/data-view="([^"]+)"/g)].map((x) => x[1]);
+if (
+  JSON.stringify(views) !==
+  JSON.stringify(["now", "search", "timetable", "operations", "settings"])
+)
+  throw Error(
+    "v3の公開タブは 今・検索・時刻表・運行・その他 の5つにしてください。",
+  );
+const nowStart = html.indexOf('data-view="now"'),
+  timetableStart = html.indexOf('data-view="timetable"'),
+  arrivalsAt = html.indexOf('id="arrivals-root"');
+if (!(nowStart < arrivalsAt && arrivalsAt < timetableStart))
+  throw Error("接近情報は「今」タブ内に配置してください。");
+if (!html.includes("vnext-tabbar.css"))
+  throw Error("アニメーション付きタブバーCSSが読み込まれていません。");
+for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
+  if (/^(?:https?:|#|data:|\.\/$)/.test(m[1])) continue;
+  const file = m[1].split(/[?#]/)[0];
+  if (!existsSync(resolve(root, "public", file)))
+    throw Error(`ファイルがありません：${file}`);
+}
+const publicRoot = resolve(root, "public"),
+  forbidden = [
+    /OCR/gi,
+    /tesseract/gi,
+    /Yahoo!/gi,
+    /Yahoo！/g,
+    /試作/g,
+    /シミュレーション/g,
+    /接近画面を取り込む/g,
+    /画像読み取り/g,
+  ];
+const violations = [];
+function scan(dir) {
+  for (const name of readdirSync(dir)) {
+    const p = resolve(dir, name),
+      s = statSync(p);
+    if (s.isDirectory()) {
+      scan(p);
+      continue;
+    }
+    if (!/\.(?:html|js|css|json|webmanifest|svg)$/i.test(name)) continue;
+    const text = readFileSync(p, "utf8");
+    for (const rx of forbidden) {
+      rx.lastIndex = 0;
+      if (rx.test(text))
+        violations.push(`${relative(publicRoot, p)}: ${rx.source}`);
+    }
+  }
+}
+scan(publicRoot);
+if (violations.length)
+  throw Error(`公開物に旧実装の残骸があります:\n${violations.join("\n")}`);
+const arrivals = readFileSync(
+    resolve(root, "public/js/vnext-arrivals.js"),
+    "utf8",
+  ),
+  realtime = readFileSync(resolve(root, "public/js/realtime.js"), "utf8"),
+  worker = readFileSync(resolve(root, "worker/index.js"), "utf8"),
+  core = readFileSync(resolve(root, "public/js/vnext-core.js"), "utf8"),
+  planner = readFileSync(resolve(root, "public/js/route-search-ui.js"), "utf8"),
+  plannerWorker = readFileSync(
+    resolve(root, "public/js/planner-worker.js"),
+    "utf8",
+  ),
+  visual = readFileSync(resolve(root, "worker/visual-fallback.js"), "utf8"),
+  vnext = readFileSync(resolve(root, "public/js/vnext.js"), "utf8"),
+  sw = readFileSync(resolve(root, "public/sw.js"), "utf8"),
+  build = readFileSync(resolve(root, "scripts/build.mjs"), "utf8");
+if (!/ARRIVAL_INTERVAL\s*=\s*20000/.test(realtime))
+  throw Error("接近情報の更新間隔は20秒にしてください。");
+if (!/FETCH_TIMEOUT\s*=\s*4000/.test(realtime))
+  throw Error("リアルタイム通信のタイムアウトは4秒にしてください。");
+if (
+  arrivals.includes("recognizeImage") ||
+  arrivals.includes("getOfficialImage")
+)
+  throw Error("接近情報に画像取得処理が残っています。");
+for (const path of [
+  "'/api/bus/rt'",
+  "'/api/citybus/arrivals'",
+  "'/api/rail/live'",
+])
+  if (!worker.includes(path)) throw Error(`Worker APIがありません：${path}`);
+if (!worker.includes("ODPT_CONSUMER_KEY") || !worker.includes("LIVE_KV"))
+  throw Error("ODPT secret/KVフォールバックが構成されていません。");
+if (!worker.includes("layout_changed") || !worker.includes("diagnostic"))
+  throw Error("HTML構造変更の検知・予測フォールバックが構成されていません。");
+if (
+  !worker.includes("from './citybus-all.js'") ||
+  worker.includes("stopsAway*2")
+)
+  throw Error("市バス全方面一括取得または公式位置の忠実表示が崩れています。");
+if (
+  !vnext.includes("serviceWorker.register") ||
+  !sw.includes("__BUILD_VERSION__") ||
+  !sw.includes("__PRECACHE__") ||
+  !/replace\(['"]__BUILD_VERSION__['"],\s*version\)/.test(build)
+)
+  throw Error("PWAのバージョン付きService Workerが構成されていません。");
+if (core.includes("buildSubwayTrip") || /stepMinutes\s*=\s*2/.test(core))
+  throw Error(
+    "地下鉄の固定2分刻み合成ロジックを公開コードへ戻さないでください。",
+  );
+if (
+  !/new Worker\(\s*new URL\(['"]\.\/planner-worker\.js['"]/.test(planner) ||
+  !plannerWorker.includes("planWorkerJob")
+)
+  throw Error("経路探索をModule Web Workerで実行してください。");
+if (
+  !worker.includes("from './visual-fallback.js'") ||
+  !visual.includes("quickAction('json'")
+)
+  throw Error(
+    "公式HTML構造変更時の検証付き視覚フォールバックが構成されていません。",
+  );
+JSON.parse(readFileSync(resolve(root, "public/manifest.webmanifest"), "utf8"));
+console.log(
+  "構文・公開残骸ゼロ・全方面接近・PWA・実時刻地下鉄・Web Worker探索・20秒更新・4秒timeout・リアルタイムAPI・視覚/予測フォールバックを検証しました。",
+);

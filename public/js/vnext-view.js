@@ -23,7 +23,8 @@ import {
 } from "./vnext-state.js";
 import { updateRideAnchor } from "./vnext-detect.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
-import { updateHTML } from "./view-rendering.js";
+import { updateHTML, updateNearbyPanel } from "./view-rendering.js";
+import { getKintetsuFeed } from "./fast-data.js";
 import { heroModel, delayAnalysis, nearbyDirection } from "./now-model.js";
 import { loadNorth3Snapshot, north3Board, north3Day } from "./north3-feed.js";
 import {
@@ -66,8 +67,64 @@ function requestNearbyFeed() {
     if (!state.ride && state.tab === "now") renderNow();
   });
 }
+let nearbyRailFeed = null,
+  nearbyRailDate = null,
+  nearbyRailJob = null,
+  nearbyRailAttempt = 0;
+function kintetsuDepartureHTML(stop) {
+  const now = tokyoNow();
+  if (nearbyRailDate !== now.date) {
+    if (
+      !nearbyRailJob &&
+      Date.now() - nearbyRailAttempt > 60000 &&
+      !document.querySelector('[data-view="now"]').hidden
+    ) {
+      nearbyRailAttempt = Date.now();
+      nearbyRailJob = getKintetsuFeed(now.date)
+        .then((feed) => {
+          nearbyRailFeed = feed;
+          nearbyRailDate = now.date;
+          if (state.tab === "now" && !state.ride) renderNow();
+        })
+        .catch(() => {})
+        .finally(() => (nearbyRailJob = null));
+    }
+    return '<p class="source-caption">近鉄の発車予定は時刻表で確認できます</p>';
+  }
+  const rows = [];
+  for (const service of nearbyRailFeed?.services ?? []) {
+    const index = service.stops.indexOf(stop.id);
+    if (index < 0 || index === service.stops.length - 1) continue;
+    for (const trip of service.trips ?? []) {
+      const depart = trip.departures?.[index] ?? trip.arrivals?.[index];
+      if (
+        trip.date !== now.date ||
+        !Number.isFinite(depart) ||
+        depart < now.minute ||
+        depart > now.minute + 60
+      )
+        continue;
+      rows.push({
+        depart,
+        category: trip.category ?? service.category,
+        destination: trip.destination ?? trip.headsign ?? service.destination,
+      });
+    }
+  }
+  return `<div class="nearby-departures compact-departures">${
+    rows
+      .sort((a, b) => a.depart - b.depart)
+      .slice(0, 2)
+      .map(
+        (e) =>
+          `<div><span>${e.category === "express" ? "急行" : "普通"}${e.destination ? ` · ${esc(e.destination)}行` : ""}</span><time>${formatMinute(e.depart)}</time><b>${Math.round(e.depart - now.minute)}分<small>${nearbyRailFeed.meta?.stale ? "予定（保存）" : "発車予定"}</small></b></div>`,
+      )
+      .join("") ||
+    '<p class="source-caption">1時間以内の発車予定はありません</p>'
+  }</div>`;
+}
 let north3Request = null;
-function north3DepartureHTML(stop) {
+function north3DepartureHTML(stop, expanded = false) {
   if (!stop.lines.includes("北3")) return "";
   if (!state.north3Snapshot) {
     if (!north3Request)
@@ -84,6 +141,28 @@ function north3DepartureHTML(stop) {
     day = north3Day(now.date);
   if (!day)
     return '<p class="source-note">北3の運行日区分は未確認です。公式時刻表をご確認ください。</p>';
+  if (!expanded) {
+    const rows = ["north", "south"]
+      .flatMap((direction) => {
+        const board = north3Board(
+          state.north3Snapshot,
+          stop.fullName ?? stop.name,
+          direction,
+          day,
+        );
+        return (board?.entries ?? [])
+          .filter(
+            (e) =>
+              e.depart >= now.minute &&
+              e.depart < now.minute + 60 &&
+              !e.operatingConditions,
+          )
+          .map((e) => ({ ...e, direction }));
+      })
+      .sort((a, b) => a.depart - b.depart)
+      .slice(0, 2);
+    return `<div class="nearby-departures compact-departures">${rows.map((e) => `<div><span>北3 · ${e.direction === "north" ? "京都産大前" : "北大路BT"}方面</span><time>${formatMinute(e.depart)}</time><b>${Math.round(e.depart - now.minute)}分<small>${e.operatingCompany === "kyotobus" ? "京都バス" : "市バス"} · 予定</small></b></div>`).join("") || '<p class="source-caption">1時間以内の通常便はありません</p>'}</div>`;
+  }
   return `<div class="nearby-departures">${["north", "south"]
     .map((direction) => {
       const b = north3Board(
@@ -108,6 +187,7 @@ function north3DepartureHTML(stop) {
     )}<p class="source-note">保存した公式時刻表 · ダイヤ変更・大学休校日は要確認</p></div>`;
 }
 function nearbyBusHTML(stop) {
+  if (stop.type !== "citybus") return north3DepartureHTML(stop);
   const data = state.busLive;
   if (data?.stop !== (stop.fullName ?? stop.name))
     return north3DepartureHTML(stop);
@@ -201,6 +281,13 @@ export function renderNow() {
     now = journeyClock(state.ride, tokyoNow()),
     near = nearest(),
     motion = trajectory(state.samples);
+  $('[data-view="now"]').dataset.contextIdentity = state.ride
+    ? rideKey(state.ride)
+    : state.armedJourney
+      ? `armed:${rideKey(state.armedJourney.ride)}`
+      : state.itinerary
+        ? `journey:${state.itinerary.phase}:${state.itinerary.legIndex}`
+        : "idle";
   // Keep the onboard display usable when GPS is temporarily lost underground.
   if (state.ride) {
     enterContext(resolveNowState(state.ride));
@@ -223,7 +310,7 @@ export function renderNow() {
   } catch {}
   updateHTML(
     $("#now-search"),
-    `<button class="native-row navigation-search-entry" data-open-search><span><b>どこへ行きますか？</b><small>行き先を検索</small></span><span class="chevron">›</span></button>${
+    `<button class="native-row navigation-search-entry" data-open-search><span class="transport-icon">${icon("search")}</span><span><b>目的地を検索</b></span><span class="chevron">›</span></button>${
       [...pairs.favorites, ...pairs.history]
         .filter((p, i, a) => a.findIndex((q) => q.to === p.to) === i)
         .slice(0, 3).length
@@ -255,7 +342,7 @@ export function renderNow() {
         : "現在地は未取得 · 検索から案内できます";
   updateHTML(
     root,
-    `<section class="hero-card idle-status"><span class="idle-symbol">${icon("fold")}</span><div><h2>現在は未乗車です</h2><p>${moving ? "移動中 · 対象の便を確認しています" : locationNote || "行き先を検索して、案内を準備"}</p></div></section>`,
+    `<div class="idle-status"><span class="idle-state">未乗車</span><p>${moving ? "移動中 · 便を確認しています" : locationNote || (near.all[0]?.meters <= 1000 ? `${esc(near.all[0].stop.name)}付近` : "現在地に合わせて周辺案内")}</p></div>`,
   );
   const nearby = near.all
     .filter(
@@ -266,11 +353,11 @@ export function renderNow() {
     .filter((s, i, a) => a.findIndex((x) => x.id === s.id) === i)
     .slice(0, 4);
   if (nearby.some((s) => s.stop.type === "subway")) requestNearbyFeed();
-  const arrivalsEntry = `<div class="native-list"><button class="native-row" data-navigation-screen="arrivals"><span><b>接近情報を調べる</b><small>すべての対応停留所・系統</small></span><span class="chevron">›</span></button></div>`;
-  updateHTML(
+  const arrivalsEntry = `<div class="native-list"><button class="native-row" data-navigation-screen="arrivals"><span><b>すべての接近情報</b></span><span class="chevron">›</span></button></div>`;
+  updateNearbyPanel(
     nearPanel,
     (nearby.length
-      ? `<section class="section-block nearby-guide"><div class="section-heading"><h3>近くの駅・バス停</h3><span class="source-caption">距離順</span></div>${nearby.map((s) => `<button class="nearby-row" data-nearby-detail="${esc(s.id)}"><span class="mode-symbol ${s.stop.type.includes("bus") ? "bus" : "subway"}">${s.stop.type.includes("bus") ? esc(s.stop.lines?.[0] ?? "バス") : "K"}</span><span><b>${esc(s.stop.name)}</b><small>${esc(s.stop.lines?.join("・") ?? "")} · ${Math.round(s.meters)}m ${nearbyDirection(state.fix, s)}</small></span><span class="chevron">›</span></button>${s.stop.type === "subway" ? departureHTML(s.id) : nearbyBusHTML(s.stop)}`).join("")}</section>`
+      ? `<section class="section-block nearby-guide"><div class="section-heading"><h3>近くの駅・バス停</h3><span class="source-caption">距離順</span></div>${nearby.map((s) => `<div class="nearby-item" data-nearby-key="${esc(s.id)}"><button class="nearby-row" data-operator="${esc(s.stop.type)}" data-nearby-detail="${esc(s.id)}"><span class="mode-symbol enhanced-mode ${s.stop.type.includes("bus") ? "bus" : s.stop.type === "kintetsu" ? "rail" : "subway"}" data-operator="${esc(s.stop.type)}">${icon(s.stop.type.includes("bus") ? "bus" : "train")}<small>${{ subway: "地下鉄", kintetsu: "近鉄", citybus: "市バス", kyotobus: "京都バス" }[s.stop.type] ?? "交通"}</small></span><span data-nearby-copy><b>${esc(s.stop.name)}</b><small>${esc(s.stop.lines?.join("・") ?? "")} · 徒歩約${Math.max(1, Math.ceil(s.meters / 70))}分 · ${Math.round(s.meters)}m</small></span><span class="chevron">›</span></button><div data-nearby-departures>${s.stop.type === "subway" ? departureHTML(s.id) : s.stop.type === "kintetsu" ? kintetsuDepartureHTML(s.stop) : nearbyBusHTML(s.stop)}</div></div>`).join("")}</section>`
       : "") + arrivalsEntry,
   );
   navigation.refresh();
@@ -278,7 +365,7 @@ export function renderNow() {
 export function nearbyDetailHTML(id) {
   const stop = state.network.stops.get(id);
   if (!stop) return '<p class="empty-state">駅・停留所が見つかりません。</p>';
-  return `${stop.type === "subway" ? departureHTML(id, true) : `${stop.type.includes("bus") ? '<section class="bus-stop-preview" data-bus-stop-preview></section>' : ""}${north3DepartureHTML(stop)}`}<div class="screen-action-group"><button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button></div>`;
+  return `${stop.type === "subway" ? departureHTML(id, true) : `${stop.type.includes("bus") ? '<section class="bus-stop-preview" data-bus-stop-preview></section>' : ""}${stop.type === "kintetsu" ? kintetsuDepartureHTML(stop) : ""}`}<div class="screen-action-group"><button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button></div>`;
 }
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
@@ -391,10 +478,41 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   else if (navigation.route.type === "trains")
     void renderNetworkPanel(networkPanel, ride, now);
   const row = (type, label, detail) =>
-    `<button class="native-row" data-navigation-screen="${type}"><span><b>${label}</b><small>${detail}</small></span><span class="chevron">›</span></button>`;
+    `<button class="native-row" data-navigation-screen="${type}"><span><b>${label}</b>${detail ? `<small>${detail}</small>` : ""}</span><span class="chevron">›</span></button>`;
+  const action = (type, label, symbol) =>
+    `<button class="ride-primary-action" data-navigation-screen="${type}" aria-label="${label}">${icon(symbol)}<span>${label}</span></button>`;
+  const actionRoot = $("#ride-actions"),
+    mode = bus ? "bus" : "rail";
+  if (
+    actionRoot.dataset.mode !== mode ||
+    !actionRoot.querySelector("[data-ride-next]")
+  ) {
+    updateHTML(
+      actionRoot,
+      `<div data-ride-next></div><div class="ride-action-list"><div class="ride-primary-actions">${action("stops", bus ? "停留所" : "停車駅", "timetable")}${action("map", "地図", "location")}${action(bus ? "arrivals" : "trains", bus ? "接近" : "列車位置", bus ? "bus" : "train")}${bus ? action("operation", "運行", "operations") : `<button class="ride-primary-action" data-open-foldback>${icon("fold")}<span>折り返し</span></button>`}</div><div class="native-list">${row("delay", "遅延分析", null)}${bus ? "" : row("operation", "運行情報", null)}<button class="native-row" id="ride-end"><span>乗車案内を終了</span><span class="chevron">›</span></button></div></div><div data-ride-foldback-plan></div>`,
+    );
+    actionRoot.dataset.mode = mode;
+  }
+  const nextAction = actionRoot.querySelector("[data-ride-next]"),
+    summary = state.foldbackPlan
+      ? ""
+      : itinerarySummary(
+          state.itinerary,
+          state.network,
+          model.delayMinutes,
+          state.ride,
+        );
+  if (summary && nextAction.querySelector(".itinerary-summary")) {
+    const template = document.createElement("template");
+    template.innerHTML = summary;
+    updateHTML(
+      nextAction.querySelector(".itinerary-summary>span"),
+      template.content.querySelector(".itinerary-summary>span").innerHTML,
+    );
+  } else updateHTML(nextAction, summary);
   updateHTML(
-    $("#ride-actions"),
-    `${state.foldbackPlan ? "" : itinerarySummary(state.itinerary, state.network, model.delayMinutes, state.ride)}<div class="native-list ride-action-list">${row("stops", bus ? "停留所" : "停車駅", "終点までの予定・到着見込み")}${row("map", "地図", "経路と現在地")}${row(bus ? "arrivals" : "trains", bus ? "接近情報" : "列車位置", bus ? "接近・混雑状況" : "前方・反対方向の列車")}${row("delay", "遅延分析", analysis.conclusion)}${row("operation", "運行情報", "公式の遅延・運休情報")}${!bus ? '<button class="native-row" data-open-foldback><span><b>折り返し</b><small>好きな列車で反対方向へ</small></span><span class="chevron">›</span></button>' : ""}<button class="native-row" id="ride-end"><span>乗車案内を終了</span><span class="chevron">›</span></button></div>${!bus ? foldbackPlanHTML(ride, now) : ""}`,
+    actionRoot.querySelector("[data-ride-foldback-plan]"),
+    bus ? "" : foldbackPlanHTML(ride, now),
   );
   updateHTML(nearPanel, "");
 }
@@ -470,7 +588,7 @@ function renderHero(root, html, model) {
   if (compact && !current.classList.contains("compact"))
     current.querySelector(".station-overview")?.removeAttribute("open");
   current.className = next.className;
-  for (const key of ["trainState", "phase", "line"])
+  for (const key of ["operator", "trainState", "phase", "line"])
     current.dataset[key] = next.dataset[key];
   for (const selector of [
     ".route-header",
@@ -481,7 +599,6 @@ function renderHero(root, html, model) {
     ".destination-progress",
     ".station-strip",
     ".personal-destination",
-    ".ride-meta",
     ".journey-metrics",
   ]) {
     const target = current.querySelector(selector),
@@ -500,10 +617,6 @@ function renderHero(root, html, model) {
         target.querySelector("div"),
         source.querySelector("div").innerHTML,
       );
-      const pill = target.querySelector(".status-pill"),
-        nextPill = source.querySelector(".status-pill");
-      pill.className = nextPill.className;
-      updateHTML(pill, nextPill.innerHTML);
     } else if (selector === ".next-station-title" && target && source) {
       updateMeaning(
         target.querySelector(".journey-next-name"),
@@ -557,11 +670,13 @@ function renderHero(root, html, model) {
   );
   const oldExtras = [
       ...current.querySelectorAll(
-        ".through-notice,.source-note,.journey-warning",
+        ".through-notice,.source-note,.journey-warning,.journey-delay",
       ),
     ],
     newExtras = [
-      ...next.querySelectorAll(".through-notice,.source-note,.journey-warning"),
+      ...next.querySelectorAll(
+        ".through-notice,.source-note,.journey-warning,.journey-delay",
+      ),
     ];
   for (let i = 0; i < newExtras.length; i++) {
     const old = oldExtras[i],

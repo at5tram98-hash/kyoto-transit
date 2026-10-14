@@ -19,7 +19,7 @@ import {
 } from "./vnext-core.js";
 import { journeyClock } from "./journey-core.js";
 import { observeJourney } from "./journey-observation.js";
-import { boardingAvailable } from "./journey-session.js";
+import { boardingAvailable, selectedRideShift } from "./journey-session.js";
 import {
   samePlannedRide,
   advanceItinerary,
@@ -393,7 +393,16 @@ export function startManualRide(ride) {
     return false;
   }
   resetRideDetection();
-  applyRide({ ride, source: "選択した公式時刻表の便", score: 0 });
+  const delay = selectedRideShift(ride);
+  applyRide({
+    ride,
+    source:
+      delay === null
+        ? "選択した公式時刻表の便"
+        : "選択した公式便・便別実測の遅れを反映",
+    score: 0,
+    live: delay === null ? null : { delay },
+  });
   return true;
 }
 

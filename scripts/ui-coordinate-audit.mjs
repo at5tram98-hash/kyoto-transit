@@ -292,18 +292,20 @@ export async function runCoordinateAudit({
           (document.documentElement.style.fontSize = `${16 * scale}px`),
         c.scale,
       );
-      await page.locator("#quick-journey-form").waitFor();
+      await page.locator("[data-view=now] [data-open-search]").waitFor();
       await capture("now-home");
-      await page.locator("[name=destination]").fill("国際会館");
-      await page.locator("[name=destination]").press("Escape");
-      await capture("quick-search");
+      await searchScreen(page);
+      await page.locator("[data-search-date]").click();
+      await capture("search-date");
+      await page.locator("#search-date [data-search-sheet-done]").click();
+      await settleNavigation(page);
       await searchScreen(page);
       await capture("search");
       await page.locator("[name=to]").fill("京都");
       await capture("stop-picker");
       if (baseline) await page.locator("[name=to]").blur();
       else {
-        await page.locator("[name=to]").press("Escape");
+        await page.keyboard.press("Escape");
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-screen"),
@@ -313,7 +315,7 @@ export async function runCoordinateAudit({
       await page.locator("[name=to]").fill("国際会館");
       if (baseline) await page.locator("[name=to]").blur();
       else {
-        await page.locator("[name=to]").press("Escape");
+        await page.keyboard.press("Escape");
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-screen"),
@@ -323,12 +325,12 @@ export async function runCoordinateAudit({
       await page.locator("[data-add-via]").click();
       await page.locator("[name=via0]").fill("北大路");
       if (baseline) await page.locator("[name=via0]").blur();
-      else await page.locator("[name=via0]").press("Escape");
+      else await page.keyboard.press("Escape");
       await capture("search-via");
       await page.locator("[data-remove-via]").click();
       await page.locator(".planner-conditions").click();
       await capture("search-filter");
-      await page.locator("[data-search-filter-done]").click();
+      await page.locator("dialog[open] [data-search-sheet-done]").click();
       await settleNavigation(page);
       await submitSearch(page);
       await page
@@ -393,6 +395,8 @@ export async function runCoordinateAudit({
       scenario.foldEntries = undefined;
       await tabRoot(page, "timetable");
       await capture("timetable-home");
+      await page.locator("[data-timetable-line=subway]").click();
+      await settleNavigation(page);
       await page.locator("[data-timetable-stop=K07]").click();
       await page.locator(".minute-cell").first().waitFor();
       await capture("station-timetable");

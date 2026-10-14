@@ -1,3 +1,5 @@
+import { readSavedPlaces, toggleSavedPlace } from "./saved-places.js";
+import { readSearchPairs, removeSearchPair } from "./search-history.js";
 import { navigation } from "./navigation.js";
 import { journeyProgress } from "./journey-core.js";
 import { subwayIds, kintetsuIds } from "./network.js";
@@ -198,6 +200,28 @@ export function renderSettings(
   root = $("#settings-content"),
   category = "home",
 ) {
+  if (category === "home") {
+    const row = (id, title) =>
+      `<button class="native-row" data-setting-page="${id}"><span>${title}</span><span class="chevron">›</span></button>`;
+    root.innerHTML = `<h2 class="native-section-label">保存</h2><div class="native-list"><button class="native-row" data-saved-page="places"><span>保存した場所</span><span class="chevron">›</span></button><button class="native-row" data-saved-page="routes"><span>保存した経路</span><span class="chevron">›</span></button></div><h2 class="native-section-label">交通</h2><div class="native-list">${row("pass", "定期券")}${row("distance", "近くの駅")}${row("notifications", "通知")}${row("auto", "自動乗車判定")}${row("location", "位置情報")}</div><h2 class="native-section-label">アプリ</h2><div class="native-list">${row("display", "表示")}${row("routes", "対応路線")}${row("info", "情報・出典")}${row("advanced", "詳細設定")}</div>`;
+    return;
+  }
+  if (category === "location") {
+    const node = document.querySelector("#location-settings");
+    if (node) {
+      root.replaceChildren(node);
+      node.hidden = false;
+    }
+    return;
+  }
+  if (category === "notifications") {
+    root.innerHTML = `<div class="settings-card"><label class="setting-row"><span>降車の1つ前でお知らせ</span><input type="checkbox" data-setting="alightAssist" ${settings.alightAssist !== false ? "checked" : ""}></label><label class="setting-row"><span>システム通知</span><input type="checkbox" data-setting="notifications" ${settings.notifications ? "checked" : ""}></label><button class="native-row" data-request-notifications><span>端末の通知を設定</span><span class="chevron">›</span></button></div><p class="source-note">通知を許可した端末で利用できます。画面内の降車案内も表示します。</p>`;
+    return;
+  }
+  if (category === "display") {
+    root.innerHTML = `<div class="settings-card"><label class="setting-row"><span>文字サイズ</span><select data-setting-value="fontScale" aria-label="文字サイズ">${[1, 1.5, 2].map((n) => `<option value="${n}" ${Number(settings.fontScale ?? 1) === n ? "selected" : ""}>${n * 100}%</option>`).join("")}</select></label><label class="setting-row"><span>コントラストを上げる</span><input type="checkbox" data-setting="highContrast" ${settings.highContrast ? "checked" : ""}></label><label class="setting-row"><span>動きを減らす</span><input type="checkbox" data-setting="reduceMotion" ${settings.reduceMotion ? "checked" : ""}></label><div class="setting-row"><span>Light / Dark</span><span>端末に合わせる</span></div></div><p class="source-note">端末側の文字拡大・コントラスト・視差効果の設定にも対応します。</p>`;
+    return;
+  }
   root.innerHTML = `<section class="settings-section"><h2>自動案内</h2><div class="settings-card"><label class="setting-row"><span><b>自動乗車判定</b><small>移動に合わせて表示を切り替えます</small></span><input type="checkbox" data-setting="autoDetect" ${settings.autoDetect ? "checked" : ""}></label><label class="setting-row"><span><b>触覚フィードバック</b><small>便を判定したときに短く通知</small></span><input type="checkbox" data-setting="haptics" ${settings.haptics ? "checked" : ""}></label><label class="setting-row"><span><b>判定根拠を表示</b><small>必要なときだけ詳細を表示</small></span><input type="checkbox" data-setting="showConfidence" ${settings.showConfidence ? "checked" : ""}></label></div></section><section class="settings-section"><h2>定期券</h2><div class="settings-card"><label class="setting-row"><span><b>市バス</b><small>対象区間の追加額を0円として計算</small></span><input type="checkbox" data-setting="passCityBus" ${settings.passCityBus ? "checked" : ""}></label><label class="setting-row"><span><b>京都バス</b><small>登録した対象区間だけに適用</small></span><input type="checkbox" data-setting="passKyotoBus" ${settings.passKyotoBus ? "checked" : ""}></label><label class="setting-row"><span><b>地下鉄</b><small>設定区間内の追加額を0円として計算</small></span><input type="checkbox" data-setting="passSubway" ${settings.passSubway ? "checked" : ""}></label><div class="pass-range"><label>区間の開始<select data-setting-value="passSubwayFrom">${subwayOptions()}</select></label><span>〜</span><label>区間の終了<select data-setting-value="passSubwayTo">${subwayOptions()}</select></label></div><label class="pass-expiry">有効期限<input type="date" data-setting-value="passExpires" value="${esc(settings.passExpires ?? "")}"></label><p class="source-caption">未設定では通常運賃＝追加額です。実際の券面区間を優先してください。</p></div></section><section class="settings-section"><h2>近くの駅</h2><div class="settings-card slider-card"><label><span><b>地下鉄を表示する距離</b><small>候補に表示する範囲</small></span><strong>${settings.railGuideDistance}m</strong><input type="range" min="150" max="600" step="50" value="${settings.railGuideDistance}" data-setting-range="railGuideDistance"></label><p class="source-caption" data-distance-preview>${distancePreview()}</p></div></section><section class="settings-section"><h2>対応路線</h2><div class="settings-card source-list"><div><b>地下鉄烏丸線</b><small>全線・近鉄直通</small></div><div><b>近鉄京都線</b><small>全線・烏丸線直通</small></div><div><b>京都バス</b><small>${KYOTO_ROUTES.join("・")}</small></div><div><b>京都市バス</b><small>${CITY_ROUTES.join("・")}・202八条口</small></div></div></section><section class="settings-section info-section"><h2 data-info-title>情報</h2><div class="settings-card source-list"><div><b>出典</b><small>京都市交通局・近畿日本鉄道・京都バス・公共交通オープンデータセンター</small></div><div><b>実測・推定・予定</b><small>実測：取得した車両の接近情報。推定：現在地・遅れ・保存情報からの見込み。予定：時刻表の時刻です。経路の便と一致しない接近は便別実測と呼びません。</small></div><div><b>更新時刻</b><small>各行の情報を取得した時刻です。古い情報は推定・保存表示に切り替わります。予定時刻の改正日は公式出典で確認できます。</small></div><div><b>運賃確認</b><small>公式運賃表を基準にし、未確認区間は確定額を表示しません</small></div><div><b>オープンデータ</b><small>公共交通オープンデータ基本ライセンスに基づき利用しています</small></div><div><b>現在地</b><small>位置情報は端末上で乗車判定に使用します</small></div></div>${logHTML()}</section>`;
   const from = root.querySelector('[data-setting-value="passSubwayFrom"]'),
     to = root.querySelector('[data-setting-value="passSubwayTo"]');
@@ -205,25 +229,72 @@ export function renderSettings(
   if (to) to.value = settings.passSubwayTo ?? "K11";
   const sections = [...root.querySelectorAll(":scope>.settings-section")];
   const categories = {
+    auto: [0, "自動乗車判定"],
+    advanced: [0, "詳細設定"],
     pass: [1, "定期券"],
     distance: [2, "近くの駅"],
     routes: [3, "対応路線"],
     info: [4, "情報・出典"],
   };
-  if (category === "home") {
-    root.replaceChildren(sections[0]);
-    const rows = document.createElement("div");
-    rows.className = "native-list";
-    rows.innerHTML = Object.entries(categories)
-      .map(
-        ([id, [, title]]) =>
-          `<button class="native-row" data-setting-page="${id}"><span><b>${title}</b></span><span class="chevron">›</span></button>`,
-      )
-      .join("");
-    root.append(rows);
-  } else root.replaceChildren(sections[categories[category]?.[0] ?? 4]);
+  root.replaceChildren(sections[categories[category]?.[0] ?? 4]);
 }
-export function setupSettings(onRender) {
+export function setupSettings(onRender, onSavedRoute) {
+  const locationHome = document.querySelector('[data-view="settings"]');
+  const applyDisplay = () => {
+    const scale = Number(settings.fontScale);
+    if ([1, 1.5, 2].includes(scale))
+      document.documentElement.style.fontSize = `${scale * 100}%`;
+    document.documentElement.dataset.highContrast = String(
+      Boolean(settings.highContrast),
+    );
+    document.documentElement.dataset.reduceMotion = String(
+      Boolean(settings.reduceMotion),
+    );
+  };
+  applyDisplay();
+  function renderSaved(element, kind) {
+    const places = readSavedPlaces()
+      .map((id) => state.network.stops.get(id))
+      .filter(Boolean);
+    const pairs = readSearchPairs(localStorage).favorites;
+    element.innerHTML =
+      kind === "places"
+        ? `<div class="native-list">${places.map((stop) => `<div class="saved-row"><button class="native-row" data-saved-place="${esc(stop.id)}"><span><b>${esc(stop.name)}</b><small>${esc(stop.lines?.join("・"))}</small></span><span class="chevron">›</span></button><button class="plain-action" data-remove-place="${esc(stop.id)}" aria-label="${esc(stop.name)}の保存を解除">解除</button></div>`).join("")}</div>${places.length ? "" : '<p class="empty-state">停留所詳細から場所を保存できます。</p>'}`
+        : `<div class="native-list">${pairs.map((pair, i) => `<div class="saved-row"><button class="native-row" data-saved-route="${i}"><span><b>${esc(pair.from)} → ${esc(pair.to)}</b>${pair.via?.length ? `<small>経由 ${esc(pair.via.map((v) => v.name).join("・"))}</small>` : ""}</span><span class="chevron">›</span></button><button class="plain-action" data-remove-route="${i}" aria-label="${esc(pair.to)}への保存経路を削除">削除</button></div>`).join("")}</div>${pairs.length ? "" : '<p class="empty-state">経路詳細から経路を保存できます。</p>'}`;
+  }
+  navigation.register("saved", {
+    title: (r) => (r.params.id === "places" ? "保存した場所" : "保存した経路"),
+    create({ element, route }) {
+      element.addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.savedPlace)
+          navigation.push("nearby", { stopId: b.dataset.savedPlace });
+        if (b.dataset.removePlace) {
+          toggleSavedPlace(b.dataset.removePlace);
+          renderSaved(element, route.params.id);
+        }
+        if (b.dataset.savedRoute !== undefined)
+          onSavedRoute?.(
+            readSearchPairs(localStorage).favorites[
+              Number(b.dataset.savedRoute)
+            ],
+          );
+        if (b.dataset.removeRoute !== undefined) {
+          removeSearchPair(
+            localStorage,
+            readSearchPairs(localStorage).favorites[
+              Number(b.dataset.removeRoute)
+            ],
+          );
+          renderSaved(element, route.params.id);
+        }
+      });
+    },
+    onShow({ element, route }) {
+      renderSaved(element, route.params.id);
+    },
+  });
   let infoTaps = 0,
     lastTap = 0;
   function bind(root, category = "home") {
@@ -231,6 +302,7 @@ export function setupSettings(onRender) {
       if (e.target.dataset.setting) {
         settings[e.target.dataset.setting] = e.target.checked;
         saveSettings();
+        applyDisplay();
         onRender();
       }
       if (e.target.dataset.settingRange) {
@@ -242,6 +314,7 @@ export function setupSettings(onRender) {
       if (e.target.dataset.settingValue) {
         settings[e.target.dataset.settingValue] = e.target.value;
         saveSettings();
+        applyDisplay();
         onRender();
       }
     });
@@ -255,6 +328,28 @@ export function setupSettings(onRender) {
       }
     });
     root.addEventListener("click", (e) => {
+      if (e.target.closest("[data-request-notifications]")) {
+        const b = e.target.closest("button");
+        if (!("Notification" in window)) {
+          b.textContent = "この端末では画面内でお知らせします";
+          return;
+        }
+        Notification.requestPermission()
+          .then((permission) => {
+            settings.notifications = permission === "granted";
+            saveSettings();
+            renderSettings(root, category);
+          })
+          .catch(() => {
+            b.textContent = "端末の通知設定をご確認ください";
+          });
+        return;
+      }
+      const saved = e.target.closest("[data-saved-page]");
+      if (saved) {
+        navigation.push("saved", { id: saved.dataset.savedPage });
+        return;
+      }
       const row = e.target.closest("[data-setting-page]");
       if (row) {
         navigation.push("setting", { id: row.dataset.settingPage });
@@ -274,8 +369,13 @@ export function setupSettings(onRender) {
   }
   bind($("#settings-content"));
   navigation.register("setting", {
+    singleton: true,
     title: (r) =>
       ({
+        location: "位置情報",
+        auto: "自動乗車判定",
+        notifications: "通知",
+        display: "表示",
         pass: "定期券",
         distance: "近くの駅",
         routes: "対応路線",
@@ -286,6 +386,13 @@ export function setupSettings(onRender) {
     },
     onShow({ element, route }) {
       renderSettings(element, route.params.id);
+    },
+    onDispose({ element }) {
+      const node = element.querySelector("#location-settings");
+      if (node) {
+        node.hidden = true;
+        locationHome.append(node);
+      }
     },
   });
   window.addEventListener("mymap-realtime-log", () => {

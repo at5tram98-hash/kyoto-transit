@@ -6,8 +6,11 @@
 #now-hero {
   order: 0;
 }
-#vehicle-panel {
+#ride-actions {
   order: 1;
+}
+#vehicle-panel {
+  order: 2;
 }
 #network-panel {
   order: 2;
@@ -34,7 +37,7 @@
   padding: 8px 0;
   border-bottom: 1px solid var(--separator);
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
 }
 .journey-stop-list li {
   grid-template-columns: 44px minmax(0, 1fr) minmax(76px, auto);
@@ -52,7 +55,7 @@
 }
 .journey-stop-list .stop-times small {
   color: var(--muted);
-  font-size: 0.625rem;
+  font-size: var(--type-caption);
   margin-top: 4px;
 }
 .journey-stop-list .current .rail-dot {
@@ -64,43 +67,6 @@
   flex-shrink: 0;
   font-size: 0.8125rem;
   padding: 0 4px;
-}
-.idle-status {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 16px;
-  margin: 4px 0 12px;
-  border-radius: 20px;
-  box-shadow: none;
-}
-.idle-status::after {
-  display: none;
-}
-.idle-status h2 {
-  font-size: 1rem;
-  margin: 0 0 4px;
-  letter-spacing: 0;
-  line-height: 1.4;
-}
-.idle-status p {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-}
-.idle-symbol {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  color: var(--muted);
-}
-.idle-symbol svg {
-  width: 26px;
-  height: 26px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
 }
 .nearby-guide {
   box-shadow: none;
@@ -136,7 +102,7 @@
 .nearby-row small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
   line-height: 1.4;
   margin-top: 3px;
   overflow-wrap: anywhere;
@@ -236,7 +202,7 @@
 }
 .target-train b > small {
   color: var(--muted);
-  font-size: 0.625rem;
+  font-size: var(--type-caption);
   display: block;
   margin-top: 4px;
 }
@@ -247,19 +213,19 @@
 }
 .target-train span > small {
   display: block;
-  font-size: 0.625rem;
+  font-size: var(--type-caption);
   margin-top: 5px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 .target-train .fold-margin {
   color: var(--blue);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
   text-align: right;
   line-height: 1.5;
 }
 .fold-margin.tight {
-  color: #ad6400;
+  color: var(--color-warning);
 }
 .fold-margin.missed {
   color: var(--red);
@@ -269,10 +235,10 @@
   font-weight: 750;
 }
 .target-result.possible > span {
-  color: #248a3d;
+  color: var(--color-success);
 }
 .target-result.tight > span {
-  color: #ad6400;
+  color: var(--color-warning);
 }
 .target-result.missed > span {
   color: var(--red);
@@ -366,7 +332,7 @@
 }
 .compact-departures > div > b small {
   display: block;
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   color: var(--muted);
   font-weight: 400;
 }
@@ -422,7 +388,7 @@
   order: 2;
 }
 #now-search {
-  order: 1;
+  order: -1;
 }
 .itinerary-guide {
   margin: 12px 0;
@@ -434,18 +400,30 @@
   color: var(--orange);
 }
 .journey-display {
-  --journey-accent: #228347;
-  --route-tint: #f1f7f3;
+  --journey-accent: var(--transport-color);
+  --route-tint: color-mix(
+    in srgb,
+    var(--journey-accent) 8%,
+    var(--surface-primary)
+  );
   padding: 14px;
-  border-radius: 22px;
+  border-radius: 26px;
 }
 .journey-display.rail {
-  --journey-accent: #c46c13;
-  --route-tint: #fbf4ea;
+  --journey-accent: var(--transport-color);
+  --route-tint: color-mix(
+    in srgb,
+    var(--journey-accent) 8%,
+    var(--surface-primary)
+  );
 }
 .journey-display.bus {
-  --journey-accent: #2867d8;
-  --route-tint: #f0f5fd;
+  --journey-accent: var(--transport-color);
+  --route-tint: color-mix(
+    in srgb,
+    var(--journey-accent) 8%,
+    var(--surface-primary)
+  );
 }
 .journey-display::after {
   display: none;
@@ -487,7 +465,7 @@
   border-radius: 10px;
   display: inline-grid;
   place-items: center;
-  color: #fff;
+  color: var(--color-on-transport);
   font-size: 1.1rem;
   font-weight: 800;
 }
@@ -496,13 +474,13 @@
   min-height: 30px;
 }
 .route-token.line-k {
-  background: #228347;
+  background: var(--color-subway);
 }
 .route-token.line-b {
-  background: #b95e0b;
+  background: var(--color-kintetsu);
 }
 .route-token.line-bus {
-  background: #2867d8;
+  background: var(--transport-color);
 }
 .route-tokens.boundary .route-token {
   font-size: 0.8rem;
@@ -511,19 +489,19 @@
   display: inline-block;
   border-radius: 999px;
   padding: 4px 7px;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   line-height: 1.4;
   background: var(--panel-2);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
 .status-pill.confirmed {
-  color: #196936;
-  background: #eaf5ee;
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, var(--panel));
 }
 .status-pill.stale {
-  color: #9b5900;
-  background: #fff1db;
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--panel));
 }
 .next-station-hero {
   padding: 16px 10px 12px;
@@ -538,8 +516,8 @@
 [data-train-state="LINE_BOUNDARY"] .next-station-hero {
   background: linear-gradient(
     100deg,
-    color-mix(in srgb, #228347 9%, var(--panel)) 0 50%,
-    color-mix(in srgb, #c46c13 9%, var(--panel)) 50% 100%
+    color-mix(in srgb, var(--color-subway) 9%, var(--panel)) 0 50%,
+    color-mix(in srgb, var(--color-kintetsu) 9%, var(--panel)) 50% 100%
   );
 }
 .journey-display {
@@ -564,7 +542,7 @@
   min-width: 0;
 }
 .next-station-title .journey-next-name {
-  font-size: 2.375rem;
+  font-size: var(--type-hero);
   margin: 0;
   line-height: 1.18;
   min-width: 0;
@@ -625,7 +603,7 @@
   margin: 0 auto 8px;
   width: 12px;
   height: 12px;
-  border: 3px solid #b8c0bc;
+  border: 3px solid var(--separator);
   background: var(--panel);
   border-radius: 50%;
 }
@@ -634,7 +612,7 @@
 }
 .station-strip b {
   display: block;
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -647,8 +625,8 @@
   width: 100%;
   text-align: left;
   border: 0;
-  background: #111114;
-  color: #fff;
+  background: var(--surface-destination);
+  color: var(--color-destination);
   padding: 10px 12px;
   border-radius: 14px;
 }
@@ -662,8 +640,8 @@
 }
 .personal-destination small {
   display: block;
-  color: #c5c5ca;
-  font-size: 0.65rem;
+  color: var(--muted);
+  font-size: var(--type-caption);
 }
 .personal-destination strong {
   font-size: 1.1rem;
@@ -710,7 +688,7 @@
 }
 .station-name-button small {
   display: block;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   color: var(--muted);
 }
 .journey-stop-list .destination {
@@ -727,7 +705,7 @@
 .stop-times > span {
   display: block;
   color: var(--muted);
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
 }
 .analysis-actions {
   display: flex;
@@ -744,21 +722,21 @@
   line-height: 1.5;
 }
 .route-map {
-  --journey-accent: #228347;
+  --journey-accent: var(--color-subway);
   background: var(--panel-2);
   border-radius: 18px;
   overflow: hidden;
 }
 .route-map[data-line="B"] {
-  --journey-accent: #c46c13;
+  --journey-accent: var(--color-kintetsu);
 }
 .route-map[data-line="bus"] {
-  --journey-accent: #2867d8;
+  --journey-accent: var(--color-citybus);
 }
 .map-canvas {
   overflow: hidden;
   position: relative;
-  background: #e9eee7;
+  background: var(--map-neutral);
 }
 .map-tiles {
   position: absolute;
@@ -821,7 +799,7 @@
     600 12px -apple-system,
     BlinkMacSystemFont,
     sans-serif;
-  fill: #1a1a1a;
+  fill: var(--map-label);
   stroke: white;
   stroke-width: 3px;
   paint-order: stroke;
@@ -848,8 +826,8 @@
   right: 0;
   font-size: 10px;
   padding: 3px 5px;
-  background: #fffd;
-  color: #333;
+  background: var(--map-control);
+  color: var(--map-label);
 }
 .map-load-note {
   position: absolute;
@@ -890,7 +868,7 @@
 }
 .bus-mini-map .route-map p {
   padding: 5px 10px;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
 }
 .context-facts {
   margin: 0;
@@ -987,37 +965,49 @@ button {
     filter: brightness(0.7) saturate(0.65);
   }
   .journey-display {
-    --journey-accent: #50d079;
-    --route-tint: #202e25;
+    --journey-accent: var(--color-subway);
+    --route-tint: color-mix(
+      in srgb,
+      var(--journey-accent) 8%,
+      var(--surface-primary)
+    );
   }
   .journey-display.rail {
-    --journey-accent: #ffb15c;
-    --route-tint: #302820;
+    --journey-accent: var(--color-kintetsu);
+    --route-tint: color-mix(
+      in srgb,
+      var(--journey-accent) 8%,
+      var(--surface-primary)
+    );
   }
   .journey-display.bus {
-    --journey-accent: #7caaff;
-    --route-tint: #202838;
+    --journey-accent: var(--color-citybus);
+    --route-tint: color-mix(
+      in srgb,
+      var(--journey-accent) 8%,
+      var(--surface-primary)
+    );
   }
   .route-token.line-k {
-    background: #226b3a;
+    background: var(--color-subway);
   }
   .route-token.line-b {
-    background: #9a510f;
+    background: var(--color-kintetsu);
   }
   .status-pill.confirmed {
-    color: #79dda0;
-    background: #203b28;
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 10%, var(--panel));
   }
   .status-pill.stale {
-    color: #ffca83;
-    background: #3b2d17;
+    color: var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 10%, var(--panel));
   }
   .personal-destination {
-    background: #f0f0f4;
-    color: #111114;
+    background: var(--surface-destination);
+    color: var(--color-destination);
   }
   .personal-destination small {
-    color: #515156;
+    color: var(--muted);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1032,10 +1022,10 @@ button {
   position: relative;
   height: 94px;
   margin: 6px 16px 0;
-  --journey-accent: #228347;
+  --journey-accent: var(--color-subway);
 }
 .live-track[data-line="B"] {
-  --journey-accent: #c46c13;
+  --journey-accent: var(--color-kintetsu);
 }
 .live-track-axis {
   position: absolute;
@@ -1062,7 +1052,7 @@ button {
   transform: translateX(-50%);
   border-radius: 7px;
   padding: 5px;
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
   white-space: nowrap;
   transition: left 900ms cubic-bezier(0.22, 0.8, 0.25, 1);
 }
@@ -1075,7 +1065,7 @@ button {
   background: var(--panel);
   border: 1px solid var(--separator);
   color: var(--muted);
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
 }
 .track-vehicle.opposite {
   top: 60px;
@@ -1127,10 +1117,10 @@ a.plain-action {
   font-size: 0.75rem;
 }
 .journey-display.compact .route-header p {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
 }
 .journey-display.compact .route-header .status-pill {
-  font-size: 0.55rem;
+  font-size: var(--type-caption);
 }
 .journey-display.compact .next-station-hero {
   padding: 12px 8px;
@@ -1139,7 +1129,7 @@ a.plain-action {
   margin-top: 10px;
 }
 .journey-display.compact .destination-progress {
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
 }
 .journey-display.compact .personal-destination {
   padding: 8px 10px;
@@ -1148,7 +1138,7 @@ a.plain-action {
   font-size: 0.75rem;
 }
 .journey-display.compact .personal-destination small {
-  font-size: 0.6rem;
+  font-size: var(--type-caption);
 }
 .journey-display.compact .station-overview > summary {
   display: block;
@@ -1160,7 +1150,7 @@ a.plain-action {
 .nearby-row > strong > small {
   display: block;
   color: var(--muted);
-  font-size: 0.65rem;
+  font-size: var(--type-caption);
 }
 .journey-warning {
   background: color-mix(in srgb, var(--orange) 13%, var(--panel));

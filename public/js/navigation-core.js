@@ -1,5 +1,11 @@
 // Screen state is data; transport models and DOM are owned by their adapters.
-export const NAV_TABS = ["now", "timetable", "operations", "settings"];
+export const NAV_TABS = [
+  "now",
+  "search",
+  "timetable",
+  "operations",
+  "settings",
+];
 export const NAV_SCREENS = [
   "search",
   "results",
@@ -17,6 +23,8 @@ export const NAV_SCREENS = [
   "trip",
   "operation",
   "setting",
+  "timetable-line",
+  "saved",
 ];
 export function navigationState(tab = "now") {
   return {

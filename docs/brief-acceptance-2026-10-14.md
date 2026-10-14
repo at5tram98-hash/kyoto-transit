@@ -2,6 +2,8 @@
 
 基準は [ユーザー提供資料](reference/mymap-34-screen-brief-2026-10-14.txt)。資料0章の100%は「現在この環境で検証可能な項目すべて」であり、物理iPhoneを遠隔操作したという意味ではない。未確認を確認済みと報告しない条件も適用する。
 
+**34画面の照合完了と、全改善案の実装達成率100%は別である。** この表には既存維持と条件付き非追加が含まれる。未実装・未測定を除いて算出した、全機能の達成率を示す表ではない。ユーザーからの再照合に対する画面別判定は [34画面の達成率再照合](brief-achievement-audit-2026-10-14.md) を参照。
+
 ## 優先5項目
 
 |資料|実装|検証|
@@ -65,7 +67,7 @@ Google iPhone向け公式ヘルプとYahoo公式紹介を2026-10-14に再取得�
 [改修・検証・Before/Afterレポート](journey-upgrade-2026-10-14.md)、[次のWorkへのメモリ](chatgpt-work-next-iteration-memory.md)、[Visual Difference Matrix](visual-difference-matrix-2026-10-12.md)を参照。Node/model、WebKit/Chromium、34画面、Navigation/Swipe、PWA、地理タイル、Worker/Pages、本番APIを公開CIと実接続で最終確認し、成功結果をレポートへ記録する。
 
 
-## 完了判定
+## 完了判定（クラウド検証範囲）
 
 2026-10-14、公開コード `5b1b57f3` / build `af4813c8cc67` で完了。優先5項目と34画面の改修/保持/条件付き非追加を確認し、資料0章で定義されたクラウドで検証可能な範囲をすべて確認した。
 

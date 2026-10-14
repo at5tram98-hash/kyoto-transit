@@ -1,58 +1,138 @@
+import { readSavedPlaces } from "./saved-places.js";
 import { stopSuggestions, stopTypeLabel } from "./route-search-model.js";
+import { readSearchPairs } from "./search-history.js";
+import { icon, nearest } from "./vnext-state.js";
 
-// One list belongs to one search screen; hidden screens never own a popup.
+// A single full-screen editor owns suggestions. Values commit to the existing
+// form; cancellation retains the original input and never creates a new store.
 export function mountStopAutocomplete({ container, list, network, onSelect }) {
   let active = null,
     rows = [],
     index = -1;
+  const dialog = document.createElement("dialog");
+  dialog.className = "sheet suggestion-screen";
+  dialog.id = `${list.id}-screen`;
+  dialog.setAttribute("aria-label", "駅・停留所を選択");
+  dialog.innerHTML =
+    '<div class="suggestion-toolbar"><button type="button" class="plain-action" data-suggestion-cancel>取消</button><label><span class="sr-only">駅・停留所を検索</span><input type="search" data-suggestion-input autocomplete="off" placeholder="駅・停留所を検索"></label></div><div class="suggestion-body"></div>';
+  const editor = dialog.querySelector("input");
+  const home = list.parentElement;
+  dialog.querySelector(".suggestion-body").append(list);
+  document.body.append(dialog);
   list.role = "listbox";
   list.setAttribute("aria-label", "駅・停留所の候補");
-  list.hidden = true;
+  editor.setAttribute("role", "combobox");
+  editor.setAttribute("aria-autocomplete", "list");
+  editor.setAttribute("aria-controls", list.id);
   function close() {
     if (active) {
       active.setAttribute("aria-expanded", "false");
       active.removeAttribute("aria-activedescendant");
     }
+    if (dialog.open) dialog.close();
     list.hidden = true;
     rows = [];
     index = -1;
   }
+  dialog.addEventListener("close", () => {
+    if (active) active.setAttribute("aria-expanded", "false");
+    list.hidden = true;
+  });
   function bind(input) {
-    input.setAttribute("role", "combobox");
-    input.setAttribute("aria-autocomplete", "list");
-    input.setAttribute("aria-controls", list.id);
+    input.setAttribute("aria-haspopup", "dialog");
+    input.setAttribute("aria-controls", dialog.id);
     input.setAttribute("aria-expanded", "false");
     input.setAttribute("autocomplete", "off");
   }
-  function show(input) {
-    if (active !== input) close();
-    active = input;
-    rows = stopSuggestions(network, input.value);
-    const box = input.getBoundingClientRect(),
-      parent = container.getBoundingClientRect();
-    list.style.top = `${box.bottom - parent.top + container.scrollTop}px`;
-    list.style.maxHeight = `${Math.max(96, Math.min(280, (globalThis.visualViewport?.height ?? innerHeight) - box.bottom - 16))}px`;
+  function render() {
+    const q = editor.value.trim();
+    let pairs = { history: [], favorites: [] };
+    try {
+      pairs = readSearchPairs(localStorage);
+    } catch {}
+    const pairStops = (key) =>
+      pairs[key]
+        .flatMap((p) => [p.toId, p.fromId])
+        .map((id) => network.stops.get(id))
+        .filter(Boolean);
+    const candidates = stopSuggestions(network, q);
+    const matches = (stop) => !q || candidates.some((s) => s.id === stop.id);
+    const seen = new Set();
+    const groups = [
+      ["最近", pairStops("history")],
+      [
+        "保存済み",
+        [
+          ...readSavedPlaces()
+            .map((id) => network.stops.get(id))
+            .filter(Boolean),
+          ...pairStops("favorites"),
+        ],
+      ],
+      [
+        "近く",
+        nearest()
+          .all.slice(0, 5)
+          .map((s) => s.stop),
+      ],
+      ["駅・停留所", candidates.filter((stop) => !stop.facilityName)],
+      ["施設", candidates.filter((stop) => stop.facilityName)],
+    ];
+    rows = [];
     index = -1;
     list.replaceChildren();
-    for (const [i, stop] of rows.entries()) {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "stop-suggestion";
-      b.id = `${list.id}-${i}`;
-      b.role = "option";
-      b.tabIndex = -1;
-      b.dataset.stopId = stop.id;
-      b.setAttribute("aria-selected", "false");
-      const name = document.createElement("b"),
-        meta = document.createElement("small");
-      name.textContent = stop.name;
-      meta.textContent = `${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
-      b.append(name, meta);
-      list.append(b);
+    for (const [label, stops] of groups) {
+      const group = stops.filter(
+        (s) => matches(s) && !seen.has(s.id) && seen.add(s.id),
+      );
+      if (!group.length) continue;
+      const heading = document.createElement("p");
+      heading.className = "suggestion-section";
+      heading.role = "presentation";
+      heading.textContent = label;
+      list.append(heading);
+      for (const stop of group) {
+        const i = rows.push(stop) - 1;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "stop-suggestion";
+        button.id = `${list.id}-${i}`;
+        button.role = "option";
+        button.tabIndex = -1;
+        button.dataset.stopId = stop.id;
+        button.dataset.operator = stop.type;
+        button.setAttribute("aria-selected", "false");
+        const symbol = document.createElement("span");
+        symbol.className = "transport-icon";
+        symbol.innerHTML = icon(stop.type.includes("bus") ? "bus" : "train");
+        const copy = document.createElement("span"),
+          name = document.createElement("b"),
+          meta = document.createElement("small");
+        name.textContent = stop.name;
+        meta.textContent = `${stop.facilityName ? `${stop.facilityName}付近の停留所 · ` : ""}${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
+        copy.append(name, meta);
+        button.append(symbol, copy);
+        list.append(button);
+      }
     }
-    list.hidden = !rows.length;
-    input.setAttribute("aria-expanded", String(rows.length > 0));
-    input.removeAttribute("aria-activedescendant");
+    if (!rows.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "該当する駅・停留所がありません";
+      list.append(empty);
+    }
+    list.hidden = false;
+    editor.setAttribute("aria-expanded", "true");
+    editor.removeAttribute("aria-activedescendant");
+  }
+  function show(input) {
+    active = input;
+    editor.value = input.value;
+    if (!dialog.open) dialog.showModal();
+    input.setAttribute("aria-expanded", "true");
+    render();
+    editor.focus({ preventScroll: true });
+    editor.select();
   }
   function choose(stop) {
     if (!active || !stop) return;
@@ -63,45 +143,62 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     input.focus({ preventScroll: true });
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }
+  container.addEventListener("click", (e) => {
+    if (e.target.matches("[data-stop-input]")) show(e.target);
+  });
   container.addEventListener("input", (e) => {
-    const input = e.target.closest("[data-stop-input]");
-    if (input) {
-      onSelect(input, null);
-      if (!e.isComposing) show(input);
+    if (e.target.matches("[data-stop-input]") && !e.isComposing) {
+      onSelect(e.target, null);
+      show(e.target);
     }
   });
   container.addEventListener("compositionend", (e) => {
     if (e.target.matches("[data-stop-input]")) show(e.target);
   });
-  container.addEventListener("focusin", (e) => {
-    if (e.target !== active) close();
+  const draftChanged = () => {
+    if (active) {
+      active.value = editor.value;
+      onSelect(active, null);
+      active.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    render();
+  };
+  editor.addEventListener("input", (e) => {
+    if (!e.isComposing) draftChanged();
   });
-  container.addEventListener("focusout", () =>
-    queueMicrotask(() => {
-      if (!container.contains(document.activeElement)) close();
-    }),
-  );
-  container.addEventListener("keydown", (e) => {
-    if (e.target !== active || e.isComposing) return;
+  editor.addEventListener("compositionend", draftChanged);
+  dialog
+    .querySelector("[data-suggestion-cancel]")
+    .addEventListener("click", close);
+  dialog.addEventListener("keydown", (e) => {
+    if (e.isComposing) return;
     if (e.key === "Escape") {
-      close();
       e.preventDefault();
+      e.stopPropagation();
+      close();
       return;
     }
-    if (list.hidden) return;
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
+      if (!rows.length) return;
       index =
         (index + (e.key === "ArrowDown" ? 1 : rows.length - 1) + rows.length) %
         rows.length;
-      [...list.children].forEach((b, i) =>
-        b.setAttribute("aria-selected", String(i === index)),
-      );
-      active.setAttribute("aria-activedescendant", list.children[index].id);
-      list.children[index].scrollIntoView({ block: "nearest" });
-    } else if (e.key === "Enter" && index >= 0) {
+      list
+        .querySelectorAll("[role=option]")
+        .forEach((b) =>
+          b.setAttribute(
+            "aria-selected",
+            String(b.dataset.stopId === rows[index].id),
+          ),
+        );
+      const selected = list.querySelector(`#${CSS.escape(list.id)}-${index}`);
+      editor.setAttribute("aria-activedescendant", selected.id);
+      selected.scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      choose(rows[index]);
+      if (index >= 0) choose(rows[index]);
+      else if (rows.length === 1) choose(rows[0]);
     }
   });
   list.addEventListener("pointerdown", (e) => {
@@ -112,5 +209,14 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
       network.stops.get(e.target.closest("[data-stop-id]")?.dataset.stopId),
     ),
   );
-  return { bind, show, close };
+  return {
+    bind,
+    show,
+    close,
+    dispose() {
+      close();
+      home.append(list);
+      dialog.remove();
+    },
+  };
 }

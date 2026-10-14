@@ -304,7 +304,7 @@ export function applyRealtime(route, realtime, context = {}) {
         nextRide = legs[i + next + 1];
       return (
         leg.arrive +
-          Math.max(0, leg.realtime.delay) +
+          (leg.realtimeApplied ? 0 : Math.max(0, leg.realtime.delay)) +
           following.reduce((sum, l) => sum + (l.minutes ?? 0), 0) +
           (context.buffer ?? 0) >
         nextRide.depart
@@ -319,7 +319,9 @@ export function applyRealtime(route, realtime, context = {}) {
         : "prediction"
       : "schedule",
     realtimeDelay: Math.max(0, ...observations.map((l) => l.realtime.delay)),
-    estimatedTime: last?.realtime ? last.arrive + last.realtime.delay : null,
+    estimatedTime: last?.realtime
+      ? last.arrive + (last.realtimeApplied ? 0 : last.realtime.delay)
+      : null,
     connectionRisk,
   };
 }

@@ -165,13 +165,15 @@ function mapDrawing(map, view) {
     .join("");
   return {
     tiles: tiles.join(""),
-    overlay: `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}`,
+    overlay: `${map.place ? "" : `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>`}${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}`,
   };
 }
 const mapNote = (map) =>
-  `${map.unavailable ? "経路変更・運休のため現在位置は未確認" : map.source === "location" ? "現在地を経路上に表示" : "現在地は時刻表から推定"}${map.approximate ? " · 路線は概略" : ""}`;
+  map.place
+    ? "駅・停留所の登録位置"
+    : `${map.unavailable ? "経路変更・運休のため現在位置は未確認" : map.source === "location" ? "現在地を経路上に表示" : "現在地は時刻表から推定"}${map.approximate ? " · 路線は概略" : ""}`;
 export function routeMapHTML(map, model, { expanded = false } = {}) {
-  if (map.points.length < 2)
+  if (map.points.length < (map.place ? 1 : 2))
     return '<p class="source-note">経路の位置データは未取得です。停車順と時刻表で案内します。</p>';
   const key = JSON.stringify([map.points, map.stops.map((s) => s.id)]);
   mapData.set(key, { ...map, nextId: model.nextStation?.id, model });
@@ -179,7 +181,7 @@ export function routeMapHTML(map, model, { expanded = false } = {}) {
   if (mapData.size > 6) mapData.delete(mapData.keys().next().value);
   const view = mapViewport(map.points),
     drawing = mapDrawing({ ...map, nextId: model.nextStation?.id }, view);
-  return `<div class="route-map ${expanded ? "expanded" : ""}" data-map-key="${esc(key)}" data-line="${model.lineId}"><div class="map-canvas"><div class="map-tiles">${drawing.tiles}</div><svg viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="道路・地名を含む${model.bus ? "バス" : "鉄道"}の地図。${mapNote(map)}">${drawing.overlay}</svg><div class="map-controls"><button data-map-zoom="1" aria-label="地図を拡大">＋</button><button data-map-zoom="-1" aria-label="地図を縮小">−</button><button data-map-reset aria-label="経路全体を表示">⌖</button></div><span class="map-load-note" hidden>背景地図を取得できません · 経路のみ表示</span><a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><p>${mapNote(map)}</p></div>`;
+  return `<div class="route-map ${expanded ? "expanded" : ""}" data-map-key="${esc(key)}" data-line="${model.lineId}"><div class="map-canvas"><div class="map-tiles">${drawing.tiles}</div><svg viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="道路・地名を含む${model.bus ? "バス" : "鉄道"}の地図。${mapNote(map)}">${drawing.overlay}</svg><div class="map-controls"><button data-map-zoom="1" aria-label="地図を拡大">＋</button><button data-map-zoom="-1" aria-label="地図を縮小">−</button><button data-map-reset aria-label="経路全体を表示">⌖</button></div><span class="map-load-note" hidden>背景地図を取得できません · ${map.place ? "登録位置" : "経路"}のみ表示</span><a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><p>${mapNote(map)}</p></div>`;
 }
 function draw(element, map, view) {
   const svg = element.querySelector("svg");

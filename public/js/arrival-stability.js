@@ -13,13 +13,22 @@ export function normalizedBusSources(
         row.source === "live" && !fresh
           ? "prediction"
           : (row.source ?? "schedule");
-    return { ...row, source, asOf: row.asOf ?? data.asOf };
+    return {
+      ...row,
+      source,
+      asOf: Number.isFinite(row.scheduledDeparture)
+        ? (row.asOf ?? null)
+        : (row.asOf ?? data.asOf),
+    };
   });
 }
 export function busPreviewRows(data, limit = 3, options = {}) {
   return normalizedBusSources(data, options)
     .filter(
-      (row) => Number.isFinite(row.minutes) || Number.isFinite(row.stopsAway),
+      (row) =>
+        Number.isFinite(row.minutes) ||
+        Number.isFinite(row.stopsAway) ||
+        Number.isFinite(row.scheduledDeparture),
     )
     .sort(
       (a, b) =>
@@ -128,6 +137,8 @@ function arrivalLabel(row) {
     return `あと${Math.max(0, Math.round(row.minutes))}分`;
   if (Number.isFinite(row?.stopsAway))
     return `${Math.max(0, Math.round(row.stopsAway))}停留所前`;
+  if (Number.isFinite(row?.scheduledDeparture))
+    return `次の予定 ${String(Math.floor(row.scheduledDeparture / 60) % 24).padStart(2, "0")}:${String(row.scheduledDeparture % 60).padStart(2, "0")}`;
   return row?.status ?? "";
 }
 export function busArrivalText(row) {

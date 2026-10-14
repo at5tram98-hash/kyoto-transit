@@ -1,3 +1,6 @@
+import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
+import { getStaticFeed } from "./fast-data.js";
+import { mergeTimetableFeeds } from "./search-core.js";
 import { navigation } from "./navigation.js";
 import { searchStops } from "./network.js";
 import {
@@ -82,7 +85,10 @@ function arrivalValue(r) {
     return `<span aria-label="${esc(minuteText(r))}"><b>${Math.max(0, Math.round(r.minutes))}</b><small>分</small></span>`;
   if (Number.isFinite(r.stopsAway))
     return `<span><b>${Math.max(0, Math.round(r.stopsAway))}</b><small>停留所前</small></span>`;
-  return `<span class="arrival-unconfirmed">${esc(r.status ?? "時刻未確定")}</span>`;
+  const scheduled = r.scheduledDeparture ?? r.depart;
+  if (Number.isFinite(scheduled))
+    return `<span class="arrival-unconfirmed">次の予定 ${String(Math.floor(scheduled / 60) % 24).padStart(2, "0")}:${String(scheduled % 60).padStart(2, "0")}</span>`;
+  return `<span class="arrival-unconfirmed">${esc(r.status === "時刻未確定" || !r.status ? "予定を確認" : r.status)}</span>`;
 }
 function busRow(r) {
   const arrivals = (r.arrivals ?? [r]).slice(0, 2),
@@ -90,16 +96,18 @@ function busRow(r) {
     congestion = busCongestionText(r),
     observed = arrivals.find((a) => Number.isFinite(a.stopsAway)),
     source = (a) =>
-      `<span class="arrival-source-label">${sourceDot(a.source)}${sourceLabel(a.source)}${Number.isFinite(timestamp(a.asOf)) ? ` ${updateTime.format(timestamp(a.asOf))}更新` : ""}</span>`;
+      `<span class="arrival-source-label">${sourceDot(a.source)}${a.scheduleStale ? "予定（保存）" : sourceLabel(a.source)}${Number.isFinite(timestamp(a.asOf)) ? ` ${updateTime.format(timestamp(a.asOf))}更新` : ""}</span>`;
   return {
-    groupLabel: `${r.route}系統`,
+    operator: "citybus",
+    delayed: r.delay > 0,
     imminent:
       primary.source === "live" &&
       ((Number.isFinite(primary.stopsAway) && primary.stopsAway <= 1) ||
         (Number.isFinite(primary.minutes) && primary.minutes <= 1)),
     service: `<b class="arrival-route-badge" aria-label="${esc(busServiceLabel(r))}" title="${esc(busServiceLabel(r))}">${esc(r.route)}</b>`,
     destination: `<b>${esc(r.dest || "行先未確認")}</b>`,
-    minutes: arrivals.map(arrivalValue).join(""),
+    minutes: arrivalValue(primary),
+    second: arrivals[1] ? `<span>2便目</span>${arrivalValue(arrivals[1])}` : "",
     delay: Number.isFinite(r.delay)
       ? `<span aria-label="遅延 ${esc(delayText(r.delay))}">${esc(delayText(r.delay))}</span>`
       : "",
@@ -113,6 +121,8 @@ function busRow(r) {
 }
 function railRow(r) {
   return {
+    operator: "kintetsu",
+    delayed: r.delay > 0,
     service: `<b class="arrival-rail-badge">${esc(r.label ?? r.category ?? "列車")}</b>`,
     destination: `<b>${esc(r.dest ?? "行先未確認")}</b>`,
     minutes: arrivalValue(r),
@@ -188,6 +198,10 @@ export function mountArrivals({ network }) {
     shown = false,
     lastRailTarget = null,
     disposed = false,
+    busSchedule = null,
+    busScheduleDate = null,
+    busScheduleJob = null,
+    busScheduleController = null,
     railScheduleJob = null,
     awaitingLocation = !stopId && !state.fix;
   root.innerHTML = `<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">京都市バス</span><h3>接近情報</h3></div><button class="round-action" data-arrival-nearest aria-label="現在地から停留所を選ぶ">${icon("location")}</button></div><button class="arrival-stop" data-arrival-change><span><small>停留所</small><b id="arrival-stop-name">停留所を選択</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="停留所名・系統を検索" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>系統・方面</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">近鉄京都線</span><h3>接近情報</h3></div><button class="round-action" data-rail-refresh aria-label="更新">${icon("refresh")}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>種別</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>`;
@@ -246,6 +260,37 @@ export function mountArrivals({ network }) {
     root.querySelector("#arrival-stop-results").innerHTML =
       `<div class="native-list">${items.map((s) => `<button class="native-row" data-arrival-stop="${esc(s.id)}"><span class="mode-symbol bus">${icon("bus")}</span><span><b>${esc(s.name)}</b><small>${esc(s.lines.join("・"))}</small></span><span class="chevron">›</span></button>`).join("")}</div>${!items.length ? '<p class="empty-state">停留所が見つかりません。</p>' : ""}`;
   }
+  function ensureBusSchedule(rows) {
+    const current = tokyoNow();
+    if (
+      busScheduleDate === current.date ||
+      busScheduleJob ||
+      !rows.some(
+        (r) => !Number.isFinite(r.minutes) && !Number.isFinite(r.stopsAway),
+      )
+    )
+      return;
+    const controller = new AbortController();
+    busScheduleController = controller;
+    busScheduleJob = getStaticFeed("citybus", current.date, {
+      signal: controller.signal,
+    })
+      .then((feed) => {
+        if (controller.signal.aborted) return;
+        busSchedule = mergeTimetableFeeds(network, [feed], {
+          date: current.date,
+        });
+        busScheduleDate = current.date;
+        if (busData && active()) renderBus(busData);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (busScheduleController === controller) {
+          busScheduleJob = null;
+          busScheduleController = null;
+        }
+      });
+  }
   function renderBus(data, opts = {}) {
     if (!data) {
       setStatus("bus-update-status", null);
@@ -259,16 +304,36 @@ export function mountArrivals({ network }) {
     busData = recovered;
     const base = stale(recovered) ? predictCityBus(recovered) : recovered,
       projected = { ...base, results: normalizedBusSources(base) },
-      rows = groupCityBusRows(projected.results ?? []);
+      rows = groupCityBusRows(projected.results ?? []),
+      now = tokyoNow(),
+      presented =
+        busScheduleDate === now.date && busSchedule
+          ? scheduledArrivalFallbacks(busSchedule, stopId, rows, {
+              date: now.date,
+              minute: now.minute,
+            })
+          : rows;
+    ensureBusSchedule(rows);
     applyNotice(root.querySelector("#bus-stale"), projected, opts);
-    updateArrivalRows(busRoot(), rows, busRow);
+    updateArrivalRows(busRoot(), presented, busRow);
     if (!rows.length)
       updateHTML(
         busRoot(),
         '<p class="empty-state">接近中のバスはありません。</p>',
       );
     setStatus("bus-update-status", projected);
-    state.busLive = projected;
+    state.busLive = {
+      ...projected,
+      results:
+        busScheduleDate === now.date && busSchedule
+          ? scheduledArrivalFallbacks(
+              busSchedule,
+              stopId,
+              projected.results ?? [],
+              { date: now.date, minute: now.minute },
+            )
+          : projected.results,
+    };
     state.busLiveAt = Date.now();
     root.dispatchEvent(
       new CustomEvent("mymap-arrivals-updated", { bubbles: true }),
@@ -441,8 +506,8 @@ export function mountArrivals({ network }) {
   }
   const active = () =>
     !document.hidden &&
-    state.tab === "now" &&
-    ["root", "arrivals"].includes(navigation.route.type);
+    (navigation.route.type === "arrivals" ||
+      (state.tab === "now" && navigation.route.type === "root"));
   const busLoop = createLiveLoop({
       run: refreshBus,
       active,
@@ -536,12 +601,14 @@ export function mountArrivals({ network }) {
     refreshBus,
     refreshRail,
     pause() {
+      busScheduleController?.abort();
       busLoop.stop();
       railLoop.stop();
     },
     dispose() {
       disposed = true;
       busController?.abort();
+      busScheduleController?.abort();
       busLoop.stop();
       railLoop.stop();
       window.removeEventListener("mymap-realtime-log", logChanged);

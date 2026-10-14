@@ -1,83 +1,176 @@
 <!doctype html>
 <html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#F2F2F7">
-  <meta name="description" content="京都の地下鉄・近鉄・バスを、現在地と公式運行情報から自動で案内する My Map。">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="My Map">
-  <meta name="color-scheme" content="light dark">
-  <title>My Map</title>
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="vnext.css">
-  <link rel="stylesheet" href="vnext-ui.css">
-  <link rel="stylesheet" href="vnext-sheets.css">
-  <link rel="stylesheet" href="vnext-arrivals.css">
-  <link rel="stylesheet" href="route-search.css">
-  <link rel="stylesheet" href="vnext-tabbar.css">
-  <link rel="stylesheet" href="stability.css">
-  <link rel="stylesheet" href="vnext-journey.css">
-  <link rel="stylesheet" href="vnext-navigation.css">
-  <link rel="stylesheet" href="idle-experience.css">
-  <link rel="stylesheet" href="interaction-guard.css">
-</head>
-<body>
-  <div class="app-shell">
-    <header class="topbar">
-      <button class="navigation-back" data-navigation-back hidden type="button"><b aria-hidden="true">‹</b><span>今</span></button>
-      <div class="topbar-copy">
-        <p class="eyebrow" id="view-subtitle">LIVE</p>
-        <h1 id="view-title">今</h1>
-      </div>
-      <button class="round-action" data-open-app-menu type="button" aria-label="My Mapメニューを開く">•••</button>
-    </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#F2F2F7" />
+    <meta
+      name="description"
+      content="京都の地下鉄・近鉄・バスを、現在地と公式運行情報から自動で案内する My Map。"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="My Map" />
+    <meta name="color-scheme" content="light dark" />
+    <title>My Map</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="vnext.css" />
+    <link rel="stylesheet" href="vnext-ui.css" />
+    <link rel="stylesheet" href="vnext-sheets.css" />
+    <link rel="stylesheet" href="vnext-arrivals.css" />
+    <link rel="stylesheet" href="route-search.css" />
+    <link rel="stylesheet" href="vnext-tabbar.css" />
+    <link rel="stylesheet" href="stability.css" />
+    <link rel="stylesheet" href="vnext-journey.css" />
+    <link rel="stylesheet" href="vnext-navigation.css" />
+    <link rel="stylesheet" href="idle-experience.css" />
+    <link rel="stylesheet" href="interaction-guard.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <button
+          class="navigation-back"
+          data-navigation-back
+          hidden
+          type="button"
+        >
+          <b aria-hidden="true">‹</b><span>今</span>
+        </button>
+        <div class="topbar-copy">
+          <p class="eyebrow" id="view-subtitle">LIVE</p>
+          <h1 id="view-title">今</h1>
+        </div>
+        <div id="screen-toolbar" class="screen-toolbar"></div>
+      </header>
 
-    <aside id="app-update" class="app-update" role="status" hidden><span>最新版を利用できます</span><button class="secondary-action" data-apply-update>更新して再開</button></aside>
-    <main>
-      <section class="view" data-view="now" aria-label="今">
-        <div id="now-hero" aria-live="polite"></div>
-        <div id="now-search"></div>
-        <div id="ride-actions"></div>
-        <div id="vehicle-panel"></div>
-        <div id="ride-stops-source" data-navigation-source hidden></div>
-        <div id="network-panel" data-navigation-source hidden></div>
-        <div id="arrivals-root" data-navigation-source hidden aria-live="polite"></div>
-        <div id="nearby-panel"></div>
-      </section>
-      <section class="view" data-view="timetable" aria-label="時刻表" hidden>
-        <button class="native-row navigation-search-entry" data-open-search><span><b>経路を検索</b><small>出発地と行き先から調べる</small></span><span class="chevron">›</span></button>
-        <div id="route-search-root" data-navigation-source hidden></div>
-        <div id="timetable-root"></div>
-      </section>
-      <section class="view" data-view="operations" aria-label="運行情報" hidden>
-        <div id="operations-root" aria-live="polite"></div>
-      </section>
-      <section class="view" data-view="settings" aria-label="設定" hidden>
-        <section class="settings-section"><h2>位置情報</h2><div class="settings-card"><div class="setting-row"><span><b>現在地の自動取得</b><small id="location-status">確認中</small></span><button class="location-pill" id="location-indicator" type="button" aria-label="現在地を再確認">現在地を再確認</button></div><p class="source-caption">表示中は自動で取得し、バックグラウンドでは停止します。端末の位置情報の許可はブラウザー設定で変更できます。</p></div></section><div id="settings-content"></div>
-      </section>
-    </main>
+      <aside id="app-update" class="app-update" role="status" hidden>
+        <span>最新版を利用できます</span
+        ><button class="secondary-action" data-apply-update>
+          更新して再開
+        </button>
+      </aside>
+      <main>
+        <section class="view" data-view="now" aria-label="今">
+          <div id="now-search"></div>
+          <div id="now-hero" aria-live="polite"></div>
+          <div id="ride-actions"></div>
+          <div id="vehicle-panel"></div>
+          <div id="ride-stops-source" data-navigation-source hidden></div>
+          <div id="network-panel" data-navigation-source hidden></div>
+          <div
+            id="arrivals-root"
+            data-navigation-source
+            hidden
+            aria-live="polite"
+          ></div>
+          <div id="nearby-panel"></div>
+        </section>
+        <section
+          class="view"
+          data-view="search"
+          data-screen="search"
+          aria-label="検索"
+          hidden
+        >
+          <div id="route-search-root"></div>
+        </section>
+        <section class="view" data-view="timetable" aria-label="時刻表" hidden>
+          <div id="timetable-root"></div>
+        </section>
+        <section
+          class="view"
+          data-view="operations"
+          aria-label="運行情報"
+          hidden
+        >
+          <div id="operations-root" aria-live="polite"></div>
+        </section>
+        <section class="view" data-view="settings" aria-label="その他" hidden>
+          <section id="location-settings" class="settings-section" hidden>
+            <h2>位置情報</h2>
+            <div class="settings-card">
+              <div class="setting-row">
+                <span
+                  ><b>現在地の自動取得</b
+                  ><small id="location-status">確認中</small></span
+                ><button
+                  class="location-pill"
+                  id="location-indicator"
+                  type="button"
+                  aria-label="現在地を再確認"
+                >
+                  現在地を再確認
+                </button>
+              </div>
+              <p class="source-caption">
+                表示中は自動で取得し、バックグラウンドでは停止します。端末の位置情報の許可はブラウザー設定で変更できます。
+              </p>
+            </div>
+          </section>
+          <div id="settings-content"></div>
+        </section>
+      </main>
 
-    <nav class="tabbar" aria-label="メインナビゲーション"></nav>
-  </div>
-
-  <dialog class="sheet" id="foldback-sheet">
-    <button class="sheet-drag-handle" type="button" aria-label="下へドラッグして閉じる"><span></span></button>
-    <div class="sheet-header">
-      <h2>折り返し乗車</h2>
-      <button class="sheet-close" type="button" data-sheet-close aria-label="閉じる">×</button>
+      <nav class="tabbar" aria-label="メインナビゲーション"></nav>
     </div>
-    <div class="sheet-body" id="foldback-body"></div>
-  </dialog>
-  <dialog class="sheet" id="context-sheet" aria-labelledby="context-sheet-title">
-    <button class="sheet-drag-handle" type="button" aria-label="下へドラッグして閉じる"><span></span></button>
-    <div class="sheet-header"><h2 id="context-sheet-title">詳細</h2><button class="sheet-close" type="button" data-context-close aria-label="閉じる">×</button></div>
-    <div class="sheet-body" id="context-sheet-body"></div>
-  </dialog>
-  <div id="toast" role="status" aria-live="polite"></div>
-  <script id="app-entry" type="application/mymap-module" src="js/vnext.js"></script>
-  <script defer src="js/bootstrap.js"></script>
-</body>
+
+    <dialog class="sheet" id="foldback-sheet">
+      <button
+        class="sheet-drag-handle"
+        type="button"
+        aria-label="下へドラッグして閉じる"
+      >
+        <span></span>
+      </button>
+      <div class="sheet-header">
+        <h2>折り返し乗車</h2>
+        <button
+          class="sheet-close"
+          type="button"
+          data-sheet-close
+          aria-label="閉じる"
+        >
+          ×
+        </button>
+      </div>
+      <div class="sheet-body" id="foldback-body"></div>
+    </dialog>
+    <dialog
+      class="sheet"
+      id="context-sheet"
+      aria-labelledby="context-sheet-title"
+    >
+      <button
+        class="sheet-drag-handle"
+        type="button"
+        aria-label="下へドラッグして閉じる"
+      >
+        <span></span>
+      </button>
+      <div class="sheet-header">
+        <h2 id="context-sheet-title">詳細</h2>
+        <button
+          class="sheet-close"
+          type="button"
+          data-context-close
+          aria-label="閉じる"
+        >
+          ×
+        </button>
+      </div>
+      <div class="sheet-body" id="context-sheet-body"></div>
+    </dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script
+      id="app-entry"
+      type="application/mymap-module"
+      src="js/vnext.js"
+    ></script>
+    <script defer src="js/bootstrap.js"></script>
+  </body>
 </html>

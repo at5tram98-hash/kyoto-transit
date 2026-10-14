@@ -28,7 +28,7 @@
 .arrival-stop small {
   display: block;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
   font-weight: 650;
   margin-bottom: 4px;
 }
@@ -48,7 +48,7 @@
 .arrival-columns {
   padding: 4px 12px 8px;
   color: var(--muted);
-  font-size: 0.625rem;
+  font-size: var(--type-caption);
   font-weight: 650;
 }
 .arrival-columns span:last-child {
@@ -61,29 +61,38 @@
   min-height: 60px;
 }
 .arrival-line {
+  position: relative;
   padding: 16px 12px;
   border-bottom: 1px solid var(--separator);
 }
-.arrival-line.group-start:not(:first-child) {
-  border-top: 10px solid var(--bg);
+.arrival-toggle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  min-height: 44px;
 }
-.arrival-group-caption {
-  grid-column: 1/-1;
-  grid-row: auto;
-  margin: 0;
-  padding: 0 0 8px;
-  font-size: 0.75rem;
-  font-weight: 650;
+.arrival-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -3px;
+}
+.arrival-line:not(.expanded) .arrival-approach,
+.arrival-line:not(.expanded) .arrival-second {
+  display: none;
+}
+.arrival-second {
+  grid-column: 2/-1;
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
   color: var(--muted);
+  font-size: var(--type-caption);
 }
-.arrival-line.group-start .arrival-service,
-.arrival-line.group-start .arrival-dest,
-.arrival-line.group-start .arrival-minutes {
-  grid-row: 2;
-}
-.arrival-line.group-start .arrival-details,
-.arrival-line.group-start .arrival-delay {
-  grid-row: 3;
+.arrival-line.expanded {
+  background: var(--surface-secondary);
 }
 .arrival-line.imminent .arrival-minutes {
   color: var(--blue);
@@ -124,12 +133,12 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   font-size: 1rem;
   font-weight: 750;
   letter-spacing: -0.02em;
-  color: #176b39;
-  background: color-mix(in srgb, var(--green) 12%, var(--panel));
+  color: var(--color-citybus);
+  background: color-mix(in srgb, var(--color-citybus) 12%, var(--panel));
 }
 .arrival-rail-badge {
-  color: #8533a8;
-  background: color-mix(in srgb, var(--purple) 12%, var(--panel));
+  color: var(--color-kintetsu);
+  background: color-mix(in srgb, var(--color-kintetsu) 12%, var(--panel));
   font-size: 0.75rem;
   white-space: normal;
 }
@@ -156,13 +165,13 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   display: block;
 }
 .arrival-minutes b {
-  font-size: 1.4375rem;
+  font-size: var(--type-arrival);
   font-weight: 750;
   letter-spacing: -0.04em;
 }
 .arrival-minutes small {
   margin-left: 3px;
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
   font-weight: 600;
 }
 .arrival-minutes > span + span {
@@ -177,9 +186,12 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   font-size: 0.75rem;
   line-height: 1.4;
 }
+.arrival-line.delayed .arrival-delay {
+  color: var(--color-danger);
+}
 .arrival-delay {
   grid-column: 3;
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
   text-align: right;
   color: var(--muted);
   line-height: 1.4;
@@ -190,7 +202,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   flex-wrap: wrap;
   gap: 5px 12px;
   color: var(--muted);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
   line-height: 1.5;
 }
 .arrival-service {
@@ -212,7 +224,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   flex-wrap: wrap;
   gap: 5px 12px;
   color: var(--muted);
-  font-size: 0.625rem;
+  font-size: var(--type-caption);
   line-height: 1.5;
 }
 .arrival-source-label {
@@ -246,7 +258,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   justify-content: space-between;
   gap: 8px;
   color: var(--muted);
-  font-size: 0.625rem;
+  font-size: var(--type-caption);
   margin-bottom: 8px;
 }
 .arrival-track {
@@ -297,7 +309,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background: #176b39;
+  background: var(--color-citybus);
   color: white;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
 }
@@ -375,6 +387,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   line-height: 1.5;
 }
 .arrival-compact {
+  container-type: inline-size;
   display: grid;
   gap: 8px;
 }
@@ -405,18 +418,19 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
 }
 .arrival-compact small {
   display: block;
-  font-size: 0.625rem;
+  font-size: var(--type-caption);
   color: var(--muted);
   margin-top: 6px;
 }
 .arrival-compact strong {
-  font-size: 0.875rem;
+  font-size: 1.125rem;
   white-space: normal;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 .stop-route-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   overflow-x: auto;
   padding: 6px 0;
@@ -434,9 +448,9 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   padding: 8px 12px;
 }
 .stop-route-chips button.active {
-  background: var(--blue-soft);
-  color: var(--blue);
-  border-color: var(--blue);
+  background: color-mix(in srgb, var(--transport-color) 12%, var(--panel));
+  color: var(--transport-color);
+  border-color: var(--transport-color);
 }
 .bus-stop-preview {
   margin: 18px 0;
@@ -448,7 +462,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
 .bus-stop-preview .plain-action {
   min-height: 44px;
 }
-@media (max-width: 430px) {
+@container (max-width: 18rem) {
   .arrival-compact > div {
     grid-template-columns: 3rem minmax(0, 1fr);
   }
@@ -479,7 +493,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--separator);
-  font-size: 0.6875rem;
+  font-size: var(--type-caption);
 }
 .debug-live > div:last-child {
   border-bottom: 0;
@@ -544,13 +558,13 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
 }
 @media (prefers-color-scheme: dark) {
   .arrival-route-badge {
-    color: #77e69e;
+    color: var(--color-citybus);
   }
   .arrival-rail-badge {
-    color: #d698f0;
+    color: var(--color-kintetsu);
   }
   .arrival-track-vehicle {
-    background: #256c40;
+    background: var(--color-citybus);
   }
 }
 @media (prefers-reduced-motion: reduce) {

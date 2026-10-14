@@ -96,129 +96,148 @@ export function setupContextSheet(onChange, onFoldback) {
   setupSheetGestures();
 }
 export function setupSheetGestures() {
-  document.querySelectorAll(".sheet").forEach((sheet) => {
+  document.querySelectorAll(".sheet,.place-sheet").forEach((sheet) => {
     if (sheet.dataset.gestureReady) return;
     sheet.dataset.gestureReady = "true";
     const handle = sheet.querySelector(".sheet-drag-handle"),
       body = sheet.querySelector(".sheet-body");
-    let drag = null;
-    function start(e, fromBody = false) {
-      if (e.pointerType === "touch" && fromBody) return;
+    if (!handle || !body) return;
+    let drag = null,
+      suppressClick = false;
+    const heights = () => {
+      const height = globalThis.visualViewport?.height ?? innerHeight;
+      return {
+        medium: Math.min(height * 0.58, 560),
+        large: Math.min(height * 0.9, 900),
+      };
+    };
+    function start(point, fromBody) {
       if (
-        e.button > 0 ||
-        (fromBody &&
-          (body.scrollTop > 0 || e.target.closest("button,input,select,a")))
+        fromBody &&
+        (body.scrollTop > 0 || point.target?.closest("button,input,select,a"))
       )
         return;
-      sheet.getAnimations().forEach((a) => a.cancel());
       drag = {
-        y: e.clientY,
-        x: e.clientX,
-        lastY: e.clientY,
+        x: point.clientX,
+        y: point.clientY,
+        lastY: point.clientY,
         lastAt: performance.now(),
         dy: 0,
         velocity: 0,
         fromBody,
         started: !fromBody,
+        height: sheet.getBoundingClientRect().height,
       };
-      if (!fromBody) e.currentTarget.setPointerCapture(e.pointerId);
     }
-    function move(e) {
+    function move(point, event) {
       if (!drag) return;
-      const dy = e.clientY - drag.y,
-        dx = e.clientX - drag.x;
+      const dy = point.clientY - drag.y,
+        dx = point.clientX - drag.x;
       if (!drag.started) {
-        if (dy < 0 || Math.abs(dx) > Math.abs(dy)) {
+        if (dy < 0 || Math.abs(dx) > Math.abs(dy) || body.scrollTop > 0) {
           drag = null;
           return;
         }
         if (dy < 8) return;
         drag.started = true;
-        e.currentTarget.setPointerCapture(e.pointerId);
       }
+      if (event?.cancelable) event.preventDefault();
       const now = performance.now();
-      drag.velocity = (e.clientY - drag.lastY) / Math.max(1, now - drag.lastAt);
-      drag.lastY = e.clientY;
+      drag.velocity =
+        (point.clientY - drag.lastY) / Math.max(1, now - drag.lastAt);
+      drag.lastY = point.clientY;
       drag.lastAt = now;
-      drag.dy = Math.max(0, dy);
-      sheet.style.transform = `translateY(${drag.dy}px)`;
+      drag.dy = dy;
+      let translate = Math.max(0, dy);
+      if (sheet.dataset.detent) {
+        const h = heights(),
+          size = Math.min(h.large, Math.max(h.medium, drag.height - dy));
+        sheet.style.height = `${size}px`;
+        translate = Math.max(0, dy - Math.max(0, drag.height - h.medium));
+      }
+      sheet.style.transform = `translateY(${translate}px)`;
       sheet.style.setProperty(
         "--sheet-backdrop",
-        String(0.32 * (1 - Math.min(1, drag.dy / sheet.offsetHeight))),
+        String(0.32 * (1 - Math.min(1, translate / sheet.offsetHeight))),
       );
     }
     function finish(cancel = false) {
       if (!drag) return;
       const value = drag;
       drag = null;
-      if (value.started)
-        settleSheet(sheet, value.dy, {
-          dismiss:
-            !cancel &&
-            (value.dy > sheet.offsetHeight * 0.3 ||
-              (value.dy > 30 && value.velocity > 0.5)),
+      suppressClick = Math.abs(value.dy) > 8;
+      if (!value.started) return;
+      const translation = Number(
+        sheet.style.transform.match(/translateY\(([-.0-9]+)px\)/)?.[1] ?? 0,
+      );
+      let detent = sheet.dataset.detent;
+      const dismiss =
+        !cancel &&
+        (translation > sheet.offsetHeight * 0.3 ||
+          (translation > 30 && value.velocity > 0.5));
+      if (detent && !cancel && !dismiss) {
+        const mid = (heights().large + heights().medium) / 2;
+        detent =
+          value.velocity < -0.45 || value.dy < -55
+            ? "large"
+            : value.velocity > 0.45 || value.dy > 55
+              ? "medium"
+              : sheet.offsetHeight > mid
+                ? "large"
+                : "medium";
+      }
+      void settleSheet(sheet, translation, { dismiss, detent });
+    }
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button > 0) return;
+      start(e, false);
+      handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener("pointermove", (e) => move(e, e));
+    handle.addEventListener("pointerup", () => finish());
+    handle.addEventListener("pointercancel", () => finish(true));
+    handle.addEventListener("click", () => {
+      if (suppressClick) {
+        suppressClick = false;
+        return;
+      }
+      if (sheet.dataset.detent)
+        void settleSheet(sheet, 0, {
+          detent: sheet.dataset.detent === "medium" ? "large" : "medium",
         });
-    }
-    for (const target of [handle, body].filter(Boolean)) {
-      target.addEventListener("pointerdown", (e) => start(e, target === body));
-      target.addEventListener("pointermove", move);
-      target.addEventListener("pointerup", () => finish());
-      target.addEventListener("pointercancel", () => finish(true));
-    }
-    if (body) {
-      body.addEventListener(
-        "touchstart",
-        (e) => {
-          if (body.scrollTop > 0 || e.target.closest("button,input,select,a"))
-            return;
-          const t = e.touches[0];
-          drag = {
-            y: t.clientY,
-            x: t.clientX,
-            lastY: t.clientY,
-            lastAt: performance.now(),
-            dy: 0,
-            velocity: 0,
-            started: false,
-            fromBody: true,
-          };
-        },
-        { passive: true },
-      );
-      body.addEventListener(
-        "touchmove",
-        (e) => {
-          if (!drag) return;
-          const t = e.touches[0],
-            dy = t.clientY - drag.y,
-            dx = t.clientX - drag.x;
-          if (dy < 0 || Math.abs(dx) > Math.abs(dy) || body.scrollTop > 0) {
-            drag = null;
-            return;
-          }
-          if (dy < 8 && !drag.started) return;
-          if (e.cancelable) e.preventDefault();
-          drag.started = true;
-          const now = performance.now();
-          drag.velocity =
-            (t.clientY - drag.lastY) / Math.max(1, now - drag.lastAt);
-          drag.lastY = t.clientY;
-          drag.lastAt = now;
-          drag.dy = dy;
-          sheet.style.transform = `translateY(${dy}px)`;
-          sheet.style.setProperty(
-            "--sheet-backdrop",
-            String(0.32 * (1 - Math.min(1, dy / sheet.offsetHeight))),
-          );
-        },
-        { passive: false },
-      );
-      body.addEventListener("touchend", () => finish());
-      body.addEventListener("touchcancel", () => finish(true));
-    }
+    });
+    body.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch" && e.button === 0) start(e, true);
+    });
+    body.addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "touch") move(e, e);
+    });
+    body.addEventListener("pointerup", () => finish());
+    body.addEventListener("pointercancel", () => finish(true));
+    body.addEventListener(
+      "touchstart",
+      (e) =>
+        start(
+          {
+            ...e.touches[0],
+            clientX: e.touches[0].clientX,
+            clientY: e.touches[0].clientY,
+            target: e.target,
+          },
+          true,
+        ),
+      { passive: true },
+    );
+    body.addEventListener("touchmove", (e) => move(e.touches[0], e), {
+      passive: false,
+    });
+    body.addEventListener("touchend", () => finish());
+    body.addEventListener("touchcancel", () => finish(true));
     sheet.addEventListener("close", () => {
+      sheet.getAnimations().forEach((animation) => animation.cancel());
       drag = null;
       sheet.style.transform = "";
+      sheet.style.height = "";
       sheet.style.removeProperty("--sheet-backdrop");
     });
   });

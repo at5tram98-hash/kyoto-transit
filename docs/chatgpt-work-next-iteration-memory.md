@@ -4,10 +4,11 @@
 
 ## 基準と変更禁止
 
-- ユーザー提供資料は `docs/reference/mymap-34-screen-brief-2026-10-14.txt`。資料中の100%という評価、CI成功、競合操作の記述は提供された情報であり、現在のMyMapや競合実機の実測結果として転用しない。
+- 最新基準は `docs/reference/mymap-v3-redesign-2026-10-14.txt`。5タブ・情報設計変更・短い別便Sheetの指定を以前の4タブ・大幅変更禁止・便選択Pushより優先する。最新改修の証拠は `docs/v3-redesign-2026-10-14.md`。
+- 以前のユーザー提供資料は `docs/reference/mymap-34-screen-brief-2026-10-14.txt`。資料中の100%という評価、CI成功、競合操作の記述は提供された情報であり、現在のMyMapや競合実機の実測結果として転用しない。
 - 添付資料全体の対応表は `docs/brief-acceptance-2026-10-14.md`。最新の改修と検証は `docs/journey-upgrade-2026-10-14.md`。既存34画面の比較は `docs/ui-ux-screen-comparison-2026-10-13.md`、公式参照元は `docs/transit-comparison-2026-10-13.md`。
 - PDF `MyMap_UI_Design_Spec_2026_Updated.pdf`、WORK HANDOFF v1.1、`docs/design-spec-v1.1-2026-10-12.md`、`docs/navigation-architecture-2026-10-13.md`、Visual Difference Matrixも基準にする。
-- iOSの既存デザインを大きく変更しない。地図をホームの主役にしない。機能を削除しない。CSS末尾で大量上書きしない。巨大なdocument click router、別のダミー探索・Navigationを作らない。許可済みの作業でプラグイン確認を繰り返さない。
+- iOSの階層と既存交通機能を維持する。地図をホームの主役にしない。機能を削除しない。CSS末尾で大量上書きしない。巨大なdocument click router、別のダミー探索・Navigationを作らない。許可済みの作業でプラグイン確認を繰り返さない。
 - 烏丸線・近鉄・直通・K/B境界、北3・全既存バス／停留所、次駅Hero、降車、前方／反対方向列車、Realtime、遅延、全駅時刻表、折返し、運行・接近、運賃／定期、地図、GPS、通知、Dark Mode、Dynamic Type、Reduce Motion、設定を維持する。
 
 ## 競合について確認できた差
@@ -19,11 +20,11 @@ Google MapsのiPhone向け公式ヘルプは、出発駅付近の後発時刻、
 - https://transit.yahoo.co.jp/promo/app/
 - https://transit.yahoo.co.jp/
 
-MyMapは交通中心の4タブと独立Stackを持つ。Googleの地図中心ホームをコピーする必要はない。便選択・接続再計算・状態保持・情報の優先順位を取り入れる。
+MyMapは交通中心の5タブ（今・検索・時刻表・運行・その他）と独立Stackを持つ。Googleの地図中心ホームをコピーする必要はない。便選択・接続再計算・状態保持・情報の優先順位を取り入れる。
 
 ## 2026-10-14に実装済みのもの
 
-1. 経路詳細の各「発車時刻」→便選択Push→公式便のList Row→後続旅程のプレビュー→確定→同じ経路詳細。発車表示だけを差し替えず、後続乗車・徒歩・滞在・buffer・到着・全区間運賃・定期・案内対象tripIdを既存router/faresで再計算する。
+1. 経路詳細の各「発車時刻」→短い別便Sheet→選択→後続旅程を再計算・確定→同じ経路詳細。その他の便から既存の全便比較Push・プレビュー・取消も利用できる。発車表示だけを差し替えず、後続乗車・徒歩・滞在・buffer・到着・全区間運賃・定期・案内対象tripIdを既存router/faresで再計算する。
 2. 連続するJourney Rail。左が時刻、中央が線／ノード、右が駅・停留所・路線・行先・取得済み番線。到着、徒歩、乗換待ち、次の出発が追える。途中停車の開閉、共有、保存、案内開始を保持する。
 3. 「1本前」と「次の出発」の全経路検索。各Legの便選択とは別操作。出発条件と後続接続を探索し、一律の時刻引算ではない。
 4. 接近情報の第一階層は系統・行先・到着／分／停留所前、第二はのりば・混雑・遅れ、第三は実測／予測／予定と各行の更新時刻。系統・方面別の全行、位置図、1停留所前の点滅とReduce Motionを維持する。
@@ -66,10 +67,22 @@ Node22環境で `npm run check`、`npm test`、`npm run build`、`npm run test:b
 390×844 Light/Dark、文字100/150/200%、Reduce Motion、GPS ON/OFF、805px、320px、44px以上のtarget、独立action間隔8px以上、CTA hit、App/Browser/Swipe Back、scroll/Tab/reload、実タイルを確認する。競合とMyMapのSource、情報量、操作を画面別に比較し、Before/After・座標JSON・選択した実tripId・通ったテスト・公開build・残存課題を報告する。検証結果は今回の改修レポートを参照し、再作業時に取り直す。
 
 
-## 今回の最終検証・公開版
+## 以前の公開版の検証（v3改修前）
 
 main実装 `5b1b57f3`、公開build `af4813c8cc67`。Pages CI 38513683449 SUCCESS、Worker CI 38500581938 SUCCESS。333モデル、WebKit/Chromium各458、PWA各9、実地理210。ローカル拡張34画面272状態はtarget最小44px、独立action最小8px、clipping/collision0。
 
 本番をbuild固定で実接続検証し、2026-10-14T05:13:18.954Zに必須9項目passed。京都バスODPTだけoptional未設定。さらに実公開WebでAPI/時計/GPS/tileのfixtureなしに当日ダイヤ検索・14:19→14:27別便・確定・全旅程準備・Back/取消を操作し例外0。現在の成功を将来の常時安定と取り違えない。
 
 CIで確認したフォント差のチェックmarkは固定SVGで解消済み。status-only更新はcardを保持する。実際に内容が変わってもpointer/click delivery/keyboard focus中は描画を待ち、screen hide/disposeでtimer/listenerを清掃する。新しい回帰試験でこの操作競合を維持すること。
+
+## v3所有・状態・操作の追加ルール
+
+- Search Tab Rootの単一フォームを固定所有する。NowやTimetableへDOMを移動しない。日時／条件は `form=planner-form` の外部コントロール。最近・保存・近く・全停留所・既知の施設はFullscreen候補のControllerが所有する。一般住所／POI検索を実装済みと誤認しない。
+- `idle-experience.js` のMutationObserverによる後付けは削除済み。交通アイコンと近隣次便は `vnext-view.js` が直接表示し、`updateNearbyPanel` のkeyでボタンをGPS更新から保護する。
+- `route-trip-screen.js` は短いSheetと全便比較を一つの選択・計算pipelineで扱う。`planner-worker.js` は選択便と後続をfreshなexact observationで再探索する。`journey-session.selectedRideShift` は便・運行日・serviceId一致かつ90秒以内の実測だけを乗車案内に引き継ぎ、公式時刻へ二重加算しない。
+- `saved-places.js` は登録地点IDのみ最大50件。既存の保存経路Storeと別用途。GPS履歴や同じ検索設定の複製Storeを作らない。
+- `arrival-schedule.js` は同日・系統・方面／行先一致の取得済み公式便だけを予定fallbackに使う。未取得・曖昧な方面は時刻を生成しない。市バス／京都バスの同名停留所を同一Realtimeとして扱わない。
+- 1本前後による同深さの結果更新はHistory replace、深いsingletonへの更新は該当entryまで巻き戻してreplace。Browser/App/Swipe Backの親を一致させる。Tabの検索入力・並び順・map・scroll・focusを保持する。Nowのride/journey identityが変わった時だけ主要情報へ戻す。
+- Sheetはmedium/large detent・1:1ドラッグ・velocity・scrollTop競合を共通Controllerに持つ。close時に残存Animationをcancel。visualViewportのresize/scrollでキーボード上端・高さを更新。
+- Transport／Statusの色は `vnext.css` のLight/Dark semantic tokenだけを使う。実測の緑と遅延の赤は独立。運行未取得はUnknown。ホーム地図を主役にしない。
+- 最新のテスト数・build・公開CIはv3レポートを参照。以前の旧版の成功数を新しい版の証拠として転用しない。実機SafariのOSジェスチャー・VoiceOver・Hapticは別途実測が必要。

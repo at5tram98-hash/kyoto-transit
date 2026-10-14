@@ -95,9 +95,10 @@ export function initializeNavigation({
   const frames = new Map(),
     titles = {
       now: "今",
+      search: "検索",
       timetable: "時刻表",
-      operations: "運行情報",
-      settings: "設定",
+      operations: "運行",
+      settings: "その他",
     };
   let busy = false,
     queued = null,
@@ -109,7 +110,7 @@ export function initializeNavigation({
     sheetBack = false,
     pending = null,
     skipPop = false,
-    rootRestore = null,
+    historyRestore = null,
     tabRestore = null;
   history.scrollRestoration = "manual";
   shell.classList.add("navigation-app");
@@ -145,19 +146,61 @@ export function initializeNavigation({
           (typeof f.value !== "string" || f.value.length <= 2048),
       )
       .slice(0, 40);
+    const focused = document.activeElement;
+    let focusSelector = null;
+    if (focused instanceof HTMLElement && element.contains(focused)) {
+      if (focused.id) focusSelector = `#${CSS.escape(focused.id)}`;
+      else if (focused.getAttribute("name"))
+        focusSelector = `[name="${CSS.escape(focused.getAttribute("name"))}"]`;
+      else {
+        const attributes = [
+          "data-change-leg",
+          "data-change-route",
+          "data-open-route",
+          "data-station-detail",
+          "data-navigation-screen",
+          "data-result-order",
+          "data-search-date",
+          "data-search-filter",
+          "data-timetable-entry",
+          "data-setting-page",
+        ].filter((key) => focused.hasAttribute(key));
+        if (attributes.length)
+          focusSelector =
+            focused.tagName.toLowerCase() +
+            (focused.classList[0]
+              ? `.${CSS.escape(focused.classList[0])}`
+              : "") +
+            attributes
+              .map(
+                (key) => `[${key}="${CSS.escape(focused.getAttribute(key))}"]`,
+              )
+              .join("");
+      }
+    }
     ui[route.key] = {
+      focusSelector,
+      contextIdentity: element.dataset.contextIdentity ?? null,
       scroll: element.scrollTop,
       fields,
       focus: document.activeElement,
     };
-    frames.get(route.key)?.config?.capture?.({ element, route });
+    getFrame(route)?.config?.capture?.({ element, route });
   }
   function save() {
     try {
       const serial = Object.fromEntries(
         Object.entries(ui)
           .slice(-40)
-          .map(([k, v]) => [k, { scroll: v.scroll, fields: v.fields }]),
+          .map(([k, v]) => [
+            k,
+            {
+              scroll: v.scroll,
+              fields: v.fields,
+              focusSelector: v.focusSelector,
+              contextIdentity: v.contextIdentity,
+            },
+          ]),
       );
       const value = JSON.stringify({
         state: {
@@ -173,6 +216,15 @@ export function initializeNavigation({
   function restoreUI(element, key, focus = false) {
     const data = ui[key];
     if (!data) return;
+    if (
+      element.dataset.contextIdentity &&
+      data.contextIdentity !== element.dataset.contextIdentity
+    ) {
+      data.scroll = 0;
+      data.focus = null;
+      data.focusSelector = null;
+      data.contextIdentity = element.dataset.contextIdentity;
+    }
     for (const f of (Array.isArray(data.fields) ? data.fields : []).slice(
       0,
       40,
@@ -203,7 +255,18 @@ export function initializeNavigation({
         !data.focus.closest("[hidden]")
       )
         data.focus.focus({ preventScroll: true });
-      else element.focus({ preventScroll: true });
+      else {
+        let target = null;
+        if (
+          typeof data.focusSelector === "string" &&
+          data.focusSelector.length < 300
+        ) {
+          try {
+            target = element.querySelector(data.focusSelector);
+          } catch {}
+        }
+        (target ?? element).focus({ preventScroll: true });
+      }
     }
   }
   function title(route, tab = state.tab) {
@@ -247,7 +310,12 @@ export function initializeNavigation({
       );
   }
   function getFrame(route, tab = state.tab) {
-    if (route.type === "root") return { element: roots.get(tab), route };
+    if (route.type === "root")
+      return {
+        element: roots.get(tab),
+        route,
+        config: registry.get(`root:${tab}`),
+      };
     let frame = frames.get(route.key);
     if (frame) {
       frames.delete(route.key);
@@ -307,6 +375,16 @@ export function initializeNavigation({
       b.classList.toggle("active", selected);
       b.setAttribute("aria-current", selected ? "page" : "false");
     });
+    const toolbar = document.querySelector("#screen-toolbar");
+    if (toolbar) {
+      const config = registry.get(
+        route.type === "root" ? `root:${state.tab}` : route.type,
+      );
+      toolbar.innerHTML =
+        typeof config?.toolbar === "function"
+          ? config.toolbar(route)
+          : (config?.toolbar ?? "");
+    }
     edge.hidden = !stack.length;
   }
   function evict() {
@@ -335,9 +413,10 @@ export function initializeNavigation({
         ? roots.get(previous.tab)
         : frames.get(previous?.key)?.element;
     if (previous)
-      frames
-        .get(previous.key)
-        ?.config.onHide?.({ element: old, route: previous });
+      getFrame(previous, previous.tab)?.config?.onHide?.({
+        element: old,
+        route: previous,
+      });
     showOnly(frame.element);
     chrome(route);
     shell.style.setProperty(
@@ -391,6 +470,12 @@ export function initializeNavigation({
       updated = navigationTransition(state, action);
     if (JSON.stringify(updated) === JSON.stringify(state)) return false;
     const previousDepth = state.stacks[previous.tab].length;
+    const singletonIndex =
+      action.type === "push" && action.singleton
+        ? state.stacks[previous.tab].findIndex(
+            (route) => route.type === action.screen,
+          )
+        : -1;
     state = updated;
     sequenceCeiling = Math.max(sequenceCeiling, state.sequence);
     busy = true;
@@ -403,6 +488,17 @@ export function initializeNavigation({
         return true;
       }
       historySpine();
+    } else if (singletonIndex >= 0) {
+      const removed = previousDepth - singletonIndex - 1;
+      if (removed > 0) {
+        historyRestore = { state, previous, kind: "state" };
+        shell.dataset.navigationBusy = "true";
+        save();
+        history.go(-removed);
+        return true;
+      }
+      historyWrite("replace");
+      kind = "state";
     } else historyWrite(historyKind);
     render(previous, { kind }).catch((error) => {
       busy = false;
@@ -487,7 +583,7 @@ export function initializeNavigation({
         shell.dataset.navigationBusy = "true";
         onTabChange?.(tab);
         if (depth) {
-          rootRestore = { state, previous };
+          historyRestore = { state, previous };
           save();
           history.go(-depth);
         } else {
@@ -512,9 +608,9 @@ export function initializeNavigation({
           render(route, { kind: "pop" });
           return;
         }
-        const f = frames.get(route.key);
+        const f = getFrame(route);
         if (f && !f.element.hidden)
-          f.config.update?.({ element: f.element, route });
+          f.config?.update?.({ element: f.element, route });
       });
     },
     remember(key, value) {
@@ -562,6 +658,13 @@ export function initializeNavigation({
   historySpine();
   render(null, { focus: false });
   back.addEventListener("click", () => api.pop());
+  document
+    .querySelector("#screen-toolbar")
+    ?.addEventListener("click", (event) => {
+      const route = currentRoute(state),
+        frame = getFrame(route);
+      frame?.config?.onToolbar?.({ event, route, element: frame.element });
+    });
   window.addEventListener("popstate", async (event) => {
     if (drag) {
       clean(drag.current);
@@ -570,9 +673,9 @@ export function initializeNavigation({
       viewport.classList.remove("navigation-interacting");
     }
     capture();
-    const rootChange = rootRestore,
+    const rootChange = historyRestore,
       tabChange = tabRestore;
-    rootRestore = null;
+    historyRestore = null;
     tabRestore = null;
     const previous = (rootChange ?? tabChange)?.previous ?? {
         ...currentRoute(state),
@@ -600,7 +703,9 @@ export function initializeNavigation({
     if (tabChange) historySpine();
     if (previous.tab !== state.tab) onTabChange?.(state.tab);
     busy = true;
-    const kind = skipPop ? "none" : previous.tab === state.tab ? "pop" : "tab";
+    const kind = skipPop
+      ? "none"
+      : (rootChange?.kind ?? (previous.tab === state.tab ? "pop" : "tab"));
     skipPop = false;
     await render(previous, { kind, focus: !sheet });
     const action = pending;
@@ -657,9 +762,21 @@ export function initializeNavigation({
     const vv = visualViewport,
       keyboard = vv && vv.scale <= 1 && innerHeight - vv.height > 120;
     shell.dataset.keyboard = Boolean(keyboard);
-    shell.style.setProperty("--app-height", `${vv?.height ?? innerHeight}px`);
+    document.documentElement.style.setProperty(
+      "--app-height",
+      `${vv?.height ?? innerHeight}px`,
+    );
+    document.documentElement.style.setProperty(
+      "--keyboard-bottom",
+      `${keyboard ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0}px`,
+    );
+    document.documentElement.style.setProperty(
+      "--viewport-top",
+      `${keyboard ? vv.offsetTop : 0}px`,
+    );
   };
   visualViewport?.addEventListener("resize", updateViewport);
+  visualViewport?.addEventListener("scroll", updateViewport);
   updateViewport();
   viewport.addEventListener("pointerdown", (e) => {
     const bounds = viewport.getBoundingClientRect();

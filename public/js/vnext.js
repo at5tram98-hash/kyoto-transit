@@ -1,3 +1,4 @@
+import { readSavedPlaces } from "./saved-places.js";
 import { createNetwork } from "./network.js";
 import { locate } from "./mobility.js";
 import { createLocationSession } from "./location-session.js";
@@ -261,12 +262,13 @@ function savedTransitStopIds() {
   try {
     const supported = new Set(["subway", "kintetsu", "citybus", "kyotobus"]);
     return [
-      ...new Set(
-        readSearchPairs(localStorage).favorites.flatMap((pair) => [
+      ...new Set([
+        ...readSavedPlaces(),
+        ...readSearchPairs(localStorage).favorites.flatMap((pair) => [
           pair.fromId,
           pair.toId,
         ]),
-      ),
+      ]),
     ]
       .filter((id) => supported.has(state.network.stops.get(id)?.type))
       .slice(0, 10);
@@ -279,13 +281,14 @@ async function init() {
     '<div class="tab-selection" aria-hidden="true"></div>' +
     [
       ["now", "今"],
+      ["search", "検索"],
       ["timetable", "時刻表"],
-      ["operations", "運行情報"],
-      ["settings", "設定"],
+      ["operations", "運行"],
+      ["settings", "その他"],
     ]
       .map(
         ([id, label]) =>
-          `<button class="tab-button ${id === "now" ? "active" : ""}" data-tab="${id}"${id === "settings" ? " data-open-settings" : ""} aria-current="${id === "now" ? "page" : "false"}">${icon(id)}<span>${label}</span></button>`,
+          `<button class="tab-button ${id === "now" ? "active" : ""}" data-tab="${id}"${id === "settings" ? " data-open-settings" : ""} aria-current="${id === "now" ? "page" : "false"}">${icon(id === "settings" ? "more" : id)}<span>${label}</span></button>`,
       )
       .join("");
   requestAnimationFrame(moveTabSelection);
@@ -307,15 +310,17 @@ async function init() {
     timetables = mountTimetables({
       network: state.network,
       getState: () => ({ favorites: savedTransitStopIds() }),
+      getNearby: () => nearest().all,
       now: tokyoNow,
       setTab,
       onBoard: boardRide,
       loadSubwayFeed: () => ensureSubwayFeed(),
     });
     routeSearch = mountRouteSearch({
-      onCurrentLocation: () => {
+      onCurrentLocation: ({ silent = false } = {}) => {
         const stop = nearest().all[0]?.stop;
-        if (!stop) toast("現在位置は未取得です。出発地を入力してください");
+        if (!stop && !silent)
+          toast("現在位置は未取得です。出発地を入力してください");
         return stop;
       },
       onArm: (ride, itinerary) => {
@@ -342,9 +347,24 @@ async function init() {
       onItineraryAdvance: advancePlannedJourney,
     });
     operations = mountOperations({
+      getCurrentOperators: () =>
+        [
+          state.ride?.operator === "through"
+            ? "through"
+            : (state.ride?.operatingCompany ?? state.ride?.operator),
+          ...(state.itinerary?.route.legs ?? [])
+            .filter((l) => l.kind === "ride")
+            .map((l) =>
+              l.operator === "through"
+                ? "through"
+                : (l.operatingCompany ?? l.operator),
+            ),
+        ].filter(Boolean),
       getUsedOperators: () =>
         [
-          state.ride?.operator,
+          state.ride?.operator === "through"
+            ? "through"
+            : (state.ride?.operatingCompany ?? state.ride?.operator),
           ...(state.itinerary?.route.legs ?? [])
             .filter((l) => l.kind === "ride")
             .map((l) => l.operator),
@@ -357,7 +377,7 @@ async function init() {
     });
     arrivals = mountArrivals({ network: state.network });
     renderSettings();
-    setupSettings(renderNow);
+    setupSettings(renderNow, (input) => routeSearch.openInput(input));
     registerNowScreens({ arrivals, onFoldback: openFoldback });
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
     routeSearch.restoreShared();
@@ -377,8 +397,8 @@ async function init() {
     document.addEventListener("mymap-navigation-change", () => {
       requestAnimationFrame(moveTabSelection);
       if (
-        state.tab === "now" &&
-        ["root", "arrivals"].includes(navigation.route.type)
+        navigation.route.type === "arrivals" ||
+        (state.tab === "now" && navigation.route.type === "root")
       )
         arrivals.show();
       else arrivals.pause();
@@ -412,8 +432,8 @@ async function init() {
         renderNow();
         autoDetectRide(false, renderNow);
         if (
-          state.tab === "now" &&
-          ["root", "arrivals"].includes(navigation.route.type)
+          navigation.route.type === "arrivals" ||
+          (state.tab === "now" && navigation.route.type === "root")
         )
           arrivals.show();
       },

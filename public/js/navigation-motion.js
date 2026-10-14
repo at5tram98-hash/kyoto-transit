@@ -2,13 +2,15 @@
 export const motionTokens = Object.freeze({
   fast: 160,
   standard: 220,
-  navigation: 340,
+  navigation: 320,
   spring: 260,
   easing: "cubic-bezier(.22,.8,.25,1)",
   springEasing: "cubic-bezier(.2,.85,.2,1.08)",
 });
 export const reducedMotion = () =>
-  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  globalThis.document?.documentElement.dataset.reduceMotion === "true" ||
+  (globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
+    false);
 async function run(element, frames, duration, easing = motionTokens.easing) {
   if (!element || document.hidden) return;
   const animation = element.animate(frames, { duration, easing, fill: "both" });
@@ -24,7 +26,7 @@ export async function transition(outgoing, incoming, kind, width) {
   outgoing.hidden = false;
   outgoing.inert = true;
   incoming.hidden = false;
-  if (kind === "tab" || reducedMotion()) {
+  if (kind === "tab" || kind === "state" || reducedMotion()) {
     incoming.style.zIndex = "3";
     outgoing.style.zIndex = "1";
     await run(
@@ -129,7 +131,25 @@ export function updateMeaning(element, html, kind = "crossfade") {
   }
   stateChange(element, kind);
 }
-export async function settleSheet(sheet, dy, { dismiss = false } = {}) {
+export async function settleSheet(sheet, dy, { dismiss = false, detent } = {}) {
+  if (detent && !dismiss) {
+    const startHeight = sheet.offsetHeight;
+    sheet.dataset.detent = detent;
+    sheet.style.height = "";
+    const endHeight = sheet.offsetHeight;
+    await run(
+      sheet,
+      [
+        { height: `${startHeight}px`, transform: `translateY(${dy}px)` },
+        { height: `${endHeight}px`, transform: "translateY(0)" },
+      ],
+      reducedMotion() ? 90 : motionTokens.spring,
+      motionTokens.springEasing,
+    );
+    sheet.style.transform = "";
+    sheet.style.removeProperty("--sheet-backdrop");
+    return;
+  }
   await run(
     sheet,
     [
@@ -141,7 +161,11 @@ export async function settleSheet(sheet, dy, { dismiss = false } = {}) {
   );
   sheet.style.transform = "";
   sheet.style.removeProperty("--sheet-backdrop");
-  if (dismiss) sheet.close();
+  if (dismiss) {
+    sheet.style.height = "";
+    if (typeof sheet.close === "function") sheet.close();
+    else sheet.dispatchEvent(new CustomEvent("mymap-sheet-dismiss"));
+  }
 }
 
 export function animateState(element, frames, options = {}) {
