@@ -144,3 +144,27 @@ CI `38500581937` はWebKitの検索結果カードtapで停止した。Realtime�
 build `af4813c8cc67`の比較・座標・検索/保存/共有/Shortcut/操作中更新94件、例外0。333モデル成功と基礎回帰450は先の表、最新buildの全回帰/PWAは公開CIで再実行する。
 
 添付資料0章の「この環境で検証可能な範囲」全体を [34画面Acceptance](brief-acceptance-2026-10-14.md) に整理した。資料が禁止した、未取得データの見た目だけの追加・未確認の実機操作の確認済み扱いは行わない。
+
+
+## 最終公開結果
+
+|項目|確定結果|
+|---|---|
+|公開コード|main `5b1b57f3`、build `af4813c8cc67`|
+|Pages CI|[38513683449](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38513683449) SUCCESS。検査・333モデル・build・browser/PWA・実地理・bundle・deploy・production確認すべて成功|
+|WebKit|458 layout checks、13 flow groups、アプリ例外0、PWA9成功|
+|Chromium|458 layout checks、13 flow groups、アプリ例外0、PWA9成功|
+|実地理suite|210 layout checks、実OpenStreetMap PNGと地理Map描画、アプリ例外0|
+|Worker|[38500581938](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38500581938) SUCCESS。quota-safe entrypoint保持。本番healthのKV有効、ODPT未設定を再確認|
+|公開後実接続|2026-10-14T05:13:18.954Z、`EXPECTED_BUILD_VERSION=af4813c8cc67`で成功。Pages/Worker/地下鉄全駅ダイヤ/両方向board/発車/市バス/北3/近鉄実測/地理PNG成功。実測・非stale条件は弱めていない|
+|公開Web実操作|API・clock・GPS・tileのfixtureなし。390×844の実ブラウザーで丸太町→京都の当日ダイヤ、14:19便→14:27便、プレビュー・確定・全旅程準備・Back・取消に成功、例外0|
+
+京都バスODPTは資料記載のoptional_unconfigured。公式時刻表を使用する。ハードウェアiPhoneの遠隔操作や常時API成功、全国/施設/障害回避等の未整備データの完成を主張しない。
+
+公開サイト: https://at5tram98-hash.github.io/kyoto-transit/
+
+最初に検出した200%チェックの [CI Before](screenshots/2026-10-14/ci-before-choice-390-light-2.png) / [最終CI After](screenshots/2026-10-14/ci-after-choice-390-light-2.png)。同じCI環境とfixtureで、SVGの20×20pxを保持し、overflow検査を弱めず通過した。
+
+実際の公開Web画像: [ホーム](screenshots/2026-10-14/01-live-home.png) · [当日結果](screenshots/2026-10-14/02-live-results.png) · [実便一覧](screenshots/2026-10-14/03-live-departures.png) · [変更プレビュー](screenshots/2026-10-14/04-live-preview.png) · [全旅程準備](screenshots/2026-10-14/05-live-itinerary.png)。GPSは許可しない通常browser確認であり、実乗車を主張しない。
+
+最終CIのJSON/PWAレポートは `/workspace/artifacts/mymap-journey-upgrade-2026-10-14/final-ci/`、独立本番確認は `production/production-report.json`、実公開Web操作は `production-browser/report.json`。ローカル拡張34画面272状態と各座標・全比較HTMLも同じartifact親ディレクトリに保持する。

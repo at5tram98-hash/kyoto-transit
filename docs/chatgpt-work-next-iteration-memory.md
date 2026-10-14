@@ -64,3 +64,12 @@ MyMapは交通中心の4タブと独立Stackを持つ。Googleの地図中心ホ
 Node22環境で `npm run check`、`npm test`、`npm run build`、`npm run test:browser`、`npm run test:pwa`。`BROWSER_UI_AUDIT=1 npm run test:browser`は34画面の拡張座標検査。`BROWSER_JOURNEY_ONLY=1`は選便・接続・全旅程・地点接近の新フロー。
 
 390×844 Light/Dark、文字100/150/200%、Reduce Motion、GPS ON/OFF、805px、320px、44px以上のtarget、独立action間隔8px以上、CTA hit、App/Browser/Swipe Back、scroll/Tab/reload、実タイルを確認する。競合とMyMapのSource、情報量、操作を画面別に比較し、Before/After・座標JSON・選択した実tripId・通ったテスト・公開build・残存課題を報告する。検証結果は今回の改修レポートを参照し、再作業時に取り直す。
+
+
+## 今回の最終検証・公開版
+
+main実装 `5b1b57f3`、公開build `af4813c8cc67`。Pages CI 38513683449 SUCCESS、Worker CI 38500581938 SUCCESS。333モデル、WebKit/Chromium各458、PWA各9、実地理210。ローカル拡張34画面272状態はtarget最小44px、独立action最小8px、clipping/collision0。
+
+本番をbuild固定で実接続検証し、2026-10-14T05:13:18.954Zに必須9項目passed。京都バスODPTだけoptional未設定。さらに実公開WebでAPI/時計/GPS/tileのfixtureなしに当日ダイヤ検索・14:19→14:27別便・確定・全旅程準備・Back/取消を操作し例外0。現在の成功を将来の常時安定と取り違えない。
+
+CIで確認したフォント差のチェックmarkは固定SVGで解消済み。status-only更新はcardを保持する。実際に内容が変わってもpointer/click delivery/keyboard focus中は描画を待ち、screen hide/disposeでtimer/listenerを清掃する。新しい回帰試験でこの操作競合を維持すること。

@@ -63,3 +63,12 @@ Google iPhone向け公式ヘルプとYahoo公式紹介を2026-10-14に再取得�
 ## 証拠と公開
 
 [改修・検証・Before/Afterレポート](journey-upgrade-2026-10-14.md)、[次のWorkへのメモリ](chatgpt-work-next-iteration-memory.md)、[Visual Difference Matrix](visual-difference-matrix-2026-10-12.md)を参照。Node/model、WebKit/Chromium、34画面、Navigation/Swipe、PWA、地理タイル、Worker/Pages、本番APIを公開CIと実接続で最終確認し、成功結果をレポートへ記録する。
+
+
+## 完了判定
+
+2026-10-14、公開コード `5b1b57f3` / build `af4813c8cc67` で完了。優先5項目と34画面の改修/保持/条件付き非追加を確認し、資料0章で定義されたクラウドで検証可能な範囲をすべて確認した。
+
+Pages CI 38513683449 SUCCESS。333モデル、WebKit/Chromium各458、PWA各9、実地理210、bundle/Pages公開/本番実運行API確認に成功。公開Webでも実ダイヤの検索→別便→再計算→旅程準備→Back/取消を操作し例外0。比較画像と詳細根拠は改修レポートの最終公開結果に記録した。
+
+条件付き将来データ整備や物理iPhoneの操作を完了扱いにしていない。これは資料0章・11章の条件に従う。次の段階の改善はWorkメモリに残した。
