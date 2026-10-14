@@ -964,51 +964,6 @@ button {
   .map-tile {
     filter: brightness(0.7) saturate(0.65);
   }
-  .journey-display {
-    --journey-accent: var(--color-subway);
-    --route-tint: color-mix(
-      in srgb,
-      var(--journey-accent) 8%,
-      var(--surface-primary)
-    );
-  }
-  .journey-display.rail {
-    --journey-accent: var(--color-kintetsu);
-    --route-tint: color-mix(
-      in srgb,
-      var(--journey-accent) 8%,
-      var(--surface-primary)
-    );
-  }
-  .journey-display.bus {
-    --journey-accent: var(--color-citybus);
-    --route-tint: color-mix(
-      in srgb,
-      var(--journey-accent) 8%,
-      var(--surface-primary)
-    );
-  }
-  .route-token.line-k {
-    background: var(--color-subway);
-  }
-  .route-token.line-b {
-    background: var(--color-kintetsu);
-  }
-  .status-pill.confirmed {
-    color: var(--color-success);
-    background: color-mix(in srgb, var(--color-success) 10%, var(--panel));
-  }
-  .status-pill.stale {
-    color: var(--color-warning);
-    background: color-mix(in srgb, var(--color-warning) 10%, var(--panel));
-  }
-  .personal-destination {
-    background: var(--surface-destination);
-    color: var(--color-destination);
-  }
-  .personal-destination small {
-    color: var(--muted);
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .next-station-hero,

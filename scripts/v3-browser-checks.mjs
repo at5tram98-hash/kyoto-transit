@@ -401,6 +401,20 @@ export async function v3RedesignChecks({
           window.__view.renderNow();
         });
         await record("kyoto-bus");
+        const heroColors = await page
+          .locator(".journey-display")
+          .evaluate((e) => {
+            const css = getComputedStyle(e);
+            return {
+              transport: css.getPropertyValue("--transport-color").trim(),
+              hero: css.getPropertyValue("--journey-accent").trim(),
+            };
+          });
+        assert.equal(
+          heroColors.hero,
+          heroColors.transport,
+          "visible Hero tint inherits the actual operator in both themes",
+        );
         const busColor = await page
           .locator(".journey-display")
           .evaluate((e) =>

@@ -3088,6 +3088,27 @@ try {
                 .evaluate(
                   (el) => el.getBoundingClientRect().bottom < innerHeight - 75,
                 );
+              if (!destinationFit) {
+                await page.screenshot({
+                  path: resolve(
+                    artifacts,
+                    `bus-hero-overflow-${colorScheme}-${textScale}x-${reverse}.png`,
+                  ),
+                  animations: "disabled",
+                });
+                console.log(
+                  "Bus Hero bounds",
+                  await page
+                    .locator(".journey-display")
+                    .evaluate((e) => ({
+                      hero: e.getBoundingClientRect().toJSON(),
+                      children: [...e.children].map((c) => ({
+                        class: c.className,
+                        rect: c.getBoundingClientRect().toJSON(),
+                      })),
+                    })),
+                );
+              }
               assert.ok(
                 destinationFit,
                 `Bus next stop and alighting destination stay together at ${textScale}x`,

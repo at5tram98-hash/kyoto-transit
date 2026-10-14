@@ -419,7 +419,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
       section.className = "bus-mini-map";
       section.innerHTML =
         '<button class="mini-map-open" data-context-action="map" aria-label="地図と現在地を開く"><span class="route-map-host" aria-hidden="true"></span><span>地図・現在地 ›</span></button>';
-      root.querySelector(".personal-destination").before(section);
+      root.querySelector(".personal-destination").after(section);
     }
     renderRouteMap(section.querySelector(".route-map-host"), map, model);
   }
