@@ -31,6 +31,8 @@ import {
   busArrivalText,
   busCongestionText,
   shouldShowKintetsuArrival,
+  normalizedBusSources,
+  busPreviewRows,
 } from "./arrival-stability.js";
 import { updateArrivalRows, updateHTML } from "./view-rendering.js";
 
@@ -67,6 +69,8 @@ const minuteText = (r) =>
     : (r.status ?? "—");
 const sourceLabel = (source) =>
   source === "live" ? "実測" : source === "prediction" ? "予測" : "予定";
+const timestamp = (value) =>
+  typeof value === "number" ? value : Date.parse(value);
 const updateTime = new Intl.DateTimeFormat("ja-JP", {
   timeZone: "Asia/Tokyo",
   hour: "2-digit",
@@ -82,20 +86,29 @@ function arrivalValue(r) {
 }
 function busRow(r) {
   const arrivals = (r.arrivals ?? [r]).slice(0, 2),
-    congestion = busCongestionText(r);
+    primary = arrivals[0],
+    congestion = busCongestionText(r),
+    observed = arrivals.find((a) => Number.isFinite(a.stopsAway)),
+    source = (a) =>
+      `<span class="arrival-source-label">${sourceDot(a.source)}${sourceLabel(a.source)}${Number.isFinite(timestamp(a.asOf)) ? ` ${updateTime.format(timestamp(a.asOf))}更新` : ""}</span>`;
   return {
     groupLabel: `${r.route}系統`,
-    imminent: arrivals.some(
-      (a) =>
-        a.source === "live" && Number.isFinite(a.stopsAway) && a.stopsAway <= 1,
-    ),
+    imminent:
+      primary.source === "live" &&
+      ((Number.isFinite(primary.stopsAway) && primary.stopsAway <= 1) ||
+        (Number.isFinite(primary.minutes) && primary.minutes <= 1)),
     service: `<b class="arrival-route-badge" aria-label="${esc(busServiceLabel(r))}" title="${esc(busServiceLabel(r))}">${esc(r.route)}</b>`,
     destination: `<b>${esc(r.dest || "行先未確認")}</b>`,
     minutes: arrivals.map(arrivalValue).join(""),
-    delay: `<span aria-label="遅延 ${esc(delayText(r.delay))}">${esc(delayText(r.delay))}</span>`,
-    details: `<span class="arrival-source-label">${sourceDot(r.source)}${sourceLabel(r.source)}</span>${r.boarding ? `<span>${esc(r.boarding)}</span>` : ""}${congestion !== "—" ? `<span>${esc(congestion)}</span>` : ""}`,
+    delay: Number.isFinite(r.delay)
+      ? `<span aria-label="遅延 ${esc(delayText(r.delay))}">${esc(delayText(r.delay))}</span>`
+      : "",
+    details: `${r.boarding ? `<span>${esc(r.boarding)}</span>` : ""}${congestion !== "—" ? `<span>${esc(congestion)}</span>` : ""}`,
+    source: `${source(primary)}${arrivals[1] && (arrivals[1].source !== primary.source || arrivals[1].asOf !== primary.asOf) ? `<span>2便目 ${source(arrivals[1])}</span>` : ""}`,
     // Animate only an observed stop count; never derive minutes from it.
-    stopsAway: arrivals.find((a) => Number.isFinite(a.stopsAway))?.stopsAway,
+    stopsAway: observed?.stopsAway,
+    approachLabel:
+      observed?.source === "live" ? "公式接近位置" : "保存した接近位置（予測）",
   };
 }
 function railRow(r) {
@@ -103,8 +116,11 @@ function railRow(r) {
     service: `<b class="arrival-rail-badge">${esc(r.label ?? r.category ?? "列車")}</b>`,
     destination: `<b>${esc(r.dest ?? "行先未確認")}</b>`,
     minutes: arrivalValue(r),
-    delay: `<span aria-label="遅延 ${esc(delayText(r.delay))}">${esc(delayText(r.delay))}</span>`,
-    details: `<span class="arrival-source-label">${sourceDot(r.source)}${sourceLabel(r.source)}</span>`,
+    delay: Number.isFinite(r.delay)
+      ? `<span aria-label="遅延 ${esc(delayText(r.delay))}">${esc(delayText(r.delay))}</span>`
+      : "",
+    details: "",
+    source: `<span class="arrival-source-label">${sourceDot(r.source)}${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ` ${updateTime.format(timestamp(r.asOf))}更新` : ""}</span>`,
   };
 }
 function stale(data, limit = LIVE_MAX_AGE) {
@@ -151,9 +167,9 @@ function normalizeRail(data, timetable = null, nowMinute = null) {
 }
 
 export function compactBusHTML(data) {
-  const rows = groupCityBusRows(data?.results ?? []).slice(0, 3);
+  const rows = busPreviewRows(data);
   if (!rows.length) return "";
-  return `<div class="arrival-compact">${rows.map((r) => `<div>${sourceDot(r.source)}<b>${esc(r.route)}</b><span>${esc(r.dest)}</span><strong>${esc(busArrivalText(r))}</strong></div>`).join("")}</div>`;
+  return `<div class="arrival-compact">${rows.map((r) => `<div><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}${Number.isFinite(timestamp(r.asOf)) ? ` · ${updateTime.format(timestamp(r.asOf))}更新` : ""}</small></span><strong>${esc(busArrivalText(r))}</strong></div>`).join("")}</div>`;
 }
 
 export function mountArrivals({ network }) {
@@ -174,7 +190,7 @@ export function mountArrivals({ network }) {
     disposed = false,
     railScheduleJob = null,
     awaitingLocation = !stopId && !state.fix;
-  root.innerHTML = `<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">京都市バス</span><h3>接近情報</h3></div><button class="round-action" data-arrival-nearest aria-label="現在地から停留所を選ぶ">${icon("location")}</button></div><button class="arrival-stop" data-arrival-change><span><small>停留所</small><b id="arrival-stop-name">停留所を選択</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="停留所名・系統を検索" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>系統・方面</span><span>行先</span><span>到着</span><span>遅延</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">近鉄京都線</span><h3>接近情報</h3></div><button class="round-action" data-rail-refresh aria-label="更新">${icon("refresh")}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>種別</span><span>行先</span><span>到着</span><span>遅延</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>`;
+  root.innerHTML = `<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">京都市バス</span><h3>接近情報</h3></div><button class="round-action" data-arrival-nearest aria-label="現在地から停留所を選ぶ">${icon("location")}</button></div><button class="arrival-stop" data-arrival-change><span><small>停留所</small><b id="arrival-stop-name">停留所を選択</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="停留所名・系統を検索" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>系統・方面</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">近鉄京都線</span><h3>接近情報</h3></div><button class="round-action" data-rail-refresh aria-label="更新">${icon("refresh")}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>種別</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>`;
   const stopEl = () => root.querySelector("#arrival-stop-name"),
     busRoot = () => root.querySelector("#arrival-live"),
     railRoot = () => root.querySelector("#arrival-rail"),
@@ -241,7 +257,8 @@ export function mountArrivals({ network }) {
     }
     const recovered = interpolateCityBusRecovery(busData, data);
     busData = recovered;
-    const projected = stale(recovered) ? predictCityBus(recovered) : recovered,
+    const base = stale(recovered) ? predictCityBus(recovered) : recovered,
+      projected = { ...base, results: normalizedBusSources(base) },
       rows = groupCityBusRows(projected.results ?? []);
     applyNotice(root.querySelector("#bus-stale"), projected, opts);
     updateArrivalRows(busRoot(), rows, busRow);

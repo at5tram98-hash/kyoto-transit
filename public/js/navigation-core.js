@@ -4,6 +4,8 @@ export const NAV_SCREENS = [
   "search",
   "results",
   "route",
+  "departures",
+  "journey",
   "stops",
   "station",
   "nearby",

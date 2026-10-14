@@ -87,7 +87,7 @@ export function sortedRouteIndexes(routes, order = "arrival") {
       );
     });
 }
-export function nextDepartureInput(input, routes) {
+export function nextDepartureInput(input, routes, direction = 1) {
   const first = routes
     .map((r) => {
       const i = r.legs.findIndex((l) => l.kind === "ride");
@@ -98,14 +98,14 @@ export function nextDepartureInput(input, routes) {
     })
     .filter(Number.isFinite);
   if (!first.length || !validSearchInput(input)) return null;
-  const minute = Math.min(...first) + 1,
+  const minute = Math.min(...first) + (direction < 0 ? -1 : 1),
     days = Math.floor(minute / 1440),
     d = new Date(`${input.date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return {
     ...input,
     date: d.toISOString().slice(0, 10),
-    time: `${String(Math.floor((minute % 1440) / 60)).padStart(2, "0")}:${String(Math.floor(minute % 60)).padStart(2, "0")}`,
+    time: `${String(Math.floor((((minute % 1440) + 1440) % 1440) / 60)).padStart(2, "0")}:${String(((minute % 60) + 60) % 60).padStart(2, "0")}`,
     timeMode: "departure",
   };
 }
@@ -186,3 +186,6 @@ export function readSharedSearch(url, network) {
     return null;
   }
 }
+
+export const previousDepartureInput = (input, routes) =>
+  nextDepartureInput(input, routes, -1);

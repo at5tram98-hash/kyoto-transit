@@ -21,6 +21,11 @@ import { journeyClock } from "./journey-core.js";
 import { observeJourney } from "./journey-observation.js";
 import { boardingAvailable } from "./journey-session.js";
 import {
+  samePlannedRide,
+  advanceItinerary,
+  itineraryDestinationChanged,
+} from "./journey-plan.js";
+import {
   state,
   settings,
   tokyoNow,
@@ -308,6 +313,16 @@ function mergeCandidates(...groups) {
 
 function applyRide(candidate) {
   const changed = rideKey(state.ride) !== rideKey(candidate.ride);
+  if (state.itinerary) {
+    if (
+      samePlannedRide(
+        state.itinerary.rides[state.itinerary.legIndex],
+        candidate.ride,
+      )
+    )
+      state.itinerary = { ...state.itinerary, phase: "riding" };
+    else state.itinerary = null;
+  }
   state.ride = candidate.ride;
   state.armedJourney = null;
   state.heroObservation = null;
@@ -330,6 +345,32 @@ function applyRide(candidate) {
     toast(`${serviceName(candidate.ride)}の乗車案内を開始しました`);
   }
   persistJourney();
+}
+export function finishCurrentRide({ keepItinerary = false } = {}) {
+  if (itineraryDestinationChanged(state.itinerary, state.ride))
+    keepItinerary = false;
+  if (keepItinerary && state.itinerary) {
+    state.itinerary = advanceItinerary(state.itinerary);
+    state.armedJourney =
+      state.itinerary.phase === "transfer"
+        ? {
+            ride: state.itinerary.rides[state.itinerary.legIndex],
+            selectedAt: Date.now(),
+          }
+        : null;
+  } else {
+    state.itinerary = null;
+    state.armedJourney = null;
+  }
+  state.ride = null;
+  state.foldbackPlan = null;
+  state.rideShift = 0;
+  state.rideShiftKnown = false;
+  state.rideObservation = null;
+  state.rideSource = null;
+  state.rideConfidence = 0;
+  resetRideDetection();
+  persistJourney(true);
 }
 export function confirmRideCandidate(index) {
   const candidate = state.rideCandidates[Number(index)];
@@ -491,13 +532,7 @@ export function updateRideAnchor() {
   const transfer =
     state.foldbackPlan && state.foldbackPlan.depart >= now.minute - 5;
   if (observation.arrived && !transfer) {
-    state.ride = null;
-    state.foldbackPlan = null;
-    state.rideShift = 0;
-    state.rideShiftKnown = false;
-    state.rideSource = null;
-    state.rideConfidence = 0;
-    resetRideDetection();
+    finishCurrentRide({ keepItinerary: Boolean(state.itinerary) });
     toast("到着を確認しました");
   }
   persistJourney();

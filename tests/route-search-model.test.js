@@ -6,6 +6,7 @@ import {
   resolveStop,
   sortedRouteIndexes,
   nextDepartureInput,
+  previousDepartureInput,
   validSearchInput,
   searchShareURL,
   readSharedSearch,
@@ -126,4 +127,20 @@ test("保存を削除しても別の交通機関、履歴、既存形式の保�
     from: "丸太町",
     to: "国際会館",
   });
+});
+
+test("1本前の条件は初発便・前日の徒歩開始を扱い検索モードを維持する", () => {
+  const routes = [
+      {
+        legs: [
+          { kind: "walk", minutes: 5 },
+          { kind: "ride", depart: 5 },
+        ],
+      },
+    ],
+    before = previousDepartureInput(input, routes);
+  assert.equal(before.date, "2026-10-12");
+  assert.equal(before.time, "23:59");
+  assert.equal(before.timeMode, "departure");
+  assert.equal(input.time, "10:00");
 });

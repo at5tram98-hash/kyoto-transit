@@ -84,6 +84,14 @@ export function initializeNavigation({
       !Array.isArray(saved.memory)
         ? saved.memory
         : {};
+  // Back restores an older history snapshot. New pushes still need fresh IDs;
+  // otherwise a cached screen's controller can retain different parameters.
+  let sequenceCeiling = Math.max(
+    state.sequence,
+    ...Object.keys(ui)
+      .map((key) => Number(key.split(":")[1]))
+      .filter((n) => Number.isSafeInteger(n) && n >= 0 && n < 1e9),
+  );
   const frames = new Map(),
     titles = {
       now: "今",
@@ -151,7 +159,14 @@ export function initializeNavigation({
           .slice(-40)
           .map(([k, v]) => [k, { scroll: v.scroll, fields: v.fields }]),
       );
-      const value = JSON.stringify({ state, ui: serial, memory });
+      const value = JSON.stringify({
+        state: {
+          ...state,
+          sequence: Math.max(state.sequence, sequenceCeiling),
+        },
+        ui: serial,
+        memory,
+      });
       if (value.length < 500000) sessionStorage.setItem(STORE, value);
     } catch {}
   }
@@ -370,11 +385,14 @@ export function initializeNavigation({
       return true;
     }
     capture();
+    if (action.type === "push")
+      state.sequence = Math.max(state.sequence, sequenceCeiling);
     const previous = { ...currentRoute(state), tab: state.tab },
       updated = navigationTransition(state, action);
     if (JSON.stringify(updated) === JSON.stringify(state)) return false;
     const previousDepth = state.stacks[previous.tab].length;
     state = updated;
+    sequenceCeiling = Math.max(sequenceCeiling, state.sequence);
     busy = true;
     if (previous.tab !== state.tab) {
       onTabChange?.(state.tab);

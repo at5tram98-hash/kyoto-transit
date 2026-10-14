@@ -27,6 +27,7 @@ import {
   confirmRideCandidate,
   resetRideDetection,
   startManualRide,
+  finishCurrentRide,
 } from "./vnext-detect.js";
 import { renderNow, setupNowInteractions } from "./vnext-view.js";
 import {
@@ -44,6 +45,7 @@ import {
 import { openFoldback, setupFoldback } from "./vnext-foldback.js";
 import { foldbackJourney } from "./boarding.js";
 import { mountArrivals } from "./vnext-arrivals.js";
+import { boardingAvailable } from "./journey-session.js";
 
 let timetables,
   operations,
@@ -133,6 +135,8 @@ function setupEvents() {
       if (state.armedJourney) boardRide(state.armedJourney.ride);
     } else if (b.hasAttribute("data-cancel-armed")) {
       state.armedJourney = null;
+      state.itinerary = null;
+      persistJourney(true);
       renderNow();
     } else if (b.dataset.contextAction === "destination")
       destinationSheet(state.heroModel?.bus);
@@ -192,15 +196,7 @@ function setupEvents() {
     else if (b.id === "ride-operations")
       navigation.push("operation", { id: state.ride?.operator });
     else if (b.id === "ride-end") {
-      state.ride = null;
-      state.foldbackPlan = null;
-      state.rideShift = 0;
-      state.rideShiftKnown = false;
-      state.rideObservation = null;
-      state.rideConfidence = 0;
-      state.rideSource = null;
-      resetRideDetection();
-      persistJourney(true);
+      finishCurrentRide();
       navigation.root("now");
       renderNow();
       arrivals?.show();
@@ -240,12 +236,25 @@ function setupEvents() {
   );
   setupFoldback();
 }
-function boardRide(ride) {
+function boardRide(ride, itinerary) {
+  if (itinerary && boardingAvailable(ride, tokyoNow()))
+    state.itinerary = itinerary;
   if (!startManualRide(ride)) return false;
   navigation.root("now");
   renderNow();
   arrivals?.show();
   return true;
+}
+function advancePlannedJourney() {
+  if (state.itinerary?.phase === "riding")
+    finishCurrentRide({ keepItinerary: true });
+  else if (state.itinerary?.phase === "walking") {
+    state.itinerary = { ...state.itinerary, phase: "arrived" };
+    persistJourney(true);
+  } else return;
+  navigation.root("now");
+  renderNow();
+  arrivals?.show();
 }
 async function init() {
   $(".tabbar").innerHTML =
@@ -291,8 +300,10 @@ async function init() {
         if (!stop) toast("現在位置は未取得です。出発地を入力してください");
         return stop;
       },
-      onArm: (ride) => {
+      onArm: (ride, itinerary) => {
+        state.itinerary = itinerary ?? null;
         state.armedJourney = { ride, selectedAt: Date.now() };
+        persistJourney(true);
         navigation.root("now");
         renderNow();
         const card = $(".armed-journey");
@@ -308,8 +319,24 @@ async function init() {
       settings,
       tokyoNow,
       onBoard: boardRide,
+      getItinerary: () => state.itinerary,
+      getCurrentRide: () => state.ride,
+      onItineraryAdvance: advancePlannedJourney,
     });
-    operations = mountOperations();
+    operations = mountOperations({
+      getUsedOperators: () =>
+        [
+          state.ride?.operator,
+          ...(state.itinerary?.route.legs ?? [])
+            .filter((l) => l.kind === "ride")
+            .map((l) => l.operator),
+          ...(
+            (navigation.recalled("search-data") ?? []).at(-1)?.routes ?? []
+          ).flatMap((r) =>
+            r.legs.filter((l) => l.kind === "ride").map((l) => l.operator),
+          ),
+        ].filter(Boolean),
+    });
     arrivals = mountArrivals({ network: state.network });
     renderSettings();
     setupSettings(renderNow);
@@ -317,6 +344,12 @@ async function init() {
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
     routeSearch.restoreShared();
     setupEvents();
+    $('[data-view="now"]').addEventListener("click", (event) => {
+      if (event.target.closest("[data-open-itinerary]"))
+        navigation.push("journey");
+      if (event.target.closest("[data-itinerary-next]"))
+        advancePlannedJourney();
+    });
     [$('[data-view="now"]'), $('[data-view="timetable"]')].forEach((root) =>
       root.addEventListener("click", (e) => {
         const b = e.target.closest("[data-open-search],[data-search-to]");

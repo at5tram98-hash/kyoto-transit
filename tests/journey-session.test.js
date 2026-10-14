@@ -468,3 +468,24 @@ test("終点で好きな折り返し列車を待つ間は、終了した列車�
     null,
   );
 });
+
+test("終点未取得の便も既知の降車駅までの乗車時間を検証できる", () => {
+  const ride = {
+    operator: "citybus",
+    serviceDate: now.date,
+    depart: 600,
+    arrive: null,
+    userDestination: { id: "middle" },
+    officialStops: [
+      { id: "origin", time: 600 },
+      { id: "middle", time: 610 },
+      { id: "terminal", time: null },
+    ],
+  };
+  assert.equal(boardingAvailable(ride, now), true);
+  assert.equal(
+    boardingAvailable({ ...ride, userDestination: { id: "terminal" } }, now),
+    false,
+  );
+  assert.equal(boardingAvailable(ride, { ...now, minute: 650 }), false);
+});

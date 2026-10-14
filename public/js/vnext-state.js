@@ -6,6 +6,11 @@ import { officialData } from "./timetable-ui.js";
 import { mergeTimetableFeeds } from "./search-core.js";
 import { getCached, putCached } from "./realtime.js";
 import { readJourney, writeJourney, journeyKey } from "./journey-session.js";
+import {
+  readItinerary,
+  writeItinerary,
+  samePlannedRide,
+} from "./journey-plan.js";
 
 export const $ = (s) => document.querySelector(s),
   $$ = (s) => [...document.querySelectorAll(s)];
@@ -124,6 +129,7 @@ export const state = {
   heroObservation: null,
   delayHistory: [],
   armedJourney: null,
+  itinerary: null,
   north3Snapshot: null,
 };
 export const haptic = () => {
@@ -191,10 +197,12 @@ export function persistJourney(force = false) {
     state.rideShift,
     state.rideSource,
     state.foldbackPlan,
+    state.itinerary,
   ]);
   if (!force && signature === lastJourneyWrite) return;
   try {
     writeJourney(localStorage, state, { now: tokyoNow() });
+    writeItinerary(localStorage, state.itinerary);
     lastJourneyWrite = signature;
   } catch {}
 }
@@ -208,6 +216,17 @@ export function restoreJourney() {
       Object.assign(state, saved);
       toast("保存した乗車案内を再開しました");
     } else localStorage.removeItem("mymap-active-journey-v1");
+    state.itinerary = readItinerary(localStorage, state.network);
+    if (state.itinerary) {
+      const plan = state.itinerary,
+        ride = plan.rides[plan.legIndex];
+      if (state.ride && samePlannedRide(state.ride, ride))
+        plan.phase = "riding";
+      else if (["armed", "transfer", "riding"].includes(plan.phase)) {
+        if (plan.phase === "riding") plan.phase = "armed";
+        state.armedJourney = { ride, selectedAt: plan.savedAt };
+      }
+    }
   } catch {}
 }
 export function serviceName(ride) {

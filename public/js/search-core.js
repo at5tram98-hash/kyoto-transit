@@ -1,59 +1,406 @@
-import {normalize} from './network.js';
-import {planRoutes} from './router.js';
+import { normalize } from "./network.js";
+import { planRoutes } from "./router.js";
+import { replaceJourneyLeg, tripChoiceKey } from "./journey-plan.js";
+import { isFresh } from "./realtime.js";
 
-const aliases=s=>[s.name,s.fullName,...(s.aliases??[])].filter(Boolean).map(normalize);
-export function mergeTimetableFeeds(base,feeds){
-  const index=new Map();for(const s of base.stops.values())for(const n of aliases(s))if(!index.has(n))index.set(n,s.id);
-  const services=[];const sourceMeta=[];
-  for(const feed of feeds.filter(Boolean)){
-    const map=new Map();for(const s of feed.stops??[]){const native=base.stops.get(s.id),id=native&&aliases(native).includes(normalize(s.name))?s.id:index.get(normalize(s.name));if(id)map.set(s.id,id);}
-    for(const service of feed.services??[]){
-      const mapped=[];for(let i=0;i<service.stops.length;i++){const id=map.get(service.stops[i]);if(!id)continue;if(mapped.at(-1)?.id===id)continue;mapped.push({id,index:i});}
-      if(mapped.length<2)continue;const positions=mapped.map(x=>x.index),dedup=mapped.map(x=>x.id);
-      const valid=(times)=>times.every((t,i)=>Number.isFinite(t)||(service.terminalArrivalUnavailable&&i===times.length-1&&t==null));
-      const trips=(service.trips??[]).map(t=>({...t,arrivals:positions.map(i=>t.arrivals[i]),departures:positions.map(i=>t.departures[i])})).filter(t=>t.arrivals.length===dedup.length&&valid(t.arrivals)&&valid(t.departures));
-      if(!trips.length)continue;services.push({...service,stops:dedup,trips,prototype:false,sourceConfidence:feed.meta?.stale?'stale':'estimated',sourceUpdatedAt:feed.lastUpdated??feed.meta?.lastUpdated});
+const aliases = (s) =>
+  [s.name, s.fullName, ...(s.aliases ?? [])].filter(Boolean).map(normalize);
+export function mergeTimetableFeeds(base, feeds, { date } = {}) {
+  const index = new Map();
+  for (const s of base.stops.values())
+    for (const n of aliases(s)) {
+      if (!index.has(n)) index.set(n, []);
+      index.get(n).push(s);
     }
-    if(feed.meta)sourceMeta.push(feed.meta);
+  const services = [];
+  const sourceMeta = [];
+  for (const feed of feeds.filter(Boolean)) {
+    const map = new Map();
+    for (const s of feed.stops ?? []) {
+      const native = base.stops.get(s.id),
+        matches = index.get(normalize(s.name)) ?? [],
+        typed = matches.filter((x) => x.type === feed.meta?.operator),
+        compatible = typed.length ? typed : matches;
+      const id =
+        native && aliases(native).includes(normalize(s.name))
+          ? s.id
+          : compatible.length === 1
+            ? compatible[0].id
+            : null;
+      if (id) map.set(s.id, id);
+    }
+    for (const service of feed.services ?? []) {
+      const mapped = [];
+      for (let i = 0; i < service.stops.length; i++) {
+        const id = map.get(service.stops[i]);
+        if (!id) continue;
+        if (mapped.at(-1)?.id === id) continue;
+        mapped.push({ id, index: i });
+      }
+      if (mapped.length < 2) continue;
+      const positions = mapped.map((x) => x.index),
+        dedup = mapped.map((x) => x.id);
+      const valid = (times) =>
+        times.every(
+          (t, i) =>
+            Number.isFinite(t) ||
+            (service.terminalArrivalUnavailable &&
+              i === times.length - 1 &&
+              t == null),
+        );
+      const trips = (service.trips ?? [])
+        .map((t) => {
+          const offset = date
+            ? Math.round(
+                (Date.parse(`${t.date}T00:00:00Z`) -
+                  Date.parse(`${date}T00:00:00Z`)) /
+                  60000,
+              )
+            : 0;
+          return {
+            ...t,
+            serviceDate: t.serviceDate ?? t.date,
+            date: date ?? t.date,
+            timeOffset: offset,
+            arrivals: positions.map((i) =>
+              Number.isFinite(t.arrivals[i])
+                ? t.arrivals[i] + offset
+                : t.arrivals[i],
+            ),
+            departures: positions.map((i) =>
+              Number.isFinite(t.departures[i])
+                ? t.departures[i] + offset
+                : t.departures[i],
+            ),
+            ...(t.platforms
+              ? { platforms: positions.map((i) => t.platforms[i]) }
+              : {}),
+          };
+        })
+        .filter(
+          (t) =>
+            t.arrivals.length === dedup.length &&
+            valid(t.arrivals) &&
+            valid(t.departures),
+        );
+      if (!trips.length) continue;
+      services.push({
+        ...service,
+        stops: dedup,
+        platforms: service.platforms
+          ? positions.map((i) => service.platforms[i])
+          : undefined,
+        trips,
+        prototype: false,
+        sourceConfidence: feed.meta?.stale ? "stale" : "estimated",
+        sourceUpdatedAt: feed.lastUpdated ?? feed.meta?.lastUpdated,
+      });
+    }
+    if (feed.meta) sourceMeta.push(feed.meta);
   }
-  return {...base,services,mode:'timetable',source:'静的時刻表',validDates:[...new Set(feeds.flatMap(f=>f?.validDates??[]))],feedMeta:sourceMeta};
+  return {
+    ...base,
+    services,
+    mode: "timetable",
+    source: "静的時刻表",
+    validDates: [...new Set(feeds.flatMap((f) => f?.validDates ?? []))],
+    feedMeta: sourceMeta,
+  };
 }
-const sig=r=>r.legs.map(l=>`${l.kind}:${l.from}:${l.to}:${l.depart}:${l.serviceId??''}`).join('|');
-export function selectThree(routes,{timeMode='departure'}={}){
-  if(!routes.length)return [];const unique=[...new Map(routes.map(r=>[sig(r),r])).values()],pool=unique.map(r=>({...r,key:sig(r)})),chosen=[];
-  const pick=(label,sorter)=>{const r=[...pool].filter(x=>!chosen.some(c=>c.key===x.key)).sort(sorter)[0];if(r)chosen.push({...r,optionLabel:label});};
-  pick('早い',timeMode==='arrival'?(a,b)=>a.duration-b.duration||b.start-a.start:(a,b)=>a.time-b.time||a.transfers-b.transfers);
-  pick('安い',(a,b)=>(a.fare.additional??Infinity)-(b.fare.additional??Infinity)||(a.fare.normal??Infinity)-(b.fare.normal??Infinity)||a.time-b.time);
-  pick('乗換少',(a,b)=>a.transfers-b.transfers||(timeMode==='arrival'?b.start-a.start:a.time-b.time));
-  while(chosen.length<3&&chosen.length<pool.length)pick(`候補${chosen.length+1}`,(a,b)=>timeMode==='arrival'?b.start-a.start:a.time-b.time);
+const sig = (r) =>
+  r.legs
+    .map(
+      (l) =>
+        `${l.kind}:${l.from}:${l.to}:${l.depart}:${l.serviceId ?? ""}:${l.tripId ?? ""}:${l.serviceDate ?? ""}`,
+    )
+    .join("|");
+export function selectThree(routes, { timeMode = "departure" } = {}) {
+  if (!routes.length) return [];
+  const unique = [...new Map(routes.map((r) => [sig(r), r])).values()],
+    pool = unique.map((r) => ({ ...r, key: sig(r) })),
+    chosen = [];
+  const pick = (label, sorter) => {
+    const r = [...pool]
+      .filter((x) => !chosen.some((c) => c.key === x.key))
+      .sort(sorter)[0];
+    if (r) chosen.push({ ...r, optionLabel: label });
+  };
+  pick(
+    "早い",
+    timeMode === "arrival"
+      ? (a, b) => a.duration - b.duration || b.start - a.start
+      : (a, b) => a.time - b.time || a.transfers - b.transfers,
+  );
+  pick(
+    "安い",
+    (a, b) =>
+      (a.fare.additional ?? Infinity) - (b.fare.additional ?? Infinity) ||
+      (a.fare.normal ?? Infinity) - (b.fare.normal ?? Infinity) ||
+      a.time - b.time,
+  );
+  pick(
+    "乗換少",
+    (a, b) =>
+      a.transfers - b.transfers ||
+      (timeMode === "arrival" ? b.start - a.start : a.time - b.time),
+  );
+  while (chosen.length < 3 && chosen.length < pool.length)
+    pick(`候補${chosen.length + 1}`, (a, b) =>
+      timeMode === "arrival" ? b.start - a.start : a.time - b.time,
+    );
   return chosen;
 }
-function firstDepartureCandidates(network,request,window=360){
-  const values=new Set(),min=request.start-window,max=request.start;
-  const addAt=(stop,offset=0)=>{for(const service of network.services){const i=service.stops.indexOf(stop);if(i<0)continue;for(const trip of service.trips??[]){if(trip.date!==request.date)continue;const d=trip.departures[i]-offset;if(d>=min&&d<=max)values.add(Math.max(0,d));}}};
-  addAt(request.from,0);for(const walk of network.walks.filter(w=>w.from===request.from&&w.minutes<=request.maxWalk))addAt(walk.to,walk.minutes);
-  return [...values].sort((a,b)=>b-a).slice(0,64);
+function firstDepartureCandidates(network, request, window = 360) {
+  const values = new Set(),
+    min = request.start - window,
+    max = request.start;
+  const addAt = (stop, offset = 0) => {
+    for (const service of network.services) {
+      const i = service.stops.indexOf(stop);
+      if (i < 0) continue;
+      for (const trip of service.trips ?? []) {
+        if (trip.date !== request.date) continue;
+        const d = trip.departures[i] - offset;
+        if (d >= min && d <= max) values.add(Math.max(0, d));
+      }
+    }
+  };
+  addAt(request.from, 0);
+  for (const walk of network.walks.filter(
+    (w) => w.from === request.from && w.minutes <= request.maxWalk,
+  ))
+    addAt(walk.to, walk.minutes);
+  return [...values].sort((a, b) => b - a).slice(0, 64);
 }
-function actualJourneyStart(route,fallback){const first=route.legs?.[0];return Number.isFinite(first?.depart)?first.depart:fallback;}
-export function searchTimetable(network,request,passes){
-  if(request.timeMode!=='arrival')return selectThree(planRoutes(network,request,passes),{timeMode:'departure'});
-  const target=request.start,found=[];for(const start of firstDepartureCandidates(network,request)){const routes=planRoutes(network,{...request,start,timeMode:'departure'},passes);for(const r of routes)if(r.time<=target){const actualStart=actualJourneyStart(r,start);found.push({...r,start:actualStart,duration:Math.ceil(r.time-actualStart)});}}
-  return selectThree(found,{timeMode:'arrival'});
+function actualJourneyStart(route, fallback) {
+  const first = route.legs?.[0];
+  return Number.isFinite(first?.depart) ? first.depart : fallback;
 }
-const clampDelay=n=>Number.isFinite(n)?Math.max(-5,Math.min(60,n)):null;
-export function realtimeDelayForLeg(leg,realtime,{nowMinute}={}){
-  if(leg.operator==='kintetsu'||leg.operator==='through'){
-    const rows=realtime?.rail?.trains??[],match=rows.find(t=>(!leg.category||t.category===leg.category)&&(!leg.destination||normalize(t.dest??t.destination??'')===normalize(leg.destination??'')));return match&&Number.isFinite(match.delay)?{delay:clampDelay(match.delay),source:match.predicted?'prediction':'live'}:null;
+export function searchTimetable(network, request, passes) {
+  if (request.previousDeparture) {
+    const found = [];
+    for (const start of firstDepartureCandidates(network, {
+      ...request,
+      start: request.start + 1,
+    })) {
+      for (const r of planRoutes(
+        network,
+        { ...request, start, timeMode: "departure" },
+        passes,
+      )) {
+        const actualStart = actualJourneyStart(r, start);
+        if (actualStart <= request.start)
+          found.push({
+            ...r,
+            start: actualStart,
+            duration: Math.ceil(r.time - actualStart),
+          });
+      }
+    }
+    const latest = Math.max(...found.map((r) => r.start));
+    return selectThree(found.filter((r) => r.start === latest));
   }
-  if(leg.operator==='kyotobus'){
-    const rows=realtime?.kyotobus?.vehicles??[],match=rows.find(v=>String(v.route)===String(leg.route));return match&&Number.isFinite(match.delay)?{delay:clampDelay(match.delay),source:match.fresh===false?'prediction':'live'}:null;
+  if (request.timeMode !== "arrival")
+    return selectThree(planRoutes(network, request, passes), {
+      timeMode: "departure",
+    });
+  const target = request.start,
+    found = [];
+  for (const start of firstDepartureCandidates(network, request)) {
+    const routes = planRoutes(
+      network,
+      { ...request, start, timeMode: "departure" },
+      passes,
+    );
+    for (const r of routes)
+      if (r.time <= target) {
+        const actualStart = actualJourneyStart(r, start);
+        found.push({
+          ...r,
+          start: actualStart,
+          duration: Math.ceil(r.time - actualStart),
+        });
+      }
   }
-  if(leg.operator==='citybus'){
-    const rows=realtime?.citybus?.results??[],match=rows.find(r=>String(r.route)===String(leg.route)&&Number.isFinite(r.minutes));if(!match||!Number.isFinite(nowMinute))return null;return {delay:clampDelay(nowMinute+match.minutes-leg.depart),source:match.source==='live'?'live':'prediction'};
-  }return null;
+  return selectThree(found, { timeMode: "arrival" });
 }
-export function applyRealtime(route,realtime,context={}){
-  let shift=0,quality='schedule';const legs=route.legs.map(leg=>{if(leg.kind!=='ride')return {...leg,depart:leg.depart+shift,arrive:leg.arrive+shift};const live=realtimeDelayForLeg(leg,realtime,context);if(live){shift=Math.max(shift,live.delay??0);if(live.source==='live')quality='live';else if(quality!=='live')quality='prediction';}return {...leg,depart:leg.depart+shift,arrive:leg.arrive+shift,realtime:live};});return {...route,legs,time:route.time+shift,duration:route.duration+shift,realtimeSource:quality,realtimeDelay:shift};
+const clampDelay = (n) =>
+  Number.isFinite(n) ? Math.max(-5, Math.min(60, n)) : null;
+export function realtimeDelayForLeg(
+  leg,
+  realtime,
+  { nowMinute, nowEpoch = Date.now() } = {},
+) {
+  const feed = ["kintetsu", "through"].includes(leg.operator)
+      ? realtime?.rail
+      : realtime?.[leg.operator],
+    rows = feed?.trains ?? feed?.vehicles ?? feed?.results ?? [],
+    exactRows =
+      typeof leg.tripId === "string" && leg.serviceDate
+        ? rows.filter(
+            (row) =>
+              row.tripId === leg.tripId &&
+              row.serviceDate === leg.serviceDate &&
+              (!row.serviceId || row.serviceId === leg.serviceId),
+          )
+        : [],
+    matched = exactRows.length
+      ? exactRows
+      : rows.filter((row) => {
+          if (leg.operator === "citybus" || leg.operator === "kyotobus")
+            return (
+              String(row.route) === String(leg.route) &&
+              (!leg.destination ||
+                normalize(row.dest ?? row.destination ?? "") ===
+                  normalize(leg.destination))
+            );
+          return (
+            (!leg.category || row.category === leg.category) &&
+            Boolean(leg.destination) &&
+            normalize(row.dest ?? row.destination ?? "") ===
+              normalize(leg.destination)
+          );
+        });
+  // A route number/category alone cannot identify a particular scheduled trip.
+  if (
+    matched.length !== 1 ||
+    !Number.isFinite(nowMinute) ||
+    leg.depart < nowMinute - 10 ||
+    leg.depart > nowMinute + 30
+  )
+    return null;
+  const row = matched[0],
+    asOf = row.asOf ?? feed.asOf,
+    fresh =
+      !feed.stale &&
+      !row.predicted &&
+      row.fresh !== false &&
+      feed.source !== "prediction" &&
+      row.source !== "prediction" &&
+      isFresh(asOf, 90000, nowEpoch),
+    exact = exactRows.length === 1 && fresh,
+    delay = Number.isFinite(row.delay)
+      ? clampDelay(row.delay)
+      : leg.operator === "citybus" && Number.isFinite(row.minutes)
+        ? clampDelay(nowMinute + row.minutes - leg.depart)
+        : null;
+  return delay === null
+    ? null
+    : { delay, source: exact ? "live" : "prediction", exact, asOf };
 }
-export function staleWarnings(network){return [...new Set((network.feedMeta??[]).filter(m=>m.stale||m.warning).map(m=>m.warning??`${m.operator}の時刻データを確認してください。`))];}
-export function dayKind(date,{holidays=new Set()}={}){if(holidays.has(date))return 'holiday';const d=new Date(`${date}T00:00:00Z`).getUTCDay();return d===0?'holiday':d===6?'saturday':'weekday';}
+export function applyRealtime(route, realtime, context = {}) {
+  const legs = route.legs.map((leg) =>
+      leg.kind === "ride"
+        ? { ...leg, realtime: realtimeDelayForLeg(leg, realtime, context) }
+        : { ...leg },
+    ),
+    observations = legs.filter((leg) => leg.realtime),
+    last = legs.at(-1),
+    connectionRisk = legs.some((leg, i) => {
+      if (!leg.realtime?.delay) return false;
+      const next = legs.slice(i + 1).findIndex((l) => l.kind === "ride");
+      if (next < 0) return false;
+      const following = legs.slice(i + 1, i + next + 1),
+        nextRide = legs[i + next + 1];
+      return (
+        leg.arrive +
+          Math.max(0, leg.realtime.delay) +
+          following.reduce((sum, l) => sum + (l.minutes ?? 0), 0) +
+          (context.buffer ?? 0) >
+        nextRide.depart
+      );
+    });
+  return {
+    ...route,
+    legs,
+    realtimeSource: observations.length
+      ? observations.some((l) => l.realtime.source === "live")
+        ? "live"
+        : "prediction"
+      : "schedule",
+    realtimeDelay: Math.max(0, ...observations.map((l) => l.realtime.delay)),
+    estimatedTime: last?.realtime ? last.arrive + last.realtime.delay : null,
+    connectionRisk,
+  };
+}
+export function networkWithObservations(
+  network,
+  journey,
+  nowEpoch = Date.now(),
+) {
+  const observations = journey.legs.filter(
+    (l) => l.realtime?.exact && isFresh(l.realtime.asOf, 90000, nowEpoch),
+  );
+  if (!observations.length) return network;
+  return {
+    ...network,
+    services: network.services.map((service) => ({
+      ...service,
+      trips: (service.trips ?? []).map((trip) => {
+        const leg = observations.find(
+          (l) =>
+            l.serviceId === service.id &&
+            l.tripId === trip.id &&
+            l.serviceDate === (trip.serviceDate ?? trip.date),
+        );
+        if (!leg) return trip;
+        const shift = leg.realtime.delay;
+        return {
+          ...trip,
+          arrivals: trip.arrivals.map((t) =>
+            Number.isFinite(t) ? t + shift : t,
+          ),
+          departures: trip.departures.map((t) =>
+            Number.isFinite(t) ? t + shift : t,
+          ),
+          realtime: leg.realtime,
+          realtimeApplied: true,
+        };
+      }),
+    })),
+  };
+}
+export function reconcileRealtime(
+  network,
+  request,
+  passes,
+  journey,
+  realtime,
+  context,
+) {
+  const annotated = applyRealtime(journey, realtime, {
+      ...context,
+      buffer: request.buffer,
+    }),
+    first = annotated.legs.findIndex((l) => l.realtime?.exact),
+    adjusted = networkWithObservations(network, annotated, context.nowEpoch);
+  if (first < 0) return annotated;
+  try {
+    return replaceJourneyLeg(
+      adjusted,
+      request,
+      passes,
+      annotated,
+      first,
+      tripChoiceKey(annotated.legs[first]),
+    );
+  } catch {
+    return { ...annotated, connectionUnavailable: true };
+  }
+}
+export function staleWarnings(network) {
+  return [
+    ...new Set(
+      (network.feedMeta ?? [])
+        .filter((m) => m.stale || m.warning)
+        .map(
+          (m) => m.warning ?? `${m.operator}の時刻データを確認してください。`,
+        ),
+    ),
+  ];
+}
+export function dayKind(date, { holidays = new Set() } = {}) {
+  if (holidays.has(date)) return "holiday";
+  const d = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return d === 0 ? "holiday" : d === 6 ? "saturday" : "weekday";
+}

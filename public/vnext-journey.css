@@ -424,6 +424,15 @@
 #now-search {
   order: 1;
 }
+.itinerary-guide {
+  margin: 12px 0;
+}
+.itinerary-summary {
+  min-height: 72px;
+}
+.itinerary-summary .itinerary-warning {
+  color: var(--orange);
+}
 .journey-display {
   --journey-accent: #228347;
   --route-tint: #f1f7f3;

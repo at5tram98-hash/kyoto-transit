@@ -1,3 +1,4 @@
+import { updateHTML } from "./view-rendering.js";
 import { navigation } from "./navigation.js";
 import { CAPTURE_API } from "./live.js";
 import { searchStops } from "./network.js";
@@ -463,7 +464,7 @@ export function mountTimetables({
     },
   };
 }
-export function mountOperations() {
+export function mountOperations({ getUsedOperators = () => [] } = {}) {
   const root = document.querySelector("#operations-root");
   let last = 0,
     busy = false,
@@ -514,7 +515,7 @@ export function mountOperations() {
       const d = await officialData("/operations");
       last = Date.now();
       latest = d;
-      root.innerHTML = `<div class="operations-head"><span>公式情報を確認</span><button class="plain-action" data-operations-refresh>更新</button></div><div class="native-list">${d.lines.map((l) => `<button class="native-row" data-operation-id="${esc(l.id)}"><span><b>${esc(l.name)}</b><small>${esc(l.summary)}</small></span><span class="chevron">›</span></button>`).join("")}</div><p class="source-caption">${esc(d.notice)}</p>`;
+      renderOverview();
     } catch (e) {
       root.innerHTML = `<p class="empty-note">${esc(e.message)}</p><button class="plain" data-operations-refresh>再取得</button>`;
     } finally {
@@ -522,10 +523,31 @@ export function mountOperations() {
       root.removeAttribute("aria-busy");
     }
   }
+  function renderOverview() {
+    if (!latest) return;
+    const used = new Set(
+        getUsedOperators().flatMap((id) =>
+          id === "through" ? ["subway", "kintetsu"] : [id],
+        ),
+      ),
+      selected = latest.lines.filter((l) => used.has(l.id)),
+      others = latest.lines.filter((l) => !used.has(l.id)),
+      list = (lines) =>
+        `<div class="native-list">${lines.map((l) => `<button class="native-row" data-operation-id="${esc(l.id)}"><span><b>${esc(l.name)}</b><small>${esc(l.summary)}</small></span><span class="chevron">›</span></button>`).join("")}</div>`;
+    updateHTML(
+      root,
+      `<div class="operations-head"><span>公式情報を確認</span><button class="plain-action" data-operations-refresh>更新</button></div>${selected.length ? `<p class="source-caption">乗車・検索した経路</p>${list(selected)}<p class="source-caption">その他の対応路線</p>` : ""}${list(others)}<p class="source-caption">${esc(latest.notice)}</p>`,
+    );
+  }
   root.addEventListener("click", (e) => {
     if (e.target.closest("[data-operations-refresh]")) refresh(true);
     const b = e.target.closest("[data-operation-id]");
     if (b) navigation.push("operation", { id: b.dataset.operationId });
   });
-  return { show: refresh };
+  return {
+    async show() {
+      await refresh();
+      renderOverview();
+    },
+  };
 }

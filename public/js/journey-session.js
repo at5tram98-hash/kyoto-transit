@@ -31,7 +31,12 @@ export function boardingAvailable(ride, now) {
     return false;
   const clock = journeyClock(ride, now),
     start = ride.depart ?? stopTime(ride.officialStops[0]),
-    end = ride.arrive ?? stopTime(ride.officialStops.at(-1));
+    end =
+      ride.arrive ??
+      stopTime(ride.officialStops.at(-1)) ??
+      stopTime(
+        ride.officialStops.find((s) => s.id === ride.userDestination?.id),
+      );
   return (
     Number.isFinite(start) &&
     Number.isFinite(end) &&
@@ -43,26 +48,44 @@ export function boardingAvailable(ride, now) {
 // Resolve a selected route back to the official trip, retaining every stop
 // through the terminus rather than ending the display at the search destination.
 export function scheduledJourney(leg, feed, network, date) {
-  const service = feed?.services?.find((s) => s.id === leg.serviceId),
+  const wantedDate = leg.serviceDate ?? date;
+  const service = feed?.services?.find(
+      (s) =>
+        s.id === leg.serviceId &&
+        s.trips?.some(
+          (t) =>
+            t.id === leg.tripId &&
+            (!t.date || (t.serviceDate ?? t.date) === wantedDate),
+        ),
+    ),
     trip = service?.trips?.find(
-      (t) => t.id === leg.tripId && (!t.date || t.date === date),
+      (t) =>
+        t.id === leg.tripId &&
+        (!t.date || (t.serviceDate ?? t.date) === wantedDate),
     );
   const start = service?.stops?.indexOf(leg.from) ?? -1;
   if (!trip || start < 0) return null;
+  const offset = trip.timeOffset ?? 0,
+    originalTime = (value) => (Number.isFinite(value) ? value - offset : value);
   const fullStops = service.stops.map((id, i) => {
     return {
       id,
       name: network.stops.get(id)?.name ?? id,
-      arrival: trip.arrivals[i],
-      departure: trip.departures[i],
-      time: trip.arrivals[i] ?? trip.departures[i],
+      arrival: originalTime(trip.arrivals[i]),
+      departure: originalTime(trip.departures[i]),
+      time: originalTime(trip.arrivals[i] ?? trip.departures[i]),
       estimated: Boolean(
-        (feed.meta?.terminalArrivalDerived || service.terminalArrivalDerived) && i === service.stops.length - 1,
+        (feed.meta?.terminalArrivalDerived || service.terminalArrivalDerived) &&
+          i === service.stops.length - 1,
       ),
     };
   });
   const stops = fullStops.slice(start);
-  if (stops.length < 2 || (!service.terminalArrivalUnavailable && !stops.every((s) => Number.isFinite(stopTime(s)))))
+  if (
+    stops.length < 2 ||
+    (!service.terminalArrivalUnavailable &&
+      !stops.every((s) => Number.isFinite(stopTime(s))))
+  )
     return null;
   return {
     kind: "ride",
@@ -71,10 +94,17 @@ export function scheduledJourney(leg, feed, network, date) {
     route: service.route,
     label: service.label,
     destination: trip.headsign ?? stops.at(-1).name,
-    userDestination: { id: leg.to ?? stops.at(-1).id, name: network.stops.get(leg.to)?.name ?? stops.at(-1).name },
-    operatingCompany: trip.operatingCompany ?? service.operatingCompany ?? (service.route === "北3" ? null : service.operator),
+    userDestination: {
+      id: leg.to ?? stops.at(-1).id,
+      name: network.stops.get(leg.to)?.name ?? stops.at(-1).name,
+    },
+    operatingCompany:
+      trip.operatingCompany ??
+      service.operatingCompany ??
+      (service.route === "北3" ? null : service.operator),
     operatingConditions: trip.operatingConditions ?? null,
-    dataConfidence: service.sourceConfidence ?? (feed.meta?.stale ? "stale" : "estimated"),
+    dataConfidence:
+      service.sourceConfidence ?? (feed.meta?.stale ? "stale" : "estimated"),
     sourceUpdatedAt: service.sourceUpdatedAt ?? feed.lastUpdated,
     routeVariant: service.routeVariants?.[trip.shapeId] ?? null,
     from: leg.from,
@@ -85,7 +115,7 @@ export function scheduledJourney(leg, feed, network, date) {
     fullOfficialStops: fullStops,
     tripId: trip.id,
     serviceId: service.id,
-    serviceDate: trip.date ?? date,
+    serviceDate: trip.serviceDate ?? trip.date ?? date,
     fullTerminus: true,
   };
 }

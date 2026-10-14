@@ -300,7 +300,7 @@
 }
 .planner-leg {
   display: grid;
-  grid-template-columns: max-content 12px minmax(0, 1fr);
+  grid-template-columns: 4.25rem 12px minmax(0, 1fr);
   gap: 8px;
   min-height: 56px;
   position: relative;
@@ -324,7 +324,7 @@
 .planner-leg time {
   font-size: 0.75rem;
   font-weight: 650;
-  white-space: nowrap;
+  white-space: normal;
   font-variant-numeric: tabular-nums;
   padding-top: 2px;
 }
@@ -336,24 +336,106 @@
   content: "";
   position: absolute;
   left: 4px;
-  top: 4px;
-  bottom: -5px;
+  top: 10px;
+  bottom: -8px;
   width: 2px;
-  background: var(--separator);
+  background: var(--journey-line-color, var(--separator));
 }
 .planner-line::after {
   content: "";
   position: absolute;
   left: 1px;
-  top: 3px;
+  top: 10px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--panel);
-  border: 2px solid var(--blue);
+  border: 2px solid var(--journey-line-color, var(--blue));
 }
 .planner-leg:last-child .planner-line::before {
-  bottom: 12px;
+  bottom: -8px;
+}
+.journey-final .planner-line::before {
+  display: none;
+}
+.journey-ride[data-operator="subway"] {
+  --journey-line-color: var(--green);
+}
+.journey-ride[data-operator="kintetsu"],
+.journey-ride[data-operator="through"] {
+  --journey-line-color: var(--purple);
+}
+.journey-ride[data-operator="citybus"],
+.journey-ride[data-operator="kyotobus"] {
+  --journey-line-color: var(--blue);
+}
+.journey-ride {
+  position: relative;
+}
+.planner-clock,
+.journey-departure {
+  display: block;
+  text-align: left;
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+.journey-departure {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--blue);
+}
+.planner-clock > b,
+.journey-departure > b {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+.journey-departure > small,
+.planner-clock > small {
+  font-size: 0.6875rem;
+  margin-top: 2px;
+}
+.journey-departure > small {
+  color: var(--blue);
+}
+.planner-leg .journey-stop-name {
+  display: block;
+  font-size: 0.9375rem;
+  margin: 4px 0 8px;
+}
+.journey-service {
+  padding: 4px 0;
+}
+.journey-leg-source {
+  display: flex !important;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.journey-wait-time {
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding-top: 10px;
+}
+.journey-wait,
+.journey-dwell,
+.planner-leg.walk {
+  color: var(--muted);
+}
+.journey-arrival-platform {
+  margin: -14px 0 16px;
+  padding-left: calc(4.25rem + 28px);
+  color: var(--muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.planner-pass-state {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--green);
+  margin: 10px 0;
 }
 .planner-leg b {
   font-size: 0.8125rem;
@@ -374,6 +456,70 @@
   font-size: 0.8125rem;
   white-space: normal;
   min-height: 44px;
+}
+/* Departure selection uses its own navigation screen and list rows. */
+.trip-choice-intro {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.trip-choice-intro small {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+.trip-choice-row {
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr) 20px;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  padding: 14px;
+  text-align: left;
+  background: var(--panel);
+  color: var(--text);
+}
+.trip-choice-row:last-child {
+  border-bottom: 0;
+}
+.trip-choice-row.selected {
+  background: var(--blue-soft);
+}
+.trip-choice-row:disabled {
+  opacity: 0.65;
+}
+.trip-choice-times,
+.trip-choice-description {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  align-content: start;
+  overflow-wrap: anywhere;
+}
+.trip-choice-times {
+  font-variant-numeric: tabular-nums;
+}
+.trip-choice-row small {
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+.trip-choice-description > b {
+  font-size: 0.8125rem;
+}
+.trip-choice-description .trip-choice-reason {
+  color: var(--orange);
+}
+.trip-choice-check {
+  color: var(--blue);
+  font-size: 1.125rem;
+}
+.trip-change-preview {
+  margin-top: 20px;
+}
+.trip-change-preview h2 {
+  font-size: 1.125rem;
 }
 .source-dot.schedule {
   background: var(--muted);

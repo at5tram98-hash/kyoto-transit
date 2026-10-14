@@ -9,7 +9,7 @@ export function updateHTML(element, html) {
 }
 
 const rowViews = new WeakMap();
-const fields = ["service", "destination", "minutes", "delay", "details"];
+const fields = ["service", "destination", "minutes", "delay", "details", "source"];
 // Compare the presentation, not timestamps or diagnostic metadata. Unchanged
 // responses must not replace rows, restart their animations, or announce them.
 export function updateArrivalRows(root, rows, present) {
@@ -54,6 +54,7 @@ export function updateArrivalRows(root, rows, present) {
         '<strong class="arrival-minutes" data-field="minutes"></strong>' +
         '<span class="arrival-delay" data-field="delay"></span>' +
         '<div class="arrival-details" data-field="details"></div>' +
+        '<div class="arrival-source" data-field="source"></div>' +
         '<div class="arrival-approach" data-field="approach" hidden></div>';
       rowViews.set(el, {});
     }
@@ -108,10 +109,8 @@ export function updateArrivalRows(root, rows, present) {
       if (cached.position !== position)
         approach.style.setProperty("--approach-position", position);
       cached.position = position;
-      approach.setAttribute(
-        "aria-label",
-        `公式接近位置：${Math.max(0, Math.round(view.stopsAway))}停留所前`,
-      );
+      const label = `${view.approachLabel ?? "公式接近位置"}：${Math.max(0, Math.round(view.stopsAway))}停留所前`;
+      if (approach.getAttribute("aria-label") !== label) approach.setAttribute("aria-label", label);
     }
     if (el !== before) root.insertBefore(el, before);
     before = el.nextElementSibling;

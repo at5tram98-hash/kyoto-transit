@@ -26,7 +26,11 @@ import { renderNetworkPanel } from "./vnext-network-view.js";
 import { updateHTML } from "./view-rendering.js";
 import { heroModel, delayAnalysis, nearbyDirection } from "./now-model.js";
 import { loadNorth3Snapshot, north3Board, north3Day } from "./north3-feed.js";
-import { nextStationHero, timelineRow } from "./now-components.js";
+import {
+  nextStationHero,
+  timelineRow,
+  itinerarySummary,
+} from "./now-components.js";
 import {
   routeMapModel,
   routeMapHTML,
@@ -239,7 +243,7 @@ export function renderNow() {
   );
   updateHTML(
     vehicle,
-    `${state.armedJourney ? `<section class="section-block armed-journey" tabindex="-1"><span class="section-label">案内開始の準備ができました</span><h3>${esc(serviceName(state.armedJourney.ride))} · ${esc(state.armedJourney.ride.destination)}行き</h3><p class="source-note">${esc(state.armedJourney.ride.userDestination?.name ?? "目的地")}で降車予定。位置・移動・対象便が一致したら乗車を確認します。</p><button class="secondary-action" data-board-armed>この便に乗車中 · 案内を開始</button><button class="plain-action" data-cancel-armed>解除</button></section>` : ""}${candidateHTML()}`,
+    `${state.armedJourney ? `<section class="section-block armed-journey" tabindex="-1"><span class="section-label">案内開始の準備ができました</span><h3>${esc(serviceName(state.armedJourney.ride))} · ${esc(state.armedJourney.ride.destination)}行き</h3><p class="source-note">${esc(state.armedJourney.ride.userDestination?.name ?? "目的地")}で降車予定。位置・移動・対象便が一致したら乗車を確認します。</p>${itinerarySummary(state.itinerary, state.network)}<div class="screen-action-group"><button class="secondary-action" data-board-armed>この便に乗車中 · 案内を開始</button><button class="plain-action" data-cancel-armed>解除</button></div></section>` : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
@@ -274,7 +278,7 @@ export function renderNow() {
 export function nearbyDetailHTML(id) {
   const stop = state.network.stops.get(id);
   if (!stop) return '<p class="empty-state">駅・停留所が見つかりません。</p>';
-  return `${stop.type === "subway" ? departureHTML(id, true) : north3DepartureHTML(stop)}<div class="screen-action-group"><button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button>${stop.type === "citybus" ? `<button class="secondary-action" data-open-arrivals="${esc(id)}">接近情報を見る</button>` : ""}</div>`;
+  return `${stop.type === "subway" ? departureHTML(id, true) : `${stop.type.includes("bus") ? '<section class="bus-stop-preview" data-bus-stop-preview></section>' : ""}${north3DepartureHTML(stop)}`}<div class="screen-action-group"><button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button></div>`;
 }
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
@@ -390,7 +394,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
     `<button class="native-row" data-navigation-screen="${type}"><span><b>${label}</b><small>${detail}</small></span><span class="chevron">›</span></button>`;
   updateHTML(
     $("#ride-actions"),
-    `<div class="native-list ride-action-list">${row("stops", bus ? "停留所" : "停車駅", "終点までの予定・到着見込み")}${row("map", "地図", "経路と現在地")}${row(bus ? "arrivals" : "trains", bus ? "接近情報" : "列車位置", bus ? "接近・混雑状況" : "前方・反対方向の列車")}${row("delay", "遅延分析", analysis.conclusion)}${row("operation", "運行情報", "公式の遅延・運休情報")}${!bus ? '<button class="native-row" data-open-foldback><span><b>折り返し</b><small>好きな列車で反対方向へ</small></span><span class="chevron">›</span></button>' : ""}<button class="native-row" id="ride-end"><span>乗車案内を終了</span><span class="chevron">›</span></button></div>${!bus ? foldbackPlanHTML(ride, now) : ""}`,
+    `${state.foldbackPlan ? "" : itinerarySummary(state.itinerary, state.network, model.delayMinutes, state.ride)}<div class="native-list ride-action-list">${row("stops", bus ? "停留所" : "停車駅", "終点までの予定・到着見込み")}${row("map", "地図", "経路と現在地")}${row(bus ? "arrivals" : "trains", bus ? "接近情報" : "列車位置", bus ? "接近・混雑状況" : "前方・反対方向の列車")}${row("delay", "遅延分析", analysis.conclusion)}${row("operation", "運行情報", "公式の遅延・運休情報")}${!bus ? '<button class="native-row" data-open-foldback><span><b>折り返し</b><small>好きな列車で反対方向へ</small></span><span class="chevron">›</span></button>' : ""}<button class="native-row" id="ride-end"><span>乗車案内を終了</span><span class="chevron">›</span></button></div>${!bus ? foldbackPlanHTML(ride, now) : ""}`,
   );
   updateHTML(nearPanel, "");
 }

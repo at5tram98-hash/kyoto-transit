@@ -1,3 +1,4 @@
+import { mountBusStopPreview } from "./bus-stop-preview.js";
 import { navigation } from "./navigation.js";
 import {
   $,
@@ -84,8 +85,38 @@ export function registerNowScreens({ arrivals, onFoldback }) {
     },
     onDispose: source("#arrivals-root").onDispose,
   });
-  const fillStation = ({ element, route }) =>
-    updateHTML(element, stationDetailHTML(route.params.stopId));
+  const previews = new Map();
+  function fillStop(context, html, show = false) {
+    const { element, route } = context,
+      saved = previews.get(element);
+    updateHTML(element, html(route.params.stopId));
+    const host = element.querySelector("[data-bus-stop-preview]"),
+      stop = state.network.stops.get(route.params.stopId);
+    if (!host || !stop) {
+      saved?.dispose();
+      previews.delete(element);
+      return;
+    }
+    if (saved && host !== saved.host) host.replaceWith(saved.host);
+    const preview = saved ?? mountBusStopPreview(host, stop);
+    previews.set(element, preview);
+    if (show) void preview.show();
+  }
+  const stopLifecycle = (html) => ({
+    onShow(context) {
+      fillStop(context, html, true);
+    },
+    update(context) {
+      fillStop(context, html);
+    },
+    onHide({ element }) {
+      previews.get(element)?.pause();
+    },
+    onDispose({ element }) {
+      previews.get(element)?.dispose();
+      previews.delete(element);
+    },
+  });
   navigation.register("station", {
     title: (r) =>
       state.network.stops.get(r.params.stopId)?.name ?? "駅・停留所",
@@ -107,15 +138,11 @@ export function registerNowScreens({ arrivals, onFoldback }) {
         if (b.hasAttribute("data-context-foldback")) onFoldback();
       });
     },
-    onShow: fillStation,
-    update: fillStation,
+    ...stopLifecycle(stationDetailHTML),
   });
-  const fillNearby = ({ element, route }) =>
-    updateHTML(element, nearbyDetailHTML(route.params.stopId));
   navigation.register("nearby", {
     title: (r) => state.network.stops.get(r.params.stopId)?.name ?? "近く",
-    onShow: fillNearby,
-    update: fillNearby,
+    ...stopLifecycle(nearbyDetailHTML),
   });
   const fillDelay = ({ element }) => {
     if (!state.heroModel) return;

@@ -2,6 +2,7 @@
 // certify the availability or accuracy of production transport providers.
 import assert from "node:assert/strict";
 import { runCoordinateAudit } from "./ui-coordinate-audit.mjs";
+import { journeyUpgradeChecks } from "./journey-browser-checks.mjs";
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -1177,7 +1178,7 @@ async function searchComparisonChecks({ baseline = false } = {}) {
           await page
             .locator(".navigation-current .planner-timeline")
             .textContent(),
-          /のりば 1/,
+          /発 1のりば/,
         );
         await page.locator(".navigation-current [data-save-route]").click();
         assert.match(
@@ -1333,20 +1334,45 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 }
 
 try {
-  await runCoordinateAudit({
-    open,
-    setRide,
-    tabRoot,
-    searchScreen,
-    submitSearch,
-    settleNavigation,
-    backScreen,
-    artifacts,
-    summary,
-    baseline: process.env.BROWSER_UI_AUDIT_BASELINE === "1",
-    extended: process.env.BROWSER_UI_AUDIT === "1",
-  });
-  if (process.env.BROWSER_UI_AUDIT !== "1")
+  if (
+    ![
+      "BROWSER_UI_AUDIT",
+      "BROWSER_COMPARISON_BASELINE",
+      "BROWSER_COMPARISON_ONLY",
+      "BROWSER_LEGACY_ONLY",
+      "BROWSER_NAV_ONLY",
+      "BROWSER_SPEC_ONLY",
+    ].some((key) => process.env[key] === "1")
+  )
+    await journeyUpgradeChecks({
+      open,
+      setRide,
+      searchScreen,
+      submitSearch,
+      backScreen,
+      settleNavigation,
+      layout,
+      artifacts,
+      summary,
+    });
+  if (process.env.BROWSER_JOURNEY_ONLY !== "1")
+    await runCoordinateAudit({
+      open,
+      setRide,
+      tabRoot,
+      searchScreen,
+      submitSearch,
+      settleNavigation,
+      backScreen,
+      artifacts,
+      summary,
+      baseline: process.env.BROWSER_UI_AUDIT_BASELINE === "1",
+      extended: process.env.BROWSER_UI_AUDIT === "1",
+    });
+  if (
+    process.env.BROWSER_UI_AUDIT !== "1" &&
+    process.env.BROWSER_JOURNEY_ONLY !== "1"
+  )
     await searchComparisonChecks({
       baseline: process.env.BROWSER_COMPARISON_BASELINE === "1",
     });
@@ -1354,7 +1380,8 @@ try {
     process.env.BROWSER_COMPARISON_BASELINE !== "1" &&
     process.env.BROWSER_LEGACY_ONLY !== "1" &&
     process.env.BROWSER_COMPARISON_ONLY !== "1" &&
-    process.env.BROWSER_UI_AUDIT !== "1"
+    process.env.BROWSER_UI_AUDIT !== "1" &&
+    process.env.BROWSER_JOURNEY_ONLY !== "1"
   ) {
     await navigationChecks();
     console.log("Navigation Flow A–F passed");
@@ -1362,7 +1389,8 @@ try {
   if (
     process.env.BROWSER_NAV_ONLY !== "1" &&
     process.env.BROWSER_COMPARISON_ONLY !== "1" &&
-    process.env.BROWSER_UI_AUDIT !== "1"
+    process.env.BROWSER_UI_AUDIT !== "1" &&
+    process.env.BROWSER_JOURNEY_ONLY !== "1"
   ) {
     if (process.env.BROWSER_SPEC_ONLY !== "1") {
       // Small iPhones, current phones, landscape, tablet, and desktop, both themes.
@@ -1485,9 +1513,17 @@ try {
             ...document.querySelectorAll("#arrival-live .arrival-line"),
           ];
           window.__rowMutations = 0;
-          window.__observer = new MutationObserver(
-            (items) => (window.__rowMutations += items.length),
-          );
+          window.__sourceMutations = 0;
+          window.__observer = new MutationObserver((items) => {
+            for (const item of items) {
+              const owner =
+                item.target.nodeType === Node.ELEMENT_NODE
+                  ? item.target
+                  : item.target.parentElement;
+              if (owner?.closest(".arrival-source")) window.__sourceMutations++;
+              else window.__rowMutations++;
+            }
+          });
           window.__observer.observe(document.querySelector("#arrival-live"), {
             childList: true,
             characterData: true,
@@ -1517,7 +1553,7 @@ try {
         assert.equal(
           await page.evaluate(() => window.__rowMutations),
           0,
-          "Timestamp-only responses must not replace any row content",
+          "Timestamp-only responses may update source timestamps, while vehicle, destination, time and position remain stable",
         );
         assert.equal(
           await page.evaluate(() =>
@@ -1528,6 +1564,20 @@ try {
             ),
           ),
           true,
+        );
+        assert.equal(
+          await page.evaluate(() => {
+            const current = new Intl.DateTimeFormat("ja-JP", {
+              timeZone: "Asia/Tokyo",
+              hour: "2-digit",
+              minute: "2-digit",
+            }).format(new Date(window.__state.state.busLive.asOf));
+            return [
+              ...document.querySelectorAll("#arrival-live .arrival-source"),
+            ].every((el) => el.textContent.includes(current));
+          }),
+          true,
+          "Every arrival row must show its refreshed timestamp",
         );
         const marker = await page
           .locator(".arrival-track-position")
@@ -2273,6 +2323,11 @@ try {
               .locator(".navigation-current .planner-result")
               .first();
             assert.equal(await first.locator("[data-open-route]").count(), 1);
+            await page
+              .locator(
+                ".navigation-current [data-planner-status] .loading-note",
+              )
+              .waitFor({ state: "hidden", timeout: 8000 });
             assert.equal(
               await page
                 .locator(".navigation-current [data-planner-status]")

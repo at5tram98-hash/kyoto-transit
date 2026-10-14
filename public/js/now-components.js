@@ -1,6 +1,60 @@
 import { esc } from "./vnext-state.js";
 import { formatMinute } from "./vnext-core.js";
 import { stationModel } from "./now-model.js";
+import {
+  itineraryAction,
+  itineraryDestinationChanged,
+} from "./journey-plan.js";
+import { formatTime } from "./router.js";
+
+export function itinerarySummary(plan, network, shift = null, ride = null) {
+  if (!plan) return "";
+  const a = itineraryAction(plan),
+    changed = itineraryDestinationChanged(plan, ride),
+    name = (id) => network.stops.get(id)?.name ?? id,
+    service = (leg) =>
+      leg.route
+        ? `${leg.route}系統`
+        : leg.operator === "subway"
+          ? "烏丸線"
+          : leg.operator === "through"
+            ? "直通列車"
+            : leg.operator === "kintetsu"
+              ? "近鉄京都線"
+              : "バス",
+    title = changed
+      ? `${name(ride.userDestination.id)}で降車（経路変更）`
+      : plan.phase === "arrived"
+        ? "旅程を終了しました"
+        : plan.phase === "walking"
+          ? `${name(a.destination)}まで徒歩${a.walk}分`
+          : plan.phase === "riding"
+            ? `${name(a.current.to)}で${a.next ? "乗換" : "降車"}`
+            : `${name(a.current.from)}から乗車予定`,
+    detail =
+      plan.phase === "riding"
+        ? a.next
+          ? `${a.walk ? `徒歩${a.walk}分 · ` : ""}${a.dwell ? `滞在${a.dwell}分 · ` : ""}${service(a.next)} ${formatTime(a.next.depart)}発${a.next.platform ? ` · ${a.next.platform}のりば` : ""}`
+          : a.walk
+            ? `降車後、${name(a.destination)}へ徒歩${a.walk}分`
+            : `${name(a.destination)}までの旅程を確認`
+        : plan.phase === "walking" || plan.phase === "arrived"
+          ? "全区間と予定時刻を見る"
+          : `${service(a.current)} ${formatTime(a.current.depart)}発${a.current.platform ? ` · ${a.current.platform}のりば` : ""} · ${name(a.current.to)}で降車`,
+    risky =
+      plan.phase === "riding" &&
+      a.next &&
+      Number.isFinite(shift) &&
+      a.current.arrive +
+        (a.current.realtimeApplied
+          ? Math.max(0, shift - a.current.realtime.delay)
+          : shift) +
+        a.walk +
+        a.dwell +
+        Number(plan.input?.buffer ?? 3) >
+        a.next.depart;
+  return `<div class="native-list itinerary-guide"><button class="native-row itinerary-summary" data-open-itinerary><span><small>次の行動 · ${esc(a.current.serviceDate ?? plan.route.date)}運行</small><b>${esc(title)}</b><small>${esc(detail)}</small>${changed ? '<small class="itinerary-warning">降車地点が元の旅程と異なります。後続は再検索してください。</small>' : ""}${risky ? '<small class="itinerary-warning">遅れの推定から、次便の接続を再確認してください</small>' : ""}</span><span class="chevron">›</span></button></div>`;
+}
 
 export function routeBadge(model, { small = false } = {}) {
   const badges = model.boundary?.codes ?? [
@@ -89,5 +143,5 @@ export function timelineRow(
       stop.id ===
       (ride.userDestination?.id ?? ride.userDestinationId ?? ride.to),
     boarding = stop.id === ride.from;
-  return `<li class="${passed ? "passed" : ""} ${next ? "next" : ""} ${current ? "current" : ""} ${destination ? "destination" : ""} ${boarding ? "boarding" : ""}" ${next ? 'aria-current="step"' : ""}><button class="station-dot-button" data-station-detail="${esc(stop.id)}" aria-label="${esc(stop.name)}の詳細"><span class="rail-dot"></span></button><button class="station-name-button" data-station-detail="${esc(stop.id)}"><b>${esc(stop.name)}</b><small>${current ? "現在地付近" : destination ? "降車予定" : boarding ? "乗車駅" : index === progress.stops.length - 1 ? "終点" : next ? `次の${bus ? "停留所" : "停車駅"}` : ""}</small></button><div class="stop-times">${Number.isFinite(adjusted) ? `<time>${formatMinute(Math.round(adjusted))}</time><small>${stop.estimated ? "推定時刻" : `予定 ${formatMinute(planned)}`}</small><span>${shift > 0 ? `+${Math.round(shift)}分 推定` : "予定"}</span>` : "<small>時刻未取得</small>"}</div></li>`;
+  return `<li class="${passed ? "passed" : ""} ${next ? "next" : ""} ${current ? "current" : ""} ${destination ? "destination" : ""} ${boarding ? "boarding" : ""}" ${next ? 'aria-current="step"' : ""}><button class="station-dot-button" data-station-detail="${esc(stop.id)}" aria-label="${esc(stop.name)}の詳細"><span class="rail-dot"></span></button><button class="station-name-button" data-station-detail="${esc(stop.id)}"><b>${esc(stop.name)}</b><small>${current ? "現在地付近" : passed ? "通過済み" : destination ? "降車予定" : boarding ? "乗車駅" : index === progress.stops.length - 1 ? "終点" : next ? `次の${bus ? "停留所" : "停車駅"}` : ""}</small></button><div class="stop-times">${Number.isFinite(adjusted) ? `<time>${formatMinute(Math.round(adjusted))}</time><small>${stop.estimated ? "推定時刻" : `予定 ${formatMinute(planned)}`}</small><span>${shift > 0 ? `+${Math.round(shift)}分 推定` : "予定"}</span>` : "<small>時刻未取得</small>"}</div></li>`;
 }
