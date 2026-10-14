@@ -190,6 +190,8 @@ function distancePreview() {
     count = entries.filter(
       (s) => s.stop.type === "subway" && s.meters <= settings.railGuideDistance,
     ).length;
+  if (!entries.length)
+    return "最新の現在地を取得すると、設定範囲内の地下鉄駅数を確認できます。";
   return `現在地から${settings.railGuideDistance}m以内に地下鉄${count}駅。停留所の表示範囲は別に保持します。`;
 }
 export function renderSettings(

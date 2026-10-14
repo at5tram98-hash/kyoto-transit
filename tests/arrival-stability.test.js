@@ -190,3 +190,47 @@ test("保存・通信失敗時はプレビューの実測表示を継続しな�
     "prediction",
   );
 });
+
+test("保存した予測便が新しい1停留所前の実測を隠さない", () => {
+  const [group] = groupCityBusRows([
+    {
+      key: "old",
+      route: "204",
+      dest: "銀閣寺",
+      source: "prediction",
+      minutes: 1,
+    },
+    {
+      key: "live",
+      route: "204",
+      dest: "銀閣寺",
+      source: "live",
+      minutes: null,
+      stopsAway: 1,
+    },
+  ]);
+  assert.equal(group.arrivals[0].key, "live");
+  assert.equal(group.arrivals[0].stopsAway, 1);
+  assert.equal(group.arrivals[1].key, "old");
+});
+test("分数と停留所前が混在しても実測のまもなくの便を優先する", () => {
+  const [group] = groupCityBusRows([
+    {
+      key: "minutes",
+      route: "204",
+      dest: "銀閣寺",
+      source: "live",
+      minutes: 5,
+    },
+    {
+      key: "near",
+      route: "204",
+      dest: "銀閣寺",
+      source: "live",
+      minutes: null,
+      stopsAway: 1,
+    },
+  ]);
+  assert.equal(group.arrivals[0].key, "near");
+  assert.equal(group.arrivals.length, 2);
+});

@@ -94,8 +94,18 @@ export function groupCityBusRows(rows = []) {
     if (congestionRank(c) > congestionRank(group.congestion))
       group.congestion = c;
   }
+  const sourceRank = (row) =>
+    row.source === "live" ? 0 : row.source === "prediction" ? 1 : 2;
+  const imminent = (row) =>
+    row.source === "live" &&
+    ((Number.isFinite(row.minutes) && row.minutes <= 1) ||
+      (Number.isFinite(row.stopsAway) && row.stopsAway <= 1));
   for (const group of groups.values())
     group.arrivals.sort((a, b) => {
+      const priority =
+        sourceRank(a) - sourceRank(b) ||
+        Number(imminent(b)) - Number(imminent(a));
+      if (priority) return priority;
       const am = Number.isFinite(a.minutes) ? a.minutes : Infinity,
         bm = Number.isFinite(b.minutes) ? b.minutes : Infinity;
       if (am !== bm) return am - bm;
