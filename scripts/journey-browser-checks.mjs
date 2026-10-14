@@ -75,7 +75,7 @@ export async function journeyUpgradeChecks({
           const root = document.querySelector(".navigation-current"),
             problems = [];
           for (const e of root.querySelectorAll(
-            ".journey-departure,.trip-choice-row,.trip-choice-description,.trip-choice-times,.planner-clock",
+            ".journey-departure,.trip-choice-row,.trip-choice-description,.trip-choice-times,.planner-clock,.trip-choice-check,.trip-choice-check svg",
           )) {
             const r = e.getBoundingClientRect();
             if (
@@ -84,7 +84,12 @@ export async function journeyUpgradeChecks({
                 r.right > innerWidth + 0.5 ||
                 e.scrollWidth > e.clientWidth + 1)
             )
-              problems.push(e.className);
+              problems.push({
+                element: e.className?.baseVal ?? e.className,
+                rect: { x: r.x, right: r.right, width: r.width },
+                scrollWidth: e.scrollWidth,
+                clientWidth: e.clientWidth,
+              });
           }
           const footer = root.querySelector(".screen-bottom-action"),
             button = footer?.querySelector("button");

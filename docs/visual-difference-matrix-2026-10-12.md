@@ -54,3 +54,19 @@
 [Navigation設計と実装](navigation-architecture-2026-10-13.md)を参照。Chromium 310レイアウト、Navigation Flow A–F、単体273成功+既存TODO1、PWA9成功。5つのFrame Cache、Tab別Stack、Scroll/Input/Focus/Map viewportを保持する。
 
 Before/After比較・Push/Pop/Swipe/Sheet/Keyboard途中の画像は `/workspace/artifacts/mymap-navigation-audit/comparison.html`、詳細記録は同ディレクトリの `verification.md` に保存。実地図PNGはアプリを識別したリクエストで取得し、実ブラウザーで道路・地名が描画されることを目視した。直接のブラウザーHTTP確認はCIで別途実施する。
+
+## Journey・接近改修（2026-10-14）
+
+既存のPDF比較とNavigation Acceptanceを維持し、ユーザー提供34画面資料に基づき操作とデータ整合を追加した。
+
+|対象|追加Acceptance|検証|
+|---|---|---|
+|経路詳細|連続する発着・徒歩・滞在・乗換待ち、取得済み番線、選便ボタン|390px Light/Dark 100/150/200%、途中駅開閉とCTAのhit|
+|便選択|区間と運行日を特定、原本を保持、後続接続・運賃・tripIdを更新|選択・プレビュー・確定・取消・Tab・Reload・Browser Back|
+|乗車と全旅程|降車・徒歩・次便・のりば、次便を準備、明示乗車、最後の徒歩、変更した降車地点の警告|案内準備→実乗車→降車→次便準備→実乗車→終了／Reload|
+|接近|到着を主情報、のりば・混雑・遅れを補助、sourceと行別時刻|全行／方面保持、1停留所前点滅、Reduce Motion、位置markerのDOM保持|
+|停留所詳細|系統chip・接近2〜3便・全接近への導線|系統切替→全接近→Back、100〜200%|
+
+変更前後34×8＝各272状態の画像と座標を記録した。1636 targetsの最小44px、独立actionの最小gap8px、clipping0・collision0。新フロー54と全回帰450、Push/Pop/Swipe/Keyboard/Scroll/Tab途中の既存検証も実施した。静止画だけを合格条件にしていない。競合実機やiPhoneハードウェアは未測定。
+
+実装・データ・Before/After・公開検証は [2026-10-14改修レポート](journey-upgrade-2026-10-14.md) に記録。
