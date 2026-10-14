@@ -5,7 +5,7 @@
 ## 基準と変更禁止
 
 - ユーザー提供資料は `docs/reference/mymap-34-screen-brief-2026-10-14.txt`。資料中の100%という評価、CI成功、競合操作の記述は提供された情報であり、現在のMyMapや競合実機の実測結果として転用しない。
-- 最新の改修と検証は `docs/journey-upgrade-2026-10-14.md`。既存34画面の比較は `docs/ui-ux-screen-comparison-2026-10-13.md`、公式参照元は `docs/transit-comparison-2026-10-13.md`。
+- 添付資料全体の対応表は `docs/brief-acceptance-2026-10-14.md`。最新の改修と検証は `docs/journey-upgrade-2026-10-14.md`。既存34画面の比較は `docs/ui-ux-screen-comparison-2026-10-13.md`、公式参照元は `docs/transit-comparison-2026-10-13.md`。
 - PDF `MyMap_UI_Design_Spec_2026_Updated.pdf`、WORK HANDOFF v1.1、`docs/design-spec-v1.1-2026-10-12.md`、`docs/navigation-architecture-2026-10-13.md`、Visual Difference Matrixも基準にする。
 - iOSの既存デザインを大きく変更しない。地図をホームの主役にしない。機能を削除しない。CSS末尾で大量上書きしない。巨大なdocument click router、別のダミー探索・Navigationを作らない。許可済みの作業でプラグイン確認を繰り返さない。
 - 烏丸線・近鉄・直通・K/B境界、北3・全既存バス／停留所、次駅Hero、降車、前方／反対方向列車、Realtime、遅延、全駅時刻表、折返し、運行・接近、運賃／定期、地図、GPS、通知、Dark Mode、Dynamic Type、Reduce Motion、設定を維持する。
@@ -30,6 +30,8 @@ MyMapは交通中心の4タブと独立Stackを持つ。Googleの地図中心ホ
 5. 市バス停留所詳細に系統chip、確認できる接近2〜3件、全接近への導線。停留所数だけのデータから分数を生成しない。京都バスの実測未取得は明示し公式時刻表を案内する。
 6. 全旅程を案内準備・乗車・降車後の乗換・次便・最後の徒歩へ保持する。「次の行動」の行から全旅程へPush。次便は準備状態とし、実乗車は明示操作または既存の検証済み乗車判定に従う。時刻だけで自動乗車させない。
 7. 乗車・検索経路の運行情報を先に並べ、その他事業者も残す。経由と滞在の説明、通過済み表示、定期適用表示、距離設定の現在地からの実駅数、出典・更新・推定の説明を追加する。
+
+8. 保存した経路の実在する駅・停留所から時刻表へ直接進むショートカットがある。結果はstatusだけの更新で再描画せず、pointer/keyboard操作中の表示変更を待ってtapを保持する。timer/listenerはscreen disposeで解放する。
 
 再実装や新規機能扱いで重ねないこと。
 

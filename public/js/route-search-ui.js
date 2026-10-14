@@ -374,6 +374,7 @@ export function mountRouteSearch({
     renderVia();
     dateChanged();
   }
+  const resultInteractions = new WeakMap();
   let resultFrame = null,
     snapshots = new Map(),
     restoredSearch = false,
@@ -452,8 +453,10 @@ export function mountRouteSearch({
       data = snapshots.get(revision);
     resultFrame.querySelector(".search-request").textContent =
       data?.description ?? "";
-    resultFrame.querySelector("[data-planner-status]").innerHTML =
-      data?.status ?? '<p class="empty-state">経路を再検索してください。</p>';
+    updateHTML(
+      resultFrame.querySelector("[data-planner-status]"),
+      data?.status ?? '<p class="empty-state">経路を再検索してください。</p>',
+    );
     resultFrame.querySelector("[data-result-order]").value =
       data?.order ?? "arrival";
     resultFrame.querySelector("[data-previous-departure]").hidden = !(
@@ -462,12 +465,21 @@ export function mountRouteSearch({
     resultFrame.querySelector("[data-next-departure]").hidden = !(
       data?.routes.length && data.input
     );
-    resultFrame.querySelector("[data-planner-results]").innerHTML =
+    const interaction = resultInteractions.get(resultFrame);
+    if (
+      interaction?.pointerId != null ||
+      (resultFrame.contains(document.activeElement) &&
+        document.activeElement.closest(".planner-result"))
+    )
+      return;
+    updateHTML(
+      resultFrame.querySelector("[data-planner-results]"),
       sortedRouteIndexes(data?.routes ?? [], data?.order)
         .map((i) =>
           routeHTML(data.routes[i], network, data.boarding[i], i, tokyoNow()),
         )
-        .join("");
+        .join(""),
+    );
   }
   function handleRouteAction(e) {
     const b = e.target.closest("button");
@@ -713,6 +725,57 @@ export function mountRouteSearch({
     create({ element }) {
       element.innerHTML =
         '<p class="source-caption search-request"></p><div class="planner-result-toolbar"><button type="button" class="plain-action" data-edit-search>条件を変更</button><label><span class="sr-only">経路の表示順</span><select data-result-order aria-label="経路の表示順"><option value="arrival">到着が早い順</option><option value="fare">料金が安い順</option><option value="transfers">乗換が少ない順</option></select></label></div><div data-planner-status aria-live="polite"></div><div data-planner-results></div><button type="button" class="native-row" data-previous-departure hidden><span>1本前の出発を探す</span><span class="chevron">›</span></button><button type="button" class="native-row" data-next-departure hidden><span>次の出発を探す</span><span class="chevron">›</span></button>';
+      const interaction = {
+        pointerId: null,
+        timer: 0,
+        frame: 0,
+        lifetime: new AbortController(),
+      };
+      resultInteractions.set(element, interaction);
+      const later = () => {
+        cancelAnimationFrame(interaction.frame);
+        interaction.frame = requestAnimationFrame(() => {
+          if (
+            resultFrame === element &&
+            element.classList.contains("navigation-current")
+          )
+            renderResults();
+        });
+      };
+      const release = () => {
+        clearTimeout(interaction.timer);
+        interaction.pointerId = null;
+        later();
+      };
+      element.addEventListener("pointerdown", (event) => {
+        if (
+          event.isPrimary &&
+          event.button === 0 &&
+          event.target.closest(".planner-result")
+        ) {
+          clearTimeout(interaction.timer);
+          interaction.pointerId = event.pointerId;
+        }
+      });
+      // Retain the target through pointerup and the browser's click delivery.
+      // A canceled scroll gesture has no click, so it releases immediately.
+      window.addEventListener(
+        "pointerup",
+        (event) => {
+          if (event.pointerId === interaction.pointerId)
+            interaction.timer = setTimeout(release, 350);
+        },
+        { signal: interaction.lifetime.signal },
+      );
+      window.addEventListener(
+        "pointercancel",
+        (event) => {
+          if (event.pointerId === interaction.pointerId) release();
+        },
+        { signal: interaction.lifetime.signal },
+      );
+      element.addEventListener("click", release);
+      element.addEventListener("focusout", later);
       element.addEventListener("click", handleRouteAction);
       element.addEventListener("change", (e) => {
         if (e.target.matches("[data-result-order]")) {
@@ -758,7 +821,22 @@ export function mountRouteSearch({
       resultFrame = element;
       renderResults();
     },
+    onHide({ element }) {
+      const interaction = resultInteractions.get(element);
+      if (interaction) {
+        clearTimeout(interaction.timer);
+        cancelAnimationFrame(interaction.frame);
+        interaction.pointerId = null;
+      }
+    },
     onDispose({ element }) {
+      const interaction = resultInteractions.get(element);
+      if (interaction) {
+        clearTimeout(interaction.timer);
+        cancelAnimationFrame(interaction.frame);
+        interaction.lifetime.abort();
+        resultInteractions.delete(element);
+      }
       if (resultFrame === element) resultFrame = null;
     },
   });

@@ -460,7 +460,7 @@ export function mountTimetables({
       navigation.push("board", { stopId: id });
     },
     show() {
-      if (!chosen) list();
+      list();
     },
   };
 }

@@ -271,11 +271,12 @@ async function fixture(page, scenario = {}) {
       }
     } else if (url.pathname === "/api/rail/live") {
       counts.rail++;
+      if (scenario.delayRail) await scenario.waitForRail;
       data = {
         kind: "rail-live",
         asOf,
         source: "live",
-        trains: [
+        trains: scenario.railTrains ?? [
           {
             key: "rail-1",
             direction: "south",
@@ -1187,6 +1188,35 @@ async function searchComparisonChecks({ baseline = false } = {}) {
             .textContent(),
           /保存しました/,
         );
+        await page.locator('.tabbar [data-tab="timetable"]').click();
+        await settleNavigation(page);
+        assert.match(
+          await page
+            .locator(".navigation-current #timetable-stop-list")
+            .textContent(),
+          /よく使う場所/,
+        );
+        await layout(
+          page,
+          `Saved route timetable shortcuts ${colorScheme} ${scale}x`,
+        );
+        await page
+          .locator(".navigation-current #timetable-stop-list .native-list")
+          .first()
+          .locator('[data-timetable-stop="K07"]')
+          .click();
+        await settleNavigation(page);
+        assert.equal(
+          await page.locator(".navigation-current").getAttribute("data-screen"),
+          "board",
+        );
+        await backScreen(page);
+        await page.locator('.tabbar [data-tab="now"]').click();
+        await settleNavigation(page);
+        assert.equal(
+          await page.locator(".navigation-current").getAttribute("data-screen"),
+          "route",
+        );
         await page.evaluate(() =>
           Object.defineProperty(navigator, "share", {
             configurable: true,
@@ -1328,8 +1358,126 @@ async function searchComparisonChecks({ baseline = false } = {}) {
   } finally {
     await run.context.close();
   }
+  // The static result is usable before realtime resolves. A status-only
+  // update must retain the same card and its active click target.
+  let releaseRail;
+  const waitForRail = new Promise((resolve) => {
+    releaseRail = resolve;
+  });
+  const updating = await open({
+    time: "2026-10-11T01:00:00Z",
+    scenario: {
+      gps: "denied",
+      subwayFeed: fullFeed,
+      delayRail: true,
+      waitForRail,
+    },
+  });
+  try {
+    const page = updating.page;
+    await searchScreen(page);
+    await submitSearch(page);
+    await page.locator(".navigation-current .planner-result").first().waitFor();
+    await page.evaluate(() => {
+      window.__initialResultCard = document.querySelector(
+        ".navigation-current .planner-result",
+      );
+    });
+    releaseRail();
+    await page
+      .locator(".navigation-current [data-planner-status] .loading-note")
+      .waitFor({ state: "hidden", timeout: 8000 });
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.__initialResultCard ===
+          document.querySelector(".navigation-current .planner-result"),
+      ),
+      true,
+      "Completing realtime without presentation changes must preserve the result card",
+    );
+    await page
+      .locator(".navigation-current .planner-result")
+      .first()
+      .click({ position: { x: 20, y: 30 } });
+    await page.locator(".navigation-current .planner-timeline").waitFor();
+    await layout(page, "Result card remains tappable after realtime update");
+    assert.deepEqual(updating.errors, []);
+  } finally {
+    releaseRail();
+    await updating.context.close();
+  }
+  let releaseChange;
+  const waitForChange = new Promise((resolve) => {
+    releaseChange = resolve;
+  });
+  const throughFeed = structuredClone(fullFeed);
+  throughFeed.services.forEach((service) => {
+    service.operator = "through";
+  });
+  const held = await open({
+    time: "2026-10-11T01:00:00Z",
+    scenario: {
+      gps: "denied",
+      subwayFeed: throughFeed,
+      delayRail: true,
+      waitForRail: waitForChange,
+      railTrains: [
+        {
+          key: "observed-local",
+          category: "local",
+          dest: "国際会館",
+          delay: 3,
+          direction: "north",
+          position: 20,
+        },
+      ],
+    },
+  });
+  try {
+    const page = held.page;
+    await searchScreen(page);
+    await submitSearch(page);
+    const card = page.locator(".navigation-current .planner-result").first();
+    await card.waitFor();
+    await page.evaluate(() => {
+      window.__pressedResult = document.querySelector(
+        ".navigation-current .planner-result",
+      );
+    });
+    const rect = await card.boundingBox();
+    await page.mouse.move(rect.x + 20, rect.y + 30);
+    await page.mouse.down();
+    releaseChange();
+    await page
+      .locator(".navigation-current [data-planner-status] .loading-note")
+      .waitFor({ state: "hidden", timeout: 8000 });
+    assert.equal(
+      await page.evaluate(
+        () =>
+          window.__pressedResult ===
+          document.querySelector(".navigation-current .planner-result"),
+      ),
+      true,
+      "A realtime presentation change must not remove an active pointer target",
+    );
+    await page.mouse.up();
+    await page.locator(".navigation-current .planner-timeline").waitFor();
+    assert.match(
+      await page.locator(".navigation-current .planner-quality").textContent(),
+      /推定/,
+    );
+    await layout(
+      page,
+      "Realtime changes during card press retain its click and open updated details",
+    );
+    assert.deepEqual(held.errors, []);
+  } finally {
+    releaseChange();
+    await held.context.close();
+  }
   summary.checks.push(
-    "Competitor comparison improvements: operator-specific autocomplete and keyboard selection, via/dwell search, sort identity, edit/next departure, save/delete, share/reload state, quick search and invalid-input feedback; 390px light/dark 100–200%",
+    "Competitor comparison improvements: delayed realtime preserves card identity and tap, saved-route timetable shortcuts, operator-specific autocomplete and keyboard selection, via/dwell search, sort identity, edit/next departure, save/delete, share/reload state, quick search and invalid-input feedback; 390px light/dark 100–200%",
   );
 }
 

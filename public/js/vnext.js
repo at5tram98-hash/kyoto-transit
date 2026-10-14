@@ -2,6 +2,7 @@ import { createNetwork } from "./network.js";
 import { locate } from "./mobility.js";
 import { createLocationSession } from "./location-session.js";
 import { mountTimetables, mountOperations } from "./timetable-ui.js";
+import { readSearchPairs } from "./search-history.js";
 import { mountRouteSearch } from "./route-search-ui.js";
 import {
   $,
@@ -256,6 +257,23 @@ function advancePlannedJourney() {
   renderNow();
   arrivals?.show();
 }
+function savedTransitStopIds() {
+  try {
+    const supported = new Set(["subway", "kintetsu", "citybus", "kyotobus"]);
+    return [
+      ...new Set(
+        readSearchPairs(localStorage).favorites.flatMap((pair) => [
+          pair.fromId,
+          pair.toId,
+        ]),
+      ),
+    ]
+      .filter((id) => supported.has(state.network.stops.get(id)?.type))
+      .slice(0, 10);
+  } catch {
+    return [];
+  }
+}
 async function init() {
   $(".tabbar").innerHTML =
     '<div class="tab-selection" aria-hidden="true"></div>' +
@@ -288,7 +306,7 @@ async function init() {
     restoreJourney();
     timetables = mountTimetables({
       network: state.network,
-      getState: () => ({ favorites: [] }),
+      getState: () => ({ favorites: savedTransitStopIds() }),
       now: tokyoNow,
       setTab,
       onBoard: boardRide,
