@@ -53,6 +53,20 @@ export async function yahooScreenChecks({
           await page.locator("[data-home-value=to]").textContent(),
           "国際会館",
         );
+        if (scale === 1) {
+          await page.reload();
+          await page.locator("[data-home-submit]").waitFor();
+          await settleNavigation(page);
+          assert.equal(
+            await page.locator("[name=to]").inputValue(),
+            "国際会館",
+            "Home draft survives reload before submitting",
+          );
+          assert.equal(
+            await page.locator("[data-home-value=to]").textContent(),
+            "国際会館",
+          );
+        }
         await page.locator("[data-home-submit]").click();
         await page
           .locator(".navigation-current [data-open-route]")
@@ -65,8 +79,10 @@ export async function yahooScreenChecks({
           animations: "disabled",
         });
         assert.equal(
-          await page.evaluate(
-            () => window.__navigation.navigation.route.params.revision,
+          Number(
+            await page
+              .locator(".navigation-current")
+              .getAttribute("data-search-revision"),
           ),
           1,
           "one results push retains search revision",

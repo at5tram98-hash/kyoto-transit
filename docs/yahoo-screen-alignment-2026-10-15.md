@@ -60,8 +60,10 @@ Yahoo公式画像を基準に配置と意味を合わせる。MyMapの既存交�
 
 ## 検証記録
 
-対象runtime build `1223bfaee6ba`。構文・公開残骸check、モデル340件、PWA9項目は成功。新Home直接検索→結果→詳細、日時取消／適用、PNG実出力、駅詳細／戻る、TabのStack／入力共有は390px・Light/Dark・100/150/200%で確認。
+対象runtime build `29042e3e28c7`。構文・公開残骸check、モデル340件、PWA9項目は成功。新Home直接検索→結果→詳細、日時取消／適用、PNG実出力、駅詳細／戻る、TabのStack／入力共有は390px・Light/Dark・100/150/200%で確認。
 
 34画面×8条件の座標監査は [集計JSON](evidence/yahoo-2026-10-15/coordinates-summary.json)：最小target44px、独立action間隔8px、collision0／textOverflow0。最終sourceに対して再取得する全回帰の正式な合否は [Pages公開workflow](https://github.com/at5tram98-hash/kyoto-transit/actions/workflows/pages.yml) のWebKit・Chromium・PWA・実地理・公開9項目に基づく。途中失敗を消して成功として数えない。
 
 試験で発見した問題：Nowのclickが祖先shellのscreen属性を拾って結果を二重Push、sortの子spanがclick対象から外れる、200%で入替記号が44px枠からはみ出す、旧小画面CSSで結果がcardに戻る、経路全体のsourceラベルが抜ける。いずれもController／owner CSS／既存の描画箇所で修正した。
+
+送信前のHome入力を選択直後に再読み込みする試験を追加し、消失を再現した。候補確定、日時／条件Sheetを閉じた時に同じ検索ModelをNavigation memoryへ保存して修正。入力保持を含まない初回CI `38667212238` は公開前に取り消し、修正版で全試験を再実行する。座標272状態の幾何は直前のUI build `1223bfaee6ba` と同じ（追加修正はModel保存のみ）。

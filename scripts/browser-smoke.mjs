@@ -434,10 +434,20 @@ async function open({
   if (clock || time)
     await page.clock.install(time ? { time: new Date(time) } : {});
   await page.goto(base);
-  await page
-    .locator("#arrival-live .arrival-line, #arrival-live .arrival-empty")
-    .first()
-    .waitFor({ state: "attached" });
+  try {
+    await page
+      .locator("#arrival-live .arrival-line, #arrival-live .arrival-empty")
+      .first()
+      .waitFor({ state: "attached" });
+  } catch (error) {
+    await page.screenshot({
+      path: resolve(artifacts, `startup-failure-${Date.now()}.png`),
+    });
+    throw new Error(
+      `${error.message}\nApplication startup errors: ${JSON.stringify(f.errors)}`,
+      { cause: error },
+    );
+  }
   await page.locator(".app-shell[data-navigation-depth]").waitFor();
   await page.evaluate(async () => {
     const search = new URL(document.querySelector("script[type=module]").src)
@@ -555,6 +565,8 @@ async function submitSearch(page) {
 async function arrivalsScreen(page) {
   if (await page.locator("[data-arrival-change]").isVisible()) return;
   await settleNavigation(page);
+  const nearby = page.locator("[data-home-page=nearby]");
+  if (await nearby.isVisible()) await nearby.click();
   await page.locator('[data-navigation-screen="arrivals"]').click();
   await settleNavigation(page);
 }

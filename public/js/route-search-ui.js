@@ -317,11 +317,15 @@ export function mountRouteSearch({
         ([name, value]) => form.elements[name].value !== value,
       );
     dateChanged();
+    navigation.remember("search-input", captureInput());
     if (origin && changed) form.requestSubmit();
   });
   root
     .querySelector("[data-search-filter]")
     .addEventListener("click", () => filter.showModal());
+  filter.addEventListener("close", () =>
+    navigation.remember("search-input", captureInput()),
+  );
   setupSheetGestures();
   let draftVia = [];
   const autocomplete = mountStopAutocomplete({
@@ -339,6 +343,7 @@ export function mountRouteSearch({
           row.id = stop?.id ?? "";
         }
       }
+      navigation.remember("search-input", captureInput());
     },
   });
   form.querySelectorAll("[data-stop-input]").forEach(autocomplete.bind);
