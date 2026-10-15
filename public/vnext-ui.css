@@ -627,9 +627,7 @@ summary:focus-visible {
   min-height: 52px;
 }
 .section-block,
-.hero-card,
-.planner-form,
-.planner-result {
+.hero-card {
   border: 0.5px solid var(--separator);
 }
 .sheet {

@@ -41,6 +41,14 @@ export const tokyoNow = () => {
   return { date: p[0], time: p[1], minute: minuteOf(p[1]) };
 };
 const icons = {
+  ticket:
+    '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 9h5m-5 4h10"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  walk: '<circle cx="14" cy="4" r="2"/><path d="m7 12 4-5 4 2 3 1M11 7l-1 7-4 6m4-6 5 2 2 5"/>',
+  bookmark: '<path d="M6 3h12v19l-6-4-6 4Z"/>',
+  share: '<path d="M12 15V2m-4 4 4-4 4 4M7 9H4v12h16V9h-3"/>',
+  camera:
+    '<rect x="3" y="6" width="18" height="15" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 6l2-3h4l2 3"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
   more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
   now: '<path d="M4 12a8 8 0 1 0 16 0A8 8 0 0 0 4 12Z"/><path d="M12 7v5l3 2"/>',

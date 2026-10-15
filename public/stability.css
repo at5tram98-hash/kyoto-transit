@@ -137,10 +137,6 @@ select {
   .next-stop-grid strong {
     font-size: 1.125rem;
   }
-  .planner-result {
-    padding: 14px;
-    border-radius: 17px;
-  }
   .planner-times {
     gap: 6px;
   }

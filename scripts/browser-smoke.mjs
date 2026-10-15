@@ -1,3 +1,4 @@
+import { yahooScreenChecks } from "./yahoo-browser-checks.mjs";
 import { v3RedesignChecks } from "./v3-browser-checks.mjs";
 // Real browser checks with deterministic upstream fixtures. These do not
 // certify the availability or accuracy of production transport providers.
@@ -521,7 +522,7 @@ async function tabRoot(page, tab) {
     await backScreen(page);
 }
 async function searchScreen(page) {
-  if (await page.locator(".planner-submit").isVisible()) return;
+  if (await page.locator("#planner-form .planner-submit").isVisible()) return;
   await settleNavigation(page);
   await page.locator('[data-tab="search"]').click();
   await settleNavigation(page);
@@ -549,7 +550,7 @@ async function submitSearch(page) {
       await settleNavigation(page);
     }
   }
-  await page.locator(".planner-submit").click();
+  await page.locator("#planner-form .planner-submit").click();
 }
 async function arrivalsScreen(page) {
   if (await page.locator("[data-arrival-change]").isVisible()) return;
@@ -1261,7 +1262,7 @@ async function searchComparisonChecks({ baseline = false } = {}) {
             },
           }),
         );
-        await page.locator("#screen-toolbar [data-share-route]").click();
+        await page.locator(".route-actions [data-share-route]").click();
         const shared = await page.evaluate(() => window.__sharedSearch.url);
         assert.ok(shared.includes("routeSearch="));
         await layout(page, `comparison route ${colorScheme} ${scale}x`);
@@ -1519,8 +1520,25 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 
 try {
   if (
+    process.env.BROWSER_YAHOO_ONLY === "1" ||
+    !Object.keys(process.env).some(
+      (key) =>
+        key.startsWith("BROWSER_") &&
+        /ONLY|AUDIT|BASELINE/.test(key) &&
+        process.env[key] === "1",
+    )
+  )
+    await yahooScreenChecks({
+      open,
+      settleNavigation,
+      layout,
+      artifacts,
+      summary,
+    });
+  if (
     process.env.BROWSER_V3_ONLY === "1" ||
     ![
+      "BROWSER_YAHOO_ONLY",
       "BROWSER_UI_AUDIT",
       "BROWSER_JOURNEY_ONLY",
       "BROWSER_COMPARISON_ONLY",
@@ -1542,9 +1560,13 @@ try {
       artifacts,
       summary,
     });
-  if (process.env.BROWSER_V3_ONLY !== "1") {
+  if (
+    process.env.BROWSER_V3_ONLY !== "1" &&
+    process.env.BROWSER_YAHOO_ONLY !== "1"
+  ) {
     if (
       ![
+        "BROWSER_YAHOO_ONLY",
         "BROWSER_UI_AUDIT",
         "BROWSER_COMPARISON_BASELINE",
         "BROWSER_COMPARISON_ONLY",
@@ -2509,7 +2531,7 @@ try {
             );
             await page.goto(base);
             await page
-              .locator('[data-view="now"] [data-open-search]')
+              .locator('[data-view="now"] [data-home-submit]')
               .waitFor();
             await layout(page, "offline PWA navigation and app shell");
           } finally {
@@ -2556,10 +2578,12 @@ try {
                   ),
                   animations: "disabled",
                 });
-              if (scale === 1 && gps === "active")
+              if (scale === 1 && gps === "active") {
+                await page.locator("[data-home-page=nearby]").click();
                 assert.ok(
                   (await page.locator(".nearby-guide").boundingBox()).y < 650,
                 );
+              }
               await searchScreen(page);
               assert.equal(
                 await page.locator(".planner-conditions").getAttribute("open"),
@@ -2578,17 +2602,19 @@ try {
                   .click();
                 await settleNavigation(page);
               }
-              const swap = await page.locator(".planner-swap").boundingBox();
+              const swap = await page
+                .locator("#planner-form .planner-swap")
+                .boundingBox();
               assert.ok(swap.width >= 44 && swap.height >= 44);
-              await page.locator(".planner-swap").click();
+              await page.locator("#planner-form .planner-swap").click();
               assert.equal(
                 await page.locator('[name="from"]').inputValue(),
                 "国際会館",
               );
-              await page.locator(".planner-swap").click();
+              await page.locator("#planner-form .planner-swap").click();
               if (scale === 1) {
                 const search = await page
-                  .locator(".planner-submit")
+                  .locator("#planner-form .planner-submit")
                   .boundingBox();
                 assert.ok(search.y + search.height < 500);
               }
@@ -3098,15 +3124,13 @@ try {
                 });
                 console.log(
                   "Bus Hero bounds",
-                  await page
-                    .locator(".journey-display")
-                    .evaluate((e) => ({
-                      hero: e.getBoundingClientRect().toJSON(),
-                      children: [...e.children].map((c) => ({
-                        class: c.className,
-                        rect: c.getBoundingClientRect().toJSON(),
-                      })),
+                  await page.locator(".journey-display").evaluate((e) => ({
+                    hero: e.getBoundingClientRect().toJSON(),
+                    children: [...e.children].map((c) => ({
+                      class: c.className,
+                      rect: c.getBoundingClientRect().toJSON(),
                     })),
+                  })),
                 );
               }
               assert.ok(

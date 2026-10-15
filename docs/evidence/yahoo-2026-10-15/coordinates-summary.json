@@ -1,0 +1,9 @@
+{
+  "screens": 34,
+  "states": 272,
+  "minTargetWidth": 44,
+  "minTargetHeight": 44,
+  "minActionGap": 8,
+  "collisions": 0,
+  "textOverflow": 0
+}

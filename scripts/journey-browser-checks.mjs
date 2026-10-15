@@ -99,7 +99,7 @@ export async function journeyUpgradeChecks({
                 clientWidth: e.clientWidth,
               });
           }
-          const footer = root.querySelector(".screen-bottom-action"),
+          const footer = root.querySelector(".route-actions"),
             button = footer?.querySelector("button");
           if (button && !footer.hidden) {
             const r = button.getBoundingClientRect(),

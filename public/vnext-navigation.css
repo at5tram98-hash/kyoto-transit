@@ -28,6 +28,29 @@ body:has(.navigation-app) {
   min-height: 76px;
   align-items: center;
 }
+.navigation-app[data-now-home="true"][data-navigation-depth="0"] .topbar,
+.navigation-app:has([data-view="search"].navigation-current) .topbar {
+  min-height: calc(48px + env(safe-area-inset-top, 0px));
+  padding-block: 8px;
+}
+.navigation-app[data-now-home="true"][data-navigation-depth="0"]
+  .topbar
+  .eyebrow,
+.navigation-app:has([data-view="search"].navigation-current) .topbar .eyebrow {
+  display: none;
+}
+.navigation-app[data-now-home="true"][data-navigation-depth="0"] .topbar h1,
+.navigation-app:has([data-view="search"].navigation-current) .topbar h1 {
+  font-size: var(--type-body);
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+.navigation-app[data-now-home="true"] [data-view="now"],
+.navigation-app [data-view="search"],
+.navigation-screen[data-screen="results"],
+.navigation-screen[data-screen="route"] {
+  background: var(--surface-primary);
+}
 .navigation-app main {
   position: relative;
   flex: 1;
@@ -168,22 +191,6 @@ body:has(.navigation-app) {
   white-space: normal;
 }
 
-.navigation-search-entry {
-  border-radius: 14px;
-  margin: 10px 0 18px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 64px;
-  color: var(--text);
-}
-.navigation-search-entry b {
-  color: var(--blue);
-  font-size: 1.125rem;
-}
-.navigation-recent h3 {
-  margin: 18px 8px 8px;
-  color: var(--muted);
-  font-size: 0.8125rem;
-}
 .ride-action-list {
   container-type: inline-size;
 }
@@ -376,8 +383,7 @@ body:has(.navigation-app) {
   .chevron {
     color: var(--text);
   }
-  .native-list,
-  .navigation-search-entry {
+  .native-list {
     outline: 1px solid var(--separator);
   }
 }

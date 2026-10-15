@@ -118,8 +118,8 @@ export async function v3RedesignChecks({
           0,
         );
         await record("home");
-        // A: Home -> Search -> destination editor -> place -> search = four taps.
-        await page.locator("[data-view=now] [data-open-search]").click();
+        // Canonical Search tab and Home share the same input model.
+        await searchScreen(page);
         await settleNavigation(page);
         await page.locator("[name=to]").click();
         await page.locator("[data-suggestion-input]").fill("国際会館");
@@ -247,7 +247,7 @@ export async function v3RedesignChecks({
         await settleNavigation(page);
         await record("journey");
         assert.equal(
-          await page.locator("#screen-toolbar [data-share-route]").count(),
+          await page.locator(".route-actions [data-share-route]").count(),
           1,
         );
         // C: departure -> following official trip; application includes suffix/fare.
@@ -307,6 +307,7 @@ export async function v3RedesignChecks({
         await backScreen(page);
         // D/E: actual nearby stop context contains compact 204 then its sheet.
         await tabRoot(page, "now");
+        await page.locator("[data-home-page=nearby]").click();
         await page.evaluate(() => window.__emitPosition());
         await page
           .locator(".nearby-guide .compact-departures")

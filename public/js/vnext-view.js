@@ -41,7 +41,6 @@ import {
 import { routeConfigFor } from "./bus-routes.js";
 import { navigation } from "./navigation.js";
 import { stateChange, updateMeaning } from "./navigation-motion.js";
-import { readSearchPairs } from "./search-history.js";
 import { resolveNowState } from "./ride-state-resolver.js";
 import {
   journeyProgress,
@@ -281,6 +280,9 @@ export function renderNow() {
     now = journeyClock(state.ride, tokyoNow()),
     near = nearest(),
     motion = trajectory(state.samples);
+  document.querySelector(".app-shell").dataset.nowHome = String(
+    !state.ride && !state.armedJourney && !state.itinerary,
+  );
   $('[data-view="now"]').dataset.contextIdentity = state.ride
     ? rideKey(state.ride)
     : state.armedJourney
@@ -302,32 +304,9 @@ export function renderNow() {
   }
   enterContext("nearby");
   delete document.querySelector(".app-shell").dataset.rideMode;
-  $("#now-search").hidden = false;
+  $("#now-search").hidden = Boolean(state.armedJourney || state.itinerary);
   updateHTML($("#ride-actions"), "");
-  let pairs = { history: [], favorites: [] };
-  try {
-    pairs = readSearchPairs(localStorage);
-  } catch {}
-  updateHTML(
-    $("#now-search"),
-    `<button class="native-row navigation-search-entry" data-open-search><span class="transport-icon">${icon("search")}</span><span><b>目的地を検索</b></span><span class="chevron">›</span></button>${
-      [...pairs.favorites, ...pairs.history]
-        .filter((p, i, a) => a.findIndex((q) => q.to === p.to) === i)
-        .slice(0, 3).length
-        ? `<section class="navigation-recent"><h3>最近・よく使う行き先</h3><div class="native-list">${[
-            ...pairs.favorites,
-            ...pairs.history,
-          ]
-            .filter((p, i, a) => a.findIndex((q) => q.to === p.to) === i)
-            .slice(0, 3)
-            .map(
-              (p) =>
-                `<button class="native-row" data-search-to="${esc(p.to)}"><span><b>${esc(p.to)}</b><small>${esc(p.from)}から</small></span><span class="chevron">›</span></button>`,
-            )
-            .join("")}</div></section>`
-        : ""
-    }`,
-  );
+  $("#now-search").dispatchEvent(new Event("mymap-now-context"));
   updateHTML(
     vehicle,
     `${state.armedJourney ? `<section class="section-block armed-journey" tabindex="-1"><span class="section-label">案内開始の準備ができました</span><h3>${esc(serviceName(state.armedJourney.ride))} · ${esc(state.armedJourney.ride.destination)}行き</h3><p class="source-note">${esc(state.armedJourney.ride.userDestination?.name ?? "目的地")}で降車予定。位置・移動・対象便が一致したら乗車を確認します。</p>${itinerarySummary(state.itinerary, state.network)}<div class="screen-action-group"><button class="secondary-action" data-board-armed>この便に乗車中 · 案内を開始</button><button class="plain-action" data-cancel-armed>解除</button></div></section>` : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,

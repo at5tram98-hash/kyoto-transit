@@ -189,7 +189,7 @@ async function marker(page, version, file = "journey-core.js") {
 }
 try {
   await page.goto(base);
-  await page.locator('[data-view="now"] [data-open-search]').waitFor();
+  await page.locator('[data-view="now"] [data-home-submit]').waitFor();
   await controlled(page);
   assert.equal(await marker(page, oldVersion), oldVersion);
   await page.evaluate(async () => {

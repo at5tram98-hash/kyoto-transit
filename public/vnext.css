@@ -19,6 +19,13 @@
   --color-warning: #a35b00;
   --color-danger: #c63032;
   --color-on-accent: #fff;
+  --color-search-action: #e66e00;
+  --color-place-label: #13833f;
+  --surface-place-entry: #ececee;
+  --surface-station-row: #f3f3f5;
+  --color-rank-early: #bd5600;
+  --color-rank-easy: #006f9f;
+  --color-rank-cheap: #866500;
   --color-on-transport: #fff;
   --color-destination: #111114;
   --surface-destination: #f5f5f7;
@@ -54,6 +61,13 @@
     --surface-primary: #1c1c1e;
     --surface-secondary: #2c2c2e;
     --text: #f5f5f7;
+    --color-search-action: #ff9b42;
+    --color-place-label: #4dc77c;
+    --surface-place-entry: #2c2c2e;
+    --surface-station-row: #252527;
+    --color-rank-early: #ffae68;
+    --color-rank-easy: #78cfff;
+    --color-rank-cheap: #f5d16b;
     --muted: #98989d;
     --separator: rgba(174, 174, 180, 0.3);
     --color-link: #69b1ff;

@@ -103,6 +103,7 @@ function moveTabSelection() {
 }
 function syncTab(tab) {
   state.tab = tab;
+  if (tab !== "now") $(".app-shell").dataset.nowHome = "false";
   $("#view-subtitle").textContent =
     tab === "now" ? "現在地に合わせて周辺案内" : "My Map";
   if (tab === "now") {
@@ -380,6 +381,7 @@ async function init() {
     setupSettings(renderNow, (input) => routeSearch.openInput(input));
     registerNowScreens({ arrivals, onFoldback: openFoldback });
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
+    routeSearch.mountHome($("#now-search"));
     routeSearch.restoreShared();
     setupEvents();
     $('[data-view="now"]').addEventListener("click", (event) => {

@@ -242,8 +242,8 @@ export function registerNowScreens({ arrivals, onFoldback }) {
   });
   const nowRoot = $('[data-view="now"]');
   nowRoot.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-navigation-screen]");
-    if (!b) return;
+    const b = e.target.closest("button[data-navigation-screen]");
+    if (!b || !nowRoot.contains(b)) return;
     navigation.push(b.dataset.navigationScreen, {
       journey: state.ride ? rideKey(state.ride) : null,
       id: state.ride?.operator,

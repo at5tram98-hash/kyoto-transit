@@ -1,6 +1,6 @@
 # ChatGPT Work 引継ぎ：Google Maps・Yahoo!乗換案内とMyMapの操作差
 
-更新: 2026-10-14。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
+更新: 2026-10-15。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
 
 ## 基準と変更禁止
 
@@ -86,3 +86,16 @@ CIで確認したフォント差のチェックmarkは固定SVGで解消済み�
 - Sheetはmedium/large detent・1:1ドラッグ・velocity・scrollTop競合を共通Controllerに持つ。close時に残存Animationをcancel。visualViewportのresize/scrollでキーボード上端・高さを更新。
 - Transport／Statusの色は `vnext.css` のLight/Dark semantic tokenだけを使う。実測の緑と遅延の赤は独立。運行未取得はUnknown。ホーム地図を主役にしない。
 - 最新のテスト数・build・公開CIはv3レポートを参照。以前の旧版の成功数を新しい版の証拠として転用しない。実機SafariのOSジェスチャー・VoiceOver・Hapticは別途実測が必要。
+
+
+## 2026-10-15：最新ユーザー指示とYahoo画面整合
+
+「今の画面」「経路が出る画面」をYahoo!乗換案内と同じ画面・操作へ寄せる最新指示。詳細は `docs/yahoo-screen-alignment-2026-10-15.md`。公式2026/09/15更新画像の新Home/detailを優先。競合実機を操作・測定したと誤認しない。MyMapブランドと実データだけを使う。
+
+- Now未乗車は出発／経由・現在地・入替／到着／日時／条件／橙色検索。最寄りはHome内の同列切替、定期券は既存設定。Homeで直接候補画面を開いて今Stackへ結果→詳細をPush。
+- `route-search-home.js` は既存検索Controllerの入口Viewだけ。canonical `#planner-form` はSearch Tabに一つ、入力・検索結果・via・保存Store・Sheetを二重化しない。
+- 番号付き結果行、中央日時（tapで変更・取消可）、左右1本前後、早・楽・安。発着の行をtapして条件編集。詳細は5操作→駅帯／時刻／路線。発時刻は既存の別便Sheet・全便比較を開き、便ID・後続・運賃を再計算する。
+- 詳細の案内準備CTAは上部操作列の `[data-arm-route]`。旧 `.screen-bottom-action`、共有の旧Navigation Toolbar selectorは使わない。`route-image.js` は選択経路の実モデルからPNGを生成する。OSスクリーンショットではない。
+- クリックは `closest` でbuttonまで特定する。`now-navigation.js` はNow内部の `button[data-navigation-screen]` のみを扱い、祖先app-shellのscreen属性を拾わない。装飾span/iconを押しても結果のsortを行う。
+- 古い `stability.css` の小画面card半径・padding例外を削除済み。owner CSSの責務を戻す。44px／8px／文字切れの検査を維持する。
+- YahooのIC残高、指定席、乗車位置・出口、独自運行Pushなど取得していないものは偽装しない。物理iPhone、Yahoo実機との完全ピクセル一致・全機能同等は未確認。乗車Hero等の既存交通機能は継続。最終build／CI／残差は最新レポートを参照する。
