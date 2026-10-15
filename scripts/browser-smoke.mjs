@@ -133,21 +133,6 @@ async function fixture(page, scenario = {}) {
         localStorage.setItem("mymap-arrivals-v3", "null");
         sessionStorage.setItem("mymap-navigation-v1", "null");
       }
-      // Stamp fixture API calls while their document is alive. Reading the
-      // page clock from a route callback races reload and can abort a valid
-      // response, which WebKit reports as a CORS error in the next document.
-      const nativeFetch = window.fetch.bind(window);
-      window.fetch = (input, init) => {
-        const url = new URL(
-          input instanceof Request ? input.url : input,
-          location.href,
-        );
-        if (url.hostname === "my-map-capture.at5tram98.workers.dev") {
-          url.searchParams.set("__mymap_fixture_epoch", String(Date.now()));
-          input = input instanceof Request ? new Request(url, input) : url.href;
-        }
-        return nativeFetch(input, init);
-      };
       let watch;
       window.__emitPosition = (lat = 35.01651, lng = 135.75949) =>
         watch?.({
@@ -208,12 +193,21 @@ async function fixture(page, scenario = {}) {
     }
     let data,
       status = 200;
-    const timestamp = url.searchParams.get("__mymap_fixture_epoch"),
-      epoch = Number(timestamp);
-    assert.ok(
-      timestamp && Number.isFinite(epoch),
-      `Unstamped fixture API request: ${url.pathname}`,
-    );
+    let epoch;
+    try {
+      epoch = await page.evaluate(() => Date.now());
+    } catch (error) {
+      // A reload can destroy the document that owns this intercepted request.
+      // Cancel that request rather than fabricate a timestamp or hide app errors.
+      if (
+        !/Execution context was destroyed|Target page, context or browser has been closed/.test(
+          error.message,
+        )
+      )
+        throw error;
+      await route.abort().catch(() => {});
+      return;
+    }
     const asOf = new Date(epoch).toISOString();
     if (url.pathname === "/api/citybus/arrivals") {
       counts.bus++;

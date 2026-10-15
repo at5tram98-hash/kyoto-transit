@@ -99,3 +99,7 @@ CIで確認したフォント差のチェックmarkは固定SVGで解消済み�
 - クリックは `closest` でbuttonまで特定する。`now-navigation.js` はNow内部の `button[data-navigation-screen]` のみを扱い、祖先app-shellのscreen属性を拾わない。装飾span/iconを押しても結果のsortを行う。
 - 古い `stability.css` の小画面card半径・padding例外を削除済み。owner CSSの責務を戻す。44px／8px／文字切れの検査を維持する。
 - YahooのIC残高、指定席、乗車位置・出口、独自運行Pushなど取得していないものは偽装しない。物理iPhone、Yahoo実機との完全ピクセル一致・全機能同等は未確認。乗車Hero等の既存交通機能は継続。最終build／CI／残差は最新レポートを参照する。
+
+Homeの送信前の候補確定、日時／条件Sheetのcloseでもcanonical inputをNavigation memoryへ保存する。Search Tabのcaptureだけに頼ると、Nowで選んだ未送信の入力がreloadで消える。候補選択→未送信reloadの回帰を維持する。ブラウザーテストの接近・近隣はHomeの「最寄駅検索」を実際に押して開く。非表示の旧配置をforce clickせず、44px／8pxの基準も維持する。
+
+`fast-data.installFastData` の先読み予約はbeforeunload後、まだdocumentがvisibleでも実行してはいけない。idle/timeoutのhandleを保持して離脱・非表示でcancel、未実行分だけ復帰で再予約する。WebKitで折返し復元を続けてreloadすると古いdocumentが4通信を始めCORS例外を出していた。テストのCORS/pageerror検査を弱めず、この実操作の回帰を維持する。fixtureのfetchやURLをtimestamp付きへ差し替える試みは最終版から撤回した。

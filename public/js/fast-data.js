@@ -128,7 +128,21 @@ export function renderCachedOperations(root) {
 }
 
 export function installFastData() {
+  let leaving = false,
+    pending = true,
+    timer = null;
+  const usesIdle = "requestIdleCallback" in globalThis;
+  const cancel = () => {
+    if (timer !== null) {
+      if (usesIdle) cancelIdleCallback(timer);
+      else clearTimeout(timer);
+      timer = null;
+    }
+  };
   const warm = () => {
+    timer = null;
+    if (leaving || document.hidden) return;
+    pending = false;
     const date = tokyoNow().date;
     Promise.allSettled([
       getStaticFeed("subway", date),
@@ -138,9 +152,29 @@ export function installFastData() {
       getOperations(),
     ]).catch(() => {});
   };
-  if ("requestIdleCallback" in globalThis)
-    requestIdleCallback(warm, { timeout: 2500 });
-  else setTimeout(warm, 700);
+  const schedule = () => {
+    if (!pending || leaving || document.hidden || timer !== null) return;
+    timer = usesIdle
+      ? requestIdleCallback(warm, { timeout: 2500 })
+      : setTimeout(warm, 700);
+  };
+  const suspend = () => {
+    leaving = true;
+    cancel();
+  };
+  // A queued warm-up can fire after beforeunload, while WebKit still reports
+  // the old document as visible. Never start background requests in that gap.
+  window.addEventListener("beforeunload", suspend);
+  window.addEventListener("pagehide", suspend);
+  window.addEventListener("pageshow", () => {
+    leaving = false;
+    schedule();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) cancel();
+    else schedule();
+  });
+  schedule();
 
   document.addEventListener(
     "pointerdown",

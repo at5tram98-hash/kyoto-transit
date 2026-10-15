@@ -13,7 +13,7 @@
 
 ## 参照と境界
 
-公式紹介 `https://transit.yahoo.co.jp/promo/app/`、公式2025/08/21詳細更新、公式2026/09/15 Liquid Glass更新の画像を使用。2026年Home/detailの新画面を優先する。取得原本は `/workspace/artifacts/mymap-yahoo-alignment-2026-10-15/references/`。競合の実機タップ座標や全バージョンを測定したという意味ではない。
+[公式アプリ紹介](https://transit.yahoo.co.jp/promo/app/)、[2025/08/21詳細画面更新](https://blog-transit.yahoo.co.jp/info/20250821_new-design.html)、[2026/09/15 Liquid Glass更新](https://blog-transit.yahoo.co.jp/info/20260915_liquid_glass.html)の画像を使用。2026年Home/detailの新画面を優先する。取得原本は `/workspace/artifacts/mymap-yahoo-alignment-2026-10-15/references/`。競合の実機タップ座標や全バージョンを測定したという意味ではない。
 
 IC残高、座席指定、乗車位置／出口、運行Push等の取得していない機能を、動かないbuttonとして追加しない。対応する位置にはMyMapの実際の条件・定期・運行・案内を配置する。アプリ名・ロゴはMyMapのまま。
 
@@ -60,10 +60,35 @@ Yahoo公式画像を基準に配置と意味を合わせる。MyMapの既存交�
 
 ## 検証記録
 
-対象runtime build `29042e3e28c7`。構文・公開残骸check、モデル340件、PWA9項目は成功。新Home直接検索→結果→詳細、日時取消／適用、PNG実出力、駅詳細／戻る、TabのStack／入力共有は390px・Light/Dark・100/150/200%で確認。
+対象runtime build `0e633053b133`。構文・公開残骸check、モデル340件、PWA9項目は成功。新Home直接検索→結果→詳細、日時取消／適用、PNG実出力、駅詳細／戻る、TabのStack／入力共有は390px・Light/Dark・100/150/200%で確認。
 
 34画面×8条件の座標監査は [集計JSON](evidence/yahoo-2026-10-15/coordinates-summary.json)：最小target44px、独立action間隔8px、collision0／textOverflow0。最終sourceに対して再取得する全回帰の正式な合否は [Pages公開workflow](https://github.com/at5tram98-hash/kyoto-transit/actions/workflows/pages.yml) のWebKit・Chromium・PWA・実地理・公開9項目に基づく。途中失敗を消して成功として数えない。
 
 試験で発見した問題：Nowのclickが祖先shellのscreen属性を拾って結果を二重Push、sortの子spanがclick対象から外れる、200%で入替記号が44px枠からはみ出す、旧小画面CSSで結果がcardに戻る、経路全体のsourceラベルが抜ける。いずれもController／owner CSS／既存の描画箇所で修正した。
 
 送信前のHome入力を選択直後に再読み込みする試験を追加し、消失を再現した。候補確定、日時／条件Sheetを閉じた時に同じ検索ModelをNavigation memoryへ保存して修正。入力保持を含まない初回CI `38667212238` は公開前に取り消し、修正版で全試験を再実行する。座標272状態の幾何は直前のUI build `1223bfaee6ba` と同じ（追加修正はModel保存のみ）。
+
+
+### 操作の確認条件
+
+|操作|確認した結果|
+|---|---|
+|Home直接検索|GPSの最寄り出発地を取得済みなら、到着欄→候補選択→検索。GPS拒否時は出発地も自分で選ぶ|
+|送信前の再読み込み|Homeで候補を確定した到着地が再読み込み後も残る|
+|結果の日時変更|日時を変更して取消で元に戻る、完了で同じStack深さの結果を更新する|
+|別便|発時刻→実便を選択。後続・運賃・実測反映を既存pipelineで再計算|
+|表示順|文字や円形の早・楽・安のどちらをtapしても並び替え、経路IDを保つ|
+|画像|選択経路の時刻・区間・運賃を実PNGへ出力。GPS履歴や地図tileを含めない|
+|駅と戻る|駅名→地点詳細→同じ経路詳細。結果→Homeの入力と日時も保持|
+|Tab|Nowの詳細→Search→Nowで詳細と共有入力が残る|
+
+ローカル最終の追加確認はChromium既存回帰392検査、WebKit Navigation／比較／座標106検査が成功。両者とも全回帰586件の代用としては数えない。公開前の正式な全範囲検証は最終Pages CIの結果で追記する。
+
+
+### WebKit再読み込みで見つけた通信の競合
+
+CI `38667997351` は折返し復元を含む再読み込みで4件のCORS例外を検出し、公開を停止した。模擬APIの時刻をrequest時に付ける試みでは再現が続き、URL／fetchを変更するその試みは最終コードから取り除いた。
+
+切り出した同じ操作を追跡すると、`beforeunload` の後・`pagehide` の前、`document.visibilityState === "visible"` のまま `fast-data.js` のidle warm-upが地下鉄・近鉄・京都バス・運行情報の4通信を開始していた。`installFastData` でidle／timeout予約を保持し、beforeunload・pagehide・非表示で取り消す。未実行分だけを表示復帰で再予約する。取得データ・TTL・通常の検索・オンデマンド更新は保持した。
+
+元のfixture（request URLもfetchも変更しない）と元の例外検査を使った同じ折返し／再読み込み操作はWebKitで通過した。CORS例外やpageerrorを無視する条件は追加していない。新たな本番改善対象は `public/js/fast-data.js` も含む。
