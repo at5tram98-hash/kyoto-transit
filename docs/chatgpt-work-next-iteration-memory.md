@@ -103,3 +103,10 @@ CIで確認したフォント差のチェックmarkは固定SVGで解消済み�
 Homeの送信前の候補確定、日時／条件Sheetのcloseでもcanonical inputをNavigation memoryへ保存する。Search Tabのcaptureだけに頼ると、Nowで選んだ未送信の入力がreloadで消える。候補選択→未送信reloadの回帰を維持する。ブラウザーテストの接近・近隣はHomeの「最寄駅検索」を実際に押して開く。非表示の旧配置をforce clickせず、44px／8pxの基準も維持する。
 
 `fast-data.installFastData` の先読み予約はbeforeunload後、まだdocumentがvisibleでも実行してはいけない。idle/timeoutのhandleを保持して離脱・非表示でcancel、未実行分だけ復帰で再予約する。WebKitで折返し復元を続けてreloadすると古いdocumentが4通信を始めCORS例外を出していた。テストのCORS/pageerror検査を弱めず、この実操作の回帰を維持する。fixtureのfetchやURLをtimestamp付きへ差し替える試みは最終版から撤回した。
+
+
+## 2026-10-15 最終公開記録
+
+実装source `fea1e58`、公開build `0e633053b133`。Pages CI 38669787095 SUCCESS：モデル340、WebKit/Chromium各586、PWA各9、実地理210、必須公開9項目成功。公開実ブラウザーでもfixtureなしで当日丸太町→京都、11:42→11:49発の別便変更、案内準備・全旅程・Back・解除、例外0。最新の証拠・Before/After・残差は `docs/yahoo-screen-alignment-2026-10-15.md` を参照。Yahoo実機との完全一致や物理iPhoneの認証を意味しない。京都バスODPTキーはoptional未設定で公式時刻表を利用。
+
+この後のdocs/evidence記録追加はruntimeを変更しない。次回は必ずその時点のmain／公開buildを確認し直す。

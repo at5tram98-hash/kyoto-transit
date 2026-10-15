@@ -1,0 +1,16 @@
+{
+  "url": "https://at5tram98-hash.github.io/kyoto-transit/",
+  "build": "0e633053b133",
+  "data": "real production HTTP; no API/tile/GPS/clock fixtures",
+  "checks": [
+    "Published shell and current build",
+    "Actual current-day official timetable search K07 to K11",
+    "2-tap actual official trip choice Sheet with suffix/fare application",
+    "Arm the actual selected itinerary and open full journey without asserting real boarding",
+    "Back and explicit cancellation"
+  ],
+  "errors": [],
+  "original": "11:4211:49着地下鉄烏丸線 · 普通竹田行2026-10-15運行 · 現在の便",
+  "chosen": "11:4911:57着地下鉄烏丸線 · 普通竹田行2026-10-15運行",
+  "status": "passed"
+}

@@ -92,3 +92,46 @@ CI `38667997351` は折返し復元を含む再読み込みで4件のCORS例外�
 切り出した同じ操作を追跡すると、`beforeunload` の後・`pagehide` の前、`document.visibilityState === "visible"` のまま `fast-data.js` のidle warm-upが地下鉄・近鉄・京都バス・運行情報の4通信を開始していた。`installFastData` でidle／timeout予約を保持し、beforeunload・pagehide・非表示で取り消す。未実行分だけを表示復帰で再予約する。取得データ・TTL・通常の検索・オンデマンド更新は保持した。
 
 元のfixture（request URLもfetchも変更しない）と元の例外検査を使った同じ折返し／再読み込み操作はWebKitで通過した。CORS例外やpageerrorを無視する条件は追加していない。新たな本番改善対象は `public/js/fast-data.js` も含む。
+
+
+### 最終ローカル検証（build `0e633053b133`）
+
+- 構文check・モデル340件成功。
+- Chromium／WebKitの全回帰は各586検査・例外0。新Homeと既存の直通／北3／折返し／GPS／運行／接近／全旅程を同じ試験で確認した。
+- [Chromium結果](evidence/yahoo-2026-10-15/local-chromium-report.json)、[WebKit結果](evidence/yahoo-2026-10-15/local-webkit-report.json)。Navigation Flow A〜F、App/Browser/Swipe Back、20pxの指追従、30%cancel、50%commit、flick、pointercancel、Map/Sheet/縦scroll競合、入力・Tab・scroll・zoom復元、cache上限を確認。
+- [PWA Chromium](evidence/yahoo-2026-10-15/local-chromium-pwa.json)／[PWA WebKit再確認](evidence/yahoo-2026-10-15/local-webkit-pwa.json)は各9項目成功。ローカルWebKitの最初のPWA試行ではoffline reloadの `Connection terminated unexpectedly` が1回出た。その失敗を成功として数えず、同じ設定の個別再確認と通常のCIの双方で9項目の成功を確認した。原因を断定したり例外検査を無効にしたりしていない。
+- GPS10回で追加位置要求0、内容不変の接近行mutation0。foreground更新20秒を維持。
+- [Dark・200%の詳細](evidence/yahoo-2026-10-15/after-route-detail-dark-200.png)。文字拡大は独立scrollで読み切れること、44px／8pxの基準を検証した。物理iPhoneのVoiceOver・OS端gesture・hapticは別途実測が必要。
+
+最終CIの公開sourceは `fea1e58`、[run 38669787095](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38669787095)。公開完了と本番の実データ操作の結果は以下へ追記する。
+
+
+## 最終公開結果
+
+2026-10-15、実装source `fea1e5869a35b32e9093661c9faeff8c05a29aa1`、公開build **`0e633053b133`**。Pages CI [38669787095](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38669787095) はbuild・deploy・公開接続確認の全jobがSUCCESS。
+
+|検証|結果・証拠|
+|---|---|
+|モデル・静的検査|340件成功、構文・公開残骸check成功|
+|WebKit|[全586検査、例外0](evidence/yahoo-2026-10-15/ci-webkit-report.json)|
+|Chromium|[全586検査、例外0](evidence/yahoo-2026-10-15/ci-chromium-report.json)|
+|PWA|[WebKit 9項目](evidence/yahoo-2026-10-15/ci-webkit-pwa.json)／[Chromium 9項目](evidence/yahoo-2026-10-15/ci-chromium-pwa.json)成功|
+|実地理|[210検査、例外0](evidence/yahoo-2026-10-15/ci-real-map-report.json)|
+|公開済み版・実運行API|[2026-10-15T02:35:01.966Z、必須9項目成功](evidence/yahoo-2026-10-15/production-report.json)|
+|公開実ブラウザー|[検索→別便→案内準備→全旅程→Back→解除、例外0](evidence/yahoo-2026-10-15/production-browser-report.json)|
+
+公開実ブラウザーはAPI・時計・GPS・tileのfixtureを使わず、当日ダイヤの丸太町→京都を検索し、**11:42発／11:49着 → 11:49発／11:57着**の別便を選んで案内を準備した。実際に電車へ乗った、GPSの実移動を測定した、という検証ではない。[公開結果](evidence/yahoo-2026-10-15/02-live-results.png)／[選便](evidence/yahoo-2026-10-15/03-live-departures.png)／[変更後](evidence/yahoo-2026-10-15/04-live-changed-journey.png)。
+
+### NavigationとMotionの最終対応
+
+```text
+今（ルート／最寄） → 候補Fullscreen → 今 → 検索結果 → 経路詳細 → 地点詳細
+検索Tab → 同じcanonical検索 → 検索結果 → 経路詳細
+経路詳細の発時刻 → 別便Sheet ↔ 全便比較
+経路詳細の案内 → 今の案内準備 → 全旅程 → 既存の乗車／降車／折返し画面
+時刻表／運行／その他 → 各Tabの既存独立Stack
+```
+
+Push/Popは既存共通Motionを維持し、App／Browser／Swipeの同じ親への復帰を検証。[Push途中](evidence/yahoo-2026-10-15/push-midpoint.png)／[Pop途中](evidence/yahoo-2026-10-15/pop-midpoint.png)／[Swipe30%](evidence/yahoo-2026-10-15/swipe-30-light.png)／[Sheet drag途中](evidence/yahoo-2026-10-15/sheet-drag-65.png)は最終CIのWebKit frame。
+
+京都バスRealtimeは既存ODPTキーが未設定のため任意項目として未構成、公式時刻表を利用する。それ以外の必須公開9項目は成功。Yahoo実機との完全一致、物理iPhoneのOS gesture／VoiceOver／haptic、未取得のIC残高・指定席・乗車位置／出口等は引き続き未確認・未対応であり、この公開を全機能100%同等と表現しない。

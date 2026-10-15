@@ -1,0 +1,30 @@
+{
+  "browser": "webkit",
+  "layouts": 586,
+  "errors": [],
+  "checks": [
+    "Yahoo screen alignment: one search model, direct Now results/detail, nested sort taps, date cancel/apply, real PNG, station detail/Back, tab stack/draft retention;390px Light/Dark 100/150/200%",
+    "v3 Tasks A–G: five tabs, one owned search, full-screen suggestions, date/choice detents + finger tracking, 1-tap previous/next, sort, 2-tap exact trip change, saved places/routes, contextual stop map + sheet, expandable stable arrivals, operation status, route colors;390px Light/Dark 100/150/200%, High Contrast, Reduce Motion, browser/standalone",
+    "Journey upgrade: departure tap, exact trip selection, downstream connection changes, unreachable earlier connection, preview/cancel, Tab + selected draft reload, Browser Back, full itinerary arm/reload/board/transfer/next ride/explicit end; previous departure and bus stop route chips → all arrivals → Back;390px light/dark 100–200%",
+    "UI coordinate audit: 34 screens, effective44px targets, standalone action8px gaps, trailing chevrons, no clipped labels, collapsed search has zero layout height",
+    "Competitor comparison improvements: delayed realtime preserves card identity and tap, saved-route timetable shortcuts, operator-specific autocomplete and keyboard selection, via/dwell search, sort identity, edit/next departure, save/delete, share/reload state, home search entry and invalid-input feedback; 390px light/dark 100–200%",
+    "Navigation Flow A–F: independent screens, History/App/interactive Back, 1:1 tracking, 30% cancel, 50% commit, flick, PointerCancel, vertical/map/sheet/tab conflicts, scroll/input/zoom/reload preservation, bounded cache, keyboard viewport; 390px light/dark 100–200% Reduce Motion ON/OFF",
+    "182 responsive layout checks; both themes, 5 tabs, stop picker, subway, Kintetsu, through, bus and all foldback steps",
+    "GPS request suppression, stable DOM, observed movement, polling pause/resume, stop-change race, cached network fallback",
+    "Reduced motion, corrupt local storage, and useful arrivals without location permission",
+    "Actual Module Web Worker search, station timetable/trip sheet, pass persistence, foldback sheet, end ride and contextual rail arrivals",
+    "Favorite train selection and saving, terminus turnaround, margin changes with delay, missing times, underground continuity, reverse direction, stale request cancellation, retries and GPS-based rail delay",
+    "Manual boarding from route search and subway timetable, reload restoration, selected foldback restoration and return boarding, explicit end survives reload, nearby official departures",
+    "Real Service Worker install, precached assets without extra network requests, offline CSS and offline app navigation",
+    "390px C: GPS ON/OFF, light/dark, 100–200% text, input swap, disclosed options, route comparison and armed selection, settings location control, meaningful one-stop approach emphasis",
+    "PDF v1.1 LCD hero, both Takeda directions, both North 3 directions, 100–200% text sizing, station/delay sheets, 44px touch targets"
+  ],
+  "performance": [
+    {
+      "gpsUpdates": 10,
+      "extraGpsRequests": 0,
+      "unchangedRowMutations": 0,
+      "foregroundInterval": 20000
+    }
+  ]
+}
