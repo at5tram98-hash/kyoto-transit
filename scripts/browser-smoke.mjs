@@ -2354,6 +2354,7 @@ try {
         });
         try {
           const { page } = practical;
+          await page.locator("[data-home-page=nearby]").click();
           await page.locator(".nearby-departures time").first().waitFor();
           assert.match(
             await page.locator(".nearby-departures").first().textContent(),
