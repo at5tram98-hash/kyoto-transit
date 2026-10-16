@@ -1,0 +1,37 @@
+{
+  "build": "06ad19dcadc7",
+  "tiles": [
+    {
+      "url": "https://tile.openstreetmap.org/14/14369/6488.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "url": "https://tile.openstreetmap.org/14/14370/6488.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "url": "https://tile.openstreetmap.org/14/14371/6488.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "url": "https://tile.openstreetmap.org/14/14369/6489.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "url": "https://tile.openstreetmap.org/14/14370/6489.png",
+      "width": 256,
+      "height": 256
+    },
+    {
+      "url": "https://tile.openstreetmap.org/14/14371/6489.png",
+      "width": 256,
+      "height": 256
+    }
+  ],
+  "fixture": "Transit/GPS/time only; real OSM tiles",
+  "errors": []
+}

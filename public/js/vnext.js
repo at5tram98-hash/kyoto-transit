@@ -1,3 +1,4 @@
+import { mountLiveHome } from "./live-home.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { createNetwork } from "./network.js";
 import { locate } from "./mobility.js";
@@ -12,7 +13,6 @@ import {
   icon,
   state,
   settings,
-  haptic,
   tokyoNow,
   augmentKyotoBusGeometry,
   ensureRailFeed,
@@ -104,8 +104,7 @@ function moveTabSelection() {
 function syncTab(tab) {
   state.tab = tab;
   if (tab !== "now") $(".app-shell").dataset.nowHome = "false";
-  $("#view-subtitle").textContent =
-    tab === "now" ? "現在地に合わせて周辺案内" : "My Map";
+  $("#view-subtitle").textContent = tab === "now" ? "MyMap" : "MyMap";
   if (tab === "now") {
     renderNow();
     arrivals?.show();
@@ -117,7 +116,6 @@ function syncTab(tab) {
 }
 function setTab(tab) {
   navigation.selectTab(tab);
-  haptic();
 }
 function setupEvents() {
   setupNowInteractions();
@@ -237,6 +235,15 @@ function setupEvents() {
     () => requestAnimationFrame(moveTabSelection),
     { passive: true },
   );
+  const networkState = () => {
+    const offline = navigator.onLine === false;
+    $("#network-status").hidden = !offline;
+    renderNow();
+    if (state.tab === "operations") void operations.show();
+  };
+  window.addEventListener("offline", networkState);
+  window.addEventListener("online", networkState);
+  networkState();
   setupFoldback();
 }
 function boardRide(ride, itinerary) {
@@ -281,7 +288,7 @@ async function init() {
   $(".tabbar").innerHTML =
     '<div class="tab-selection" aria-hidden="true"></div>' +
     [
-      ["now", "今"],
+      ["now", "Live"],
       ["search", "検索"],
       ["timetable", "時刻表"],
       ["operations", "運行"],
@@ -348,6 +355,36 @@ async function init() {
       onItineraryAdvance: advancePlannedJourney,
     });
     operations = mountOperations({
+      onReplan: () => {
+        const selected = state.itinerary?.input;
+        if (selected) {
+          routeSearch.openInput(selected);
+          return;
+        }
+        const ride = state.ride,
+          from =
+            state.heroModel?.nextStation ?? state.network.stops.get(ride?.from),
+          to = ride?.userDestination ?? state.network.stops.get(ride?.to),
+          now = tokyoNow();
+        if (from && to)
+          routeSearch.openInput({
+            from: from.name,
+            fromId: from.id,
+            to: to.name,
+            toId: to.id,
+            date: now.date,
+            time: now.time,
+            timeMode: "departure",
+            via: [],
+          });
+        else {
+          const previous = (navigation.recalled("search-data") ?? []).at(
+            -1,
+          )?.input;
+          if (previous) routeSearch.openInput(previous);
+          else routeSearch.open();
+        }
+      },
       getCurrentOperators: () =>
         [
           state.ride?.operator === "through"
@@ -380,8 +417,8 @@ async function init() {
     renderSettings();
     setupSettings(renderNow, (input) => routeSearch.openInput(input));
     registerNowScreens({ arrivals, onFoldback: openFoldback });
+    mountLiveHome($("#now-search"), routeSearch);
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
-    routeSearch.mountHome($("#now-search"));
     routeSearch.restoreShared();
     setupEvents();
     $('[data-view="now"]').addEventListener("click", (event) => {
@@ -439,6 +476,21 @@ async function init() {
         )
           arrivals.show();
       },
+    });
+    document.addEventListener(
+      "mymap-transit-evidence",
+      () => void autoDetectRide(true, renderNow),
+    );
+    document.addEventListener("mymap-live-refresh", () => {
+      arrivals.show();
+      renderNow();
+    });
+    window.addEventListener("online", () => {
+      if (document.hidden) return;
+      void autoDetectRide(true, renderNow);
+      if (state.tab === "now") void arrivals.show();
+      if (state.tab === "operations") void operations.show();
+      renderNow();
     });
     state.locationSession.start();
     renderNow();

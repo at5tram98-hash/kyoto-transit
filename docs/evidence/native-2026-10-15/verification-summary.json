@@ -1,0 +1,21 @@
+{
+  "build": "06ad19dcadc7",
+  "completedAt": "2026-10-16",
+  "baseMain": "8f04791",
+  "modelTests": 361,
+  "browser": {
+    "chromium": 596,
+    "webkit": 596
+  },
+  "pwa": {
+    "chromium": 9,
+    "webkit": 9
+  },
+  "coordinates": 272,
+  "realMapChecks": 210,
+  "errors": 0,
+  "physicalIPhoneTested": false,
+  "fieldRideTested": false,
+  "globalReleaseReady": false,
+  "productionDeployed": false
+}

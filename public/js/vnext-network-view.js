@@ -1,4 +1,10 @@
-import { readSavedPlaces, toggleSavedPlace } from "./saved-places.js";
+import { openContextSheet } from "./context-sheet.js";
+import {
+  readSavedPlaces,
+  toggleSavedPlace,
+  quickPlaceSymbol,
+  QUICK_SYMBOLS,
+} from "./saved-places.js";
 import { readSearchPairs, removeSearchPair } from "./search-history.js";
 import { navigation } from "./navigation.js";
 import { journeyProgress } from "./journey-core.js";
@@ -203,7 +209,35 @@ export function renderSettings(
   if (category === "home") {
     const row = (id, title) =>
       `<button class="native-row" data-setting-page="${id}"><span>${title}</span><span class="chevron">›</span></button>`;
-    root.innerHTML = `<h2 class="native-section-label">保存</h2><div class="native-list"><button class="native-row" data-saved-page="places"><span>保存した場所</span><span class="chevron">›</span></button><button class="native-row" data-saved-page="routes"><span>保存した経路</span><span class="chevron">›</span></button></div><h2 class="native-section-label">交通</h2><div class="native-list">${row("pass", "定期券")}${row("distance", "近くの駅")}${row("notifications", "通知")}${row("auto", "自動乗車判定")}${row("location", "位置情報")}</div><h2 class="native-section-label">アプリ</h2><div class="native-list">${row("display", "表示")}${row("routes", "対応路線")}${row("info", "情報・出典")}${row("advanced", "詳細設定")}</div>`;
+    root.innerHTML = `<h2 class="native-section-label">保存</h2><div class="native-list"><button class="native-row" data-saved-page="places"><span>保存した場所</span><span class="chevron">›</span></button><button class="native-row" data-saved-page="routes"><span>保存した経路</span><span class="chevron">›</span></button></div><h2 class="native-section-label">交通</h2><div class="native-list">${row("pass", "定期券")}${row("distance", "近くの駅")}${row("notifications", "通知")}${row("auto", "自動乗車判定")}${row("location", "位置情報")}</div><h2 class="native-section-label">アプリ</h2><div class="native-list">${row("display", "表示")}${row("routes", "対応路線")}${row("info", "情報・出典")}${row("privacy", "Privacy・データの取扱い")}${row("terms", "利用条件")}${row("advanced", "詳細設定")}</div><h2 class="native-section-label">状態</h2><div class="native-list">${row("permissions", "位置情報・マイク・通知")}</div>`;
+    return;
+  }
+  if (category === "privacy") {
+    root.innerHTML = `<div class="settings-card source-list"><div><b>位置情報</b><small>表示中に取得し、交通機関の判定・次駅・付近の交通に端末上で利用します。GPS履歴をサーバーへ保存しません。接近検索では選んだ停留所名を交通情報APIへ送ります。</small></div><div><b>アナウンス補助</b><small>許可済みのマイクだけを、乗車候補があるときに最長6秒使います。常時録音せず、音声・文字起こしをMyMapのサーバーや保存領域へ保存しません。端末・ブラウザーの音声認識サービスが音声を処理する場合があります。補助をOFFにしても手動乗車・時刻表は使えます。</small></div><div><b>保存する情報</b><small>検索履歴・保存地点・定期券・表示設定はこの端末のLocal Storage、画面状態はSession Storageに保存します。案内中の旅程は再起動復元のため最大4時間保持します。</small></div><div><b>ネットワーク</b><small>公式時刻表・接近・運行をMyMapの交通APIから取得します。背景地図はOpenStreetMapにタイル座標を送って取得します。ブラウザーや各提供者の通信には通常のIP情報が含まれます。</small></div><div><b>オフライン</b><small>保存した時刻表・地点・設定を利用します。更新できない接近を最新の実測として表示しません。</small></div></div>`;
+    return;
+  }
+  if (category === "terms") {
+    root.innerHTML =
+      '<div class="settings-card source-list"><div><b>対応範囲</b><small>京都の対応路線に特化した案内です。運行・ダイヤ・運賃は交通機関の公式案内と現地表示を優先してください。</small></div><div><b>実測・予測・予定</b><small>取得元と更新状態を区別します。未取得の到着・番線・運賃は確定情報として表示しません。</small></div></div>';
+    return;
+  }
+  if (category === "permissions") {
+    root.innerHTML = `<div class="settings-card"><div class="setting-row"><span>位置情報</span><span data-permission="geolocation">${esc(state.locationStatus)}</span></div><div class="setting-row"><span>マイク</span><span data-permission="microphone">確認中</span></div><div class="setting-row"><span>通知</span><span>${typeof Notification === "undefined" ? "未対応" : Notification.permission === "granted" ? "許可済み" : "未許可"}</span></div><label class="setting-row"><span>許可済みマイクのアナウンス補助</span><input type="checkbox" data-setting="audioAssist" ${settings.audioAssist !== false ? "checked" : ""}></label><div class="setting-row"><span>音声認識</span><span>${globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition ? "対応" : "このブラウザーは未対応"}</span></div><div class="setting-row"><span>Version</span><span>${esc(new URL(import.meta.url).searchParams.get("v") ?? "development")}</span></div></div><p class="source-note">権限の変更は端末・ブラウザー設定で行えます。ここから権限を自動要求しません。Privacyで通信・保存の詳細を確認できます。</p>`;
+    for (const name of ["geolocation", "microphone"])
+      navigator.permissions
+        ?.query({ name })
+        .then((status) => {
+          const el = root.querySelector(`[data-permission="${name}"]`);
+          if (el)
+            el.textContent =
+              { granted: "許可済み", prompt: "未許可", denied: "拒否" }[
+                status.state
+              ] ?? "未確認";
+        })
+        .catch(() => {
+          const el = root.querySelector(`[data-permission="${name}"]`);
+          if (el) el.textContent = "端末設定で確認";
+        });
     return;
   }
   if (category === "location") {
@@ -219,7 +253,7 @@ export function renderSettings(
     return;
   }
   if (category === "display") {
-    root.innerHTML = `<div class="settings-card"><label class="setting-row"><span>文字サイズ</span><select data-setting-value="fontScale" aria-label="文字サイズ">${[1, 1.5, 2].map((n) => `<option value="${n}" ${Number(settings.fontScale ?? 1) === n ? "selected" : ""}>${n * 100}%</option>`).join("")}</select></label><label class="setting-row"><span>コントラストを上げる</span><input type="checkbox" data-setting="highContrast" ${settings.highContrast ? "checked" : ""}></label><label class="setting-row"><span>動きを減らす</span><input type="checkbox" data-setting="reduceMotion" ${settings.reduceMotion ? "checked" : ""}></label><div class="setting-row"><span>Light / Dark</span><span>端末に合わせる</span></div></div><p class="source-note">端末側の文字拡大・コントラスト・視差効果の設定にも対応します。</p>`;
+    root.innerHTML = `<div class="settings-card"><label class="setting-row"><span>文字サイズ</span><select data-setting-value="fontScale" aria-label="文字サイズ">${[1, 1.5, 2].map((n) => `<option value="${n}" ${Number(settings.fontScale ?? 1) === n ? "selected" : ""}>${n * 100}%</option>`).join("")}</select></label><label class="setting-row"><span>コントラストを上げる</span><input type="checkbox" data-setting="highContrast" ${settings.highContrast ? "checked" : ""}></label><label class="setting-row"><span>動きを減らす</span><input type="checkbox" data-setting="reduceMotion" ${settings.reduceMotion ? "checked" : ""}></label><label class="setting-row"><span>時計</span><select data-setting-value="clockFormat"><option value="24" ${settings.hour12 ? "" : "selected"}>24時間</option><option value="12" ${settings.hour12 ? "selected" : ""}>12時間 / AM・PM</option></select></label><div class="setting-row"><span>Light / Dark</span><span>端末に合わせる</span></div></div><p class="source-note">端末側の文字拡大・コントラスト・視差効果の設定にも対応します。</p>`;
     return;
   }
   root.innerHTML = `<section class="settings-section"><h2>自動案内</h2><div class="settings-card"><label class="setting-row"><span><b>自動乗車判定</b><small>移動に合わせて表示を切り替えます</small></span><input type="checkbox" data-setting="autoDetect" ${settings.autoDetect ? "checked" : ""}></label><label class="setting-row"><span><b>触覚フィードバック</b><small>便を判定したときに短く通知</small></span><input type="checkbox" data-setting="haptics" ${settings.haptics ? "checked" : ""}></label><label class="setting-row"><span><b>判定根拠を表示</b><small>必要なときだけ詳細を表示</small></span><input type="checkbox" data-setting="showConfidence" ${settings.showConfidence ? "checked" : ""}></label></div></section><section class="settings-section"><h2>定期券</h2><div class="settings-card"><label class="setting-row"><span><b>市バス</b><small>対象区間の追加額を0円として計算</small></span><input type="checkbox" data-setting="passCityBus" ${settings.passCityBus ? "checked" : ""}></label><label class="setting-row"><span><b>京都バス</b><small>登録した対象区間だけに適用</small></span><input type="checkbox" data-setting="passKyotoBus" ${settings.passKyotoBus ? "checked" : ""}></label><label class="setting-row"><span><b>地下鉄</b><small>設定区間内の追加額を0円として計算</small></span><input type="checkbox" data-setting="passSubway" ${settings.passSubway ? "checked" : ""}></label><div class="pass-range"><label>区間の開始<select data-setting-value="passSubwayFrom">${subwayOptions()}</select></label><span>〜</span><label>区間の終了<select data-setting-value="passSubwayTo">${subwayOptions()}</select></label></div><label class="pass-expiry">有効期限<input type="date" data-setting-value="passExpires" value="${esc(settings.passExpires ?? "")}"></label><p class="source-caption">未設定では通常運賃＝追加額です。実際の券面区間を優先してください。</p></div></section><section class="settings-section"><h2>近くの駅</h2><div class="settings-card slider-card"><label><span><b>地下鉄を表示する距離</b><small>候補に表示する範囲</small></span><strong>${settings.railGuideDistance}m</strong><input type="range" min="150" max="600" step="50" value="${settings.railGuideDistance}" data-setting-range="railGuideDistance"></label><p class="source-caption" data-distance-preview>${distancePreview()}</p></div></section><section class="settings-section"><h2>対応路線</h2><div class="settings-card source-list"><div><b>地下鉄烏丸線</b><small>全線・近鉄直通</small></div><div><b>近鉄京都線</b><small>全線・烏丸線直通</small></div><div><b>京都バス</b><small>${KYOTO_ROUTES.join("・")}</small></div><div><b>京都市バス</b><small>${CITY_ROUTES.join("・")}・202八条口</small></div></div></section><section class="settings-section info-section"><h2 data-info-title>情報</h2><div class="settings-card source-list"><div><b>出典</b><small>京都市交通局・近畿日本鉄道・京都バス・公共交通オープンデータセンター</small></div><div><b>実測・推定・予定</b><small>実測：取得した車両の接近情報。推定：現在地・遅れ・保存情報からの見込み。予定：時刻表の時刻です。経路の便と一致しない接近は便別実測と呼びません。</small></div><div><b>更新時刻</b><small>各行の情報を取得した時刻です。古い情報は推定・保存表示に切り替わります。予定時刻の改正日は公式出典で確認できます。</small></div><div><b>運賃確認</b><small>公式運賃表を基準にし、未確認区間は確定額を表示しません</small></div><div><b>オープンデータ</b><small>公共交通オープンデータ基本ライセンスに基づき利用しています</small></div><div><b>現在地</b><small>位置情報は端末上で乗車判定に使用します</small></div></div>${logHTML()}</section>`;
@@ -259,7 +293,7 @@ export function setupSettings(onRender, onSavedRoute) {
     const pairs = readSearchPairs(localStorage).favorites;
     element.innerHTML =
       kind === "places"
-        ? `<div class="native-list">${places.map((stop) => `<div class="saved-row"><button class="native-row" data-saved-place="${esc(stop.id)}"><span><b>${esc(stop.name)}</b><small>${esc(stop.lines?.join("・"))}</small></span><span class="chevron">›</span></button><button class="plain-action" data-remove-place="${esc(stop.id)}" aria-label="${esc(stop.name)}の保存を解除">解除</button></div>`).join("")}</div>${places.length ? "" : '<p class="empty-state">停留所詳細から場所を保存できます。</p>'}`
+        ? `<div class="native-list">${places.map((stop) => `<div class="saved-row"><button class="native-row" data-saved-place="${esc(stop.id)}"><span><b>${esc(stop.name)}</b><small>${esc(stop.lines?.join("・"))}</small></span><span class="chevron">›</span></button><div class="saved-place-controls"><button type="button" class="plain-action quick-place-symbol" data-quick-symbol-place="${esc(stop.id)}" aria-label="${esc(stop.name)}のQuick Selectアイコンを変更">${icon(quickPlaceSymbol(settings, stop.id, stop.type))}</button><button class="plain-action" data-remove-place="${esc(stop.id)}" aria-label="${esc(stop.name)}の保存を解除">解除</button></div></div>`).join("")}</div>${places.length ? "" : '<p class="empty-state">停留所詳細から場所を保存できます。</p>'}`
         : `<div class="native-list">${pairs.map((pair, i) => `<div class="saved-row"><button class="native-row" data-saved-route="${i}"><span><b>${esc(pair.from)} → ${esc(pair.to)}</b>${pair.via?.length ? `<small>経由 ${esc(pair.via.map((v) => v.name).join("・"))}</small>` : ""}</span><span class="chevron">›</span></button><button class="plain-action" data-remove-route="${i}" aria-label="${esc(pair.to)}への保存経路を削除">削除</button></div>`).join("")}</div>${pairs.length ? "" : '<p class="empty-state">経路詳細から経路を保存できます。</p>'}`;
   }
   navigation.register("saved", {
@@ -268,6 +302,51 @@ export function setupSettings(onRender, onSavedRoute) {
       element.addEventListener("click", (e) => {
         const b = e.target.closest("button");
         if (!b) return;
+        if (b.dataset.quickSymbolPlace) {
+          const id = b.dataset.quickSymbolPlace,
+            sheet = $("#context-sheet");
+          sheet.dataset.detent = "fit";
+          openContextSheet(
+            "Quick Selectのアイコン",
+            `<div class="native-list quick-symbol-options">${Object.entries(
+              QUICK_SYMBOLS,
+            )
+              .map(
+                ([key, label]) =>
+                  `<button type="button" class="native-row" data-pick-quick-symbol="${key}" aria-pressed="${quickPlaceSymbol(settings, id, state.network.stops.get(id)?.type) === key}">${icon(key)}<span>${label}</span><span class="chevron">›</span></button>`,
+              )
+              .join("")}</div>`,
+          );
+          const choose = (event) => {
+            const option = event.target.closest("[data-pick-quick-symbol]");
+            if (
+              !option ||
+              !Object.hasOwn(QUICK_SYMBOLS, option.dataset.pickQuickSymbol)
+            )
+              return;
+            const existing =
+              settings.quickSymbols &&
+              typeof settings.quickSymbols === "object" &&
+              !Array.isArray(settings.quickSymbols)
+                ? settings.quickSymbols
+                : {};
+            settings.quickSymbols = Object.fromEntries([
+              ...Object.entries(existing).filter(([place]) =>
+                readSavedPlaces().includes(place),
+              ),
+              [id, option.dataset.pickQuickSymbol],
+            ]);
+            saveSettings();
+            sheet.close();
+            renderSaved(element, route.params.id);
+          };
+          sheet.addEventListener("click", choose);
+          sheet.addEventListener(
+            "close",
+            () => sheet.removeEventListener("click", choose),
+            { once: true },
+          );
+        }
         if (b.dataset.savedPlace)
           navigation.push("nearby", { stopId: b.dataset.savedPlace });
         if (b.dataset.removePlace) {
@@ -303,6 +382,7 @@ export function setupSettings(onRender, onSavedRoute) {
         settings[e.target.dataset.setting] = e.target.checked;
         saveSettings();
         applyDisplay();
+        document.dispatchEvent(new CustomEvent("mymap-settings-change"));
         onRender();
       }
       if (e.target.dataset.settingRange) {
@@ -313,8 +393,11 @@ export function setupSettings(onRender, onSavedRoute) {
       }
       if (e.target.dataset.settingValue) {
         settings[e.target.dataset.settingValue] = e.target.value;
+        if (e.target.dataset.settingValue === "clockFormat")
+          settings.hour12 = e.target.value === "12";
         saveSettings();
         applyDisplay();
+        document.dispatchEvent(new CustomEvent("mymap-settings-change"));
         onRender();
       }
     });
@@ -380,6 +463,9 @@ export function setupSettings(onRender, onSavedRoute) {
         distance: "近くの駅",
         routes: "対応路線",
         info: "情報・出典",
+        privacy: "Privacy・データの取扱い",
+        terms: "利用条件",
+        permissions: "権限とVersion",
       })[r.params.id] ?? "詳細設定",
     create({ element, route }) {
       bind(element, route.params.id);

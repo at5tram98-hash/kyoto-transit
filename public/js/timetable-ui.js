@@ -546,6 +546,7 @@ export function mountTimetables({
 export function mountOperations({
   getUsedOperators = () => [],
   getCurrentOperators = getUsedOperators,
+  onReplan,
 } = {}) {
   const root = document.querySelector("#operations-root");
   let last = 0,
@@ -632,10 +633,11 @@ export function mountOperations({
           .join("")}</div>`;
     updateHTML(
       root,
-      `<section class="operation-summary" data-status="${summary.kind}"><p class="native-section-label">現在の移動</p><h2>${summary.kind === "success" ? "✓ " : summary.kind === "danger" ? "! " : ""}${esc(summary.title)}</h2><p>${esc(summary.detail)}</p></section><div class="operations-head"><span>公式情報</span><button class="plain-action" data-operations-refresh>更新</button></div>${selected.length ? `<h3 class="native-section-label">現在の経路に関係する路線</h3>${list(selected)}` : ""}<h3 class="native-section-label">${selected.length ? "その他の路線" : "すべての路線"}</h3>${list(others)}<div class="native-list"><button class="native-row" data-operations-arrivals><span>バス・列車の接近情報</span><span class="chevron">›</span></button></div><p class="source-caption">${esc(latest.notice)}</p>`,
+      `<section class="operation-summary" data-status="${summary.kind}"><p class="native-section-label">現在の移動</p><h2>${summary.kind === "success" ? "✓ " : summary.kind === "danger" ? "! " : ""}${esc(summary.title)}</h2><p>${esc(summary.detail)}</p>${getCurrentOperators().length ? '<button type="button" class="plain-action" data-operations-replan>条件を見直して再検索</button>' : ""}</section><div class="operations-head"><span>公式情報</span><button class="plain-action" data-operations-refresh>更新</button></div>${selected.length ? `<h3 class="native-section-label">現在の経路に関係する路線</h3>${list(selected)}` : ""}<h3 class="native-section-label">${selected.length ? "その他の路線" : "すべての路線"}</h3>${list(others)}<div class="native-list"><button class="native-row" data-operations-arrivals><span>バス・列車の接近情報</span><span class="chevron">›</span></button></div><p class="source-caption">${esc(latest.notice)}</p>`,
     );
   }
   root.addEventListener("click", (e) => {
+    if (e.target.closest("[data-operations-replan]")) onReplan?.();
     if (e.target.closest("[data-operations-refresh]")) refresh(true);
     if (e.target.closest("[data-operations-arrivals]"))
       navigation.push("arrivals");

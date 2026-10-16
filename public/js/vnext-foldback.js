@@ -1,7 +1,14 @@
+import { foldbackJourney } from "./boarding.js";
+import {
+  foldbackMeetingPoints,
+  nextFoldbackStop,
+} from "./foldback-meetings.js";
 import { formatMinute } from "./vnext-core.js";
 import {
   $,
   esc,
+  icon,
+  ensureSubwayFeed,
   state,
   tokyoNow,
   haptic,
@@ -23,7 +30,9 @@ let version = 0,
   controller = null,
   choices = [],
   selected = null,
-  opener = null;
+  opener = null,
+  meetingController = null,
+  baseChoiceCount = 0;
 const category = (entry) =>
   entry.category === "express"
     ? "急行"
@@ -35,8 +44,10 @@ const category = (entry) =>
 function invalidate() {
   version++;
   controller?.abort();
+  meetingController?.abort();
   controller = null;
   choices = [];
+  baseChoiceCount = 0;
   selected = null;
 }
 function replaceBody(html) {
@@ -69,19 +80,49 @@ export function openFoldback() {
   const dialog = $("#foldback-sheet");
   if (!dialog.open) opener = document.activeElement;
   replaceBody(
-    '<p class="sheet-intro">この先の駅で、好きな反対方向の列車へ。現在の遅れを含む到着見込みから、乗換時間を確認します。</p><button class="choice-row" data-foldback-mode="station"><span class="choice-icon">↩</span><span><b>降りる駅から探す</b><small>乗換時間を確保できる反対方向の列車を表示</small></span><span>›</span></button><button class="choice-row" data-foldback-mode="train"><span class="choice-icon">⇄</span><span><b>好きな電車を選ぶ</b><small>指定した列車に折り返せるかを確認</small></span><span>›</span></button>',
+    `<p class="sheet-intro">現在の遅れを含む到着見込みから、反対方向への乗換時間を確認します。</p>${[
+      [
+        "station",
+        "fold",
+        "降りる駅から探す",
+        "指定した駅の到着・反対方向の便を比較",
+      ],
+      ["train", "train", "好きな電車を選ぶ", "指定列車に折り返せるかを確認"],
+      [
+        "next",
+        "bolt",
+        "次駅ですぐ折り返し",
+        "次の停車駅で、移動時間を確保できる最短の便",
+      ],
+    ]
+      .map(
+        ([mode, symbol, title, detail]) =>
+          `<button class="choice-row" data-foldback-mode="${mode}"><span class="choice-icon">${icon(symbol)}</span><span><b>${title}</b><small>${detail}</small></span><span>›</span></button>`,
+      )
+      .join("")}`,
   );
   if (!dialog.open) dialog.showModal();
   $("#foldback-body [data-foldback-mode]")?.focus({ preventScroll: true });
-  haptic();
 }
 function showMode(mode) {
   const items = stops(),
     train = mode === "train";
+  $("#foldback-sheet").dataset.foldbackMode = mode;
   replaceBody(
     `<button class="sheet-back" data-foldback-home>‹ 選び方に戻る</button><div class="fold-step"><span>1</span><b>${train ? "駅と列車を選ぶ" : "折り返す駅を選ぶ"}</b></div><p class="sheet-intro">${train ? "急行・普通・行き先を見ながら、反対方向の列車を選べます。" : "終点でも折り返せます。降車から反対ホームへ移動する時間を確保してください。"}</p><label class="sheet-field"><span>${train ? "列車を選ぶ駅" : "降りる駅"}</span><select id="${train ? "target-station" : "fold-station"}">${options(items)}</select></label>${bufferField()}<button class="primary-action" ${train ? "data-load-target-trains" : "data-foldback-search"} ${items.length ? "" : "disabled"}>${train ? "反対方向の列車を表示" : "乗り換えられる列車を探す"}</button><div id="${train ? "target-trains" : "fold-result"}" aria-live="polite"></div><p class="source-note">到着は現在の遅れを含む推定、反対方向の列車は公式時刻表の予定です。番線や運行変更は駅の表示も確認してください。</p>`,
   );
-  $("#foldback-body select")?.focus({ preventScroll: true });
+  const select = $("#foldback-body select");
+  if (mode === "next") {
+    const next = nextFoldbackStop(items, state.heroModel);
+    if (next) {
+      select.value = next.id;
+      void load("next");
+    } else {
+      $("#foldback-body [data-foldback-search]").disabled = true;
+      $("#fold-result").innerHTML =
+        '<p class="source-note" role="status">次の停車駅を確認できません。選び方に戻り、折り返す駅を指定してください。</p>';
+    }
+  } else select?.focus({ preventScroll: true });
 }
 async function reverseBoard(stopId, signal) {
   const ride = state.foldbackRide,
@@ -173,6 +214,7 @@ async function load(mode) {
       )
       .slice(0, train ? 16 : 8)
       .map((entry) => ({ ...entry, stopId: id, direction: board.key, buffer }));
+    baseChoiceCount = choices.length;
     if (!Number.isFinite(stopTime(stop)) && !train) {
       root.innerHTML =
         '<p class="empty-state">この駅の到着時刻が未取得のため、乗換可能な列車を判定できません。「好きな電車を選ぶ」から予定時刻を確認できます。</p>';
@@ -190,6 +232,7 @@ async function load(mode) {
           })
           .join("")}</div>`
       : '<p class="empty-state">条件に合う反対方向の列車がありません。駅やホーム移動の時間を変更してください。</p>';
+    if (mode === "next" && choices.length) evaluate(0);
   } catch (error) {
     if (current() && error.name !== "AbortError")
       root.innerHTML = `<p class="empty-state">${esc(error.message)}</p><button class="secondary-action" ${train ? "data-load-target-trains" : "data-foldback-search"}>もう一度取得</button>`;
@@ -200,8 +243,7 @@ async function load(mode) {
     if (current()) root.removeAttribute("aria-busy");
   }
 }
-function evaluate(index) {
-  const entry = choices[index];
+function evaluate(index, entry = choices[index]) {
   if (!entry || state.foldbackRide !== state.ride) return;
   const buffer = Number($("#fold-buffer").value),
     stop = state.ride.officialStops?.find((s) => s.id === entry.stopId),
@@ -225,7 +267,58 @@ function evaluate(index) {
   const root = $("#target-trains") ?? $("#fold-result");
   root.innerHTML = `<div class="fold-step"><span>3</span><b>折り返しを確認</b></div><article class="target-result ${assessment.status}" role="status" tabindex="-1"><span>${labels[assessment.status]}</span><b>${esc(stop?.name ?? entry.stopId)}で折り返し</b><p>${esc(category(entry))} ${esc(entry.destination ?? "反対方向")}行き</p><dl class="fold-timing"><div><dt>自分の到着見込み</dt><dd>${Number.isFinite(assessment.arrival) ? formatMinute(Math.round(assessment.arrival)) : "時刻未取得"}</dd></div><div><dt>選んだ列車の発車</dt><dd>${formatMinute(entry.depart)}</dd></div><div><dt>ホーム移動</dt><dd>${buffer}分</dd></div><div><dt>乗換余裕</dt><dd>${Number.isFinite(assessment.slack) ? (assessment.slack >= 0 ? `約${Math.floor(assessment.slack)}分` : `約${Math.ceil(-assessment.slack)}分不足`) : "判定できません"}</dd></div></dl></article><div class="screen-action-group"><button class="primary-action" data-save-foldback ${["possible", "tight"].includes(assessment.status) ? "" : "disabled"}>この折り返しを案内に表示</button><button class="secondary-action" ${$("#target-station") ? "data-load-target-trains" : "data-foldback-search"}>別の列車を選ぶ</button></div>`;
   root.querySelector(".target-result").focus();
+  if ($("#foldback-sheet").dataset.foldbackMode === "train")
+    void showMeetingPoints(selected, root);
   haptic();
+}
+async function showMeetingPoints(entry, root) {
+  meetingController?.abort();
+  const job = new AbortController();
+  meetingController = job;
+  const region = document.createElement("section");
+  region.className = "foldback-meeting-points";
+  region.innerHTML =
+    '<h3>この列車に乗り換えられる駅</h3><p class="source-note" role="status">共通の停車駅と時刻を確認中…</p>';
+  root.append(region);
+  const timer = setTimeout(() => job.abort(), 12000);
+  try {
+    const reverse = await foldbackJourney(entry, {
+      network: state.network,
+      subwayFeed: await ensureSubwayFeed(),
+      signal: job.signal,
+    });
+    if (job.signal.aborted || selected !== entry || !region.isConnected) return;
+    choices.splice(baseChoiceCount);
+    const points = foldbackMeetingPoints(state.ride, reverse, {
+      minute: clock().minute,
+      shift: state.rideShift,
+      buffer: entry.buffer,
+      offset: entry.depart - entry.serviceDepart,
+      minIndex: state.heroModel?.index ?? 0,
+    });
+    region.innerHTML = `<h3>この列車に乗り換えられる駅</h3>${
+      points.length
+        ? `<div class="native-list">${points
+            .map((point) => {
+              const choiceIndex = choices.length;
+              choices.push({
+                ...entry,
+                stopId: point.stopId,
+                depart: point.depart,
+                serviceDepart: point.serviceDepart,
+              });
+              return `<button type="button" class="native-row" data-target-index="${choiceIndex}"><span><b>${esc(point.name)}</b><small>${formatMinute(Math.round(point.assessment.arrival))}着 → ${formatMinute(point.depart)}発 · 移動${entry.buffer}分 · 余裕${Math.floor(point.assessment.slack)}分</small></span><span class="chevron">›</span></button>`;
+            })
+            .join("")}</div>`
+        : '<p class="source-note">取得できた時刻では、他の共通駅の乗換時間を確保できません。</p>'
+    }`;
+  } catch {
+    if (!job.signal.aborted && selected === entry && region.isConnected)
+      region.innerHTML =
+        '<p class="source-note">この列車の全駅時刻を取得できないため、選択した駅での判定を表示しています。別の駅からも確認できます。</p>';
+  } finally {
+    clearTimeout(timer);
+  }
 }
 function save() {
   if (!selected || selected.rideKey !== rideKey(state.ride)) return;
@@ -237,9 +330,10 @@ function save() {
     });
   if (!["possible", "tight"].includes(assessment.status)) {
     toast("到着見込みが変わりました。折り返しを再確認してください。");
-    evaluate(selected.choiceIndex);
+    evaluate(selected.choiceIndex, selected);
     return;
   }
+  haptic();
   state.foldbackPlan = selected;
   $("#foldback-sheet").close();
   renderNow();
@@ -251,7 +345,7 @@ export function setupFoldback() {
     invalidate();
     const target = opener?.isConnected ? opener : $("#ride-foldback");
     target?.focus({ preventScroll: true });
-    opener = null;
+    ((opener = null), (meetingController = null), (baseChoiceCount = 0));
   });
   dialog.addEventListener("change", (e) => {
     if (

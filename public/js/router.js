@@ -94,6 +94,17 @@ function nextTrips(service, index, ready, date) {
   ];
 }
 
+export function walkingMinutes(walk, request = {}) {
+  const factor = { slow: 1.25, standard: 1, fast: 0.8 }[request.walkSpeed] ?? 1;
+  return Math.max(1, Math.ceil(walk.minutes * factor));
+}
+export function allowedService(service, request = {}) {
+  if (!Array.isArray(request.operators)) return true;
+  return service.operator === "through"
+    ? request.operators.includes("subway") &&
+        request.operators.includes("kintetsu")
+    : request.operators.includes(service.operator);
+}
 export function route(
   network,
   request,
@@ -204,7 +215,8 @@ export function route(
       .slice(0, 6);
     if (!next.includes(s)) continue;
     labels.set(key, next);
-    for (const walk of index.walks.get(s.stop) ?? []) {
+    for (const baseWalk of index.walks.get(s.stop) ?? []) {
+      const walk = { ...baseWalk, minutes: walkingMinutes(baseWalk, request) };
       if (
         s.walk + walk.minutes > maxWalk ||
         (s.legs.at(-1)?.kind === "walk" && s.legs.at(-1).from === walk.to)
@@ -230,6 +242,7 @@ export function route(
       queue.push(n);
     }
     for (const { service, index: i } of index.rides.get(s.stop) ?? []) {
+      if (!allowedService(service, request)) continue;
       if (
         filter !== "all" &&
         ["kintetsu", "through"].includes(service.operator) &&
@@ -238,6 +251,12 @@ export function route(
         continue;
       const ready = s.time + (s.boardings ? buffer : 0);
       for (const trip of nextTrips(service, i, ready, date)) {
+        if (
+          s.boardings === 0 &&
+          Number.isFinite(request.firstDepartureAt) &&
+          Math.abs(trip.depart - s.walk - request.firstDepartureAt) > 0.01
+        )
+          continue;
         const tripKey = JSON.stringify([
           service.id,
           trip.serviceDate ?? date,

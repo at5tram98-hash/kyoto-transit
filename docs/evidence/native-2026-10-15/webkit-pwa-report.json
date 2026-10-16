@@ -1,0 +1,17 @@
+{
+  "browser": "webkit",
+  "scope": "/kyoto-transit/",
+  "checks": [
+    "First installation and control",
+    "Waiting update keeps active journey",
+    "Old shell remains consistent on pre-update reload",
+    "User update restores ride and favorite",
+    "Old open client retains its module cache",
+    "Offline reload resumes the new journey",
+    "Unknown versions never fall back to different code",
+    "Failed precache leaves current release usable",
+    "Previously published worker migrates without an update button or mixed modules"
+  ],
+  "errors": [],
+  "apiRequests": 34
+}

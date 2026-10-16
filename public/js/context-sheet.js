@@ -149,7 +149,7 @@ export function setupSheetGestures() {
       drag.lastAt = now;
       drag.dy = dy;
       let translate = Math.max(0, dy);
-      if (sheet.dataset.detent) {
+      if (sheet.dataset.detent && sheet.dataset.detent !== "fit") {
         const h = heights(),
           size = Math.min(h.large, Math.max(h.medium, drag.height - dy));
         sheet.style.height = `${size}px`;
@@ -175,7 +175,7 @@ export function setupSheetGestures() {
         !cancel &&
         (translation > sheet.offsetHeight * 0.3 ||
           (translation > 30 && value.velocity > 0.5));
-      if (detent && !cancel && !dismiss) {
+      if (detent && detent !== "fit" && !cancel && !dismiss) {
         const mid = (heights().large + heights().medium) / 2;
         detent =
           value.velocity < -0.45 || value.dy < -55
@@ -201,7 +201,7 @@ export function setupSheetGestures() {
         suppressClick = false;
         return;
       }
-      if (sheet.dataset.detent)
+      if (sheet.dataset.detent && sheet.dataset.detent !== "fit")
         void settleSheet(sheet, 0, {
           detent: sheet.dataset.detent === "medium" ? "large" : "medium",
         });

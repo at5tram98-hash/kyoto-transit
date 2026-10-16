@@ -1,10 +1,26 @@
 # ChatGPT Work 引継ぎ：Google Maps・Yahoo!乗換案内とMyMapの操作差
 
-更新: 2026-10-15。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
+更新: 2026-10-16。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
 
-## 基準と変更禁止
+## 最新：iOS純正アプリ級 最終仕様（2026-10-15）
 
-- 最新基準は `docs/reference/mymap-v3-redesign-2026-10-14.txt`。5タブ・情報設計変更・短い別便Sheetの指定を以前の4タブ・大幅変更禁止・便選択Pushより優先する。最新改修の証拠は `docs/v3-redesign-2026-10-14.md`。
+今回のユーザー0–77節を最優先する。実装・新Navigation Map・Main/Push/Sheet/Fullscreenの配置・操作数・実機試験表・残存制限は [最終仕様の実装対応表](native-final-implementation-2026-10-15.md) に記録する。以前の「今もYahooと同じ検索画面」は今回のLive専用構成へ置換された。競合の優れた操作原則を使い、ブランド固有画像はコピーしない。
+
+- 5 Tabは **Live / 検索 / 時刻表 / 運行 / その他**。既存Navigation Stack / History / Swipe / cacheを維持。旧 `route-search-home.js` は削除し、`live-home.js` が専用Liveを所有する。検索フォーム・結果・旅程Storeは一つ。
+- Live未乗車はMyMap/Live、Capsule、秒時計、Quick Select長押し、現在地、交通地点検索、Mini Map、近く・方面・接近。Rideは次駅・降車を優先し、詳細はPush。MapはPan/Pinch対応の補助サイズ、外部ActionからFullscreen。
+- `transit-evidence.js` はSource別期限付きEventと循環・方向trailを持つ。同じGPSの反復を複数票に数えず、時刻表/旅程だけ、GPS/Motionだけの歩行、曖昧な方向では確定しない。地下・停車中候補を保持し、確定rideの弱いGPSによるflipを防ぐ。再検証せずthresholdを緩めない。
+- `announcement-parser.js` で構造化。既にgrantedと確認できるマイクだけ、最大6秒。自動判定/音声補助OFF・非表示・離脱で停止する。権限promptや常時録音を追加しない。
+- 検索はfirst/last、交通機関、徒歩速度を既存routerと別便再計算へ渡す。近鉄条件は利用可能な検索だけ。日時fit Sheet、主要「案内を開始」は下部、画像保存はその他Sheet。WebKitではSheetのHistory dismiss完了を待ってdownloadする。
+- 折り返しは既存指定駅/指定列車と「次駅」の3方式。既存の時刻表・遅れ・ホーム移動・余裕計算を共有し、未取得時間を生成しない。指定列車の共通駅は `foldback-meetings.js`。
+- 新旧色の混在を戻さない。烏丸線=緑、近鉄=赤橙、市バス=橙、京都バス=青、実測=緑、予測=橙、予定=灰、遅延=赤。新規/変更部はsemantic token、content solid / control glass。旧CSS全体のtoken移行が100%済みとはしない。
+- Offline/古い運行はUnknown。検索snapshotのsourceも観測から90秒・onlineを検証し、ラベルのみ更新して経路DOMを保持。Workerはpagehide/beforeunloadでabortし、復帰は再試行導線。自動テストのpageerrorを一括除外しない。
+- Global Release Readyは **NO**。物理iPhone/実走・音声認識精度・OS Edge/VoiceOverは未実施。英訳は基盤とLive主要辞書のみ。運行の自動回避・運行路線お気に入り・旅程変更後の自動再計画は残課題。自動CI成功を実走・仕様全体100%と同一視しない。
+
+提出対象buildは `06ad19dcadc7`、開始/再確認mainは `8f04791`。モデル361、WebKit/Chromium各596、PWA各9、34画面272状態（44px/8px/衝突・文字切れ0）が成功。証拠は最新レポートと `docs/evidence/native-2026-10-15/`。これらはローカルBrowserの結果で、本番公開・物理iPhone試験の成功ではない。次回はその時点のmain/公開buildで再確認する。
+
+## 以前の基準と引き続き維持する制約
+
+- 以前の基準は `docs/reference/mymap-v3-redesign-2026-10-14.txt`。5タブ・情報設計変更・短い別便Sheetを継承する。今回と矛盾するHome/CTA配置は上記の最新仕様を優先する。
 - 以前のユーザー提供資料は `docs/reference/mymap-34-screen-brief-2026-10-14.txt`。資料中の100%という評価、CI成功、競合操作の記述は提供された情報であり、現在のMyMapや競合実機の実測結果として転用しない。
 - 添付資料全体の対応表は `docs/brief-acceptance-2026-10-14.md`。最新の改修と検証は `docs/journey-upgrade-2026-10-14.md`。既存34画面の比較は `docs/ui-ux-screen-comparison-2026-10-13.md`、公式参照元は `docs/transit-comparison-2026-10-13.md`。
 - PDF `MyMap_UI_Design_Spec_2026_Updated.pdf`、WORK HANDOFF v1.1、`docs/design-spec-v1.1-2026-10-12.md`、`docs/navigation-architecture-2026-10-13.md`、Visual Difference Matrixも基準にする。
@@ -20,7 +36,7 @@ Google MapsのiPhone向け公式ヘルプは、出発駅付近の後発時刻、
 - https://transit.yahoo.co.jp/promo/app/
 - https://transit.yahoo.co.jp/
 
-MyMapは交通中心の5タブ（今・検索・時刻表・運行・その他）と独立Stackを持つ。Googleの地図中心ホームをコピーする必要はない。便選択・接続再計算・状態保持・情報の優先順位を取り入れる。
+MyMapは交通中心の5タブ（Live・検索・時刻表・運行・その他）と独立Stackを持つ。Googleの地図中心ホームをコピーする必要はない。便選択・接続再計算・状態保持・情報の優先順位を取り入れる。
 
 ## 2026-10-14に実装済みのもの
 
@@ -56,7 +72,7 @@ MyMapは交通中心の5タブ（今・検索・時刻表・運行・その他�
 - iPhone実機のSafari／StandaloneでOS Edge Back、キーボード、VoiceOver、Hapticを検証する。WebKit/Chromiumの自動操作と実機確認を混同しない。
 - 乗車後に将来Legの便を直接編集する操作、接続を逃した時の全旅程の再提案は次段階。現在は次便表示・接続危険の警告・手動の検索が可能。降車地点を変えると元の後続への進行を拒否するガードは実装済み。変更先からの自動再計算は未実装。
 - 初期検索が深夜に翌日サービスへ接続するcoverageを増やす。今回の翌日取得は主に便選択時。2日を越す長距離・全国検索は対応済みと主張しない。
-- 番線・乗車位置・入口／出口・歩行速度・POI・住所・運休回避・施設の段差・車椅子経路・網羅的な始発／終電はデータ整備が必要。取得していないものをUIだけで追加しない。
+- 番線・乗車位置・入口／出口・POI・住所・運休回避・施設の段差・車椅子経路・網羅的な始発／終電はデータ整備が必要。取得していないものをUIだけで追加しない。
 - 京都バスODPTはoptional未設定。市バス・近鉄の便別tripId/運行日・位置照合のcoverageを計測する。APIの欠測率、取得時間、方面別coverageを継続計測し、1回のproduction成功を常時安定と解釈しない。
 - 市バスの4秒timeout、20秒更新、全方面fallback、予測source、quota-safeなKV書込みを維持する。古いcacheを実測と表示しない。
 
@@ -83,14 +99,14 @@ CIで確認したフォント差のチェックmarkは固定SVGで解消済み�
 - `saved-places.js` は登録地点IDのみ最大50件。既存の保存経路Storeと別用途。GPS履歴や同じ検索設定の複製Storeを作らない。
 - `arrival-schedule.js` は同日・系統・方面／行先一致の取得済み公式便だけを予定fallbackに使う。未取得・曖昧な方面は時刻を生成しない。市バス／京都バスの同名停留所を同一Realtimeとして扱わない。
 - 1本前後による同深さの結果更新はHistory replace、深いsingletonへの更新は該当entryまで巻き戻してreplace。Browser/App/Swipe Backの親を一致させる。Tabの検索入力・並び順・map・scroll・focusを保持する。Nowのride/journey identityが変わった時だけ主要情報へ戻す。
-- Sheetはmedium/large detent・1:1ドラッグ・velocity・scrollTop競合を共通Controllerに持つ。close時に残存Animationをcancel。visualViewportのresize/scrollでキーボード上端・高さを更新。
+- Sheetはfit/medium/large detent・1:1ドラッグ・velocity・scrollTop競合を共通Controllerに持つ。close時に残存Animationをcancel。visualViewportのresize/scrollでキーボード上端・高さを更新。
 - Transport／Statusの色は `vnext.css` のLight/Dark semantic tokenだけを使う。実測の緑と遅延の赤は独立。運行未取得はUnknown。ホーム地図を主役にしない。
 - 最新のテスト数・build・公開CIはv3レポートを参照。以前の旧版の成功数を新しい版の証拠として転用しない。実機SafariのOSジェスチャー・VoiceOver・Hapticは別途実測が必要。
 
 
-## 2026-10-15：最新ユーザー指示とYahoo画面整合
+## 以前の実装記録：Yahoo画面整合（今回のLive仕様でHome/CTAを置換）
 
-「今の画面」「経路が出る画面」をYahoo!乗換案内と同じ画面・操作へ寄せる最新指示。詳細は `docs/yahoo-screen-alignment-2026-10-15.md`。公式2026/09/15更新画像の新Home/detailを優先。競合実機を操作・測定したと誤認しない。MyMapブランドと実データだけを使う。
+当時の「今の画面」「経路が出る画面」をYahoo!乗換案内へ寄せる指示の記録。以下のHome/CTA/旧moduleは今回のLive設計で置換済み。詳細は `docs/yahoo-screen-alignment-2026-10-15.md`。公式2026/09/15更新画像の新Home/detailを優先。競合実機を操作・測定したと誤認しない。MyMapブランドと実データだけを使う。
 
 - Now未乗車は出発／経由・現在地・入替／到着／日時／条件／橙色検索。最寄りはHome内の同列切替、定期券は既存設定。Homeで直接候補画面を開いて今Stackへ結果→詳細をPush。
 - `route-search-home.js` は既存検索Controllerの入口Viewだけ。canonical `#planner-form` はSearch Tabに一つ、入力・検索結果・via・保存Store・Sheetを二重化しない。
@@ -105,7 +121,7 @@ Homeの送信前の候補確定、日時／条件Sheetのcloseでもcanonical in
 `fast-data.installFastData` の先読み予約はbeforeunload後、まだdocumentがvisibleでも実行してはいけない。idle/timeoutのhandleを保持して離脱・非表示でcancel、未実行分だけ復帰で再予約する。WebKitで折返し復元を続けてreloadすると古いdocumentが4通信を始めCORS例外を出していた。テストのCORS/pageerror検査を弱めず、この実操作の回帰を維持する。fixtureのfetchやURLをtimestamp付きへ差し替える試みは最終版から撤回した。
 
 
-## 2026-10-15 最終公開記録
+## 今回の改修前の公開記録（2026-10-15）
 
 実装source `fea1e58`、公開build `0e633053b133`。Pages CI 38669787095 SUCCESS：モデル340、WebKit/Chromium各586、PWA各9、実地理210、必須公開9項目成功。公開実ブラウザーでもfixtureなしで当日丸太町→京都、11:42→11:49発の別便変更、案内準備・全旅程・Back・解除、例外0。最新の証拠・Before/After・残差は `docs/yahoo-screen-alignment-2026-10-15.md` を参照。Yahoo実機との完全一致や物理iPhoneの認証を意味しない。京都バスODPTキーはoptional未設定で公式時刻表を利用。
 

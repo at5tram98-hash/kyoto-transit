@@ -19,6 +19,9 @@ export const navigation = {
   pop() {
     return controller?.pop();
   },
+  dismissSheet() {
+    return controller?.dismissSheet() ?? Promise.resolve();
+  },
   root(tab) {
     return controller?.root(tab);
   },
@@ -94,7 +97,7 @@ export function initializeNavigation({
   );
   const frames = new Map(),
     titles = {
-      now: "今",
+      now: "Live",
       search: "検索",
       timetable: "時刻表",
       operations: "運行",
@@ -508,6 +511,8 @@ export function initializeNavigation({
   }
   function afterSheet(action) {
     if (sheet || sheetBack) {
+      busy = true;
+      shell.dataset.navigationBusy = "true";
       pending = action;
       if (!sheetBack) {
         sheetBack = true;
@@ -529,6 +534,16 @@ export function initializeNavigation({
     },
     contains(type) {
       return state.stacks[state.tab].some((r) => r.type === type);
+    },
+    dismissSheet() {
+      return new Promise((resolve) =>
+        afterSheet(() => {
+          document
+            .querySelectorAll("dialog.sheet[open]")
+            .forEach((dialog) => dialog.close());
+          resolve();
+        }),
+      );
     },
     push(type, params) {
       const config = registry.get(type);
@@ -721,6 +736,8 @@ export function initializeNavigation({
       sheet = id;
       historyWrite(replace ? "replace" : "push");
     } else if (sheet) {
+      busy = true;
+      shell.dataset.navigationBusy = "true";
       sheet = null;
       sheetBack = true;
       history.back();

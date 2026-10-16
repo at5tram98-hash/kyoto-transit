@@ -134,7 +134,11 @@ function railRow(r) {
   };
 }
 function stale(data, limit = LIVE_MAX_AGE) {
-  return Boolean(data?.stale) || !isFresh(data?.asOf, limit);
+  return (
+    navigator.onLine === false ||
+    Boolean(data?.stale) ||
+    !isFresh(data?.asOf, limit)
+  );
 }
 function applyNotice(el, data, { initial = false } = {}) {
   const n = freshnessNotice(data, { initial });
@@ -227,9 +231,12 @@ export function mountArrivals({ network }) {
   }
   const setStatus = (id, data) => {
     const at = Date.parse(data?.asOf),
-      text = data
-        ? `${sourceLabel(data.source)}${Number.isFinite(at) ? ` · ${updateTime.format(at)} 更新` : ""}`
-        : "接続を確認してください";
+      text =
+        navigator.onLine === false
+          ? "オフライン · 前回取得した情報"
+          : data
+            ? `${sourceLabel(data.source)}${Number.isFinite(at) ? ` · ${updateTime.format(at)} 更新` : ""}`
+            : "接続を確認してください";
     root.querySelector(`#${id}`).textContent = text;
   };
   const showEmpty = (target, message) =>
@@ -592,6 +599,12 @@ export function mountArrivals({ network }) {
   function logChanged() {
     state.realtimeLog = realtimeLog();
   }
+  function offlineChanged() {
+    if (navigator.onLine !== false) return;
+    if (busData) renderBus(predictCityBus(busData));
+    if (railData) renderRail(predictRail(railData));
+  }
+  window.addEventListener("offline", offlineChanged);
   renderStop();
   updateRailVisibility();
   window.addEventListener("mymap-realtime-log", logChanged);
@@ -612,6 +625,7 @@ export function mountArrivals({ network }) {
       busLoop.stop();
       railLoop.stop();
       window.removeEventListener("mymap-realtime-log", logChanged);
+      window.removeEventListener("offline", offlineChanged);
     },
     get data() {
       return busData;

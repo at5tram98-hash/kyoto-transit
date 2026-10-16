@@ -1,10 +1,24 @@
 import { esc, icon } from "./vnext-state.js";
 import { formatTime } from "./router.js";
 import { boardingAvailable } from "./journey-session.js";
+import { routeObservationState } from "./route-search-model.js";
 const yen = (n) =>
   Number.isFinite(n) ? `${Math.round(n).toLocaleString("ja-JP")}円` : "—";
 const dot = (source) =>
   `<i class="source-dot ${source === "live" ? "live" : source === "prediction" ? "prediction" : "schedule"}" aria-hidden="true"></i>`;
+function observationHTML(observations, delay) {
+  const state = routeObservationState(observations);
+  return `${dot(state.source)}${state.label}${Number.isFinite(delay) ? ` · ${delay > 0 ? "+" : ""}${delay}分` : ""}`;
+}
+export function refreshRouteObservations(element) {
+  for (const node of element.querySelectorAll("[data-route-observations]")) {
+    const html = observationHTML(
+      JSON.parse(node.dataset.routeObservations),
+      node.dataset.delay === undefined ? null : Number(node.dataset.delay),
+    );
+    if (node.innerHTML !== html) node.innerHTML = html;
+  }
+}
 export const operatorLabel = {
   subway: "地下鉄烏丸線",
   kintetsu: "近鉄京都線",
@@ -94,7 +108,7 @@ export function routeHTML(
           ? `<button class="journey-departure" data-change-route="${routeIndex}" data-change-leg="${legIndex}" aria-haspopup="dialog" aria-controls="trip-choice-sheet" aria-expanded="false" aria-label="${esc(name(leg.from))} ${formatTime(leg.depart)}発の便を変更">${clock(leg.depart, "発")}</button>`
           : `<time class="planner-clock">${clock(leg.depart, "発")}</time>`,
       source = leg.realtime
-        ? `${dot(leg.realtime.source)}${leg.realtime.source === "live" ? "便別実測" : "遅れの推定"}${Number.isFinite(leg.realtime.delay) ? ` · ${leg.realtime.delay > 0 ? "+" : ""}${leg.realtime.delay}分` : ""}`
+        ? `<span data-route-observations="${esc(JSON.stringify([leg.realtime]))}" data-delay="${esc(leg.realtime.delay)}">${observationHTML([leg.realtime], leg.realtime.delay)}</span>`
         : `${dot("schedule")}${leg.dataConfidence === "stale" ? "保存した予定時刻" : "予定時刻"}`;
     timeline.push(
       `<div class="journey-ride" data-operator="${esc(leg.operatingCompany ?? leg.operator)}"><div class="planner-leg ride journey-point">${departure}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">発</span>${stationName(leg.from)}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><b>${esc(serviceLabel(leg))}${leg.category === "express" ? " · 急行" : leg.category === "local" ? " · 普通" : ""}</b><small>${esc(leg.destination ?? "行先未確認")}${leg.destination ? "行" : ""}${leg.through ? " · 直通、乗換不要" : ""}</small></div>${leg.platform ? `<p class="journey-platform"><span>発 </span><b>${esc(leg.platform)}</b>のりば</p>` : ""}<small class="journey-leg-source">${source}</small>${!leg.realtimeApplied && leg.realtime ? `<small>到着見込み（推定） ${formatTime(leg.arrive + leg.realtime.delay)}</small>` : ""}${stops}${actions ? `<div class="planner-leg-actions">${actions}</div>` : ""}</div></div>${point(leg.arrive, leg.to, "着", `${legIndex === route.legs.length - 1 ? "journey-final" : "journey-transfer"}`)}${leg.arrivalPlatform ? `<p class="journey-arrival-platform">着 ${esc(leg.arrivalPlatform)}のりば · 時刻表記載</p>` : ""}</div>`,
@@ -102,18 +116,19 @@ export function routeHTML(
   });
   const startAction =
     detail && first && !hideActions && !route.connectionUnavailable
-      ? `<button type="button" data-arm-route="${routeIndex}" data-arm-leg="${first.i}" aria-label="この経路を使う・ナビアラームを準備">${icon("location")}<span>ナビ<br>アラーム</span></button>`
+      ? `<button type="button" class="primary-action" data-arm-route="${routeIndex}" data-arm-leg="${first.i}" aria-label="この経路を使う・案内を開始">${icon("location")}<span>案内を開始</span></button>`
       : "";
   const toolbar =
     detail && !readOnly && !hideActions
-      ? `<div class="route-actions" role="group" aria-label="経路の操作"><button type="button" data-save-route aria-label="行き先を保存">${icon("bookmark")}<span>保存</span></button><button type="button" data-export-route aria-label="経路を画像で保存">${icon("camera")}<span>経路画像</span></button><button type="button" data-share-route aria-label="経路を共有">${icon("share")}<span>共有</span></button><button type="button" data-route-operations>${icon("operations")}<span>運行情報</span></button>${startAction}</div><p class="source-caption" data-route-feedback aria-live="polite"></p>`
+      ? `<div class="route-actions" role="group" aria-label="経路の操作"><button type="button" data-save-route aria-label="行き先を保存">${icon("bookmark")}<span>保存</span></button><button type="button" data-share-route aria-label="経路を共有">${icon("share")}<span>共有</span></button><button type="button" data-route-operations>${icon("operations")}<span>運行情報</span></button><button type="button" data-route-more aria-haspopup="dialog" aria-label="経路のその他の操作">${icon("more")}<span>その他</span></button></div><p class="source-caption" data-route-feedback aria-live="polite"></p>`
       : "";
-  const quality = `<span class="planner-quality">${dot(route.realtimeSource ?? "schedule")}${route.realtimeSource === "live" ? "便別運行情報反映" : route.realtimeSource === "prediction" ? "遅れの推定" : "時刻表"}</span>`;
+  const observations = route.legs.map((leg) => leg.realtime).filter(Boolean);
+  const quality = `<span class="planner-quality" data-route-observations="${esc(JSON.stringify(observations))}">${observationHTML(observations)}</span>`;
   const tags = recommendations
     .map(
       (key) =>
         `<span class="route-rank ${key}" aria-label="${{ arrival: "早い", transfers: "楽", fare: "安い" }[key]}">${{ arrival: "早", transfers: "楽", fare: "安" }[key]}</span>`,
     )
     .join("");
-  return `<article class="planner-result ${detail ? "route-detail" : "route-option"}" data-operator="${esc(route.legs.find((l) => l.kind === "ride")?.operator ?? "walk")}">${!detail ? `<span class="route-position" aria-label="経路${position}">${position}</span>` : ""}<div class="planner-result-head">${route.changedLeg != null ? '<span class="planner-badge">選択した便</span>' : ""}</div><div class="planner-times"><strong>${formatTime(startTime)}</strong><span>→</span><strong>${formatTime(route.time)}</strong><small>(${shownDuration}分)</small></div><div class="planner-metrics"><span class="route-price"><b>${yen(route.fare.additional)}</b>${route.fare.additional !== route.fare.normal ? `<small>通常 ${yen(route.fare.normal)}</small>` : ""}</span><span>乗換${route.transfers}回</span><span>徒歩${walk}分</span>${!detail ? `<span class="route-ranks">${tags}</span>` : ""}${quality}</div>${passApplied ? '<p class="planner-pass-state">✓ 定期適用 · 区間外は追加運賃</p>' : ""}${detail ? toolbar : `<p class="planner-route-summary">${routeBadges}</p>`}${route.connectionUnavailable ? '<p class="planner-warning">この便の遅れを反映すると後続の接続がありません。別の便か経路を選んでください。</p>' : route.connectionRisk ? '<p class="planner-warning">推定の遅れでは乗換に間に合わない可能性があります。予定時刻は変更していません。</p>' : ""}<div class="planner-result-actions">${detail ? `<div class="planner-timeline">${timeline.join("")}</div>` : `<button type="button" class="planner-open-route" data-open-route="${routeIndex}"><span class="sr-only">経路詳細</span><span class="chevron" aria-hidden="true">›</span></button>`}</div></article>`;
+  return `<article class="planner-result ${detail ? "route-detail" : "route-option"}" data-operator="${esc(route.legs.find((l) => l.kind === "ride")?.operator ?? "walk")}">${!detail ? `<span class="route-position" aria-label="経路${position}">${position}</span>` : ""}<div class="planner-result-head">${route.changedLeg != null ? '<span class="planner-badge">選択した便</span>' : ""}</div><div class="planner-times"><strong>${formatTime(startTime)}</strong><span>→</span><strong>${formatTime(route.time)}</strong><small>(${shownDuration}分)</small></div><div class="planner-metrics"><span class="route-price"><b>${yen(route.fare.additional)}</b>${route.fare.additional !== route.fare.normal ? `<small>通常 ${yen(route.fare.normal)}</small>` : ""}</span><span>乗換${route.transfers}回</span><span>徒歩${walk}分</span>${!detail ? `<span class="route-ranks">${tags}</span>` : ""}${quality}</div>${passApplied ? '<p class="planner-pass-state">✓ 定期適用 · 区間外は追加運賃</p>' : ""}${detail ? toolbar : `<p class="planner-route-summary">${routeBadges}</p>`}${route.connectionUnavailable ? '<p class="planner-warning">この便の遅れを反映すると後続の接続がありません。別の便か経路を選んでください。</p>' : route.connectionRisk ? '<p class="planner-warning">推定の遅れでは乗換に間に合わない可能性があります。予定時刻は変更していません。</p>' : ""}<div class="planner-result-actions">${detail ? `<div class="planner-timeline">${timeline.join("")}</div>` : `<button type="button" class="planner-open-route" data-open-route="${routeIndex}"><span class="sr-only">経路詳細</span><span class="chevron" aria-hidden="true">›</span></button>`}</div></article>${startAction ? `<footer class="screen-bottom-action journey-start-action">${startAction}</footer>` : ""}`;
 }

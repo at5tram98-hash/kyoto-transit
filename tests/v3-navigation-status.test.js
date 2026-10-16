@@ -43,9 +43,17 @@ test("official normal is not inferred from unknown or missing line data", () => 
   const normal = {
     id: "kintetsu",
     status: "normal",
-    fetchedAt: "2026-10-14T00:00:00Z",
+    fetchedAt: new Date().toISOString(),
   };
   assert.equal(operationStatus(normal).kind, "success");
+  assert.equal(
+    operationStatus({
+      ...normal,
+      fetchedAt: new Date(Date.now() - 301000).toISOString(),
+    }).kind,
+    "unknown",
+  );
+  assert.equal(operationStatus(normal, { online: false }).kind, "unknown");
   assert.equal(
     operationStatus({ ...normal, status: "unconfirmed" }).kind,
     "unknown",
