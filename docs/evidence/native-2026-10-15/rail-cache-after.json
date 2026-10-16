@@ -1,0 +1,47 @@
+{
+  "checkedAt": "2026-10-16T02:35:11.492425+00:00",
+  "checks": [
+    {
+      "attempt": 1,
+      "conditional": false,
+      "status": 200,
+      "cors": "https://at5tram98-hash.github.io",
+      "etag": "\"34e10a3f8d9f7443bf416c87\"",
+      "source": "live",
+      "stale": false,
+      "asOf": "2026-10-16T11:34:00+09:00",
+      "trains": 25
+    },
+    {
+      "attempt": 2,
+      "conditional": false,
+      "status": 200,
+      "cors": "https://at5tram98-hash.github.io",
+      "etag": "\"34e10a3f8d9f7443bf416c87\"",
+      "source": "live",
+      "stale": false,
+      "asOf": "2026-10-16T11:34:00+09:00",
+      "trains": 25
+    },
+    {
+      "attempt": 3,
+      "conditional": false,
+      "status": 200,
+      "cors": "https://at5tram98-hash.github.io",
+      "etag": "\"34e10a3f8d9f7443bf416c87\"",
+      "source": "live",
+      "stale": false,
+      "asOf": "2026-10-16T11:34:00+09:00",
+      "trains": 25
+    },
+    {
+      "attempt": 4,
+      "conditional": true,
+      "status": 304,
+      "cors": "https://at5tram98-hash.github.io",
+      "etag": "\"34e10a3f8d9f7443bf416c87\"",
+      "bodyBytes": 0
+    }
+  ],
+  "passed": true
+}

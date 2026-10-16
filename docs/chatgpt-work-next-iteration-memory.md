@@ -2,6 +2,14 @@
 
 更新: 2026-10-16。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
 
+## 最新公開記録（2026-10-16）
+
+frontend build **`06ad19dcadc7`** は本番公開済み。UI source `2659964` / merge `0a99bf8`、API修正 source `6248187` / merge `f26fb06`。Pages [38837839758](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38837839758) とWorker [38840924385](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38840924385) はSUCCESS。
+
+公開後に見つかったCache APIのimmutable HeadersへのCORS追加による500は、既存`finalize`のResponse再構成で修正済み。`tests/worker-cached-response.test.js`の200/304回帰2件を含む363モデル成功。cache応答を直接変更する実装に戻さない。実API連続200×3とETag304、必須公開9項目が02:35:20 UTCに成功。backend修正に`public/`変更はなく、重複Pages run 38840924434はcancelledであり成功とは数えない。
+
+公開HTTPSでfixtureなしに当日丸太町→京都を検索、11:27発から11:42発へ変更、案内準備・reload保持・全旅程・Back・解除を確認。実際の旧PWA `0e633053b133`→`06ad19dcadc7`更新でも選択tripIdと全旅程を保持した。[公開記録・原本JSON](evidence/native-2026-10-15/production-release.json) / [報告](native-final-implementation-2026-10-15.md#本番公開結果2026-10-16) / [実公開8画像](evidence/native-2026-10-15/README.md#本番公開後の実画面2026-10-16)。Global Release Readyは引き続きNO。公開済みであることを実機・実走合格と混同しない。
+
 ## 最新：iOS純正アプリ級 最終仕様（2026-10-15）
 
 今回のユーザー0–77節を最優先する。実装・新Navigation Map・Main/Push/Sheet/Fullscreenの配置・操作数・実機試験表・残存制限は [最終仕様の実装対応表](native-final-implementation-2026-10-15.md) に記録する。以前の「今もYahooと同じ検索画面」は今回のLive専用構成へ置換された。競合の優れた操作原則を使い、ブランド固有画像はコピーしない。
@@ -16,7 +24,7 @@
 - Offline/古い運行はUnknown。検索snapshotのsourceも観測から90秒・onlineを検証し、ラベルのみ更新して経路DOMを保持。Workerはpagehide/beforeunloadでabortし、復帰は再試行導線。自動テストのpageerrorを一括除外しない。
 - Global Release Readyは **NO**。物理iPhone/実走・音声認識精度・OS Edge/VoiceOverは未実施。英訳は基盤とLive主要辞書のみ。運行の自動回避・運行路線お気に入り・旅程変更後の自動再計画は残課題。自動CI成功を実走・仕様全体100%と同一視しない。
 
-提出対象buildは `06ad19dcadc7`、開始/再確認mainは `8f04791`。モデル361、WebKit/Chromium各596、PWA各9、34画面272状態（44px/8px/衝突・文字切れ0）が成功。証拠は最新レポートと `docs/evidence/native-2026-10-15/`。これらはローカルBrowserの結果で、本番公開・物理iPhone試験の成功ではない。次回はその時点のmain/公開buildで再確認する。
+提出対象buildは `06ad19dcadc7`、開始/再確認mainは `8f04791`。モデル361、WebKit/Chromium各596、PWA各9、34画面272状態（44px/8px/衝突・文字切れ0）が成功。証拠は最新レポートと `docs/evidence/native-2026-10-15/`。この段落は公開前のローカルBrowser結果。公開は上の最新記録を参照し、物理iPhone試験は未実施。次回はその時点のmain/公開buildで再確認する。
 
 ## 以前の基準と引き続き維持する制約
 

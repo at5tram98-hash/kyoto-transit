@@ -64,3 +64,21 @@ Before: main `8f04791` / build `0e633053b133`。After: build `06ad19dcadc7`。39
 |次駅折り返し確認|[画像](after/foldback-next-false.png)|
 
 Animationを途中で止めた画像と、pointer移動中に取得した画像を区別して自動操作する。物理iPhoneのSafari edge gestureやHapticの合格を示すものではない。
+
+
+## 本番公開後の実画面（2026-10-16）
+
+https://at5tram98-hash.github.io/kyoto-transit/ の実配信を390×844で操作した。API・GPS・時計・タイルのfixtureなし。上の固定feedによる37組と区別する。実車の乗車試験ではない。
+
+|状態|画像|
+|---|---|
+|Live・実OSMタイル|[画像](production-live.png)|
+|当日ダイヤの検索結果|[画像](production-results.png)|
+|実際の別便Sheet|[画像](production-departures.png)|
+|11:42発→11:49着へ変更|[画像](production-changed-journey.png)|
+|reload後の選択便・全旅程|[画像](production-itinerary.png)|
+|実旧PWAで新版の更新待機|[画像](production-update-waiting.png)|
+|更新後の旅程保持|[画像](production-update-preserved.png)|
+|更新後の全旅程|[画像](production-update-itinerary.png)|
+
+[公開Browser原本](production-browser-report.json) / [旧→新PWA更新原本](production-update-report.json) / [公開・CI・版の記録](production-release.json) / [実API最終確認](production-report.json)。旧PWAの実更新は`0e633053b133`→`06ad19dcadc7`、前後のtripId一致を確認。実走・物理iPhoneの合格判定には使用しない。

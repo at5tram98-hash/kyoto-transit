@@ -1,0 +1,34 @@
+{
+  "site": "https://at5tram98-hash.github.io/kyoto-transit/",
+  "build": "06ad19dcadc7",
+  "uiMergeCommit": "0a99bf8719d873a36efb425bbbcd0b05bf88335a",
+  "workerMergeCommit": "f26fb06d1878dc6f038a7e9337e9455806fe3b31",
+  "pagesRun": "https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38837839758",
+  "workerRun": "https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38840924385",
+  "ciStatus": "success",
+  "publicFilesUnchangedAfterWorkerFix": true,
+  "requiredProductionChecksPassed": 9,
+  "checkedAt": "2026-10-16T02:35:20.641Z",
+  "browserSmoke": "passed",
+  "actualPwaUpgrade": {
+    "from": "0e633053b133",
+    "to": "06ad19dcadc7",
+    "selectedTripIdsPreserved": true,
+    "status": "passed"
+  },
+  "railCacheResponses": [
+    200,
+    200,
+    200,
+    304
+  ],
+  "duplicateUnchangedPagesRun": {
+    "id": 38840924434,
+    "conclusion": "cancelled",
+    "reason": "public/ is byte-identical to validated frontend 06ad19dcadc7; backend validated by worker workflow"
+  },
+  "productionDeployed": true,
+  "physicalIPhoneTested": false,
+  "fieldRideTested": false,
+  "globalReleaseReady": false
+}

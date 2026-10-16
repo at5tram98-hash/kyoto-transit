@@ -127,7 +127,7 @@ Mini Mapは実際のMercator投影・OSM PNGタイル・登録位置・既存路
 
 途中駅での自動降車・旅程変更後の自動再探索、運休の自動回避、運行路線お気に入り、未取得の番線/出口/乗車位置/バリアフリー情報は完成済みとしない。現在の手動終了、次区間案内、検索条件編集、公式運行の確認を維持する。iOSのHaptic・音声認識は対応するWeb APIと既存権限に依存する。
 
-この変更はレビュー用の実装として提出する。実走結果が無いまま世界公開可能と認定しない。
+2026-10-16にユーザーの公開指示で本番へ反映した。公開結果は下記に記録する。実走結果が無いため、公開済みであることとGlobal Release Readyの認定は区別する。
 
 
 ## Push / Pop / Gesture の受入項目
@@ -151,9 +151,9 @@ Beforeは開始時main、Afterは今回の実装。34画面のLight/100%代表�
 
 固定feed/GPS/時計の画像でUIを比較する。多くの座標試験では地図タイルを固定画像に置換しているため、その背景を実地理の証拠にはしない。「実OSM Mini Map」の追加画像だけは実タイルをダウンロードして全画像のnaturalWidthとsource URLを確認する。乗車の画像は公式形式fixtureからの画面であり、実車で撮影したものではない。
 
-## 今回の検証結果
+## 公開前のローカル検証結果
 
-2026-10-16にmainを再取得し `8f04791` のままであることを確認。Node 22.23.3 / Playwright 1.62.1。Browserはbuild `06ad19dcadc7` の固定したworkspace出力83ファイルを使用した。全ファイルのSHA-256を保存した。[runtime manifest](evidence/native-2026-10-15/runtime-manifest.json)。本番公開・mergeは行っていない。
+2026-10-16にmainを再取得し `8f04791` のままであることを確認。Node 22.23.3 / Playwright 1.62.1。Browserはbuild `06ad19dcadc7` の固定したworkspace出力83ファイルを使用した。全ファイルのSHA-256を保存した。[runtime manifest](evidence/native-2026-10-15/runtime-manifest.json)。この検証時点では本番公開・merge前。以降の公開結果は次節に記録する。
 
 |検証|結果|証拠|
 |---|---|---|
@@ -197,3 +197,30 @@ BROWSER_SPEC_ONLY=1 VERIFY_LIVE_MAP=1 npm run test:browser
 [37組の画面比較・Motion途中画像](evidence/native-2026-10-15/README.md) にLive未乗車、烏丸線、近鉄、直通、市バス、京都バス/北3、検索、結果、Journey、時刻表、運行、その他、折り返しを収録した。上の配置/Navigation Mapと合わせてレビューする。
 
 [次のChatGPT Work用メモリ](chatgpt-work-next-iteration-memory.md) を今回のLive仕様で更新した。古いYahoo同画面指示を最新仕様として再適用せず、単一検索Stateと既存5Stackを維持する。残る実走/物理端末/翻訳/運行回避等の課題は本書の試験表と残存制限を引き継ぐ。
+
+
+## 本番公開結果（2026-10-16）
+
+公開先: **https://at5tram98-hash.github.io/kyoto-transit/** 。frontend build **`06ad19dcadc7`**。UI実装 `2659964` をPR #2でmain `0a99bf8` にmergeし、Pagesが02:19:04 UTCにdeployを完了した。追加のAPI修正 `6248187` はPR #3でmain `f26fb06` にmergeし、Workerへ反映した。[公開記録JSON](evidence/native-2026-10-15/production-release.json)。
+
+|公開・検証対象|結果・証拠|
+|---|---|
+|frontend / Pages|[run 38837839758](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38837839758) SUCCESS。build/deploy/公開確認成功|
+|backend / Worker|[run 38840924385](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38840924385) SUCCESS。構文・363モデル・bundle・deploy・公開確認成功|
+|Pages CI Browser|Chromium/WebKit各596検査、PWA各9、実地理210成功。[Chromium](evidence/native-2026-10-15/ci-chromium-report.json) / [WebKit](evidence/native-2026-10-15/ci-webkit-report.json) / [PWA Chromium](evidence/native-2026-10-15/ci-chromium-pwa-report.json) / [PWA WebKit](evidence/native-2026-10-15/ci-webkit-pwa-report.json) / [実地理](evidence/native-2026-10-15/ci-real-map-report.json)|
+|修正後の実運行API・配信|02:35:20 UTC、必須9項目成功。[JSON](evidence/native-2026-10-15/production-report.json)。京都バスODPTはoptional未設定で公式時刻表fallback|
+|キャッシュ連続取得|近鉄APIは200→200→200、同一ETag条件付き取得304。CORS・本文・live sourceを確認。[JSON](evidence/native-2026-10-15/rail-cache-after.json)|
+|実公開Browser|当日丸太町→京都検索、11:27発を11:42発へ変更、11:49着、案内準備→reload→全旅程→Back→解除成功。例外0。[JSON](evidence/native-2026-10-15/production-browser-report.json)|
+|実公開PWA更新|実際の旧公開版`0e633053b133`→新版`06ad19dcadc7`更新を操作。更新待機中の旧画面と更新後の選択tripId・全旅程を保持。例外0。[JSON](evidence/native-2026-10-15/production-update-report.json)|
+
+実公開Browser/PWA試験ではAPI・時計・GPS・タイルのfixtureを使用していない。新規Service Worker install、version別static cache、controlled reload、実OSM画像の読込も確認した。案内準備の検証であり、実際に電車に乗ったことや自動乗車認識の現地精度を示すものではない。[実公開8画像](evidence/native-2026-10-15/README.md#本番公開後の実画面2026-10-16)。
+
+### 公開確認で見つかったAPI障害と修正
+
+初回の追加公開確認では近鉄APIだけ500となった。[失敗した初回確認](evidence/native-2026-10-15/production-first-check.json) と [連続取得200→500→500](evidence/native-2026-10-15/rail-cache-before.json) を保存する。Cloudflare Cache APIの変更不可Headersへ、共通応答処理で直接CORSを書き込んだことが原因だった。
+
+`worker/index.js`の既存`finalize`でResponseを再構成してからHeadersを追加する。本文・status・ETag・304の空本文を保持し、cache側の応答を変更しない。`tests/worker-cached-response.test.js`は実際のFetch応答のimmutable guardで修正前のTypeErrorを再現し、修正後に200/304とも成功した。全モデルは361から363へ増え、失敗・skip 0。[集計](evidence/native-2026-10-15/worker-cache-models.json)。修正後のWorker CIと実連続取得は上表のとおり成功した。
+
+このbackend修正で`public/`は変更していない。検証・配信済み83ファイルのSHA-256は`06ad19dcadc7`のmanifestと同一。そのため同じfrontendを再配信するPages run `38840924434`はcancelledとし、成功として数えない。frontendは成功したPages run、backendは成功した最新Worker runをそれぞれ根拠にする。
+
+本番反映は完了。物理iPhone・実走・未完了の英訳等の残課題と **Global Release Ready: NO** は上記のとおり継続する。

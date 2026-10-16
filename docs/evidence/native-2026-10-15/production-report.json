@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-10-16T02:35:20.641Z",
+  "api": "https://my-map-capture.at5tram98.workers.dev",
+  "site": "https://at5tram98-hash.github.io/kyoto-transit/",
+  "origin": "https://at5tram98-hash.github.io",
+  "date": "2026-10-16",
+  "checks": [
+    {
+      "name": "Published Pages release",
+      "status": "passed",
+      "version": "06ad19dcadc7"
+    },
+    {
+      "name": "Worker bindings",
+      "status": "passed"
+    },
+    {
+      "name": "Official subway full timetable",
+      "status": "passed"
+    },
+    {
+      "name": "Subway board",
+      "status": "passed"
+    },
+    {
+      "name": "Official departures",
+      "status": "passed"
+    },
+    {
+      "name": "City bus arrivals",
+      "status": "passed"
+    },
+    {
+      "name": "North 3 arrivals",
+      "status": "passed"
+    },
+    {
+      "name": "Rail live positions",
+      "status": "passed"
+    },
+    {
+      "name": "Kyoto bus real-time",
+      "status": "optional_unconfigured",
+      "note": "ODPTキーが未設定。公式時刻表の案内を使用。"
+    },
+    {
+      "name": "Geographic basemap",
+      "status": "passed"
+    }
+  ],
+  "passed": true
+}

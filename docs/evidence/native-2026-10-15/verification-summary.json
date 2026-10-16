@@ -17,5 +17,7 @@
   "physicalIPhoneTested": false,
   "fieldRideTested": false,
   "globalReleaseReady": false,
-  "productionDeployed": false
+  "productionDeployed": false,
+  "phase": "pre_publication_local_validation",
+  "publicationRecord": "production-release.json"
 }

@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-10-16T02:20:24.047Z",
+  "url": "https://at5tram98-hash.github.io/kyoto-transit/",
+  "build": "06ad19dcadc7",
+  "data": "real production HTTP; no API/tile/GPS/clock fixtures",
+  "checks": [
+    "Published Live shell, five tabs and real OSM mini-map tiles, current build",
+    "Actual current-day official timetable search K07 to K11",
+    "2-tap actual official trip choice Sheet with suffix/fare application",
+    "Arm the actual selected itinerary, reload persistence and full journey without asserting real boarding",
+    "Back and explicit cancellation",
+    "Real HTTPS Service Worker installation, versioned static cache and controlled reload"
+  ],
+  "errors": [],
+  "original": "11:2711:34着地下鉄烏丸線 · 普通竹田行2026-10-16運行 · 現在の便",
+  "chosen": "11:4211:49着地下鉄烏丸線 · 普通竹田行2026-10-16運行",
+  "pwa": {
+    "controller": "https://at5tram98-hash.github.io/kyoto-transit/sw.js",
+    "caches": [
+      "mymap-static-06ad19dcadc7"
+    ]
+  },
+  "status": "passed"
+}
