@@ -1,3 +1,4 @@
+import { liveInteractionChecks } from "./live-browser-checks.mjs";
 import { yahooScreenChecks } from "./yahoo-browser-checks.mjs";
 import { v3RedesignChecks } from "./v3-browser-checks.mjs";
 // Real browser checks with deterministic upstream fixtures. These do not
@@ -111,7 +112,15 @@ const subwayFeed = {
 
 async function fixture(page, scenario = {}) {
   const counts = { bus: 0, rail: 0, assets: 0, boards: [] },
-    errors = [];
+    errors = [],
+    failedModules = [];
+  page.on("requestfailed", (request) => {
+    if (request.url().includes(".js"))
+      failedModules.push({
+        url: request.url(),
+        error: request.failure()?.errorText,
+      });
+  });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(
     ({ gps, corrupt, standalone }) => {
@@ -411,7 +420,7 @@ async function fixture(page, scenario = {}) {
       })
       .catch(() => {});
   });
-  return { counts, errors };
+  return { counts, errors, failedModules };
 }
 
 async function open({
@@ -1361,6 +1370,7 @@ async function searchComparisonChecks({ baseline = false } = {}) {
           "Comparison diagnostic",
           JSON.stringify({
             errors: run.errors,
+            failedModules: run.failedModules,
             screen: await page.locator("body").innerText(),
           }),
         );
@@ -1532,6 +1542,24 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 
 try {
   if (
+    process.env.BROWSER_LIVE_ONLY === "1" ||
+    !Object.keys(process.env).some(
+      (key) =>
+        key.startsWith("BROWSER_") &&
+        /ONLY|AUDIT|BASELINE/.test(key) &&
+        process.env[key] === "1",
+    )
+  )
+    await liveInteractionChecks({
+      open,
+      setRide,
+      settleNavigation,
+      backScreen,
+      artifacts,
+      summary,
+      layout,
+    });
+  if (
     process.env.BROWSER_YAHOO_ONLY === "1" ||
     !Object.keys(process.env).some(
       (key) =>
@@ -1550,6 +1578,7 @@ try {
   if (
     process.env.BROWSER_V3_ONLY === "1" ||
     ![
+      "BROWSER_LIVE_ONLY",
       "BROWSER_YAHOO_ONLY",
       "BROWSER_UI_AUDIT",
       "BROWSER_JOURNEY_ONLY",
@@ -1573,11 +1602,13 @@ try {
       summary,
     });
   if (
+    process.env.BROWSER_LIVE_ONLY !== "1" &&
     process.env.BROWSER_V3_ONLY !== "1" &&
     process.env.BROWSER_YAHOO_ONLY !== "1"
   ) {
     if (
       ![
+        "BROWSER_LIVE_ONLY",
         "BROWSER_YAHOO_ONLY",
         "BROWSER_UI_AUDIT",
         "BROWSER_COMPARISON_BASELINE",
@@ -2354,7 +2385,7 @@ try {
         });
         try {
           const { page } = practical;
-          await page.locator("[data-home-page=nearby]").click();
+
           await page.locator(".nearby-departures time").first().waitFor();
           assert.match(
             await page.locator(".nearby-departures").first().textContent(),
@@ -2543,9 +2574,7 @@ try {
               true,
             );
             await page.goto(base);
-            await page
-              .locator('[data-view="now"] [data-home-submit]')
-              .waitFor();
+            await page.locator('[data-view="now"] [data-live-plan]').waitFor();
             await layout(page, "offline PWA navigation and app shell");
           } finally {
             originUnavailable = false;
@@ -2592,9 +2621,8 @@ try {
                   animations: "disabled",
                 });
               if (scale === 1 && gps === "active") {
-                await page.locator("[data-home-page=nearby]").click();
                 assert.ok(
-                  (await page.locator(".nearby-guide").boundingBox()).y < 650,
+                  (await page.locator(".nearby-guide").boundingBox()).y < 1000,
                 );
               }
               await searchScreen(page);

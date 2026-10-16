@@ -1,0 +1,14 @@
+{
+  "browser": "chromium",
+  "layouts": 210,
+  "errors": [],
+  "checks": [
+    "UI coordinate audit: 34 screens, effective44px targets, standalone action8px gaps, trailing chevrons, no clipped labels, collapsed search has zero layout height",
+    "Competitor comparison improvements: delayed realtime preserves card identity and tap, saved-route timetable shortcuts, operator-specific autocomplete and keyboard selection, via/dwell search, sort identity, edit/next departure, save/delete, share/reload state, home search entry and invalid-input feedback; 390px light/dark 100–200%",
+    "Navigation Flow A–F: independent screens, History/App/interactive Back, 1:1 tracking, 30% cancel, 50% commit, flick, PointerCancel, vertical/map/sheet/tab conflicts, scroll/input/zoom/reload preservation, bounded cache, keyboard viewport; 390px light/dark 100–200% Reduce Motion ON/OFF",
+    "390px C: GPS ON/OFF, light/dark, 100–200% text, input swap, disclosed options, route comparison and armed selection, settings location control, meaningful one-stop approach emphasis",
+    "Real OpenStreetMap PNG download and rendered bus map",
+    "PDF v1.1 LCD hero, both Takeda directions, both North 3 directions, 100–200% text sizing, station/delay sheets, 44px touch targets"
+  ],
+  "performance": []
+}

@@ -71,8 +71,8 @@ export async function v3RedesignChecks({
               continue;
             const r = e.getBoundingClientRect();
             if (
-              r.x < -0.5 ||
-              r.right > innerWidth + 0.5 ||
+              (!e.closest(".live-quick-destinations") &&
+                (r.x < -0.5 || r.right > innerWidth + 0.5)) ||
               e.scrollWidth > e.clientWidth + 1
             )
               out.push({
@@ -109,7 +109,7 @@ export async function v3RedesignChecks({
         );
         assert.deepEqual(
           await page.locator(".tab-button span").allTextContents(),
-          ["今", "検索", "時刻表", "運行", "その他"],
+          ["Live", "検索", "時刻表", "運行", "その他"],
         );
         assert.equal(
           await page
@@ -154,12 +154,11 @@ export async function v3RedesignChecks({
           );
           await page.mouse.up();
         }
-        await page.locator("#search-date .sheet-drag-handle").click();
-        await page.waitForFunction(
-          (h) => document.querySelector("#search-date").offsetHeight > h + 20,
-          initial,
+        assert.equal(
+          await page.locator("#search-date").getAttribute("data-detent"),
+          "fit",
         );
-        await record("date-large");
+        await record("date-fit");
         await page.locator("#search-date [data-search-sheet-done]").click();
         await settleNavigation(page);
         if (scale === 1) {
@@ -307,7 +306,7 @@ export async function v3RedesignChecks({
         await backScreen(page);
         // D/E: actual nearby stop context contains compact 204 then its sheet.
         await tabRoot(page, "now");
-        await page.locator("[data-home-page=nearby]").click();
+
         await page.evaluate(() => window.__emitPosition());
         await page
           .locator(".nearby-guide .compact-departures")

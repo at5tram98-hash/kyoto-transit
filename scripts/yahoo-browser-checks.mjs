@@ -24,50 +24,66 @@ export async function yahooScreenChecks({
           (s) => (document.documentElement.style.fontSize = `${s * 16}px`),
           scale,
         );
-        await page.locator("[data-home-submit]").waitFor();
-        await page.waitForFunction(() =>
-          document
-            .querySelector('[data-home-value="from"]')
-            .textContent.includes("丸太町"),
+        await page.locator("[data-live-plan]").waitFor();
+        assert.equal(
+          await page.locator("#now-search form").count(),
+          0,
+          "Live does not duplicate the planner",
         );
         assert.equal(
           await page.locator("#planner-form").count(),
           1,
           "one canonical search form",
         );
-        await layout(page, `Yahoo home ${colorScheme} ${scale}`);
+        assert.equal(await page.locator("#view-title").textContent(), "Live");
+        await layout(page, `Live ${colorScheme} ${scale}`);
         await page.screenshot({
-          path: resolve(artifacts, `yahoo-home-${colorScheme}-${scale}.png`),
+          path: resolve(artifacts, `live-home-${colorScheme}-${scale}.png`),
           animations: "disabled",
         });
-        await page.locator('[data-home-field="to"]').click();
-        await page.locator("[data-suggestion-input]").fill("国際会館");
-        await page.locator('#planner-suggestions [data-stop-id="K01"]').click();
+        await page.locator("[data-clock-format]").click();
+        assert.match(
+          await page.locator("[data-clock-format]").textContent(),
+          /AM|午前/,
+        );
+        await page.locator("[data-clock-format]").click();
+        assert.equal(
+          await page.locator("[data-clock-format]").textContent(),
+          "24h",
+        );
+        assert.equal(
+          await page.locator(".live-map-host .map-controls").count(),
+          0,
+        );
+        assert.ok((await page.locator(".live-map-host .map-tile").count()) > 0);
+        await page.locator("[data-live-stop-search]").click();
+        await page.locator(".live-stop-input input").fill("丸太町");
+        await page.locator("[data-live-stop=K07]").click();
+        await settleNavigation(page);
+        assert.equal(
+          await page.locator(".navigation-current").getAttribute("data-screen"),
+          "nearby",
+        );
+        await page.locator("[data-navigation-back]").click();
+        await settleNavigation(page);
+        await page.locator("#now-search [data-quick-destination=K01]").click();
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-view"),
-          "now",
+          "search",
         );
         assert.equal(await page.locator("[name=to]").inputValue(), "国際会館");
-        assert.equal(
-          await page.locator("[data-home-value=to]").textContent(),
-          "国際会館",
-        );
         if (scale === 1) {
           await page.reload();
-          await page.locator("[data-home-submit]").waitFor();
+          await page.locator("#planner-form").waitFor();
           await settleNavigation(page);
           assert.equal(
             await page.locator("[name=to]").inputValue(),
             "国際会館",
-            "Home draft survives reload before submitting",
-          );
-          assert.equal(
-            await page.locator("[data-home-value=to]").textContent(),
-            "国際会館",
+            "Quick Select draft survives reload before search",
           );
         }
-        await page.locator("[data-home-submit]").click();
+        await page.locator("#planner-form .planner-submit").click();
         await page
           .locator(".navigation-current [data-open-route]")
           .first()
@@ -134,7 +150,8 @@ export async function yahooScreenChecks({
           animations: "disabled",
         });
         const downloadPromise = page.waitForEvent("download");
-        await page.locator(".navigation-current [data-export-route]").click();
+        await page.locator(".navigation-current [data-route-more]").click();
+        await page.locator("#context-sheet [data-export-route]").click();
         const download = await downloadPromise;
         const png = await readFile(await download.path());
         assert.equal(png.subarray(1, 4).toString(), "PNG");
@@ -154,19 +171,19 @@ export async function yahooScreenChecks({
           await page.locator(".navigation-current").getAttribute("data-screen"),
           "route",
         );
-        await page.locator('[data-tab="search"]').click();
+        await page.locator('[data-tab="now"]').click();
         await settleNavigation(page);
         assert.equal(
           await page.locator("[name=to]").inputValue(),
           "国際会館",
           "Search tab uses the same draft",
         );
-        await page.locator('[data-tab="now"]').click();
+        await page.locator('[data-tab="search"]').click();
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-screen"),
           "route",
-          "Now keeps its detail stack across tabs",
+          "Search keeps its detail stack across tabs",
         );
         await page.locator("[data-navigation-back]").click();
         await settleNavigation(page);
@@ -180,7 +197,7 @@ export async function yahooScreenChecks({
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-view"),
-          "now",
+          "search",
         );
         assert.equal(await page.locator("[name=to]").inputValue(), "国際会館");
         assert.equal(await page.locator("[name=time]").inputValue(), "10:01");
@@ -190,6 +207,6 @@ export async function yahooScreenChecks({
       }
     }
   summary.checks.push(
-    "Yahoo screen alignment: one search model, direct Now results/detail, nested sort taps, date cancel/apply, real PNG, station detail/Back, tab stack/draft retention;390px Light/Dark 100/150/200%",
+    "Live/Search separation: one search model, Quick Select, stop-only search, clock, independent Search results/detail, nested sort taps, date cancel/apply, real PNG, station detail/Back, tab stack/draft retention;390px Light/Dark 100/150/200%",
   );
 }

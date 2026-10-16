@@ -2,10 +2,15 @@ import { isFresh, LIVE_MAX_AGE } from "./realtime.js";
 const railRideOperators = new Set(["kintetsu", "through"]);
 export function normalizedBusSources(
   data,
-  { now = Date.now(), maxAge = LIVE_MAX_AGE } = {},
+  {
+    now = Date.now(),
+    maxAge = LIVE_MAX_AGE,
+    online = globalThis.navigator?.onLine !== false,
+  } = {},
 ) {
   return (data?.results ?? []).map((row) => {
     const fresh =
+        online &&
         !data.stale &&
         data.source !== "prediction" &&
         isFresh(row.asOf ?? data.asOf, maxAge, now),

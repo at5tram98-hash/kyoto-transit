@@ -1,5 +1,5 @@
 const MAP_SELECTOR =
-  ".route-map-host,.map-host,[data-map],.maplibregl-map,.maplibregl-canvas-container";
+  ".route-map,.route-map-host,.map-host,[data-map],.maplibregl-map,.maplibregl-canvas-container";
 
 const isMapTarget = (target) => Boolean(target?.closest?.(MAP_SELECTOR));
 

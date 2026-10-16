@@ -48,7 +48,7 @@ for (const file of files.filter(
 let html = await readFile(new URL("index.html", output), "utf8");
 html = html
   .replace(
-    /href="((?:vnext(?:-[\w-]+)?|route-search|stability)\.css)(?:\?[^\"]*)?"/g,
+    /href="((?:[\w-]+)\.css)(?:\?[^\"]*)?"/g,
     (_, path) => `href="${path}?v=${version}"`,
   )
   .replace(

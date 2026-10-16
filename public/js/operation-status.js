@@ -1,8 +1,18 @@
 // Only explicit official status can establish normal/delay. An announcement
 // link or a missing feed never means that the current route is unaffected.
-export function operationStatus(line) {
+export function operationStatus(
+  line,
+  {
+    now = Date.now(),
+    online = globalThis.navigator?.onLine !== false,
+    maxAge = 5 * 60 * 1000,
+  } = {},
+) {
   if (
+    !online ||
     !line?.fetchedAt ||
+    now - Date.parse(line.fetchedAt) > maxAge ||
+    Date.parse(line.fetchedAt) - now > 60000 ||
     !Number.isFinite(Date.parse(line.fetchedAt)) ||
     ["unavailable", "unconfirmed"].includes(line.status)
   )

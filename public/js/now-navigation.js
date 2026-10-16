@@ -215,27 +215,40 @@ export function registerNowScreens({ arrivals, onFoldback }) {
     title: "地図と現在地",
     fullscreen: true,
     onShow({ element, route }) {
-      if (!state.routeMap) return;
+      const nearby = route.params.nearby;
+      const mapData = nearby ? state.nearbyMap : state.routeMap,
+        model = nearby ? { bus: false, lineId: "nearby" } : state.heroModel;
+      if (!mapData) return;
       const map = element.querySelector(".route-map");
       if (!map) {
-        element.innerHTML = routeMapHTML(state.routeMap, state.heroModel, {
+        element.innerHTML = routeMapHTML(mapData, model, {
           expanded: true,
         });
-        const key = route.params.journey ?? rideKey(state.ride),
+        const key =
+            route.params.journey ??
+            (state.ride ? rideKey(state.ride) : "nearby"),
           saved = navigation.recalled("map-viewport");
         restoreMapViewport(
           element,
           key,
           saved?.journey === key ? saved.view : null,
         );
-      } else renderRouteMap(element, state.routeMap, state.heroModel);
+      } else renderRouteMap(element, mapData, model);
     },
-    update({ element }) {
-      if (state.routeMap)
-        renderRouteMap(element, state.routeMap, state.heroModel);
+    update({ element, route }) {
+      const map = route.params.nearby ? state.nearbyMap : state.routeMap;
+      if (map)
+        renderRouteMap(
+          element,
+          map,
+          route.params.nearby
+            ? { bus: false, lineId: "nearby" }
+            : state.heroModel,
+        );
     },
     capture({ element, route }) {
-      const key = route.params.journey ?? rideKey(state.ride),
+      const key =
+          route.params.journey ?? (state.ride ? rideKey(state.ride) : "nearby"),
         view = rememberMapViewport(element, key);
       if (view) navigation.remember("map-viewport", { journey: key, view });
     },
@@ -251,6 +264,7 @@ export function registerNowScreens({ arrivals, onFoldback }) {
   });
 }
 export function validNowScreen(route) {
+  if (route.type === "map" && route.params.nearby) return true;
   if (["stops", "station", "map", "delay", "trains"].includes(route.type))
     return (
       Boolean(state.ride) &&

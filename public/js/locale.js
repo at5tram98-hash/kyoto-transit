@@ -1,0 +1,67 @@
+// Locale and time zone have a single owner. Transit service dates stay in Japan.
+export const transitTimeZone = "Asia/Tokyo";
+const messages = {
+  ja: {
+    live: "Live",
+    quick: "Quick Select",
+    searchStop: "駅・停留所を検索",
+    nearby: "付近の交通",
+    refresh: "交通情報を更新",
+    saved: "保存した場所",
+    more: "その他の操作",
+    locationMissing: "現在地を取得できません",
+    locationLoading: "現在地を確認中",
+    nearbyUnknown: "現在地を取得すると付近の交通を表示します",
+    schedule: "予定",
+    liveSource: "実測",
+    prediction: "予測",
+    offline: "オフライン",
+    map: "地図を大きく表示",
+    unknownDay: "ダイヤ未確認",
+    weekdays: "平日ダイヤ",
+    saturday: "土曜ダイヤ",
+    holiday: "休日ダイヤ",
+  },
+  en: {
+    live: "Live",
+    quick: "Quick Select",
+    searchStop: "Search stations and stops",
+    nearby: "Nearby transit",
+    refresh: "Refresh transit",
+    saved: "Saved places",
+    more: "More actions",
+    locationMissing: "Location unavailable",
+    locationLoading: "Finding your location",
+    nearbyUnknown: "Enable location to see nearby transit",
+    schedule: "Scheduled",
+    liveSource: "Live",
+    prediction: "Estimated",
+    offline: "Offline",
+    map: "Open full map",
+    unknownDay: "Service calendar unavailable",
+    weekdays: "Weekday service",
+    saturday: "Saturday service",
+    holiday: "Holiday service",
+  },
+};
+export const appLocale = (settings = {}) =>
+  settings.locale === "en" ? "en" : "ja";
+export const message = (key, settings) =>
+  messages[appLocale(settings)][key] ?? messages.ja[key] ?? key;
+export function liveClock(date, { locale = "ja", hour12 = false } = {}) {
+  const parts = new Intl.DateTimeFormat(locale === "en" ? "en-GB" : "ja-JP", {
+    timeZone: transitTimeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12,
+  }).formatToParts(date);
+  return {
+    time: parts
+      .filter((p) => ["hour", "minute", "second", "literal"].includes(p.type))
+      .map((p) => p.value)
+      .join("")
+      .trim(),
+    period: parts.find((p) => p.type === "dayPeriod")?.value ?? "24h",
+  };
+}

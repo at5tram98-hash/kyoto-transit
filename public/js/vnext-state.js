@@ -41,6 +41,9 @@ export const tokyoNow = () => {
   return { date: p[0], time: p[1], minute: minuteOf(p[1]) };
 };
 const icons = {
+  swap: '<path d="M8 3v18m-4-4 4 4 4-4M16 21V3m-4 4 4-4 4 4"/>',
+  bolt: '<path d="m13 2-9 12h7l-1 8 10-12h-7Z"/>',
+  map: '<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2Zm6-2v16m6-14v16"/>',
   ticket:
     '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 9h5m-5 4h10"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',

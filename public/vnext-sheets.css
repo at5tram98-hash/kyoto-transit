@@ -42,6 +42,30 @@
   font-size: 0.875rem;
   font-weight: 800;
 }
+.saved-place-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: end;
+}
+.saved-place-controls button {
+  margin-right: 0;
+}
+.quick-place-symbol,
+.quick-symbol-options button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.quick-place-symbol svg,
+.quick-symbol-options svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
 .saved-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -301,6 +325,12 @@
   max-height: calc(var(--app-height, 100dvh) * 0.9);
   border-radius: 26px 26px 0 0;
 }
+.sheet[data-detent="fit"] {
+  height: auto;
+}
+.sheet[data-detent="fit"] .sheet-body {
+  flex: 0 1 auto;
+}
 .sheet[data-detent="medium"],
 .place-sheet[data-detent="medium"] {
   height: min(calc(var(--app-height, 100dvh) * 0.58), 560px);
@@ -315,6 +345,15 @@
 .sheet::backdrop {
   background: rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(3px);
+}
+.choice-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .sheet-header {
   gap: 12px;

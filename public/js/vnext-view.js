@@ -1,5 +1,6 @@
 import {
   groupCityBusRows,
+  normalizedBusSources,
   busDirectionLabel,
   busArrivalText,
 } from "./arrival-stability.js";
@@ -185,12 +186,25 @@ function north3DepartureHTML(stop, expanded = false) {
       "",
     )}<p class="source-note">保存した公式時刻表 · ダイヤ変更・大学休校日は要確認</p></div>`;
 }
+function directionRowsHTML(id, entries) {
+  const directions = [
+    ...new Map(entries.map((e) => [e.key, e.label])).entries(),
+  ];
+  const remembered = navigation.recalled("live-directions") ?? {},
+    selected = directions.some(([key]) => key === remembered[id])
+      ? remembered[id]
+      : "all";
+  return `${directions.length > 1 ? `<div class="live-direction-segments" role="group" aria-label="方面">${[["all", "すべて"], ...directions].map(([key, label]) => `<button type="button" data-live-direction="${esc(key)}" data-live-direction-stop="${esc(id)}" aria-pressed="${selected === key}">${esc(label)}</button>`).join("")}</div>` : ""}<div class="nearby-departures compact-departures">${entries
+    .filter((e) => selected === "all" || e.key === selected)
+    .map((e) => e.html)
+    .join("")}</div>`;
+}
 function nearbyBusHTML(stop) {
   if (stop.type !== "citybus") return north3DepartureHTML(stop);
   const data = state.busLive;
   if (data?.stop !== (stop.fullName ?? stop.name))
     return north3DepartureHTML(stop);
-  const rows = groupCityBusRows(data.results ?? [])
+  const rows = groupCityBusRows(normalizedBusSources(data))
     .filter((r) =>
       (r.arrivals ?? [r]).some(
         (a) => Number.isFinite(a.minutes) || Number.isFinite(a.stopsAway),
@@ -199,7 +213,14 @@ function nearbyBusHTML(stop) {
     .slice(0, 2);
   const observed = data.source === "live" && !data.stale && isFresh(data.asOf);
   return rows.length
-    ? `<div class="nearby-departures compact-departures">${rows.map((r) => `<div><span>${esc(r.route)} · ${esc(busDirectionLabel(r.route, r.dest))}</span><b>${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${observed ? "実測" : "予測"}</small></b></div>`).join("")}</div>`
+    ? directionRowsHTML(
+        stop.id,
+        rows.map((r) => ({
+          key: r.dest,
+          label: busDirectionLabel(r.route, r.dest),
+          html: `<div class="live-nearby-arrival" data-operator="citybus"><span><b class="transport-badge">${esc(r.route)}</b> ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(r.boarding)}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? "オフライン" : r.source === "schedule" ? "予定" : observed && r.source === "live" ? "実測" : "予測"}</small></b></div>`,
+        })),
+      )
     : north3DepartureHTML(stop);
 }
 function departureHTML(stopId, expanded = false) {
@@ -212,12 +233,18 @@ function departureHTML(stopId, expanded = false) {
     const populated = groups.filter((g) => g.entries.length);
     if (!populated.length)
       return '<p class="nearby-summary source-caption">発車予定は時刻表で確認できます</p>';
-    return `<div class="nearby-departures compact-departures">${populated
-      .map((g) => {
-        const e = g.entries[0];
-        return `<div><span>${g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面"}</span><time>${formatMinute(e.depart)}</time><b>${Math.max(0, Math.round(e.depart - now.minute))}分<small>発車予定</small></b></div>`;
-      })
-      .join("")}</div>`;
+    return directionRowsHTML(
+      stopId,
+      populated.map((g) => {
+        const e = g.entries[0],
+          label = g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面";
+        return {
+          key: g.direction,
+          label,
+          html: `<div><span>${label}</span><time>${formatMinute(e.depart)}</time><b>${Math.max(0, Math.round(e.depart - now.minute))}分<small>発車予定</small></b></div>`,
+        };
+      }),
+    );
   }
 
   return `<div class="nearby-departures">${groups.map((g) => `<div><span>${g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面"}</span>${g.entries.length ? (expanded ? g.entries : g.entries.slice(0, 1)).map((e) => `<p><time>${formatMinute(e.depart)}</time><span>${esc(e.destination ?? "行先未取得")}行き</span></p>`).join("") : '<p class="source-note">1時間以内の発車予定はありません</p>'}</div>`).join("")}<p class="source-note">${feed.cached ? "保存した公式時刻表" : "公式時刻表"} · 発車予定${expanded && feed.meta?.stale ? " · ダイヤの変更を公式サイトで確認してください" : ""}</p></div>`;
@@ -226,11 +253,7 @@ function enterContext(next) {
   const view = $('[data-view="now"]'),
     changed = context !== next;
   view.dataset.context = next;
-  $("#view-subtitle").textContent = {
-    rail: "電車に合わせた乗車案内",
-    bus: "バスに合わせた乗車案内",
-    nearby: "現在地に合わせて周辺案内",
-  }[next];
+  $("#view-subtitle").textContent = "MyMap";
   if (changed) {
     const previous = context;
     context = next;
@@ -336,7 +359,7 @@ export function renderNow() {
   updateNearbyPanel(
     nearPanel,
     (nearby.length
-      ? `<section class="section-block nearby-guide"><div class="section-heading"><h3>近くの駅・バス停</h3><span class="source-caption">距離順</span></div>${nearby.map((s) => `<div class="nearby-item" data-nearby-key="${esc(s.id)}"><button class="nearby-row" data-operator="${esc(s.stop.type)}" data-nearby-detail="${esc(s.id)}"><span class="mode-symbol enhanced-mode ${s.stop.type.includes("bus") ? "bus" : s.stop.type === "kintetsu" ? "rail" : "subway"}" data-operator="${esc(s.stop.type)}">${icon(s.stop.type.includes("bus") ? "bus" : "train")}<small>${{ subway: "地下鉄", kintetsu: "近鉄", citybus: "市バス", kyotobus: "京都バス" }[s.stop.type] ?? "交通"}</small></span><span data-nearby-copy><b>${esc(s.stop.name)}</b><small>${esc(s.stop.lines?.join("・") ?? "")} · 徒歩約${Math.max(1, Math.ceil(s.meters / 70))}分 · ${Math.round(s.meters)}m</small></span><span class="chevron">›</span></button><div data-nearby-departures>${s.stop.type === "subway" ? departureHTML(s.id) : s.stop.type === "kintetsu" ? kintetsuDepartureHTML(s.stop) : nearbyBusHTML(s.stop)}</div></div>`).join("")}</section>`
+      ? `<section class="section-block nearby-guide"><div class="section-heading"><h3>付近の交通</h3><span class="source-caption">距離順</span></div>${nearby.map((s) => `<div class="nearby-item" data-nearby-key="${esc(s.id)}"><button class="nearby-row" data-operator="${esc(s.stop.type)}" data-nearby-detail="${esc(s.id)}"><span class="mode-symbol enhanced-mode ${s.stop.type.includes("bus") ? "bus" : s.stop.type === "kintetsu" ? "rail" : "subway"}" data-operator="${esc(s.stop.type)}">${icon(s.stop.type.includes("bus") ? "bus" : "train")}<small>${{ subway: "地下鉄", kintetsu: "近鉄", citybus: "市バス", kyotobus: "京都バス" }[s.stop.type] ?? "交通"}</small></span><span data-nearby-copy><b>${esc(s.stop.name)}</b><small>${esc(s.stop.lines?.join("・") ?? "")} · 徒歩約${Math.max(1, Math.ceil(s.meters / 70))}分 · ${Math.round(s.meters)}m</small></span><span class="chevron">›</span></button><div data-nearby-departures>${s.stop.type === "subway" ? departureHTML(s.id) : s.stop.type === "kintetsu" ? kintetsuDepartureHTML(s.stop) : nearbyBusHTML(s.stop)}</div></div>`).join("")}</section>`
       : "") + arrivalsEntry,
   );
   navigation.refresh();
@@ -472,6 +495,17 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
     );
     actionRoot.dataset.mode = mode;
   }
+  const priority = state.foldbackPlan
+    ? "foldback"
+    : model.delayMinutes >= 5
+      ? "delay"
+      : "stops";
+  for (const button of actionRoot.querySelectorAll("button"))
+    button.toggleAttribute(
+      "data-ride-priority",
+      button.dataset.navigationScreen === priority ||
+        (priority === "foldback" && button.hasAttribute("data-open-foldback")),
+    );
   const nextAction = actionRoot.querySelector("[data-ride-next]"),
     summary = state.foldbackPlan
       ? ""
@@ -505,6 +539,21 @@ let lastTrackIndex = null,
   lastAlertKey = null;
 export function setupNowInteractions() {
   setupRouteMaps();
+  $("#nearby-panel").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-live-direction]");
+    if (!button) return;
+    const values = navigation.recalled("live-directions") ?? {};
+    navigation.remember(
+      "live-directions",
+      Object.fromEntries([
+        ...Object.entries(values)
+          .filter(([id]) => id !== button.dataset.liveDirectionStop)
+          .slice(-7),
+        [button.dataset.liveDirectionStop, button.dataset.liveDirection],
+      ]),
+    );
+    renderNow();
+  });
   document.addEventListener("mymap-arrivals-updated", () => {
     if (!state.ride) renderNow();
   });

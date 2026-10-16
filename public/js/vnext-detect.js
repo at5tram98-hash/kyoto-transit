@@ -1,3 +1,8 @@
+import {
+  transitEvidenceEngine as consensus,
+  transitCandidateKey,
+  orderedStopEvidence,
+} from "./transit-evidence.js";
 import { matchArmedJourney } from "./ride-state-resolver.js";
 import { kintetsuIds } from "./network.js";
 import { distance, segmentDistance } from "./mobility.js";
@@ -6,7 +11,6 @@ import {
   rankRides,
   freshFix,
   matchMeasuredVehicles,
-  createRideConsensus,
   applyRideMotionEvidence,
 } from "./riding.js";
 import { currentMotionEvidence } from "./motion-assist.js";
@@ -14,7 +18,7 @@ import { getBusChoices, getBusData, getKyotoBusRT } from "./live.js";
 import { officialTripLeg } from "./vehicle.js";
 import {
   subwayRideCandidates,
-  buildCityBusTrip,
+  cityBusRideCandidates,
   routeIntersection,
 } from "./vnext-core.js";
 import { journeyClock } from "./journey-core.js";
@@ -43,11 +47,6 @@ import {
   persistJourney,
 } from "./vnext-state.js";
 
-const consensus = createRideConsensus({
-  required: 3,
-  minScore: 55,
-  minMargin: 8,
-});
 let lastNextAlertKey = null,
   detectionGeneration = 0;
 const scoreClamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
@@ -108,6 +107,10 @@ async function detectKintetsu(stopId) {
       }
       return asCandidate(r.leg, score, "近鉄公式時刻表＋列車位置＋現在地", {
         live: r.live,
+        liveObservedAt: Date.parse(
+          feed?.sourceUpdatedAt ?? feed?.capturedAt ?? "",
+        ),
+        liveDirectionVerified: Boolean(r.live),
         evidence: r.evidence,
       });
     })
@@ -175,6 +178,8 @@ async function detectKyotoBus(stopId) {
           : "京都バス公式時刻表＋現在地",
         {
           live,
+          liveObservedAt: live ? Number(live.timestamp) * 1000 : null,
+          livePresence: measured?.score >= 55 && measured?.meters <= 140,
           evidence: [...(base?.evidence ?? []), ...(measured?.evidence ?? [])],
         },
       );
@@ -273,30 +278,27 @@ async function detectCityBus(stopInfo) {
     state.busLive = bestLive;
     state.busLiveAt = Date.now();
   }
-  const previous = trail.length > 1 ? trail.at(-2) : null,
-    rows = [];
+  const rows = [];
   for (const route of routes.slice(0, 3)) {
-    const choice = routeChoices.find((c) => String(c.route) === String(route)),
-      live =
-        bestLive && String(bestLive.route) === String(route) ? bestLive : null,
-      ride = buildCityBusTrip({
-        route,
-        currentStopId: stopInfo.id,
-        previousStopId: previous,
-        network: state.network,
-        minute: now.minute,
-        destination: live?.destination ?? choice?.destination,
-      });
-    if (!ride) continue;
-    const score = live ? 78 : routes.length === 1 ? 62 : 58;
-    rows.push(
-      asCandidate(
-        ride,
-        score,
-        live ? "市バス接近情報＋現在地" : "停留所列＋現在地",
-        { live },
-      ),
-    );
+    const live =
+      bestLive && String(bestLive.route) === String(route) ? bestLive : null;
+    for (const ride of cityBusRideCandidates({
+      route,
+      currentStopId: stopInfo.id,
+      trail,
+      network: state.network,
+      minute: now.minute,
+    })) {
+      const score = (live ? 68 : 55) + (ride.orderedTrail ? 15 : 0);
+      rows.push(
+        asCandidate(
+          ride,
+          score,
+          live ? "市バス接近情報＋停留所の通過順" : "路線の停留所列＋現在地",
+          { live },
+        ),
+      );
+    }
   }
   return rows.sort((a, b) => b.score - a.score).slice(0, 3);
 }
@@ -323,6 +325,7 @@ function applyRide(candidate) {
       state.itinerary = { ...state.itinerary, phase: "riding" };
     else state.itinerary = null;
   }
+  consensus.lock(candidate.ride);
   state.ride = candidate.ride;
   state.armedJourney = null;
   state.heroObservation = null;
@@ -412,21 +415,20 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
     state.detectBusy ||
     !state.network ||
     !state.geo ||
-    !state.fix ||
-    !freshFix(state.fix) ||
     state.ride
   )
     return;
   if (!force && Date.now() - state.lastDetectAt < 12000) return;
-  const near = nearest(),
-    motion = trajectory(state.samples),
-    moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
+  const fixFresh = freshFix(state.fix),
+    freshNear = nearest();
+  if (fixFresh) consensus.observeStation(freshNear.rail, state.fix);
+  const stationContext = consensus.stationContext();
+  const near = fixFresh
+    ? freshNear
+    : { ...freshNear, rail: stationContext?.station ?? null };
+  if (!fixFresh && !stationContext && !state.rideCandidates.length) return;
+  const motion = trajectory(state.samples);
   updateBusTrail(near.bus?.id, near.bus?.meters ?? Infinity);
-  if (!moving) {
-    state.rideCandidates = [];
-    state.rideConsensusCount = 0;
-    return;
-  }
   state.detectBusy = true;
   const generation = detectionGeneration;
   state.lastDetectAt = Date.now();
@@ -435,10 +437,11 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
     let candidates = [];
     const stationClose =
         near.rail &&
-        near.rail.meters <= Math.max(180, state.fix.accuracy * 2.2),
+        near.rail.meters <= Math.max(180, (state.fix?.accuracy ?? 100) * 2.2),
       railClose =
         near.rail &&
-        (stationClose || onRailCorridor(state.fix, near.rail.stop.type)),
+        (stationClose ||
+          (fixFresh && onRailCorridor(state.fix, near.rail.stop.type))),
       recentBusTrail = state.busTrail.some((x) => Date.now() - x.at < 180000),
       busClose =
         near.bus &&
@@ -474,6 +477,7 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       candidates = mergeCandidates(city, kyoto);
     }
     if (generation !== detectionGeneration || state.ride) return;
+    if (!fixFresh && !candidates.length) candidates = state.rideCandidates;
     candidates = matchArmedJourney(
       candidates,
       state.armedJourney,
@@ -486,9 +490,82 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       { samples: state.samples, now: observedAt },
     );
     const eligible = state.armedJourney
-        ? candidates.filter((candidate) => candidate.armedMatch)
-        : candidates,
-      decision = consensus.update(eligible, state.fix.timestamp);
+      ? candidates.filter((candidate) => candidate.armedMatch)
+      : candidates;
+    for (const candidate of eligible) {
+      const ride = candidate.ride,
+        candidateKey = transitCandidateKey(ride);
+      const add = (type, confidence, observedAt, metadata = {}) =>
+        consensus.ingest({
+          type,
+          candidate: candidateKey,
+          direction: ride.directionId ?? ride.direction,
+          confidence,
+          observedAt,
+          metadata,
+        });
+      if (Number.isFinite(ride.depart)) add("timetable", 0.65, observedAt);
+      else if (ride.servicePatternId) add("pattern", 0.6, observedAt);
+      if (candidate.armedMatch)
+        add("journey", 0.75, state.armedJourney.selectedAt);
+      const routePattern = state.network.services.find(
+        (service) => service.id === ride.serviceId,
+      );
+      const ordered = orderedStopEvidence(
+        routePattern?.stops ?? ride.officialStops ?? [],
+        state.busTrail,
+        { circular: routePattern?.stops?.[0] === routePattern?.stops?.at(-1) },
+      );
+      const direction =
+        ordered.matched ||
+        candidate.evidence?.some((e) =>
+          /次の停車地点へ進行|方位が路線方向と一致/.test(e.reason),
+        );
+      candidate.directionRejected =
+        ordered.rejected ||
+        candidate.evidence?.some((e) => /進行方向が逆|方位が逆/.test(e.reason));
+      if (fixFresh && (candidate.score >= 55 || ordered.matched))
+        add("gps", 0.65, state.fix.timestamp, {
+          directionVerified: direction,
+          walkingLikely:
+            motion.span >= 15 && motion.speed >= 0.6 && motion.speed < 2.5,
+          rejected: candidate.directionRejected,
+        });
+      const motionEvidence = currentMotionEvidence(state.samples, observedAt);
+      if (
+        motionEvidence.sensorSamples >= 6 &&
+        motionEvidence.activeRatio >= 0.35 &&
+        motionEvidence.rms >= 0.12
+      )
+        add("motion", 0.55, motionEvidence.sensorObservedAt, {
+          phase: motionEvidence.phase,
+        });
+      const live = candidate.live,
+        liveAt =
+          candidate.liveObservedAt ??
+          Date.parse(
+            live?.sourceUpdatedAt ?? live?.capturedAt ?? live?.asOf ?? "",
+          );
+      // A stop-level arrival without a trip or direction is not vehicle identity.
+      if (
+        Number.isFinite(liveAt) &&
+        liveAt <= observedAt + 5000 &&
+        observedAt - liveAt <= 90000 &&
+        live &&
+        (candidate.liveDirectionVerified ||
+          candidate.livePresence ||
+          (live.tripId === ride.tripId && Boolean(ride.tripId)) ||
+          (live.direction && live.direction === ride.direction))
+      )
+        add("realtime", 0.8, liveAt, {
+          directionVerified: Boolean(
+            candidate.liveDirectionVerified ||
+            (live.tripId && live.tripId === ride.tripId) ||
+            (live.direction && live.direction === ride.direction),
+          ),
+        });
+    }
+    const decision = consensus.evaluate(eligible, observedAt);
     state.rideConsensusCount = decision.count;
     state.rideCandidates = decision.confirmed
       ? []

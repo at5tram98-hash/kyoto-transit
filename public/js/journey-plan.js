@@ -1,4 +1,4 @@
-import { planRoutes } from "./router.js";
+import { planRoutes, allowedService } from "./router.js";
 
 export const ITINERARY_KEY = "mymap-itinerary-v1";
 export function shiftServiceDate(date, days) {
@@ -34,6 +34,7 @@ export function tripOptions(network, request, journey, legIndex) {
     options = new Map();
   for (const service of network.services) {
     if (
+      !allowedService(service, request) ||
       service.operator !== original.operator ||
       (original.route && String(service.route) !== String(original.route)) ||
       (request.trainType !== "all" &&
@@ -227,13 +228,13 @@ export function journeyChange(before, after) {
 export function samePlannedRide(a, b) {
   return Boolean(
     a &&
-      b &&
-      a.operator === b.operator &&
-      a.serviceId &&
-      a.serviceId === b.serviceId &&
-      a.tripId &&
-      a.tripId === b.tripId &&
-      a.serviceDate === b.serviceDate,
+    b &&
+    a.operator === b.operator &&
+    a.serviceId &&
+    a.serviceId === b.serviceId &&
+    a.tripId &&
+    a.tripId === b.tripId &&
+    a.serviceDate === b.serviceDate,
   );
 }
 export function makeItinerary(
@@ -258,8 +259,8 @@ export function itineraryDestinationChanged(plan, ride) {
   const destination = ride?.userDestination?.id;
   return Boolean(
     plan?.phase === "riding" &&
-      destination &&
-      destination !== plan.route.legs[plan.legIndex]?.to,
+    destination &&
+    destination !== plan.route.legs[plan.legIndex]?.to,
   );
 }
 export function nextItineraryLeg(plan) {

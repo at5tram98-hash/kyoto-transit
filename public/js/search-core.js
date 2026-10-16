@@ -1,5 +1,5 @@
 import { normalize } from "./network.js";
-import { planRoutes } from "./router.js";
+import { planRoutes, walkingMinutes, allowedService } from "./router.js";
 import { replaceJourneyLeg, tripChoiceKey } from "./journey-plan.js";
 import { isFresh } from "./realtime.js";
 
@@ -150,12 +150,13 @@ export function selectThree(routes, { timeMode = "departure" } = {}) {
     );
   return chosen;
 }
-function firstDepartureCandidates(network, request, window = 360) {
+function firstDepartureCandidates(network, request, window = 360, limit = 64) {
   const values = new Set(),
     min = request.start - window,
     max = request.start;
   const addAt = (stop, offset = 0) => {
     for (const service of network.services) {
+      if (!allowedService(service, request)) continue;
       const i = service.stops.indexOf(stop);
       if (i < 0) continue;
       for (const trip of service.trips ?? []) {
@@ -165,18 +166,65 @@ function firstDepartureCandidates(network, request, window = 360) {
       }
     }
   };
-  addAt(request.from, 0);
-  for (const walk of network.walks.filter(
-    (w) => w.from === request.from && w.minutes <= request.maxWalk,
-  ))
-    addAt(walk.to, walk.minutes);
-  return [...values].sort((a, b) => b - a).slice(0, 64);
+  const walking = new Map([[request.from, 0]]),
+    pending = [request.from];
+  while (pending.length) {
+    const id = pending.shift(),
+      minutes = walking.get(id);
+    addAt(id, minutes);
+    for (const walk of network.walks.filter((w) => w.from === id)) {
+      const total = minutes + walkingMinutes(walk, request);
+      if (
+        total <= (request.maxWalk ?? 30) &&
+        total < (walking.get(walk.to) ?? Infinity)
+      ) {
+        walking.set(walk.to, total);
+        pending.push(walk.to);
+      }
+    }
+  }
+  return [...values].sort((a, b) => b - a).slice(0, limit);
 }
 function actualJourneyStart(route, fallback) {
   const first = route.legs?.[0];
   return Number.isFinite(first?.depart) ? first.depart : fallback;
 }
 export function searchTimetable(network, request, passes) {
+  if (["first", "last"].includes(request.timeMode)) {
+    const first = request.timeMode === "first";
+    const starts = firstDepartureCandidates(
+      network,
+      { ...request, start: 2880 },
+      2880,
+      2881,
+    ).sort((a, b) => (first ? a - b : b - a));
+    let found = [],
+      boundary = first ? Infinity : -Infinity;
+    for (const start of starts) {
+      if (first && start > boundary) break;
+      const routes = planRoutes(
+        network,
+        { ...request, start, timeMode: "departure", firstDepartureAt: start },
+        passes,
+      );
+      for (const route of routes) {
+        if (!route.legs.some((l) => l.kind === "ride")) continue;
+        const actual = actualJourneyStart(route, start);
+        if (first ? actual < boundary : actual > boundary) {
+          boundary = actual;
+          found = [];
+        }
+        if (actual === boundary)
+          found.push({
+            ...route,
+            start: actual,
+            duration: Math.ceil(route.time - actual),
+          });
+      }
+      if (!first && found.length) break;
+    }
+    return selectThree(found, { timeMode: first ? "departure" : "arrival" });
+  }
   if (request.previousDeparture) {
     const found = [];
     for (const start of firstDepartureCandidates(network, {

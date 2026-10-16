@@ -1,4 +1,27 @@
 /* Route search owns input, comparison and disclosure layouts. */
+.journey-skeleton {
+  display: grid;
+  gap: 12px;
+  padding: 16px 0;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.journey-skeleton i {
+  height: 56px;
+  border-radius: var(--radius-small);
+  background: var(--surface-secondary);
+  animation: journey-loading 1.5s ease-in-out infinite;
+}
+@keyframes journey-loading {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-skeleton i {
+    animation: none;
+  }
+}
 .planner-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -258,6 +281,22 @@
   font-size: var(--type-body);
   min-height: 44px;
   padding: 9px 10px;
+}
+.planner-form select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-inline-end: 2rem;
+}
+.planner-form label:has(> select) {
+  position: relative;
+}
+.planner-form label:has(> select)::after {
+  content: "⌄";
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  color: var(--text-secondary);
+  pointer-events: none;
 }
 .planner-place-field input {
   background: transparent;
@@ -533,9 +572,22 @@
   outline: 2px solid var(--color-link);
   outline-offset: -2px;
 }
+.journey-start-action .primary-action {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.journey-start-action svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
 .route-actions {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin: 14px 0 12px;
 }
@@ -1105,4 +1157,42 @@
     grid-row: 3;
     margin-left: 0;
   }
+}
+
+.search-operator-options {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.search-operator-options legend {
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+.planner-swap svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+#search-date .sheet-header,
+#search-filter .sheet-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  padding-inline: 12px;
+}
+#search-date .sheet-header button,
+#search-filter .sheet-header button {
+  min-height: 44px;
+  width: auto;
+  height: auto;
+  min-width: 44px;
+  padding: 8px;
+  border-radius: var(--radius-control);
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+#search-date .sheet-header button:last-child,
+#search-filter .sheet-header button:last-child {
+  justify-self: end;
 }

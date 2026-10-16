@@ -750,7 +750,7 @@
 .route-map .map-canvas > svg {
   position: relative;
 }
-.route-map.expanded .map-canvas {
+.route-map.map-interactive .map-canvas {
   touch-action: none;
 }
 .route-map svg {
@@ -775,6 +775,16 @@
   fill: var(--panel);
   stroke: var(--journey-accent);
   stroke-width: 2;
+}
+.map-accuracy {
+  fill: color-mix(in srgb, var(--blue) 16%, transparent);
+  stroke: color-mix(in srgb, var(--blue) 35%, transparent);
+}
+.route-map[data-line="nearby"] .map-stop {
+  --journey-accent: var(--transport-color);
+}
+.map-path[data-operator] {
+  stroke: var(--transport-color);
 }
 .map-position {
   fill: var(--blue);

@@ -144,7 +144,7 @@ export async function runCoordinateAudit({
           }));
         const spacing = [];
         for (const group of root.querySelectorAll(
-          ".screen-action-group,.planner-leg-actions,.search-shortcuts,.map-controls,.route-actions,.planner-place-tools,.home-search-navigation",
+          ".screen-action-group,.planner-leg-actions,.search-shortcuts,.map-controls,.route-actions,.planner-place-tools,.live-navigation-capsule,.live-map-actions,.live-direction-segments",
         )) {
           const items = [...group.children].filter(
             (e) => visible(e) && e.matches("button,label"),
@@ -217,7 +217,9 @@ export async function runCoordinateAudit({
               e.scrollHeight > e.clientHeight + 1,
           )
           .map((e) => ({ text: e.textContent, rect: rect(e) }));
-        const button = root.querySelector(".route-actions [data-arm-route]"),
+        const button = root.querySelector(
+            ".screen-bottom-action [data-arm-route]",
+          ),
           bar = document.querySelector(".tabbar"),
           footerTarget =
             button && visible(button)
@@ -292,7 +294,7 @@ export async function runCoordinateAudit({
           (document.documentElement.style.fontSize = `${16 * scale}px`),
         c.scale,
       );
-      await page.locator("[data-view=now] [data-home-submit]").waitFor();
+      await page.locator("[data-view=now] [data-live-plan]").waitFor();
       await capture("now-home");
       await searchScreen(page);
       await page.locator("[data-search-date]").click();

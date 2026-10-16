@@ -1,5 +1,24 @@
 import { normalize } from "./network.js";
 import { stationModel } from "./now-model.js";
+import { isFresh } from "./realtime.js";
+
+// A persisted observation keeps its historic estimate, never its Live status.
+export function routeObservationState(
+  observations,
+  { now = Date.now(), online = globalThis.navigator?.onLine !== false } = {},
+) {
+  const rows = observations.filter(Boolean);
+  if (!rows.length) return { source: "schedule", label: "予定時刻" };
+  if (!online)
+    return { source: "prediction", label: "オフライン · 保存時の遅れ" };
+  if (
+    rows.some((row) => row.source === "live" && isFresh(row.asOf, 90000, now))
+  )
+    return { source: "live", label: "便別実測" };
+  if (rows.every((row) => !isFresh(row.asOf, 90000, now)))
+    return { source: "prediction", label: "保存時の遅れ · 要更新" };
+  return { source: "prediction", label: "遅れの推定" };
+}
 
 const fold = (value) => normalize(String(value)).toLocaleLowerCase("en");
 export const stopTypeLabel = (stop) =>
@@ -117,7 +136,7 @@ export function validSearchInput(input) {
     !string(input.to) ||
     !/^\d{4}-\d{2}-\d{2}$/.test(input.date) ||
     !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.time) ||
-    !["arrival", "departure"].includes(input.timeMode)
+    !["arrival", "departure", "first", "last"].includes(input.timeMode)
   )
     return false;
   const d = new Date(`${input.date}T00:00:00Z`);
@@ -139,6 +158,15 @@ export function validSearchInput(input) {
         v.dwell >= 0 &&
         v.dwell <= 180,
     ) &&
+    (!input.walkSpeed ||
+      ["slow", "standard", "fast"].includes(input.walkSpeed)) &&
+    (!input.operators ||
+      (typeof input.operators === "string" &&
+        input.operators
+          .split(",")
+          .every((op) =>
+            ["subway", "kintetsu", "citybus", "kyotobus"].includes(op),
+          ))) &&
     ["all", "local", "express"].includes(input.trainType) &&
     [1, 3, 5, 10].includes(Number(input.buffer)) &&
     [10, 20, 30].includes(Number(input.maxWalk))
@@ -168,11 +196,15 @@ export function readSharedSearch(url, network) {
         "date",
         "time",
         "timeMode",
+        "operators",
+        "walkSpeed",
         "trainType",
         "buffer",
         "maxWalk",
         "via",
-      ].map((k) => [k, raw[k]]),
+      ]
+        .filter((k) => raw[k] !== undefined)
+        .map((k) => [k, raw[k]]),
     );
     if (!validSearchInput(input)) return null;
     if (

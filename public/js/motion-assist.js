@@ -1,68 +1,30 @@
+import { parseAnnouncement, announcementMatch } from "./announcement-parser.js";
+import { transitEvidenceEngine } from "./transit-evidence.js";
 import { distance } from "./mobility.js";
 import { freshFix } from "./riding.js";
-import { state, serviceName, toast, rideKey } from "./vnext-state.js";
+import { state, settings, tokyoNow } from "./vnext-state.js";
 
 const RETRY_MS = 30000,
   MOTION_WINDOW_MS = 15000,
   SENSOR_LIMIT = 180;
 let recognitionActive = false,
   lastAttemptAt = 0,
-  lastCandidateSignature = "",
-  motionInstalled = false;
+  motionInstalled = false,
+  activeRecognition = null,
+  recognitionTimer = null;
 const motionSamples = [];
 
-function normalized(value) {
-  return String(value ?? "")
-    .toLowerCase()
-    .replace(/[\s・ーｰ\-]/g, "")
-    .replace(/京都市バス|京都バス|地下鉄|近鉄|烏丸線|京都線|系統/g, "");
-}
-
 function speechCtor() {
-  return globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition || null;
+  return (
+    globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition || null
+  );
 }
-
-function candidateTokens(candidate) {
-  const ride = candidate?.ride;
-  if (!ride) return [];
-  return [
-    ride.route,
-    ride.destination,
-    ride.label,
-    serviceName(ride),
-    ...(ride.officialStops ?? []).map((stop) => stop.name),
-  ]
-    .map(normalized)
-    .filter((value) => value.length >= 2);
-}
-
-function bestCandidate(transcript) {
-  const text = normalized(transcript);
-  const ranked = (state.rideCandidates ?? []).map((candidate, index) => ({
-    index,
-    score: candidateTokens(candidate).reduce(
-      (score, token) => score + (text.includes(token) ? Math.min(8, token.length) : 0),
-      0,
-    ),
-  }));
-  ranked.sort((a, b) => b.score - a.score);
-  if (!ranked[0] || ranked[0].score < 3) return null;
-  if (ranked[1] && ranked[0].score === ranked[1].score) return null;
-  return ranked[0].index;
-}
-
 function uncertainCandidates() {
   const candidates = state.rideCandidates ?? [];
   if (!candidates.length) return false;
   const top = candidates[0]?.score ?? 0,
     second = candidates[1]?.score ?? 0;
   return top < 72 || (candidates.length > 1 && top - second < 14);
-}
-
-function candidateSignature() {
-  return (state.rideCandidates ?? [])
-    .map((candidate) => `${rideKey(candidate?.ride)}:${Math.round(candidate?.score ?? 0)}`)
-    .join("|");
 }
 
 function finiteNumber(value) {
@@ -86,12 +48,18 @@ function motionMagnitude(event) {
 }
 
 function recordDeviceMotion(event) {
+  if (
+    globalThis.document?.hidden ||
+    Date.now() - (motionSamples.at(-1)?.at ?? 0) < 80
+  )
+    return;
   const magnitude = motionMagnitude(event);
   if (!Number.isFinite(magnitude) || magnitude < 0 || magnitude > 25) return;
   const now = Date.now();
   motionSamples.push({ at: now, magnitude });
   const cutoff = now - MOTION_WINDOW_MS * 2;
-  while (motionSamples.length && motionSamples[0].at < cutoff) motionSamples.shift();
+  while (motionSamples.length && motionSamples[0].at < cutoff)
+    motionSamples.shift();
   if (motionSamples.length > SENSOR_LIMIT)
     motionSamples.splice(0, motionSamples.length - SENSOR_LIMIT);
 }
@@ -119,7 +87,8 @@ function gpsSpeeds(samples, now) {
         dt = (point.timestamp - previous.timestamp) / 1000;
       if (dt >= 1.5 && dt <= 20) value = distance(previous, point) / dt;
     }
-    if (Number.isFinite(value)) rows.push({ at: point.timestamp, speed: value });
+    if (Number.isFinite(value))
+      rows.push({ at: point.timestamp, speed: value });
   }
   return rows;
 }
@@ -192,6 +161,18 @@ export function summarizeVehicleMotion(
     score: Math.min(6, score),
     reason: reasons.join("＋"),
     sensorSamples: sensor.length,
+    sensorObservedAt: sensor.at(-1)?.at ?? null,
+    phase: !Number.isFinite(currentSpeed)
+      ? sensor.length >= 6 && activeRatio >= 0.35
+        ? "moving"
+        : "unknown"
+      : currentSpeed < 0.8
+        ? "stopped"
+        : speeds.length > 1 && speeds.at(-1).speed - speeds[0].speed > 1
+          ? "departing"
+          : speeds.length > 1 && speeds.at(-1).speed - speeds[0].speed < -1
+            ? "slowing"
+            : "cruising",
     rms,
     activeRatio,
     jerk,
@@ -200,18 +181,24 @@ export function summarizeVehicleMotion(
   };
 }
 
-export function currentMotionEvidence(gpsSamples = state.samples, now = Date.now()) {
+export function currentMotionEvidence(
+  gpsSamples = state.samples,
+  now = Date.now(),
+) {
   return summarizeVehicleMotion(motionSamples, gpsSamples, now);
 }
 
 function installDeviceMotion() {
-  if (motionInstalled || typeof globalThis.addEventListener !== "function") return;
+  if (motionInstalled || typeof globalThis.addEventListener !== "function")
+    return;
   motionInstalled = true;
   // Do not call DeviceMotionEvent.requestPermission(). On browsers that already
   // allow motion events we consume them; on iOS/WebKit where a user gesture is
   // required, GPS-derived acceleration remains the fallback and no permission
   // prompt or extra control is introduced.
-  globalThis.addEventListener("devicemotion", recordDeviceMotion, { passive: true });
+  globalThis.addEventListener("devicemotion", recordDeviceMotion, {
+    passive: true,
+  });
 }
 
 async function microphoneAlreadyGranted() {
@@ -224,37 +211,50 @@ async function microphoneAlreadyGranted() {
     }
   } catch {}
 
-  // Safari/WebKit may not expose microphone through Permissions API. Device
-  // labels are only populated after microphone permission has already been
-  // granted, so this fallback does not trigger a permission prompt.
-  try {
-    if (navigator.mediaDevices?.enumerateDevices) {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      return devices.some(
-        (device) => device.kind === "audioinput" && Boolean(device.label?.trim()),
-      );
-    }
-  } catch {}
+  // When permission cannot be verified, keep the non-audio fallback. Media
+  // device labels are not a reliable microphone authorization on every browser.
   return false;
 }
 
 function confirmFromTranscript(event) {
-  const alternatives = [...event.results]
+  const transcripts = [...event.results]
     .flatMap((result) => [...result])
     .map((item) => item.transcript);
-  const match = alternatives
-    .map(bestCandidate)
-    .find((index) => Number.isInteger(index));
-  if (!Number.isInteger(match)) return false;
-  const choice = document.querySelector(`[data-ride-candidate="${match}"]`);
-  if (!choice) return false;
-  toast("アナウンスと候補が一致しました");
-  choice.click();
-  return true;
+  const stops = [...state.network.stops.values()];
+  for (const transcript of transcripts) {
+    const parsed = parseAnnouncement(transcript, stops);
+    const matches = state.rideCandidates
+      .map((candidate) => ({
+        candidate,
+        match: announcementMatch(parsed, candidate.ride, tokyoNow().minute),
+      }))
+      .filter((row) => row.match);
+    if (matches.length !== 1) continue;
+    transitEvidenceEngine.ingest({
+      type: "audio",
+      candidate: matches[0].candidate.ride,
+      confidence: matches[0].match.confidence,
+      observedAt: Date.now(),
+      metadata: { directionVerified: true },
+    });
+    document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
+    return true;
+  }
+  return false;
 }
-
+function stopRecognition() {
+  clearTimeout(recognitionTimer);
+  const current = activeRecognition;
+  activeRecognition = null;
+  recognitionActive = false;
+  try {
+    current?.abort();
+  } catch {}
+}
 async function autoSpeechAssist() {
   if (
+    settings.autoDetect === false ||
+    settings.audioAssist === false ||
     recognitionActive ||
     document.hidden ||
     state.ride ||
@@ -263,12 +263,18 @@ async function autoSpeechAssist() {
   )
     return;
 
-  const signature = candidateSignature(),
-    now = Date.now();
-  if (!signature) return;
-  if (signature === lastCandidateSignature && now - lastAttemptAt < RETRY_MS) return;
+  const now = Date.now();
+  if (now - lastAttemptAt < RETRY_MS) return;
   if (!(await microphoneAlreadyGranted())) return;
-  if (document.hidden || state.ride || !uncertainCandidates()) return;
+  if (
+    recognitionActive ||
+    settings.autoDetect === false ||
+    settings.audioAssist === false ||
+    document.hidden ||
+    state.ride ||
+    !uncertainCandidates()
+  )
+    return;
 
   const Recognition = speechCtor();
   if (!Recognition) return;
@@ -278,25 +284,25 @@ async function autoSpeechAssist() {
   recognition.continuous = false;
   recognition.maxAlternatives = 3;
   recognitionActive = true;
+  activeRecognition = recognition;
+  recognitionTimer = setTimeout(stopRecognition, 6000);
   lastAttemptAt = Date.now();
-  lastCandidateSignature = signature;
 
   recognition.onresult = (event) => confirmFromTranscript(event);
-  recognition.onerror = (event) => {
-    // Automatic assist must never open a permission flow or add UI. If the
-    // browser revokes/blocks access, quietly fall back to GPS/timetable/live
-    // evidence and wait for a later permission-granted state.
-    if (["not-allowed", "service-not-allowed"].includes(event.error))
-      lastCandidateSignature = "";
+  recognition.onerror = () => {
+    if (activeRecognition === recognition) stopRecognition();
   };
   recognition.onend = () => {
+    if (activeRecognition !== recognition) return;
+    clearTimeout(recognitionTimer);
+    activeRecognition = null;
     recognitionActive = false;
   };
 
   try {
     recognition.start();
   } catch {
-    recognitionActive = false;
+    stopRecognition();
   }
 }
 
@@ -307,7 +313,16 @@ export function installMotionAssist() {
   const observer = new MutationObserver(() => void autoSpeechAssist());
   observer.observe(panel, { childList: true, subtree: true });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void autoSpeechAssist();
+    if (document.hidden) stopRecognition();
+    else void autoSpeechAssist();
+  });
+  document.addEventListener("mymap-settings-change", () => {
+    if (settings.autoDetect === false || settings.audioAssist === false)
+      stopRecognition();
+  });
+  window.addEventListener("pagehide", stopRecognition);
+  document.addEventListener("mymap-navigation-change", () => {
+    if (state.ride || settings.audioAssist === false) stopRecognition();
   });
   void autoSpeechAssist();
 }
