@@ -155,7 +155,13 @@ async function railSnapshot(env){
 async function railLive(request,env){return cachedJSON(request,env,'rail:kintetsu',async()=>{const d=await railSnapshot(env),asOf=d.sourceUpdatedAt??new Date().toISOString();return {kind:'rail-live',source:'live',stale:false,asOf,trains:d.trains.map((t,i)=>({key:`${t.direction}:${t.position}:${t.destination}:${t.label}:${i}`,position:t.position,from:t.from,to:t.to,atStation:t.atStation,direction:t.direction,dest:t.destination,category:t.category,label:t.label,delay:t.delay}))};},12);}
 
 function corsHeaders(env){return {'Access-Control-Allow-Origin':env.APP_ORIGIN,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type, If-None-Match','Access-Control-Expose-Headers':'ETag','Vary':'Origin','X-Content-Type-Options':'nosniff'};}
-function finalize(request,response,env){for(const[k,v]of Object.entries(corsHeaders(env)))response.headers.set(k,v);return response;}
+function finalize(request,response,env){
+  // Cache API hits have immutable headers. Keep their status/body/ETag, then
+  // add origin-specific headers to a fresh response rather than the cache hit.
+  const result=new Response(response.body,response);
+  for(const[k,v]of Object.entries(corsHeaders(env)))result.headers.set(k,v);
+  return result;
+}
 
 export default {
   async fetch(request,env){
