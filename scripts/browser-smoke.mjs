@@ -1,3 +1,4 @@
+import { smartLiveChecks } from "./smartlive-browser-checks.mjs";
 import { completionChecks } from "./completion-browser-checks.mjs";
 import { liveInteractionChecks } from "./live-browser-checks.mjs";
 import { yahooScreenChecks } from "./yahoo-browser-checks.mjs";
@@ -1558,6 +1559,16 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 
 try {
   if (
+    process.env.BROWSER_SMARTLIVE_ONLY === "1" ||
+    !Object.keys(process.env).some(
+      (key) =>
+        key.startsWith("BROWSER_") &&
+        /ONLY|AUDIT|BASELINE/.test(key) &&
+        process.env[key] === "1",
+    )
+  )
+    await smartLiveChecks({ open, setRide, layout, artifacts, summary });
+  if (
     process.env.BROWSER_COMPLETION_ONLY === "1" ||
     !Object.keys(process.env).some(
       (key) =>
@@ -1614,6 +1625,7 @@ try {
   if (
     process.env.BROWSER_V3_ONLY === "1" ||
     ![
+      "BROWSER_SMARTLIVE_ONLY",
       "BROWSER_COMPLETION_ONLY",
       "BROWSER_LIVE_ONLY",
       "BROWSER_YAHOO_ONLY",
@@ -1639,6 +1651,7 @@ try {
       summary,
     });
   if (
+    process.env.BROWSER_SMARTLIVE_ONLY !== "1" &&
     process.env.BROWSER_COMPLETION_ONLY !== "1" &&
     process.env.BROWSER_LIVE_ONLY !== "1" &&
     process.env.BROWSER_V3_ONLY !== "1" &&
@@ -1646,6 +1659,7 @@ try {
   ) {
     if (
       ![
+        "BROWSER_SMARTLIVE_ONLY",
         "BROWSER_COMPLETION_ONLY",
         "BROWSER_LIVE_ONLY",
         "BROWSER_YAHOO_ONLY",

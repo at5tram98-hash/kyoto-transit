@@ -35,6 +35,9 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     index = -1;
   }
   dialog.addEventListener("close", () => {
+    // close is queued by the browser. A second field may already have opened
+    // this same editor before the previous close event is delivered.
+    if (dialog.open) return;
     if (active) active.setAttribute("aria-expanded", "false");
     list.hidden = true;
   });
@@ -77,7 +80,15 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
       ],
       [
         ui("stop_autocomplete_007"),
-        candidates.filter((stop) => !stop.facilityName),
+        candidates.filter(
+          (stop) => !stop.facilityName && !stop.type.includes("bus"),
+        ),
+      ],
+      [
+        ui("stop_autocomplete_bus"),
+        candidates.filter(
+          (stop) => !stop.facilityName && stop.type.includes("bus"),
+        ),
       ],
       [
         ui("stop_autocomplete_008"),

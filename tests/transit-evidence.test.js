@@ -204,3 +204,32 @@ test("音声は次駅・行先・系統・種別を分離し、単なる駅名�
   assert.equal(p.route, "204");
   assert.equal(p.destination, "B28");
 });
+
+test("循環バス候補は現在停留所から一周を保持し、基点到達後の次停留所を失わない", () => {
+  const stops = ["A", "B", "C", "D", "E", "F", "A"];
+  const network = {
+    stops: new Map(stops.map((id) => [id, { id, name: id }])),
+    services: [{ id: "loop", operator: "citybus", route: "204", stops }],
+  };
+  const rides = cityBusRideCandidates({
+    route: "204",
+    currentStopId: "E",
+    trail: ["C", "D", "E"],
+    network,
+    minute: 600,
+  });
+  assert.deepEqual(
+    rides[0].officialStops.map((s) => s.id),
+    ["E", "F", "A", "B", "C", "D", "E"],
+  );
+  assert.equal(rides[0].syntheticTimes, false);
+});
+
+test("路線上を走る車のGPSと端末振動だけでは便を確定しない", () => {
+  const e = createTransitEvidenceEngine();
+  add(e, "timetable");
+  add(e, "gps", now, { directionVerified: true });
+  add(e, "motion");
+  e.evaluate([row], now);
+  assert.equal(e.evaluate([row], now + 13000).confirmed, null);
+});

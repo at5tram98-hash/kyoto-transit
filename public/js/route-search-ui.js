@@ -315,6 +315,24 @@ export function mountRouteSearch({
     dialog.dataset.detent = "fit";
     dialog.setAttribute("aria-labelledby", `${id}-title`);
     dialog.innerHTML = ui("route_search_ui_008", [id, title, body]);
+    let finished = false;
+    dialog.beginSearchSheet = () => {
+      finished = false;
+    };
+    const finish = (value) => {
+      if (finished) return;
+      finished = true;
+      dialog.returnValue = value;
+      // Commit or restore the single planner model before Navigation observes
+      // the native close mutation and records its History snapshot.
+      dialog.dispatchEvent(new Event("mymap-search-sheet-result"));
+      if (dialog.open) dialog.close(value);
+    };
+    dialog.addEventListener("close", () => finish(dialog.returnValue));
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      finish("cancel");
+    });
     dialog
       .querySelectorAll("input,select")
       .forEach((el) => el.setAttribute("form", "planner-form"));
@@ -328,11 +346,11 @@ export function mountRouteSearch({
           invalid.reportValidity();
           return;
         }
-        dialog.close("apply");
+        finish("apply");
       });
     dialog
       .querySelector("[data-search-sheet-cancel]")
-      .addEventListener("click", () => dialog.close("cancel"));
+      .addEventListener("click", () => finish("cancel"));
     document.body.append(dialog);
     return dialog;
   }
@@ -371,13 +389,14 @@ export function mountRouteSearch({
       ]),
     );
     dateSearchOrigin = input;
+    dateSheet.beginSearchSheet();
     dateSheet.returnValue = "";
     dateSheet.showModal();
   }
   root
     .querySelector("[data-search-date]")
     .addEventListener("click", () => openDate());
-  dateSheet.addEventListener("close", () => {
+  dateSheet.addEventListener("mymap-search-sheet-result", () => {
     const confirmed =
       dateSheet.returnValue === "apply" &&
       [...dateSheet.querySelectorAll("input[required]")].every((input) =>
@@ -399,13 +418,14 @@ export function mountRouteSearch({
   let filterBefore = null;
   function openFilter() {
     filterBefore = captureInput();
+    filter.beginSearchSheet();
     filter.returnValue = "";
     filter.showModal();
   }
   root
     .querySelector("[data-search-filter]")
     .addEventListener("click", openFilter);
-  filter.addEventListener("close", () => {
+  filter.addEventListener("mymap-search-sheet-result", () => {
     if (filter.returnValue !== "apply" && filterBefore)
       applyInput(filterBefore);
     dateChanged();

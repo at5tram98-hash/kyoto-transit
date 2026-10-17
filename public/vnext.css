@@ -246,6 +246,19 @@ select {
   font: inherit;
   color: inherit;
 }
+select {
+  appearance: none;
+  min-height: 44px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) center,
+    calc(100% - 12px) center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-inline-end: 32px;
+}
 button {
   cursor: pointer;
 }

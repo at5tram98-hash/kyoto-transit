@@ -1,0 +1,914 @@
+{
+  "date": "2026-10-17",
+  "repository": "at5tram98-hash/kyoto-transit",
+  "base": "70004fedfe00b334387d3e03bee4c2fc70f3b2b6",
+  "releaseStatus": "検証中・未公開",
+  "globalReleaseReady": false,
+  "requirements": [
+    {
+      "id": 1,
+      "item": "判定セッション状態",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 8
+      },
+      "note": "idle/candidate/confirming/riding/contradicting/rechecking/alighting とRail/Bus/Noneを単一セッションで管理。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 2,
+      "item": "現在地・速度・方向・加速度・マイク",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/motion-assist.js",
+        "line": 119
+      },
+      "note": "姿勢非依存の加速度大きさ、GPS速度の符号付き加速度、減速停止・停止発車Pattern。実センサー/音声APIの可用性はOS依存。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 3,
+      "item": "生センサーのEvidence化",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 4,
+      "item": "周辺交通候補生成",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 5,
+      "item": "直前位置・駅Context",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 101
+      },
+      "note": "直前駅を期限付きで保持し、停車/GPS欠損だけで候補を消さない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 6,
+      "item": "10秒間の実移動方向",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/smartlive-evidence.js",
+        "line": 42
+      },
+      "note": "約10秒の実移動、精度/距離/時間でGPS揺れを除外。端末コンパスを進行方向と見なさない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 7,
+      "item": "候補の進行方向との照合",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/smartlive-evidence.js",
+        "line": 42
+      },
+      "note": "約10秒の実移動、精度/距離/時間でGPS揺れを除外。端末コンパスを進行方向と見なさない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 8,
+      "item": "速度の単純Hard Gateを回避",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 101
+      },
+      "note": "直前駅を期限付きで保持し、停車/GPS欠損だけで候補を消さない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 9,
+      "item": "加速・減速・停止Pattern",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/motion-assist.js",
+        "line": 119
+      },
+      "note": "姿勢非依存の加速度大きさ、GPS速度の符号付き加速度、減速停止・停止発車Pattern。実センサー/音声APIの可用性はOS依存。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 10,
+      "item": "姿勢に依存しにくい加速度",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/motion-assist.js",
+        "line": 119
+      },
+      "note": "姿勢非依存の加速度大きさ、GPS速度の符号付き加速度、減速停止・停止発車Pattern。実センサー/音声APIの可用性はOS依存。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 11,
+      "item": "時刻表の乗車候補",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 12,
+      "item": "Realtime照合",
+      "previousReported": "🟡",
+      "implementation": "🟡",
+      "evidence": {
+        "path": "public/js/realtime-evidence.js",
+        "line": 15
+      },
+      "note": "共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 13,
+      "item": "候補生成前の許可済みマイク",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/audio-window.js",
+        "line": 11
+      },
+      "note": "既許可を確認し、前候補/乗車後で排他的な最大6秒Window。新規許可要求・常時録音なし。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 14,
+      "item": "短時間Audio Window",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/audio-window.js",
+        "line": 11
+      },
+      "note": "既許可を確認し、前候補/乗車後で排他的な最大6秒Window。新規許可要求・常時録音なし。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 15,
+      "item": "音声の構造化",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/announcement-parser.js",
+        "line": 8
+      },
+      "note": "路線/系統/行先/次駅/種別、既存alias・英語名・主要駅の読みを処理。単なる駅名言及では一致しない。実車認識精度は未検証。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 16,
+      "item": "アナウンス語彙",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/announcement-parser.js",
+        "line": 8
+      },
+      "note": "路線/系統/行先/次駅/種別、既存alias・英語名・主要駅の読みを処理。単なる駅名言及では一致しない。実車認識精度は未検証。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 17,
+      "item": "駅名・別名正規化",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/announcement-parser.js",
+        "line": 8
+      },
+      "note": "路線/系統/行先/次駅/種別、既存alias・英語名・主要駅の読みを処理。単なる駅名言及では一致しない。実車認識精度は未検証。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 18,
+      "item": "強いAudio Evidence",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 19,
+      "item": "Audio単独確定禁止",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 20,
+      "item": "Rail・Bus・Noneの明示Mode",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 8
+      },
+      "note": "idle/candidate/confirming/riding/contradicting/rechecking/alighting とRail/Bus/Noneを単一セッションで管理。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 21,
+      "item": "Rail路線",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 22,
+      "item": "Rail方向",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 23,
+      "item": "Rail便候補",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 24,
+      "item": "地下鉄・近鉄直通",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/now-model.js",
+        "line": 45
+      },
+      "note": "既存直通Journey/駅コード境界を維持。新Audio SequenceもK15→B06を継続できる。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 25,
+      "item": "Bus系統",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 26,
+      "item": "Bus複合Identity",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 13
+      },
+      "note": "operator/route/servicePattern/direction/destinationまたはheadsign/tripId/serviceDateの複合キー。Pool統合・確定候補選択でも使用。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 27,
+      "item": "Bus方向と停留所Trail",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 28,
+      "item": "循環路線",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-core.js",
+        "line": 396
+      },
+      "note": "循環の停留所順とwrapを検証し、現在停留所から一周を保持。途中時刻の生成なし。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 29,
+      "item": "Bus Audio行先",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/announcement-parser.js",
+        "line": 8
+      },
+      "note": "路線/系統/行先/次駅/種別、既存alias・英語名・主要駅の読みを処理。単なる駅名言及では一致しない。実車認識精度は未検証。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 30,
+      "item": "Bus車両単位Realtime照合",
+      "previousReported": "🟡",
+      "implementation": "🟡",
+      "evidence": {
+        "path": "public/js/realtime-evidence.js",
+        "line": 15
+      },
+      "note": "共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 31,
+      "item": "Confidence",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 32,
+      "item": "判定段階UI",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-view.js",
+        "line": 390
+      },
+      "note": "確認/確定/再確認と、Modeだけ分かるshellを表示。疑わしい系統/行先を主表示として断定しない。PWA reloadもshellを維持。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 33,
+      "item": "Top候補とのMargin",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 34,
+      "item": "複数Evidence",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 35,
+      "item": "確定後の継続検証",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/smartlive-supervisor.js",
+        "line": 489
+      },
+      "note": "継続検証とprovider更新のadapter評価。矛盾時30秒だけ再評価4秒/Realtime8秒、通常は既存周期/キャッシュを利用。GPSのOS配信頻度は強制しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 36,
+      "item": "Hysteresis",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 37,
+      "item": "便変更に強い根拠",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 38,
+      "item": "現在駅",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 186
+      },
+      "note": "現在駅/停車/発車/降車候補のセッション遷移。観測なしはunknownとし、時刻だけで停車/降車を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 39,
+      "item": "停車",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 186
+      },
+      "note": "現在駅/停車/発車/降車候補のセッション遷移。観測なしはunknownとし、時刻だけで停車/降車を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 40,
+      "item": "発車",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 186
+      },
+      "note": "現在駅/停車/発車/降車候補のセッション遷移。観測なしはunknownとし、時刻だけで停車/降車を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 41,
+      "item": "降車候補",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 186
+      },
+      "note": "現在駅/停車/発車/降車候補のセッション遷移。観測なしはunknownとし、時刻だけで停車/降車を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 42,
+      "item": "降車確定",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 365
+      },
+      "note": "既存の継続した到着観測と明示降車を維持。乗換は全Journeyを保持。誤乗車解除ではLegを進めない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 43,
+      "item": "乗換でJourneyを終了しない",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 365
+      },
+      "note": "既存の継続した到着観測と明示降車を維持。乗換は全Journeyを保持。誤乗車解除ではLegを進めない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 44,
+      "item": "乗車後Audio",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/motion-assist.js",
+        "line": 387
+      },
+      "note": "乗車後も既許可・短時間の認識を再利用。非表示/設定OFF/pagehideでabortし、遅れて来た結果も無効化。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 45,
+      "item": "Audio駅順Sequence",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 227
+      },
+      "note": "次駅の隣接順/逆順/反復を検証。循環wrapと直通境界に対応し、音声生データを履歴へ残さない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 46,
+      "item": "音声誤認防止",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/announcement-parser.js",
+        "line": 8
+      },
+      "note": "路線/系統/行先/次駅/種別、既存alias・英語名・主要駅の読みを処理。単なる駅名言及では一致しない。実車認識精度は未検証。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 47,
+      "item": "Evidence TTL",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 48,
+      "item": "Evidence品質",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 49,
+      "item": "Mode判定・便不明UI",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-view.js",
+        "line": 390
+      },
+      "note": "確認/確定/再確認と、Modeだけ分かるshellを表示。疑わしい系統/行先を主表示として断定しない。PWA reloadもshellを維持。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 50,
+      "item": "複数Evidenceで最終確定",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 62
+      },
+      "note": "候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 51,
+      "item": "確定後もEngine継続",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/smartlive-supervisor.js",
+        "line": 489
+      },
+      "note": "継続検証とprovider更新のadapter評価。矛盾時30秒だけ再評価4秒/Realtime8秒、通常は既存周期/キャッシュを利用。GPSのOS配信頻度は強制しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 52,
+      "item": "明示的5段階状態",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 8
+      },
+      "note": "idle/candidate/confirming/riding/contradicting/rechecking/alighting とRail/Bus/Noneを単一セッションで管理。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 53,
+      "item": "Expected State",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 166
+      },
+      "note": "Mode・方向・次駅・その次・予定到着のExpected Stateと、Audio/方向/Trail/Realtimeの矛盾を追跡。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 54,
+      "item": "Expectedと実Evidenceの比較",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 166
+      },
+      "note": "Mode・方向・次駅・その次・予定到着のExpected Stateと、Audio/方向/Trail/Realtimeの矛盾を追跡。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 55,
+      "item": "Contradiction Scoreと根拠",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 275
+      },
+      "note": "source別0–100矛盾scoreとEvent履歴。GPS由来のdirection/patternは同じfamily。重複signatureを水増ししない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 56,
+      "item": "単発異常で便変更しない",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 275
+      },
+      "note": "source別0–100矛盾scoreとEvent履歴。GPS由来のdirection/patternは同じfamily。重複signatureを水増ししない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 57,
+      "item": "矛盾時の取得強化",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/smartlive-supervisor.js",
+        "line": 489
+      },
+      "note": "継続検証とprovider更新のadapter評価。矛盾時30秒だけ再評価4秒/Realtime8秒、通常は既存周期/キャッシュを利用。GPSのOS配信頻度は強制しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 58,
+      "item": "再確認中のRide shell",
+      "previousReported": "❌",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-view.js",
+        "line": 390
+      },
+      "note": "確認/確定/再確認と、Modeだけ分かるshellを表示。疑わしい系統/行先を主表示として断定しない。PWA reloadもshellを維持。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 59,
+      "item": "現Rideを含めPool再ランキング",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 60,
+      "item": "別便への自動修正",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 61,
+      "item": "Journeyを保持してRide修正",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 319
+      },
+      "note": "自動修正時はJourney/id/目的地を保持してRideを更新。完了Toastは修正時のみ。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 62,
+      "item": "修正完了の通知",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 319
+      },
+      "note": "自動修正時はJourney/id/目的地を保持してRideを更新。完了Toastは修正時のみ。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 63,
+      "item": "正解不明時の便確認中",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-view.js",
+        "line": 390
+      },
+      "note": "確認/確定/再確認と、Modeだけ分かるshellを表示。疑わしい系統/行先を主表示として断定しない。PWA reloadもshellを維持。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 64,
+      "item": "Bus・Railの再分類",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 460
+      },
+      "note": "時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 65,
+      "item": "未乗車へ復帰",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext-detect.js",
+        "line": 406
+      },
+      "note": "複数sourceの矛盾＋候補路線からの離脱＋センサーで確認した歩行を45秒継続した場合、または明示操作で未乗車へ。旅程を進めず準備状態へ戻す。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 66,
+      "item": "停留所順の継続検証",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 25
+      },
+      "note": "直近Trailの順序、方向、循環wrapを確認。反対周り/逆順の候補を除外する。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 67,
+      "item": "連続Audio駅順検証",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 227
+      },
+      "note": "次駅の隣接順/逆順/反復を検証。循環wrapと直通境界に対応し、音声生データを履歴へ残さない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 68,
+      "item": "GPS方向ノイズ対策",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/smartlive-evidence.js",
+        "line": 42
+      },
+      "note": "約10秒の実移動、精度/距離/時間でGPS揺れを除外。端末コンパスを進行方向と見なさない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 69,
+      "item": "次停留所で反対周り検出",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 25
+      },
+      "note": "直近Trailの順序、方向、循環wrapを確認。反対周り/逆順の候補を除外する。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 70,
+      "item": "共通Correction Lock",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 150
+      },
+      "note": "旧/新の復旧経路を共通化。修正後45秒は前候補への復帰に3source・90以上を要求。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 71,
+      "item": "Confidence Decay",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/transit-evidence.js",
+        "line": 128
+      },
+      "note": "source品質を経過時間で減衰し、期限後は0。Unavailableを矛盾へ変換しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 72,
+      "item": "Realtime更新ごとの再検証",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/smartlive-supervisor.js",
+        "line": 489
+      },
+      "note": "継続検証とprovider更新のadapter評価。矛盾時30秒だけ再評価4秒/Realtime8秒、通常は既存周期/キャッシュを利用。GPSのOS配信頻度は強制しない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 73,
+      "item": "データなしと矛盾の分離",
+      "previousReported": "✅",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/realtime-evidence.js",
+        "line": 33
+      },
+      "note": "Unavailable/neutral/supportive/contradictoryを区別。通信断/古いデータ/無関係な車両は矛盾にしない。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 74,
+      "item": "今の便を修正",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/vnext.js",
+        "line": 197
+      },
+      "note": "控えめな修正導線から既存候補選択へ。明示の「乗車していません」も用意し、自動補正を主とする。",
+      "fieldValidation": "未検証"
+    },
+    {
+      "id": 75,
+      "item": "Privacy-safe診断履歴",
+      "previousReported": "🟡",
+      "implementation": "✅",
+      "evidence": {
+        "path": "public/js/ride-detection-session.js",
+        "line": 336
+      },
+      "note": "メモリ内最大100件、時刻・種別・score・状態遷移・一時aliasのみ。座標/音声/駅名/便IDを診断履歴に残さず送信しない。",
+      "fieldValidation": "未検証"
+    }
+  ],
+  "externalLimits": [
+    "京都バスODPTの有効な認証設定と事業者データの便ID粒度",
+    "物理iPhone Safari/PWA/VoiceOver/OS設定/センサー復帰",
+    "地下鉄・近鉄両方向合計5回、市バス循環/双方向合計5回の実走"
+  ]
+}

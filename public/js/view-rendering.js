@@ -180,6 +180,54 @@ export function updateNearbyPanel(element, html) {
       node,
     ]),
   );
+  const places = [...next.querySelectorAll("[data-nearby-place]")];
+  if (places.length) {
+    const groups = new Map(
+      [...current.querySelectorAll(":scope > [data-nearby-place]")].map(
+        (group) => [group.dataset.nearbyPlace, group],
+      ),
+    );
+    let cursor = current.querySelector(":scope > [data-nearby-place]");
+    for (const place of places) {
+      const key = place.dataset.nearbyPlace;
+      const group = groups.get(key) ?? document.createElement("section");
+      group.dataset.nearbyPlace = key;
+      const heading = place.querySelector(":scope > .section-label");
+      const oldHeading = group.querySelector(":scope > .section-label");
+      if (heading && !oldHeading) group.prepend(heading.cloneNode(true));
+      else if (!heading && oldHeading) oldHeading.remove();
+      let rowCursor = group.querySelector("[data-nearby-key]");
+      for (const item of [...place.querySelectorAll("[data-nearby-key]")]) {
+        const node = old.get(item.dataset.nearbyKey) ?? item;
+        if (node !== item) {
+          updateHTML(
+            node.querySelector("[data-nearby-copy]"),
+            item.querySelector("[data-nearby-copy]").innerHTML,
+          );
+          updateHTML(
+            node.querySelector("[data-nearby-departures]"),
+            item.querySelector("[data-nearby-departures]").innerHTML,
+          );
+        }
+        if (node !== rowCursor) group.insertBefore(node, rowCursor);
+        rowCursor = node.nextElementSibling;
+        old.delete(item.dataset.nearbyKey);
+      }
+      if (group !== cursor) current.insertBefore(group, cursor);
+      cursor = group.nextElementSibling;
+      groups.delete(key);
+    }
+    for (const node of old.values()) node.remove();
+    for (const group of groups.values()) group.remove();
+    if (
+      focus instanceof HTMLElement &&
+      focus.isConnected &&
+      element.contains(focus)
+    )
+      focus.focus({ preventScroll: true });
+    markup.set(element, html);
+    return;
+  }
   let before = current.querySelector("[data-nearby-key]");
   for (const item of [...next.querySelectorAll("[data-nearby-key]")]) {
     const existing = old.get(item.dataset.nearbyKey),

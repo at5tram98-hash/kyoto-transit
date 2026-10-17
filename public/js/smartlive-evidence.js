@@ -93,7 +93,8 @@ export function tenSecondMovement(
       heading: null,
       meters: Number.isFinite(meters) ? meters : 0,
       spanMs,
-      speed: spanMs > 0 && Number.isFinite(meters) ? meters / (spanMs / 1000) : null,
+      speed:
+        spanMs > 0 && Number.isFinite(meters) ? meters / (spanMs / 1000) : null,
       confidence: 0,
       first,
       last,
@@ -116,11 +117,21 @@ export function tenSecondMovement(
 
 export function movementAgainstStops(movement, nextStop, previousStop = null) {
   if (!movement?.first || !movement?.last || !Number.isFinite(movement.heading))
-    return { status: "neutral", confidence: 0, towardNext: 0, towardPrevious: 0 };
+    return {
+      status: "neutral",
+      confidence: 0,
+      towardNext: 0,
+      towardPrevious: 0,
+    };
   const next = coord(nextStop),
     previous = coord(previousStop);
   if (!next)
-    return { status: "neutral", confidence: 0, towardNext: 0, towardPrevious: 0 };
+    return {
+      status: "neutral",
+      confidence: 0,
+      towardNext: 0,
+      towardPrevious: 0,
+    };
   const towardNext =
       geoDistance(movement.first, next) - geoDistance(movement.last, next),
     towardPrevious = previous
@@ -179,16 +190,21 @@ export function contradictionDecision(
         row.confidence >= 0.7,
     )
     .sort((a, b) => a.at - b.at);
-  const sources = new Set(recent.map((row) => row.source));
-  if (sources.size >= 2) return { release: true, reason: "independent-sources" };
+  const family = (source) =>
+    ["direction", "pattern", "gps"].includes(source) ? "gps" : source;
+  const sources = new Set(recent.map((row) => family(row.source)));
+  if (sources.size >= 2)
+    return { release: true, reason: "independent-sources" };
 
   for (const source of sources) {
-    const same = recent.filter((row) => row.source === source);
-    const signatures = new Set(same.map((row) => row.signature).filter(Boolean));
+    const same = recent.filter((row) => family(row.source) === source);
+    const signatures = new Set(
+      same.map((row) => row.signature).filter(Boolean),
+    );
     if (
       same.length >= 2 &&
       same.at(-1).at - same[0].at >= 5000 &&
-      (source === "audio" || signatures.size >= 2)
+      signatures.size >= 2
     )
       return { release: true, reason: `repeated-${source}` };
   }

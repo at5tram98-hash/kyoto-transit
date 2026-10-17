@@ -1,3 +1,4 @@
+import { rideDetectionSession } from "./ride-detection-session.js";
 import { missedConnection } from "./journey-recovery.js";
 import { ui } from "./locale.js";
 import {
@@ -308,14 +309,18 @@ async function detectCityBus(stopInfo) {
 function mergeCandidates(...groups) {
   const map = new Map();
   for (const row of groups.flat().filter(Boolean)) {
-    const key = rideKey(row.ride);
+    const key = transitCandidateKey(row.ride);
     const old = map.get(key);
     if (!old || row.score > old.score) map.set(key, row);
   }
-  return [...map.values()].sort((a, b) => b.score - a.score).slice(0, 3);
+  return [...map.values()].sort((a, b) => b.score - a.score).slice(0, 24);
 }
 
 function applyRide(candidate) {
+  const rechecking = rideDetectionSession.snapshot().phase === "rechecking";
+  const corrected = rideDetectionSession.confirm(candidate.ride, Date.now(), {
+    manual: candidate.manual === true,
+  });
   const changed = rideKey(state.ride) !== rideKey(candidate.ride);
   if (state.itinerary) {
     if (
@@ -325,15 +330,17 @@ function applyRide(candidate) {
       )
     )
       state.itinerary = { ...state.itinerary, phase: "riding" };
-    else state.itinerary = null;
+    else if (!rechecking) state.itinerary = null;
   }
   consensus.lock(candidate.ride);
   state.ride = candidate.ride;
-  state.armedJourney = null;
+  if (!rechecking) state.armedJourney = null;
   state.heroObservation = null;
   if (changed) state.delayHistory = [];
   state.rideSource = candidate.source;
   state.rideConfidence = candidate.score;
+  state.rideConfidenceBase = candidate.score;
+  state.rideManuallyConfirmed = candidate.manual === true;
   state.lastRideSeenAt = Date.now();
   state.rideCandidates = [];
   state.rideConsensusCount = 0;
@@ -347,7 +354,11 @@ function applyRide(candidate) {
     state.foldbackPlan = null;
     lastNextAlertKey = null;
     haptic();
-    toast(ui("ride_started", [serviceName(candidate.ride)]));
+    toast(
+      corrected
+        ? ui("smartlive_corrected")
+        : ui("ride_started", [serviceName(candidate.ride)]),
+    );
   }
   persistJourney();
 }
@@ -392,15 +403,34 @@ export function finishCurrentRide({ keepItinerary = false } = {}) {
     );
   }
 }
+export function clearFalseRide() {
+  state.ride = null;
+  state.rideShift = 0;
+  state.rideShiftKnown = false;
+  state.rideObservation = null;
+  state.heroObservation = null;
+  state.foldbackPlan = null;
+  state.rideSource = null;
+  state.rideConfidence = 0;
+  resetRideDetection();
+  if (state.itinerary) {
+    state.itinerary = { ...state.itinerary, phase: "armed" };
+    const ride = state.itinerary.rides[state.itinerary.legIndex];
+    if (ride) state.armedJourney = { ride, selectedAt: Date.now() };
+  }
+  persistJourney(true);
+}
+
 export function confirmRideCandidate(index) {
   const candidate = state.rideCandidates[Number(index)];
   if (!candidate) return false;
   consensus.reset();
-  applyRide(candidate);
+  applyRide({ ...candidate, manual: true });
   return true;
 }
 export function resetRideDetection() {
   detectionGeneration++;
+  rideDetectionSession.reset();
   consensus.reset();
   state.rideCandidates = [];
   state.rideConsensusCount = 0;
@@ -416,6 +446,7 @@ export function startManualRide(ride) {
   const delay = selectedRideShift(ride);
   applyRide({
     ride,
+    manual: true,
     source:
       delay === null
         ? "選択した公式時刻表の便"
@@ -435,17 +466,46 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
     state.ride
   )
     return;
-  if (!force && Date.now() - state.lastDetectAt < 12000) return;
+  if (
+    !force &&
+    Date.now() - state.lastDetectAt <
+      (rideDetectionSession.snapshot().intensified ? 4000 : 12000)
+  )
+    return;
   const fixFresh = freshFix(state.fix),
     freshNear = nearest();
   if (fixFresh) consensus.observeStation(freshNear.rail, state.fix);
   const stationContext = consensus.stationContext();
+  const announcement = state.smartLiveAnnouncement;
+  const audioStop =
+    announcement && Date.now() - announcement.at <= 45000
+      ? state.network.stops.get(announcement.parsed.nextStop)
+      : null;
   const near = fixFresh
     ? freshNear
     : { ...freshNear, rail: stationContext?.station ?? null };
-  if (!fixFresh && !stationContext && !state.rideCandidates.length) return;
+  if (
+    !fixFresh &&
+    !stationContext &&
+    audioStop &&
+    ["subway", "kintetsu"].includes(audioStop.type)
+  )
+    near.rail = { id: audioStop.id, stop: audioStop, meters: 0 };
+  if (
+    !fixFresh &&
+    !stationContext &&
+    !audioStop &&
+    !state.rideCandidates.length &&
+    !state.armedJourney?.ride
+  )
+    return;
+  if (!fixFresh && audioStop?.type?.includes("bus")) {
+    const audioNear = { id: audioStop.id, stop: audioStop, meters: 0 };
+    near.bus = audioNear;
+    if (audioStop.type === "kyotobus") near.kyotoBus = audioNear;
+  }
   const motion = trajectory(state.samples);
-  updateBusTrail(near.bus?.id, near.bus?.meters ?? Infinity);
+  if (fixFresh) updateBusTrail(near.bus?.id, near.bus?.meters ?? Infinity);
   state.detectBusy = true;
   const generation = detectionGeneration;
   state.lastDetectAt = Date.now();
@@ -462,11 +522,12 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       recentBusTrail = state.busTrail.some((x) => Date.now() - x.at < 180000),
       busClose =
         near.bus &&
-        (near.bus.meters <= Math.max(150, state.fix.accuracy * 2.1) ||
+        (near.bus.meters <= Math.max(150, (state.fix?.accuracy ?? 100) * 2.1) ||
           (recentBusTrail && near.bus.meters <= 700)),
       kyotoClose =
         near.kyotoBus &&
-        near.kyotoBus.meters <= Math.max(180, state.fix.accuracy * 2.3);
+        near.kyotoBus.meters <=
+          Math.max(180, (state.fix?.accuracy ?? 100) * 2.3);
     if (railClose) {
       if (near.rail.id === "K15") {
         const [k, s] = await Promise.all([
@@ -480,7 +541,26 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
             ? await detectKintetsu(near.rail.id).catch(() => [])
             : await detectSubway(near.rail.id).catch(() => []);
     }
-    if (!candidates.length && (busClose || kyotoClose)) {
+    if (!fixFresh && !stationContext && audioStop?.type === "subway") {
+      const feed = await ensureSubwayFeed();
+      const preceding = [
+        ...new Set(
+          (feed?.services ?? []).flatMap((service) => {
+            const i = service.stops.indexOf(audioStop.id);
+            return i > 0 ? [service.stops[i - 1]] : [];
+          }),
+        ),
+      ].slice(0, 4);
+      const audioCandidates = await Promise.all(
+        preceding.map((id) => detectSubway(id).catch(() => [])),
+      );
+      candidates = mergeCandidates(candidates, ...audioCandidates);
+    }
+    if (
+      (!candidates.length ||
+        rideDetectionSession.snapshot().phase === "rechecking") &&
+      (busClose || kyotoClose)
+    ) {
       const cityPromise =
           busClose && near.bus.stop.type === "citybus"
             ? detectCityBus(near.bus).catch(() => [])
@@ -491,10 +571,29 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
             ? detectKyotoBus(near.bus.id).catch(() => [])
             : Promise.resolve([]);
       const [city, kyoto] = await Promise.all([cityPromise, kyotoPromise]);
-      candidates = mergeCandidates(city, kyoto);
+      candidates = mergeCandidates(candidates, city, kyoto);
     }
     if (generation !== detectionGeneration || state.ride) return;
     if (!fixFresh && !candidates.length) candidates = state.rideCandidates;
+    const session = rideDetectionSession.snapshot();
+    if (session.phase === "rechecking" && session.shell) {
+      candidates = mergeCandidates(candidates, [
+        { ride: session.shell, score: 55, source: ui("smartlive_rechecking") },
+      ]);
+    }
+    if (
+      !candidates.length &&
+      state.armedJourney?.ride &&
+      boardingAvailable(state.armedJourney.ride, tokyoNow())
+    )
+      candidates = [
+        {
+          ride: state.armedJourney.ride,
+          score: 55,
+          armedMatch: true,
+          source: ui("smartlive_confirming"),
+        },
+      ];
     candidates = matchArmedJourney(
       candidates,
       state.armedJourney,
@@ -506,9 +605,10 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       currentMotionEvidence(state.samples, observedAt),
       { samples: state.samples, now: observedAt },
     );
-    const eligible = state.armedJourney
-      ? candidates.filter((candidate) => candidate.armedMatch)
-      : candidates;
+    const eligible =
+      state.armedJourney && session.phase !== "rechecking"
+        ? candidates.filter((candidate) => candidate.armedMatch)
+        : candidates;
     for (const candidate of eligible) {
       const ride = candidate.ride,
         candidateKey = transitCandidateKey(ride);
@@ -544,6 +644,7 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       if (fixFresh && (candidate.score >= 55 || ordered.matched))
         add("gps", 0.65, state.fix.timestamp, {
           directionVerified: direction,
+          orderedStops: ordered.matched ? ordered.steps.length : 0,
           walkingLikely:
             motion.span >= 15 && motion.speed >= 0.6 && motion.speed < 2.5,
           rejected: candidate.directionRejected,
@@ -556,6 +657,8 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       )
         add("motion", 0.55, motionEvidence.sensorObservedAt, {
           phase: motionEvidence.phase,
+          pattern: motionEvidence.pattern,
+          acceleration: motionEvidence.acceleration,
         });
       const live = candidate.live,
         liveAt =
@@ -577,22 +680,35 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
         add("realtime", 0.8, liveAt, {
           directionVerified: Boolean(
             candidate.liveDirectionVerified ||
-            (live.tripId && live.tripId === ride.tripId) ||
-            (live.direction && live.direction === ride.direction),
+              (live.tripId && live.tripId === ride.tripId) ||
+              (live.direction && live.direction === ride.direction),
           ),
         });
     }
     const decision = consensus.evaluate(eligible, observedAt);
+    if (
+      decision.confirmed &&
+      !rideDetectionSession.canConfirm(
+        decision.confirmed,
+        decision.sources,
+        decision.candidates[0]?.score ?? 0,
+        observedAt,
+      )
+    )
+      decision.confirmed = null;
     state.rideConsensusCount = decision.count;
     state.rideCandidates = decision.confirmed
       ? []
       : decision.candidates.length
         ? decision.candidates
         : candidates;
+    rideDetectionSession.candidates(state.rideCandidates, observedAt);
     if (decision.confirmed) {
       const selected =
         candidates.find(
-          (c) => rideKey(c.ride) === rideKey(decision.confirmed),
+          (c) =>
+            transitCandidateKey(c.ride) ===
+            transitCandidateKey(decision.confirmed),
         ) ?? candidates[0];
       if (selected) applyRide(selected);
     }
@@ -614,7 +730,40 @@ export function updateRideAnchor() {
       trail: state.busTrail,
       speed: speed(),
     });
+  const audio = state.audioProgress;
+  if (
+    audio &&
+    Date.now() - audio.at <= 45000 &&
+    audio.candidate === transitCandidateKey(ride) &&
+    !freshFix(state.fix)
+  ) {
+    observation.progress = {
+      ...observation.progress,
+      stops: ride.officialStops,
+      currentIndex: audio.currentIndex,
+      nextIndex: audio.nextIndex,
+      next: ride.officialStops[audio.nextIndex],
+      previous: ride.officialStops[audio.currentIndex],
+      source: "audio",
+      fraction: audio.currentIndex / Math.max(1, ride.officialStops.length - 1),
+      remaining: ride.officialStops.length - audio.nextIndex,
+    };
+  }
   state.rideObservation = observation;
+  const motion = currentMotionEvidence(state.samples);
+  const support = consensus.support(ride);
+  if (!state.rideManuallyConfirmed)
+    state.rideConfidence = Math.round(
+      (state.rideConfidenceBase ?? state.rideConfidence) * support.confidence,
+    );
+  rideDetectionSession.expected(ride, observation, now.minute, state.rideShift);
+  rideDetectionSession.observeProgress(
+    observation,
+    motion,
+    Date.now(),
+    ride.userDestination?.id ?? ride.to,
+  );
+  rideDetectionSession.motion(motion);
   state.rideShift = observation.shift;
   if (Number.isInteger(observation.anchorIndex)) state.rideShiftKnown = true;
   const next = observation.progress?.next,

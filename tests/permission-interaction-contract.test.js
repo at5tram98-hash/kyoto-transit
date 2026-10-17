@@ -4,14 +4,15 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const executableSource = (source) =>
-  source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
+  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 test("自動アナウンス補助はマイク許可ダイアログを起動しない", () => {
-  const source = read("../public/js/motion-assist.js"),
+  const source =
+      read("../public/js/motion-assist.js") +
+      read("../public/js/smartlive-supervisor.js") +
+      read("../public/js/audio-window.js"),
     executable = executableSource(source);
-  assert.match(source, /permissions\.query\(\{ name: "microphone" \}\)/);
+  assert.match(source, /permissions\??\.query\(\{ name: "microphone" \}\)/);
   assert.match(source, /status\.state === "granted"/);
   assert.doesNotMatch(executable, /getUserMedia\s*\(/);
   assert.doesNotMatch(executable, /requestPermission\s*\(/);
@@ -41,5 +42,8 @@ test("地図以外はピンチズームと長押し選択を抑え、入力と�
   assert.match(css, /input,[\s\S]*user-select:\s*text/);
   assert.match(css, /\.route-map-host[\s\S]*pinch-zoom/);
   assert.match(js, /gesturestart/);
-  assert.match(js, /if \(!isMapTarget\(event\.target\)\) event\.preventDefault\(\)/);
+  assert.match(
+    js,
+    /if \(!isMapTarget\(event\.target\)\) event\.preventDefault\(\)/,
+  );
 });

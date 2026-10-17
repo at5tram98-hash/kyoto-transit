@@ -16,7 +16,7 @@ export function transitCandidateKey(ride) {
     String(ride.route ?? ""),
     ride.servicePatternId ?? ride.serviceId ?? "",
     ride.directionId ?? ride.direction ?? "",
-    ride.destination ?? "",
+    ride.destination ?? ride.headsign ?? "",
     ride.tripId ?? "",
     ride.serviceDate ?? "",
     ride.tripId ? "" : ride.depart,
@@ -125,6 +125,24 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       lastStation = null;
       pending = null;
     },
+    support(ride, now = Date.now()) {
+      prune(now);
+      const key = transitCandidateKey(ride);
+      const rows = [...events.values()].filter(
+        (e) =>
+          e.candidate === key &&
+          observations.has(e.type) &&
+          !e.metadata?.rejected,
+      );
+      const quality = rows.map(
+        (e) =>
+          e.confidence * Math.max(0, 1 - (now - e.observedAt) / TTL[e.type]),
+      );
+      return {
+        sources: rows.map((e) => e.type),
+        confidence: Math.min(1, quality.reduce((a, b) => a + b, 0) / 2),
+      };
+    },
     evaluate(candidates, now = Date.now()) {
       prune(now);
       const rows = candidates
@@ -133,17 +151,20 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
           ...c,
           evidenceScore: c.evidenceScore ?? c.confirmationScore ?? c.score,
           score:
-            (c.evidenceScore ?? c.confirmationScore ?? c.score) +
+            (c.evidenceScore ?? c.confirmationScore ?? c.score) -
+            (c.directionRejected ? 60 : 0) +
             [...events.values()]
               .filter((e) => e.candidate === transitCandidateKey(c.ride))
               .reduce(
                 (total, e) =>
                   total +
-                  (e.type === "audio"
-                    ? 28 * e.confidence
-                    : e.type === "realtime"
-                      ? 12 * e.confidence
-                      : 0),
+                  (e.metadata?.rejected
+                    ? -60 * e.confidence
+                    : e.type === "audio"
+                      ? 28 * e.confidence
+                      : e.type === "realtime"
+                        ? 12 * e.confidence
+                        : 0),
                 0,
               ),
         }))
@@ -187,7 +208,11 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       const walkingOnly =
         matching.some((e) => e.type === "gps" && e.metadata?.walkingLikely) &&
         !sources.some((type) => ["audio", "realtime"].includes(type));
+      const transportSpecific =
+        sources.some((type) => ["audio", "realtime"].includes(type)) ||
+        matching.some((e) => e.metadata?.orderedStops >= 3);
       const confirmed =
+        transportSpecific &&
         stable &&
         !locked &&
         !rejected &&
@@ -198,12 +223,10 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
         sources.length >= 2;
       return {
         confirmed: confirmed ? top.ride : null,
-        candidates: rows
-          .slice(0, 3)
-          .map((candidate) => ({
-            ...candidate,
-            score: Math.min(100, candidate.score),
-          })),
+        candidates: rows.slice(0, 3).map((candidate) => ({
+          ...candidate,
+          score: Math.max(0, Math.min(100, candidate.score)),
+        })),
         sources,
         count: sources.length,
         ambiguous,

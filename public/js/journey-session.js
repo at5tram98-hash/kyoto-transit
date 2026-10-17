@@ -91,7 +91,7 @@ export function scheduledJourney(leg, feed, network, date) {
       time: originalTime(trip.arrivals[i] ?? trip.departures[i]),
       estimated: Boolean(
         (feed.meta?.terminalArrivalDerived || service.terminalArrivalDerived) &&
-        i === service.stops.length - 1,
+          i === service.stops.length - 1,
       ),
     };
   });
@@ -250,6 +250,7 @@ export function readJourney(storage, { now, at = Date.now(), network } = {}) {
           ? value.source.slice(0, 180)
           : "保存した乗車案内",
       rideConfidence: 0,
+      rideRechecking: value.rechecking === true,
       rideStartedAt: value.startedAt,
       foldbackPlan: validPlan ? plan : null,
     };
@@ -274,6 +275,7 @@ export function writeJourney(storage, state, { now, at = Date.now() } = {}) {
       JOURNEY_KEY,
       JSON.stringify({
         version: 1,
+        rechecking: state.rideRechecking === true,
         ride,
         shift: state.rideShift,
         source: state.rideSource,

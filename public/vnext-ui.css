@@ -528,10 +528,10 @@
 .block-label select {
   min-height: 44px;
   border: 0;
-  background: var(--panel);
+  background-color: var(--panel);
   box-shadow: var(--shadow-hairline);
   border-radius: var(--radius-row);
-  padding: 11px;
+  padding: 11px 32px 11px 11px;
 }
 .board-summary {
   display: flex;

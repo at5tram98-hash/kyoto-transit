@@ -1,3 +1,5 @@
+import { groupNearbyPlaces } from "./transit-places.js";
+import { rideDetectionSession } from "./ride-detection-session.js";
 import { ui } from "./locale.js";
 import {
   groupCityBusRows,
@@ -344,6 +346,8 @@ function candidateHTML() {
   ]);
 }
 export function renderNow() {
+  if (state.ride && rideDetectionSession.snapshot().phase === "idle")
+    rideDetectionSession.confirm(state.ride);
   updateRideAnchor();
   renderStatusPill();
   if (state.tab !== "now") return;
@@ -355,7 +359,10 @@ export function renderNow() {
     near = nearest(),
     motion = trajectory(state.samples);
   document.querySelector(".app-shell").dataset.nowHome = String(
-    !state.ride && !state.armedJourney && !state.itinerary,
+    !state.ride &&
+      !rideDetectionSession.snapshot().shell &&
+      !state.armedJourney &&
+      !state.itinerary,
   );
   $('[data-view="now"]').dataset.contextIdentity = state.ride
     ? rideKey(state.ride)
@@ -368,11 +375,38 @@ export function renderNow() {
   if (state.ride) {
     enterContext(resolveNowState(state.ride));
     renderRide(root, $("#ride-stops-source"), networkPanel, nearPanel, now);
-    updateHTML(vehicle, "");
+    const status = rideDetectionSession.snapshot();
+    updateHTML(
+      vehicle,
+      `<p class="source-note" data-detection-status role="status">${ui(status.phase === "contradicting" ? "smartlive_contradicting" : "smartlive_confirmed")}</p><button type="button" class="plain-action" data-correct-ride>${ui("smartlive_correct")}</button>`,
+    );
     $("#now-search").hidden = true;
     document.querySelector(".app-shell").dataset.rideMode = state.heroModel.bus
       ? "bus"
       : "rail";
+    navigation.refresh();
+    return;
+  }
+  const session = rideDetectionSession.snapshot();
+  if (session.phase === "rechecking" && session.shell) {
+    enterContext(resolveNowState(session.shell));
+    document.querySelector(".app-shell").dataset.rideMode = session.mode;
+    $('[data-view="now"]').dataset.contextIdentity = "rechecking";
+    $("#now-search").hidden = true;
+    updateHTML(
+      root,
+      `<section class="section-block" data-rechecking-shell><span class="section-label">Live</span><h2>${ui(session.mode === "bus" ? "smartlive_bus" : "smartlive_rail")}</h2><p role="status">${ui("smartlive_rechecking")}</p><p class="source-note">${ui("smartlive_unknown")}</p></section>`,
+    );
+    updateHTML(
+      vehicle,
+      `${itinerarySummary(state.itinerary, state.network)}${candidateHTML()}`,
+    );
+    updateHTML(
+      $("#ride-actions"),
+      `<button type="button" class="plain-action" data-not-riding>${ui("smartlive_not_riding")}</button>`,
+    );
+    updateHTML(networkPanel, "");
+    updateHTML(nearPanel, "");
     navigation.refresh();
     return;
   }
@@ -383,7 +417,7 @@ export function renderNow() {
   $("#now-search").dispatchEvent(new Event("mymap-now-context"));
   updateHTML(
     vehicle,
-    `${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    `${state.rideCandidates.length ? `<p class="source-note" data-detection-status role="status">${ui(rideDetectionSession.snapshot().phase === "confirming" ? "smartlive_confirming" : "smartlive_searching")}</p>` : ""}${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
@@ -418,35 +452,45 @@ export function renderNow() {
     nearPanel,
     (nearby.length
       ? ui("vnext_view_109", [
-          nearby
-            .map((s) =>
-              ui("vnext_view_103", [
-                esc(s.id),
-                esc(s.stop.type),
-                esc(s.id),
-                s.stop.type.includes("bus")
-                  ? "bus"
-                  : s.stop.type === "kintetsu"
-                    ? "rail"
-                    : "subway",
-                esc(s.stop.type),
-                icon(s.stop.type.includes("bus") ? "bus" : "train"),
-                {
-                  subway: ui("vnext_view_058"),
-                  kintetsu: ui("vnext_view_059"),
-                  citybus: ui("vnext_view_060"),
-                  kyotobus: ui("vnext_view_061"),
-                }[s.stop.type] ?? ui("vnext_view_062"),
-                esc(s.stop.name),
-                esc(s.stop.lines?.join("・") ?? ""),
-                Math.max(1, Math.ceil(s.meters / 70)),
-                Math.round(s.meters),
-                s.stop.type === "subway"
-                  ? departureHTML(s.id)
-                  : s.stop.type === "kintetsu"
-                    ? kintetsuDepartureHTML(s.stop)
-                    : nearbyBusHTML(s.stop),
-              ]),
+          groupNearbyPlaces(nearby, state.geo)
+            .map(
+              (place) =>
+                `<section data-nearby-place="${esc(
+                  place.rows
+                    .map((s) => s.id)
+                    .sort()
+                    .join(":"),
+                )}">${place.rows.length > 1 ? `<p class="section-label">${esc(place.name)}</p>` : ""}${place.rows
+                  .map((s) =>
+                    ui("vnext_view_103", [
+                      esc(s.id),
+                      esc(s.stop.type),
+                      esc(s.id),
+                      s.stop.type.includes("bus")
+                        ? "bus"
+                        : s.stop.type === "kintetsu"
+                          ? "rail"
+                          : "subway",
+                      esc(s.stop.type),
+                      icon(s.stop.type.includes("bus") ? "bus" : "train"),
+                      {
+                        subway: ui("vnext_view_058"),
+                        kintetsu: ui("vnext_view_059"),
+                        citybus: ui("vnext_view_060"),
+                        kyotobus: ui("vnext_view_061"),
+                      }[s.stop.type] ?? ui("vnext_view_062"),
+                      esc(s.stop.name),
+                      esc(s.stop.lines?.join("・") ?? ""),
+                      Math.max(1, Math.ceil(s.meters / 70)),
+                      Math.round(s.meters),
+                      s.stop.type === "subway"
+                        ? departureHTML(s.id)
+                        : s.stop.type === "kintetsu"
+                          ? kintetsuDepartureHTML(s.stop)
+                          : nearbyBusHTML(s.stop),
+                    ]),
+                  )
+                  .join("")}</section>`,
             )
             .join(""),
         ])
@@ -469,13 +513,16 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
     bus = ["citybus", "kyotobus"].includes(ride.operator),
     shift = state.rideShift;
-  const progress = journeyProgress(ride, {
-      minute: now.minute,
-      shift,
-      fix: state.fix,
-      geo: state.geo,
-      trail: state.busTrail,
-    }),
+  const progress =
+      state.rideObservation?.progress?.source === "audio"
+        ? state.rideObservation.progress
+        : journeyProgress(ride, {
+            minute: now.minute,
+            shift,
+            fix: state.fix,
+            geo: state.geo,
+            trail: state.busTrail,
+          }),
     stops = progress.stops;
   const model = heroModel(ride, progress, {
     minute: now.minute,

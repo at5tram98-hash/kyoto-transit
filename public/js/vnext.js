@@ -1,3 +1,5 @@
+import { clearFalseRide } from "./vnext-detect.js";
+import { beginRideRecheck } from "./ride-rechecking.js";
 import { ui } from "./locale.js";
 import { mountLiveHome } from "./live-home.js";
 import { readSavedPlaces } from "./saved-places.js";
@@ -192,6 +194,13 @@ function setupEvents() {
     } else if (b.dataset.startHere) {
       $("#context-sheet").close();
       routeSearch?.setFrom(b.dataset.startHere);
+    } else if (b.hasAttribute("data-correct-ride")) {
+      beginRideRecheck("manual");
+      renderNow();
+      void autoDetectRide(true, renderNow);
+    } else if (b.hasAttribute("data-not-riding")) {
+      clearFalseRide();
+      renderNow();
     } else if (b.dataset.rideCandidate !== undefined) {
       if (confirmRideCandidate(b.dataset.rideCandidate)) renderNow();
     } else if (b.id === "ride-foldback" || b.hasAttribute("data-open-foldback"))
@@ -469,10 +478,10 @@ async function init() {
           arrivals.show();
       },
     });
-    document.addEventListener(
-      "mymap-transit-evidence",
-      () => void autoDetectRide(true, renderNow),
-    );
+    document.addEventListener("mymap-transit-evidence", () => {
+      renderNow();
+      void autoDetectRide(true, renderNow);
+    });
     document.addEventListener("mymap-live-refresh", () => {
       arrivals.show();
       renderNow();

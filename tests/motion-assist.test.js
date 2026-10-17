@@ -74,7 +74,13 @@ test("現在便と矛盾する具体的な次駅アナウンスを検出する",
   };
   assert.equal(
     announcementContradictsRide(
-      { line: null, route: null, destination: null, nextStop: "K06", trainType: null },
+      {
+        line: null,
+        route: null,
+        destination: null,
+        nextStop: "K06",
+        trainType: null,
+      },
       ride,
       601,
     ),
@@ -82,7 +88,13 @@ test("現在便と矛盾する具体的な次駅アナウンスを検出する",
   );
   assert.equal(
     announcementContradictsRide(
-      { line: null, route: null, destination: null, nextStop: "K08", trainType: null },
+      {
+        line: null,
+        route: null,
+        destination: null,
+        nextStop: "K08",
+        trainType: null,
+      },
       ride,
       600,
     ),
@@ -92,9 +104,10 @@ test("現在便と矛盾する具体的な次駅アナウンスを検出する",
 
 test("単発ノイズでは解除せず、独立矛盾または時間を隔てた音声矛盾で再確認する", () => {
   assert.equal(
-    shouldReleaseRideContradictions([
-      { source: "audio", confidence: 0.9, at: now, signature: "A" },
-    ], now),
+    shouldReleaseRideContradictions(
+      [{ source: "audio", confidence: 0.9, at: now, signature: "A" }],
+      now,
+    ),
     false,
   );
   assert.equal(
@@ -110,11 +123,36 @@ test("単発ノイズでは解除せず、独立矛盾または時間を隔て�
   assert.equal(
     shouldReleaseRideContradictions(
       [
-        { source: "pattern", confidence: 0.95, at: now - 1000, signature: "A>B" },
+        {
+          source: "pattern",
+          confidence: 0.95,
+          at: now - 1000,
+          signature: "A>B",
+        },
         { source: "audio", confidence: 0.9, at: now, signature: "X" },
       ],
       now,
     ),
     true,
+  );
+});
+
+test("walking classification needs real sensor cadence as well as walking-speed fixes", () => {
+  const sensor = Array.from({ length: 121 }, (_, i) => ({
+    at: now - 12000 + i * 100,
+    magnitude: i % 5 === 0 ? 0.9 : 0.05,
+  }));
+  assert.equal(
+    summarizeVehicleMotion(sensor, gps([1.2, 1.3, 1.4, 1.4]), now)
+      .walkingLikely,
+    true,
+  );
+  assert.equal(
+    summarizeVehicleMotion([], gps([1.2, 1.3, 1.4, 1.4]), now).walkingLikely,
+    false,
+  );
+  assert.equal(
+    summarizeVehicleMotion(sensor, gps([5, 5, 5, 5]), now).walkingLikely,
+    false,
   );
 });

@@ -468,7 +468,7 @@ export default {
   route_search_view_033:
     '<p class="journey-arrival-platform">着 {0}のりば · 時刻表記載</p>',
   route_search_view_034:
-    '<button type="button" class="primary-action" data-arm-route="{0}" data-arm-leg="{1}" aria-label="この経路を使う・案内を開始">{2}<span>案内を開始</span></button>',
+    '<button type="button" class="primary-action" data-arm-route="{0}" data-arm-leg="{1}" aria-label="この経路で案内を開始">{2}<span>この経路で案内を開始</span></button>',
   route_search_view_035:
     '<div class="route-actions" role="group" aria-label="経路の操作"><button type="button" data-save-route aria-label="行き先を保存">{0}<span>保存</span></button><button type="button" data-share-route aria-label="経路を共有">{1}<span>共有</span></button><button type="button" data-route-operations>{2}<span>運行情報</span></button><button type="button" data-route-more aria-haspopup="dialog" aria-label="経路のその他の操作">{3}<span>その他</span></button></div><p class="source-caption" data-route-feedback aria-live="polite"></p>',
   route_search_view_036: "早い",
@@ -669,7 +669,7 @@ export default {
   stop_autocomplete_004: "最近",
   stop_autocomplete_005: "保存済み",
   stop_autocomplete_006: "近く",
-  stop_autocomplete_007: "駅・停留所",
+  stop_autocomplete_007: "駅",
   stop_autocomplete_008: "施設",
   stop_autocomplete_009: "{0}付近の停留所 · ",
   stop_autocomplete_010: "該当する駅・停留所がありません",
@@ -1037,4 +1037,16 @@ export default {
   ride_not_boardable: "この便は現在の乗車案内を開始できる時刻ではありません",
   ride_next_stop: "次は {0}",
   ride_arrival_confirmed: "到着を確認しました",
+  smartlive_rechecking: "乗車中の便を確認しています",
+  smartlive_corrected: "乗車中の便を更新しました",
+  smartlive_confirming: "乗車の可能性 · 確認中",
+  smartlive_searching: "交通機関を確認中",
+  smartlive_confirmed: "乗車を確認しました",
+  smartlive_contradicting: "乗車中の便を再確認しています",
+  smartlive_unknown: "系統・方面を確認中",
+  smartlive_rail: "電車に乗車中",
+  smartlive_bus: "バスに乗車中",
+  smartlive_correct: "今の便を修正",
+  smartlive_not_riding: "乗車していません",
+  stop_autocomplete_bus: "停留所",
 };

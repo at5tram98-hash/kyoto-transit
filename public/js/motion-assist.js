@@ -1,3 +1,12 @@
+import { observeAudioSequence } from "./audio-sequence.js";
+import {
+  acquireAudioWindow,
+  releaseAudioWindow,
+  microphoneAlreadyGranted,
+} from "./audio-window.js";
+import { rideDetectionSession } from "./ride-detection-session.js";
+import { recordRideContradiction as recordContradiction } from "./ride-rechecking.js";
+import { contradictionDecision } from "./smartlive-evidence.js";
 import { parseAnnouncement, announcementMatch } from "./announcement-parser.js";
 import {
   transitEvidenceEngine,
@@ -5,19 +14,12 @@ import {
 } from "./transit-evidence.js";
 import { distance } from "./mobility.js";
 import { freshFix } from "./riding.js";
-import {
-  state,
-  settings,
-  tokyoNow,
-  persistJourney,
-  toast,
-} from "./vnext-state.js";
+import { state, settings, tokyoNow } from "./vnext-state.js";
 
 const RETRY_MS = 16000,
   MOTION_WINDOW_MS = 15000,
   SENSOR_LIMIT = 180,
-  VERIFY_INTERVAL_MS = 8000,
-  CONTRADICTION_TTL_MS = 90000;
+  VERIFY_INTERVAL_MS = 8000;
 let recognitionActive = false,
   lastAttemptAt = 0,
   motionInstalled = false,
@@ -171,12 +173,41 @@ export function summarizeVehicleMotion(
     score += 1;
     reasons.push("加速度の連続変化");
   }
+  const peaks = sensor.filter(
+    (sample, i) =>
+      i > 0 &&
+      i < sensor.length - 1 &&
+      sample.magnitude >= 0.45 &&
+      sample.magnitude > sensor[i - 1].magnitude &&
+      sample.magnitude >= sensor[i + 1].magnitude,
+  );
+  const span = sensor.length > 1 ? (sensor.at(-1).at - sensor[0].at) / 1000 : 0;
+  const cadence = span >= 5 ? peaks.length / span : 0;
   return {
+    walkingLikely:
+      sensor.length >= 12 &&
+      currentSpeed >= 0.6 &&
+      currentSpeed <= 2.3 &&
+      cadence >= 1.2 &&
+      cadence <= 2.7,
     observedAt: now,
     score: Math.min(6, score),
     reason: reasons.join("＋"),
     sensorSamples: sensor.length,
     sensorObservedAt: sensor.at(-1)?.at ?? null,
+    acceleration:
+      speeds.length > 1
+        ? (speeds.at(-1).speed - speeds[0].speed) /
+          Math.max(1, (speeds.at(-1).at - speeds[0].at) / 1000)
+        : null,
+    pattern:
+      speeds.length > 1 && speeds.at(-1).speed < 0.8 && speeds[0].speed > 2.8
+        ? "deceleration-stop"
+        : speeds.length > 1 &&
+            speeds[0].speed < 0.8 &&
+            speeds.at(-1).speed > 2.8
+          ? "stop-acceleration"
+          : "unresolved",
     phase: !Number.isFinite(currentSpeed)
       ? sensor.length >= 6 && activeRatio >= 0.35
         ? "moving"
@@ -216,30 +247,6 @@ function installDeviceMotion() {
   });
 }
 
-async function microphoneAlreadyGranted() {
-  if (!globalThis.navigator) return false;
-  try {
-    if (navigator.permissions?.query) {
-      const status = await navigator.permissions.query({ name: "microphone" });
-      if (status.state === "granted") return true;
-      if (status.state === "denied" || status.state === "prompt") return false;
-    }
-  } catch {}
-  // Safari does not consistently expose microphone permission through the
-  // Permissions API. A non-empty audio-input label is a prompt-free signal that
-  // access was granted previously; enumerateDevices itself never requests it.
-  try {
-    const devices = await navigator.mediaDevices?.enumerateDevices?.();
-    if (
-      devices?.some(
-        (device) => device.kind === "audioinput" && device.label?.trim(),
-      )
-    )
-      return true;
-  } catch {}
-  return false;
-}
-
 function announcementSignature(parsed) {
   return [
     parsed.line ?? "",
@@ -260,80 +267,7 @@ export function announcementContradictsRide(parsed, ride, minute) {
 }
 
 export function shouldReleaseRideContradictions(rows = [], now = Date.now()) {
-  const recent = rows
-    .filter(
-      (row) =>
-        row &&
-        Number.isFinite(row.at) &&
-        now - row.at <= CONTRADICTION_TTL_MS &&
-        row.confidence >= 0.75,
-    )
-    .sort((a, b) => a.at - b.at);
-  if (!recent.length) return false;
-  const sources = new Set(recent.map((row) => row.source));
-  if (sources.size >= 2) return true;
-  const audio = recent.filter((row) => row.source === "audio");
-  if (audio.length >= 2 && audio.at(-1).at - audio[0].at >= 4000) return true;
-  const patterns = recent.filter((row) => row.source === "pattern"),
-    signatures = new Set(patterns.map((row) => row.signature).filter(Boolean));
-  return (
-    patterns.length >= 2 &&
-    signatures.size >= 2 &&
-    patterns.at(-1).at - patterns[0].at >= 8000
-  );
-}
-
-function recentContradictions(now = Date.now()) {
-  state.rideContradictions = (state.rideContradictions ?? []).filter(
-    (row) => now - row.at <= CONTRADICTION_TTL_MS,
-  );
-  return state.rideContradictions;
-}
-
-function clearContradictions(source) {
-  const now = Date.now();
-  state.rideContradictions = recentContradictions(now).filter(
-    (row) => row.source !== source,
-  );
-}
-
-function releaseRideForRecheck() {
-  if (!state.ride) return false;
-  transitEvidenceEngine.unlock();
-  state.ride = null;
-  state.rideShift = 0;
-  state.rideShiftKnown = false;
-  state.rideObservation = null;
-  state.heroObservation = null;
-  state.rideSource = "乗車中の便を再確認中";
-  state.rideConfidence = 0;
-  state.rideConsensusCount = 0;
-  state.foldbackPlan = null;
-  state.rideContradictions = [];
-  persistJourney(true);
-  toast("乗車中の便を再確認しています");
-  queueMicrotask(() =>
-    document.dispatchEvent(new CustomEvent("mymap-transit-evidence")),
-  );
-  return true;
-}
-
-function recordContradiction(source, confidence, signature) {
-  if (!state.ride) return false;
-  const now = Date.now(),
-    rows = recentContradictions(now),
-    previous = rows.at(-1);
-  if (
-    previous?.source === source &&
-    previous?.signature === signature &&
-    now - previous.at < 3500
-  )
-    return false;
-  rows.push({ source, confidence, signature, at: now });
-  state.rideContradictions = rows.slice(-8);
-  if (shouldReleaseRideContradictions(state.rideContradictions, now))
-    return releaseRideForRecheck();
-  return false;
+  return contradictionDecision(rows, now).release;
 }
 
 function verifyCurrentBusPattern() {
@@ -357,7 +291,7 @@ function verifyCurrentBusPattern() {
           : pattern.at(-1)?.id),
     ordered = orderedStopEvidence(pattern, trail, { circular }),
     signature = trail.map((row) => row.id).join(">");
-  if (ordered.matched) clearContradictions("pattern");
+  if (ordered.matched) rideDetectionSession.clear("pattern");
   else if (ordered.rejected) recordContradiction("pattern", 0.95, signature);
 }
 
@@ -374,6 +308,16 @@ function confirmFromTranscript(event) {
     if (state.ride) {
       const current = announcementMatch(parsed, state.ride, minute);
       if (current) {
+        const sequence = observeAudioSequence(state.ride, current);
+        if (sequence.status === "contradictory") {
+          recordContradiction(
+            "audio",
+            sequence.confidence,
+            `sequence:${current.nextStop}`,
+          );
+          document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
+          return false;
+        }
         transitEvidenceEngine.ingest({
           type: "audio",
           candidate: state.ride,
@@ -381,7 +325,7 @@ function confirmFromTranscript(event) {
           observedAt: Date.now(),
           metadata: { directionVerified: true },
         });
-        clearContradictions("audio");
+        rideDetectionSession.clear("audio");
         document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
         return true;
       }
@@ -413,6 +357,11 @@ function confirmFromTranscript(event) {
       }))
       .filter((row) => row.match);
     if (matches.length !== 1) continue;
+    const sequence = observeAudioSequence(
+      matches[0].candidate.ride,
+      matches[0].match,
+    );
+    if (sequence.status === "contradictory") continue;
     transitEvidenceEngine.ingest({
       type: "audio",
       candidate: matches[0].candidate.ride,
@@ -426,6 +375,7 @@ function confirmFromTranscript(event) {
   return false;
 }
 function stopRecognition() {
+  releaseAudioWindow("ride");
   clearTimeout(recognitionTimer);
   const current = activeRecognition;
   activeRecognition = null;
@@ -447,7 +397,11 @@ async function autoSpeechAssist() {
     return;
 
   const now = Date.now();
-  if (now - lastAttemptAt < RETRY_MS) return;
+  if (
+    now - lastAttemptAt <
+    (rideDetectionSession.snapshot().intensified ? RETRY_MS : 45000)
+  )
+    return;
   if (!(await microphoneAlreadyGranted())) return;
   if (
     recognitionActive ||
@@ -458,8 +412,12 @@ async function autoSpeechAssist() {
   )
     return;
 
+  if (!acquireAudioWindow("ride")) return;
   const Recognition = speechCtor();
-  if (!Recognition) return;
+  if (!Recognition) {
+    releaseAudioWindow("ride");
+    return;
+  }
   const recognition = new Recognition();
   recognition.lang = "ja-JP";
   recognition.interimResults = false;
@@ -470,12 +428,21 @@ async function autoSpeechAssist() {
   recognitionTimer = setTimeout(stopRecognition, 6000);
   lastAttemptAt = Date.now();
 
-  recognition.onresult = (event) => confirmFromTranscript(event);
+  recognition.onresult = (event) => {
+    if (
+      activeRecognition === recognition &&
+      !document.hidden &&
+      settings.autoDetect !== false &&
+      settings.audioAssist !== false
+    )
+      confirmFromTranscript(event);
+  };
   recognition.onerror = () => {
     if (activeRecognition === recognition) stopRecognition();
   };
   recognition.onend = () => {
     if (activeRecognition !== recognition) return;
+    releaseAudioWindow("ride");
     clearTimeout(recognitionTimer);
     activeRecognition = null;
     recognitionActive = false;

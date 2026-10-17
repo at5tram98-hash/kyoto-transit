@@ -153,6 +153,9 @@ export async function liveInteractionChecks({
       await page.locator("[data-search-operator=kintetsu]").uncheck();
       await page.locator("#search-filter [data-search-sheet-cancel]").click();
       await settleNavigation(page);
+      await page.waitForFunction(() =>
+        document.querySelector("[name=operators]").value.includes("kintetsu"),
+      );
       assert.ok(
         (await page.locator("[name=operators]").inputValue()).includes(
           "kintetsu",

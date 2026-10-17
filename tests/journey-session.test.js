@@ -489,3 +489,16 @@ test("終点未取得の便も既知の降車駅までの乗車時間を検証�
   );
   assert.equal(boardingAvailable(ride, { ...now, minute: 650 }), false);
 });
+
+test("rechecking marker survives reload and never becomes confidence evidence", () => {
+  const s = storage(),
+    at = Date.now();
+  writeJourney(
+    s,
+    { ride, rideShift: 0, rideStartedAt: at, rideRechecking: true },
+    { now, at },
+  );
+  const restored = readJourney(s, { now, at, network });
+  assert.equal(restored.rideRechecking, true);
+  assert.equal(restored.rideConfidence, 0);
+});

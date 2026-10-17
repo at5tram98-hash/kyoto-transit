@@ -410,7 +410,10 @@ export function cityBusRideCandidates({
       if (ordered.rejected) return [];
       let index = service.stops.indexOf(currentStopId);
       if (index < 0) return [];
-      const ids = service.stops.slice(index);
+      const cycle = circular ? service.stops.slice(0, -1) : service.stops;
+      const ids = circular
+        ? [...cycle.slice(index), ...cycle.slice(0, index + 1)]
+        : service.stops.slice(index);
       if (ids.length < 2) return [];
       const officialStops = ids.map((id) => ({
         id,

@@ -16,11 +16,14 @@ const sample = (lat, lng, ageMs, accuracy = 8) => ({
 });
 
 test("10秒間の実移動から端末方位ではなく移動方位を求める", () => {
-  const movement = tenSecondMovement([
-    sample(35.0000, 135.7500, 10000),
-    sample(35.00045, 135.7500, 5000),
-    sample(35.0009, 135.7500, 0),
-  ], now);
+  const movement = tenSecondMovement(
+    [
+      sample(35.0, 135.75, 10000),
+      sample(35.00045, 135.75, 5000),
+      sample(35.0009, 135.75, 0),
+    ],
+    now,
+  );
   assert.ok(Number.isFinite(movement.heading));
   assert.ok(movement.heading < 20 || movement.heading > 340);
   assert.ok(movement.meters > 80);
@@ -28,57 +31,69 @@ test("10秒間の実移動から端末方位ではなく移動方位を求める
 });
 
 test("停車中のGPS揺れを進行方向として採用しない", () => {
-  const movement = tenSecondMovement([
-    sample(35.0000, 135.7500, 10000, 20),
-    sample(35.00003, 135.75001, 0, 20),
-  ], now);
+  const movement = tenSecondMovement(
+    [sample(35.0, 135.75, 10000, 20), sample(35.00003, 135.75001, 0, 20)],
+    now,
+  );
   assert.equal(movement.heading, null);
   assert.equal(movement.confidence, 0);
 });
 
 test("次停留所へ近づく移動と反対方向を区別する", () => {
-  const north = tenSecondMovement([
-    sample(35.0000, 135.7500, 10000),
-    sample(35.0009, 135.7500, 0),
-  ], now);
+  const north = tenSecondMovement(
+    [sample(35.0, 135.75, 10000), sample(35.0009, 135.75, 0)],
+    now,
+  );
   const supportive = movementAgainstStops(
     north,
-    { lat: 35.0015, lng: 135.7500 },
-    { lat: 34.9995, lng: 135.7500 },
+    { lat: 35.0015, lng: 135.75 },
+    { lat: 34.9995, lng: 135.75 },
   );
   assert.equal(supportive.status, "supportive");
 
-  const south = tenSecondMovement([
-    sample(35.0009, 135.7500, 10000),
-    sample(35.0000, 135.7500, 0),
-  ], now);
+  const south = tenSecondMovement(
+    [sample(35.0009, 135.75, 10000), sample(35.0, 135.75, 0)],
+    now,
+  );
   const contradictory = movementAgainstStops(
     south,
-    { lat: 35.0015, lng: 135.7500 },
-    { lat: 34.9995, lng: 135.7500 },
+    { lat: 35.0015, lng: 135.75 },
+    { lat: 34.9995, lng: 135.75 },
   );
   assert.equal(contradictory.status, "contradictory");
 });
 
 test("単発矛盾では解除せず独立ソースまたは時間差のある反復で解除する", () => {
   assert.equal(
-    contradictionDecision([
-      { source: "direction", confidence: 0.9, signature: "north", at: now },
-    ], now).release,
+    contradictionDecision(
+      [{ source: "direction", confidence: 0.9, signature: "north", at: now }],
+      now,
+    ).release,
     false,
   );
   assert.equal(
-    contradictionDecision([
-      { source: "direction", confidence: 0.9, signature: "north", at: now - 1000 },
-      { source: "pattern", confidence: 0.95, signature: "A>B", at: now },
-    ], now).release,
-    true,
+    contradictionDecision(
+      [
+        {
+          source: "direction",
+          confidence: 0.9,
+          signature: "north",
+          at: now - 1000,
+        },
+        { source: "pattern", confidence: 0.95, signature: "A>B", at: now },
+      ],
+      now,
+    ).release,
+    false,
   );
   assert.equal(
-    contradictionDecision([
-      { source: "audio", confidence: 0.9, signature: "K06", at: now - 6000 },
-      { source: "audio", confidence: 0.9, signature: "K08", at: now },
-    ], now).release,
+    contradictionDecision(
+      [
+        { source: "audio", confidence: 0.9, signature: "K06", at: now - 6000 },
+        { source: "audio", confidence: 0.9, signature: "K08", at: now },
+      ],
+      now,
+    ).release,
     true,
   );
 });

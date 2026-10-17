@@ -1,3 +1,4 @@
+import { rideDetectionSession } from "./ride-detection-session.js";
 import { subwayIds, kintetsuIds } from "./network.js";
 import { setAppLocale, ui } from "./locale.js";
 import { distance } from "./mobility.js";
@@ -215,7 +216,14 @@ export function persistJourney(force = false) {
   ]);
   if (!force && signature === lastJourneyWrite) return;
   try {
-    writeJourney(localStorage, state, { now: tokyoNow() });
+    const session = rideDetectionSession.snapshot();
+    writeJourney(
+      localStorage,
+      session.phase === "rechecking" && session.shell
+        ? { ...state, ride: session.shell, rideRechecking: true }
+        : state,
+      { now: tokyoNow() },
+    );
     writeItinerary(localStorage, state.itinerary);
     lastJourneyWrite = signature;
   } catch {}
@@ -228,6 +236,15 @@ export function restoreJourney() {
     });
     if (saved) {
       Object.assign(state, saved);
+      if (saved.rideRechecking) {
+        rideDetectionSession.confirm(saved.ride);
+        rideDetectionSession.recheck(saved.ride);
+        state.rideCandidates = [
+          { ride: saved.ride, score: 55, source: ui("smartlive_rechecking") },
+        ];
+        state.ride = null;
+        state.rideRechecking = false;
+      } else rideDetectionSession.confirm(saved.ride);
       toast(ui("ride_restored"));
     } else localStorage.removeItem("mymap-active-journey-v1");
     state.itinerary = readItinerary(localStorage, state.network);
@@ -236,7 +253,10 @@ export function restoreJourney() {
         ride = plan.rides[plan.legIndex];
       if (state.ride && samePlannedRide(state.ride, ride))
         plan.phase = "riding";
-      else if (["armed", "transfer", "riding"].includes(plan.phase)) {
+      else if (
+        rideDetectionSession.snapshot().phase !== "rechecking" &&
+        ["armed", "transfer", "riding"].includes(plan.phase)
+      ) {
         if (plan.phase === "riding") plan.phase = "armed";
         state.armedJourney = { ride, selectedAt: plan.savedAt };
       }

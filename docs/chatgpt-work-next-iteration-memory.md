@@ -1,5 +1,17 @@
 # ChatGPT Work 引継ぎ：Google Maps・Yahoo!乗換案内とMyMapの操作差
 
+## 継続実装 2026-10-17: SmartLive 1–75
+
+最新の実装監査・公開確認は [SmartLive 75項目表](smartlive-75-audit-2026-10-17.md) とJSONを正とする。この番号は旧UI 0–77節表と別体系。
+
+- 判定phase/mode/expected/contradiction/history/correction lockの所有者は `ride-detection-session.js`。旧/新の誤判定復旧は `ride-rechecking.js` の一経路へ統合し、別の矛盾配列やRide shellを増やさない。
+- 再確認時は未確定shellを保持し、現Rideも同じPoolで再評価。確定時はJourneyを保持。未乗車への解除ではLegを進めない。PWAの既存Journeyレコードにはrechecking markerを保存し、疑わしい便を確定状態で復元しない。
+- microphone permission判定と排他Windowは `audio-window.js`。最大6秒、既許可のみ、非表示/設定OFF/pagehideで停止し、abort後の結果を無視。Audio next-stop順序・循環wrap・直通K/Bを検証し、生音声/全文を診断へ残さない。
+- GPS directionとGPS stop patternを別の独立sourceに数えない。同一signatureで矛盾票を水増ししない。GPS＋振動のみで時刻表上の便を確定しない。Poolの重複排除と確定候補選択は複合transitCandidateKeyを使う。
+- Realtime adapterはUnavailable/neutral/supportive/contradictoryを分離。ID粒度のない運行情報を精密な便照合と捏造しない。京都バスODPT外部認証と実機/実走の未検証を消さない。
+- 駅候補の古いcloseイベントとSheet結果/History保存の競合を修正済み。検索モデルの一所有を維持する。macOS WebKitのnative selectがmin-heightを無視するため、共通selectのappearance/44pt定義を維持する。
+
+
 更新: 2026-10-17。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
 
 ## 最新改修（2026-10-17）

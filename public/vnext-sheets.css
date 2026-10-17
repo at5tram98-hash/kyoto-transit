@@ -270,7 +270,8 @@
   padding: 8px 10px;
   border: 1px solid var(--separator);
   border-radius: var(--radius-option);
-  background: var(--surface-secondary);
+  background-color: var(--surface-secondary);
+  padding-inline-end: 32px;
   color: var(--text);
   font: inherit;
 }
