@@ -478,7 +478,7 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
   const stationContext = consensus.stationContext();
   const announcement = state.smartLiveAnnouncement;
   const audioStop =
-    announcement && Date.now() - announcement.at <= 45000
+    announcement && Date.now() - announcement.at <= 75000
       ? state.network.stops.get(announcement.parsed.nextStop)
       : null;
   const near = fixFresh
@@ -744,7 +744,7 @@ export function updateRideAnchor() {
   const audio = state.audioProgress;
   if (
     audio &&
-    Date.now() - audio.at <= 45000 &&
+    Date.now() - audio.at <= 75000 &&
     audio.candidate === transitCandidateKey(ride) &&
     !freshFix(state.fix)
   ) {
