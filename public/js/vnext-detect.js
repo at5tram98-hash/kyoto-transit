@@ -73,7 +73,7 @@ function onRailCorridor(fix, type) {
             fix,
             { lng: l.points[i - 1][0], lat: l.points[i - 1][1] },
             { lng: p[0], lat: p[1] },
-          ) <= Math.max(140, fix.accuracy * 2),
+          ) <= Math.min(140, Math.max(80, fix.accuracy * 1.4)),
       ),
     );
 }
@@ -206,7 +206,7 @@ async function detectSubway(stopId) {
       direction: directionHint,
       minute: now.minute,
       network: state.network,
-      windowBefore: 9,
+      windowBefore: 4,
       windowAfter: 1,
     });
   if (!legs.length) return [];
@@ -504,7 +504,13 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
     near.bus = audioNear;
     if (audioStop.type === "kyotobus") near.kyotoBus = audioNear;
   }
-  const motion = trajectory(state.samples);
+  const motion = trajectory(state.samples),
+    motionEvidence = currentMotionEvidence(state.samples),
+    railMovement =
+      (motion.span >= 12 && motion.speed >= 2.8) ||
+      (motionEvidence.sensorSamples >= 6 &&
+        motionEvidence.activeRatio >= 0.35 &&
+        motionEvidence.rms >= 0.12);
   if (fixFresh) updateBusTrail(near.bus?.id, near.bus?.meters ?? Infinity);
   state.detectBusy = true;
   const generation = detectionGeneration;
@@ -514,11 +520,16 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
     let candidates = [];
     const stationClose =
         near.rail &&
-        near.rail.meters <= Math.max(180, (state.fix?.accuracy ?? 100) * 2.2),
+        near.rail.meters <=
+          Math.min(140, Math.max(90, (state.fix?.accuracy ?? 100) * 1.5)),
       railClose =
         near.rail &&
         (stationClose ||
           (fixFresh && onRailCorridor(state.fix, near.rail.stop.type))),
+      railProbeAllowed =
+        railMovement ||
+        Boolean(state.armedJourney?.ride) ||
+        Boolean(audioStop && ["subway", "kintetsu"].includes(audioStop.type)),
       recentBusTrail = state.busTrail.some((x) => Date.now() - x.at < 180000),
       busClose =
         near.bus &&
@@ -528,7 +539,7 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
         near.kyotoBus &&
         near.kyotoBus.meters <=
           Math.max(180, (state.fix?.accuracy ?? 100) * 2.3);
-    if (railClose) {
+    if (railClose && railProbeAllowed) {
       if (near.rail.id === "K15") {
         const [k, s] = await Promise.all([
           detectKintetsu("K15").catch(() => []),
