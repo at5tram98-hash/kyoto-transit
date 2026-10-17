@@ -84,14 +84,35 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       typeof event.candidate === "string"
         ? event.candidate
         : transitCandidateKey(event.candidate);
-    const key = `${candidate}:${event.type}`;
-    if ((events.get(key)?.observedAt ?? -Infinity) > event.observedAt)
-      return false;
+    const key = `${candidate}:${event.type}`,
+      previous = events.get(key);
+    if ((previous?.observedAt ?? -Infinity) > event.observedAt) return false;
+    const sameMoment = previous?.observedAt === event.observedAt,
+      metadata = {
+        ...(sameMoment ? previous?.metadata : {}),
+        ...event.metadata,
+      };
+    if (sameMoment) {
+      if (previous?.metadata?.directionVerified || event.metadata?.directionVerified)
+        metadata.directionVerified = true;
+      if (previous?.metadata?.transportSpecific || event.metadata?.transportSpecific)
+        metadata.transportSpecific = true;
+      if (previous?.metadata?.rejected || event.metadata?.rejected)
+        metadata.rejected = true;
+    }
     events.set(key, {
       ...event,
       candidate,
-      confidence: Math.max(0, Math.min(1, event.confidence)),
-      metadata: { ...event.metadata },
+      confidence: Math.max(
+        0,
+        Math.min(
+          1,
+          sameMoment
+            ? Math.max(previous?.confidence ?? 0, event.confidence)
+            : event.confidence,
+        ),
+      ),
+      metadata,
     });
     if (events.size > 80) events.delete(events.keys().next().value);
     return true;
@@ -194,6 +215,9 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
             e.type === "gps" &&
             e.metadata?.directionVerified === true &&
             (e.metadata?.routeTrajectory === true ||
+              (e.metadata?.trajectoryAligned === true &&
+                e.metadata?.trajectoryDirection === "forward" &&
+                Number(e.metadata?.progressMeters ?? 0) >= 35) ||
               Number(e.metadata?.orderedStops ?? 0) >= 2),
         ),
         audioDirection = matching.some(
@@ -225,8 +249,19 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
         hasAudio = sources.includes("audio"),
         hasRealtime = sources.includes("realtime"),
         hasMotion = sources.includes("motion"),
-        transportSpecific = hasAudio || hasRealtime || orderedRoute,
+        strongRailMobility =
+          routeProgressGps &&
+          hasMotion &&
+          matching.some(
+            (e) =>
+              e.type === "gps" &&
+              e.metadata?.transportSpecific === true &&
+              e.metadata?.directionVerified === true,
+          ),
+        transportSpecific =
+          hasAudio || hasRealtime || orderedRoute || strongRailMobility,
         multimodalIdentity =
+          strongRailMobility ||
           (routeProgressGps && (hasAudio || hasRealtime)) ||
           (hasAudio && hasRealtime && hasMotion) ||
           (orderedRoute && (hasMotion || hasAudio || hasRealtime));
