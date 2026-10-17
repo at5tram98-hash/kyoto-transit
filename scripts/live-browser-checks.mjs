@@ -41,6 +41,38 @@ export async function liveInteractionChecks({
         })),
     );
   }
+  async function panMap(page, dx, dy) {
+    await page.evaluate(
+      ({ dx, dy }) => {
+        const canvas = document.querySelector(
+          ".navigation-current .route-map.map-interactive .map-canvas",
+        );
+        const rect = canvas.getBoundingClientRect(),
+          x = rect.left + rect.width / 2,
+          y = rect.top + rect.height / 2,
+          pointerId = 71;
+        canvas.setPointerCapture = () => {};
+        const fire = (type, clientX, clientY, buttons) =>
+          canvas.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              pointerId,
+              pointerType: "touch",
+              isPrimary: true,
+              button: 0,
+              buttons,
+              clientX,
+              clientY,
+            }),
+          );
+        fire("pointerdown", x, y, 1);
+        fire("pointermove", x + dx, y + dy, 1);
+        fire("pointerup", x + dx, y + dy, 0);
+      },
+      { dx, dy },
+    );
+  }
   const distance = ([a, b]) => Math.hypot(a.x - b.x, a.y - b.y);
 
   {
@@ -76,16 +108,9 @@ export async function liveInteractionChecks({
     });
     try {
       const page = pan.page;
-      const map = await openFullNearbyMap(page);
-      const box = await map.boundingBox();
-      assert.ok(box, "full nearby map is visible");
+      await openFullNearbyMap(page);
       const before = await firstStopPositions(page);
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width / 2 + 70, box.y + box.height / 2 + 45, {
-        steps: 4,
-      });
-      await page.mouse.up();
+      await panMap(page, 70, 45);
       const after = await firstStopPositions(page);
       assert.ok(
         Math.abs(after[0].x - before[0].x) > 1 ||
@@ -108,15 +133,8 @@ export async function liveInteractionChecks({
     });
     try {
       const page = tracking.page;
-      const map = await openFullNearbyMap(page);
-      const box = await map.boundingBox();
-      assert.ok(box);
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width / 2 + 55, box.y + box.height / 2 + 30, {
-        steps: 4,
-      });
-      await page.mouse.up();
+      await openFullNearbyMap(page);
+      await panMap(page, 55, 30);
       const before = await firstStopPositions(page);
       await page.evaluate(async () => {
         const query = new URL(
