@@ -90,11 +90,23 @@ test("GPSを繰り返しても独立した3証拠にはならず自動確定し�
   }
   assert.equal(e.evaluate([row], now + 8000).count, 1);
 });
-test("地下でGPSが消えても時刻表・音声・Motionで方向を照合できる", () => {
+test("地下でGPSが消えた場合は音声とMotionだけで自動確定しない", () => {
   const e = createTransitEvidenceEngine();
   add(e, "timetable");
   add(e, "motion");
   add(e, "audio", now, { directionVerified: true });
+  assert.equal(e.evaluate([row], now).confirmed, null);
+});
+test("音声・路線進行GPS・Motionが一致すると乗車を確定できる", () => {
+  const e = createTransitEvidenceEngine();
+  add(e, "timetable");
+  add(e, "motion");
+  add(e, "audio", now, { directionVerified: true });
+  add(e, "gps", now, {
+    directionVerified: true,
+    routeTrajectory: true,
+    walkingLikely: false,
+  });
   assert.equal(e.evaluate([row], now).confirmed, ride);
 });
 test("停車中speed=0でも駅contextを保持するが期限切れで破棄する", () => {
@@ -203,6 +215,11 @@ test("音声は次駅・行先・系統・種別を分離し、単なる駅名�
   assert.equal(p.trainType, "express");
   assert.equal(p.route, "204");
   assert.equal(p.destination, "B28");
+});
+
+test("音声認識のひらがな表現も次駅として解釈する", () => {
+  const parsed = parseAnnouncement("つぎのえきはいまでがわです", ride.officialStops);
+  assert.equal(parsed.nextStop, "K06");
 });
 
 test("循環バス候補は現在停留所から一周を保持し、基点到達後の次停留所を失わない", () => {
