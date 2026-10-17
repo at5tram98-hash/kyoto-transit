@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeVehicleMotion } from "../public/js/motion-assist.js";
+import {
+  summarizeVehicleMotion,
+  announcementContradictsRide,
+  shouldReleaseRideContradictions,
+} from "../public/js/motion-assist.js";
 
 const now = 1_800_000;
 function gps(speeds) {
@@ -55,4 +59,62 @@ test("古い加速度サンプルは乗車根拠に使わない", () => {
   );
   assert.equal(result.sensorSamples, 0);
   assert.ok(result.score <= 3);
+});
+
+test("現在便と矛盾する具体的な次駅アナウンスを検出する", () => {
+  const ride = {
+    operator: "subway",
+    direction: "north",
+    category: "local",
+    officialStops: [
+      { id: "K07", name: "丸太町", time: 600 },
+      { id: "K06", name: "今出川", time: 603 },
+      { id: "K05", name: "鞍馬口", time: 605 },
+    ],
+  };
+  assert.equal(
+    announcementContradictsRide(
+      { line: null, route: null, destination: null, nextStop: "K06", trainType: null },
+      ride,
+      601,
+    ),
+    false,
+  );
+  assert.equal(
+    announcementContradictsRide(
+      { line: null, route: null, destination: null, nextStop: "K05", trainType: null },
+      ride,
+      600,
+    ),
+    true,
+  );
+});
+
+test("単発ノイズでは解除せず、独立矛盾または時間を隔てた音声矛盾で再確認する", () => {
+  assert.equal(
+    shouldReleaseRideContradictions([
+      { source: "audio", confidence: 0.9, at: now, signature: "A" },
+    ], now),
+    false,
+  );
+  assert.equal(
+    shouldReleaseRideContradictions(
+      [
+        { source: "audio", confidence: 0.9, at: now - 5000, signature: "A" },
+        { source: "audio", confidence: 0.9, at: now, signature: "B" },
+      ],
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    shouldReleaseRideContradictions(
+      [
+        { source: "pattern", confidence: 0.95, at: now - 1000, signature: "A>B" },
+        { source: "audio", confidence: 0.9, at: now, signature: "X" },
+      ],
+      now,
+    ),
+    true,
+  );
 });
