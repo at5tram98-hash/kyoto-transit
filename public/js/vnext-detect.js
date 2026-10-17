@@ -1,3 +1,5 @@
+import { missedConnection } from "./journey-recovery.js";
+import { ui } from "./locale.js";
 import {
   transitEvidenceEngine as consensus,
   transitCandidateKey,
@@ -345,13 +347,16 @@ function applyRide(candidate) {
     state.foldbackPlan = null;
     lastNextAlertKey = null;
     haptic();
-    toast(`${serviceName(candidate.ride)}の乗車案内を開始しました`);
+    toast(ui("ride_started", [serviceName(candidate.ride)]));
   }
   persistJourney();
 }
 export function finishCurrentRide({ keepItinerary = false } = {}) {
-  if (itineraryDestinationChanged(state.itinerary, state.ride))
-    keepItinerary = false;
+  const changed =
+      keepItinerary && itineraryDestinationChanged(state.itinerary, state.ride),
+    recoveryPlan = changed ? state.itinerary : null,
+    recoveryStop = state.ride?.userDestination?.id;
+  if (changed) keepItinerary = false;
   if (keepItinerary && state.itinerary) {
     state.itinerary = advanceItinerary(state.itinerary);
     state.armedJourney =
@@ -374,6 +379,16 @@ export function finishCurrentRide({ keepItinerary = false } = {}) {
   state.rideConfidence = 0;
   resetRideDetection();
   persistJourney(true);
+  const missed = keepItinerary && missedConnection(state.itinerary, tokyoNow());
+  if (recoveryPlan || missed) {
+    const plan = recoveryPlan ?? state.itinerary,
+      stopId = recoveryStop ?? plan.route.legs[plan.legIndex].from;
+    queueMicrotask(() =>
+      document.dispatchEvent(
+        new CustomEvent("mymap-itinerary-replan", { detail: { plan, stopId } }),
+      ),
+    );
+  }
 }
 export function confirmRideCandidate(index) {
   const candidate = state.rideCandidates[Number(index)];
@@ -392,7 +407,7 @@ export function resetRideDetection() {
 
 export function startManualRide(ride) {
   if (!boardingAvailable(ride, tokyoNow())) {
-    toast("この便は現在の乗車案内を開始できる時刻ではありません");
+    toast(ui("ride_not_boardable"));
     return false;
   }
   resetRideDetection();
@@ -613,13 +628,13 @@ export function updateRideAnchor() {
   ) {
     lastNextAlertKey = alertKey;
     haptic();
-    toast(`次は ${next.name ?? "次の停留所"}`);
+    toast(ui("ride_next_stop", [next.name ?? ui("now_model_013")]));
   }
   const transfer =
     state.foldbackPlan && state.foldbackPlan.depart >= now.minute - 5;
   if (observation.arrived && !transfer) {
     finishCurrentRide({ keepItinerary: Boolean(state.itinerary) });
-    toast("到着を確認しました");
+    toast(ui("ride_arrival_confirmed"));
   }
   persistJourney();
 }

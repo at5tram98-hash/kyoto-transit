@@ -1,5 +1,43 @@
 /* Semantic design tokens: content stays solid; chrome uses material. */
 :root {
+  /* Shared geometry and elevation preserve the existing visual dimensions. */
+  --radius-detail: 3px;
+  --radius-tiny: 4px;
+  --radius-marker: 7px;
+  --radius-compact: 8px;
+  --radius-option: 11px;
+  --radius-row: 12px;
+  --radius-control-tight: 13px;
+  --radius-group: 16px;
+  --radius-inset: 18px;
+  --radius-vehicle: 19px;
+  --radius-map: 22px;
+  --radius-surface: 24px;
+  --radius-sheet: 26px;
+  --radius-glass: 28px;
+  --radius-hero: 30px;
+  --radius-round: 50%;
+  --shadow-hairline: 0 0 0 1px var(--separator);
+  --shadow-focus-wide: 0 0 0 5px var(--blue-soft);
+  --shadow-focus: 0 0 0 4px var(--blue-soft);
+  --shadow-arrival-marker: 0 2px 5px rgba(0, 0, 0, 0.12);
+  --shadow-live-ring: 0 0 0 4px
+    color-mix(in srgb, var(--green) 14%, transparent);
+  --shadow-next-stop: 0 2px 16px #00000008;
+  --shadow-vehicle: 0 1px 5px #0002;
+  --shadow-navigation: 0 -3px 18px rgba(0, 0, 0, 0.08);
+  --shadow-toggle: 0 1px 4px rgba(0, 0, 0, 0.25);
+  --shadow-sheet: 0 24px 80px rgba(0, 0, 0, 0.28);
+  --shadow-tab-light: 0 3px 14px rgba(0, 0, 0, 0.07);
+  --shadow-tab-dark: 0 3px 14px rgba(0, 0, 0, 0.16);
+  --shadow-toast: 0 15px 40px rgba(0, 0, 0, 0.14);
+  --shadow-boundary: inset 0 0 0 1px var(--purple);
+  --shadow-station-ring: 0 0 0 5px
+    color-mix(in srgb, var(--green) 18%, transparent);
+  --color-backdrop-rgb: 0, 0, 0;
+  --material-backdrop: rgba(var(--color-backdrop-rgb), 0.32);
+  --separator-tab-light: rgba(60, 60, 67, 0.14);
+  --separator-tab-dark: rgba(255, 255, 255, 0.14);
   color-scheme: light dark;
   --bg: #f2f2f7;
   --surface-primary: #ffffff;
@@ -172,7 +210,7 @@ html[data-reduce-motion="true"] *::after {
 .transport-icon {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   display: grid;
   place-items: center;
   flex: none;
@@ -255,9 +293,9 @@ a {
 }
 .location-pill {
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   background: var(--panel);
-  box-shadow: 0 0 0 1px var(--separator);
+  box-shadow: var(--shadow-hairline);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -300,7 +338,7 @@ main {
 .hero-card {
   position: relative;
   overflow: hidden;
-  border-radius: 26px;
+  border-radius: var(--radius-sheet);
   padding: 24px 22px;
   background: var(--panel);
   box-shadow: var(--shadow);
@@ -313,7 +351,7 @@ main {
   top: -70px;
   width: 190px;
   height: 190px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: radial-gradient(
     circle,
     color-mix(in srgb, var(--blue) 13%, transparent),
@@ -366,9 +404,9 @@ main {
 .live-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--blue);
-  box-shadow: 0 0 0 5px var(--blue-soft);
+  box-shadow: var(--shadow-focus-wide);
 }
 .pulse-dot {
   animation: pulse 1.4s ease-in-out infinite;
@@ -381,7 +419,7 @@ main {
 }
 .live-dot {
   background: var(--green);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--green) 18%, transparent);
+  box-shadow: var(--shadow-station-ring);
 }
 .primary-action:active,
 .secondary-action:active {
@@ -390,7 +428,7 @@ main {
 .primary-action,
 .secondary-action {
   border: 0;
-  border-radius: 16px;
+  border-radius: var(--radius-group);
   padding: 13px 17px;
   font-weight: 750;
   margin-top: 18px;
@@ -407,7 +445,7 @@ main {
 .thin-progress {
   height: 3px;
   background: var(--separator);
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   overflow: hidden;
   margin-top: 18px;
 }

@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { setupSheetGestures } from "./context-sheet.js";
 import { navigation } from "./navigation.js";
 import { esc } from "./vnext-state.js";
@@ -21,8 +22,7 @@ export function registerTripChoice({
   sheet.className = "sheet";
   sheet.dataset.detent = "medium";
   sheet.setAttribute("aria-labelledby", "trip-choice-title");
-  sheet.innerHTML =
-    '<button type="button" class="sheet-drag-handle" aria-label="高さを変更・下へドラッグして閉じる"><span></span></button><div class="sheet-header"><h2 id="trip-choice-title">発車時刻を変更</h2><button type="button" class="sheet-close" data-trip-close aria-label="閉じる">×</button></div><div class="sheet-body"></div>';
+  sheet.innerHTML = ui("route_trip_screen_001");
   document.body.append(sheet);
   setupSheetGestures();
   const body = sheet.querySelector(".sheet-body");
@@ -57,7 +57,7 @@ export function registerTripChoice({
         route.params.routeVersion
     );
   };
-  const selectedDate = (leg) => leg.serviceDate ?? "運行日未取得";
+  const selectedDate = (leg) => leg.serviceDate ?? ui("route_trip_screen_002");
   function renderOptions(element, view) {
     const list = element.querySelector(".trip-choice-list");
     const current = Math.max(
@@ -73,15 +73,43 @@ export function registerTripChoice({
           .map(({ o, i }) => {
             const l = o.leg,
               picked = view.key ? view.key === o.key : o.selected;
-            return `<button type="button" class="trip-choice-row ${picked ? "selected" : ""}" data-trip-choice="${i}" aria-pressed="${picked}" ${o.available ? "" : "disabled"}><span class="trip-choice-times"><b>${formatTime(l.depart)}</b><small>${Number.isFinite(l.arrive) ? `${formatTime(l.arrive)}着` : "到着未取得"}</small></span><span class="trip-choice-description"><b>${esc(l.route ? `${l.route}系統` : (operatorLabel[l.operator] ?? l.label))}${l.category === "express" ? " · 急行" : l.category === "local" ? " · 普通" : ""}</b><small>${esc(l.destination ?? "行先未確認")}${l.destination ? "行" : ""}${l.platform ? ` · ${esc(l.platform)}のりば` : ""}</small><small>${esc(selectedDate(l))}運行${o.selected ? " · 現在の便" : ""}${l.dataConfidence === "stale" ? " · 保存ダイヤ" : ""}</small>${o.reason ? `<small class="trip-choice-reason">${esc(o.reason)}</small>` : ""}</span><span class="trip-choice-check" aria-hidden="true">${picked ? '<svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>' : ""}</span></button>`;
+            return ui("route_trip_screen_026", [
+              picked ? "selected" : "",
+              i,
+              picked,
+              o.available ? "" : "disabled",
+              formatTime(l.depart),
+              Number.isFinite(l.arrive)
+                ? ui("route_trip_screen_003", [formatTime(l.arrive)])
+                : ui("route_trip_screen_004"),
+              esc(
+                l.route
+                  ? ui("route_trip_screen_005", [l.route])
+                  : (operatorLabel[l.operator] ?? l.label),
+              ),
+              l.category === "express"
+                ? ui("route_trip_screen_006")
+                : l.category === "local"
+                  ? ui("route_trip_screen_007")
+                  : "",
+              esc(l.destination ?? ui("route_trip_screen_008")),
+              l.destination ? ui("route_trip_screen_009") : "",
+              l.platform ? ui("route_trip_screen_010", [esc(l.platform)]) : "",
+              esc(selectedDate(l)),
+              o.selected ? ui("route_trip_screen_011") : "",
+              l.dataConfidence === "stale" ? ui("route_trip_screen_012") : "",
+              o.reason
+                ? `<small class="trip-choice-reason">${esc(o.reason)}</small>`
+                : "",
+              picked
+                ? '<svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>'
+                : "",
+            ]);
           })
           .join("")}</div>`
-      : '<p class="empty-state">この区間の別便を取得できません。元の経路は保持しています。</p>';
+      : ui("route_trip_screen_013");
     if (view.compact)
-      list.insertAdjacentHTML(
-        "beforeend",
-        '<button type="button" class="native-row" data-more-trips><span>その他の便・変更内容を比較</span><span class="chevron">›</span></button>',
-      );
+      list.insertAdjacentHTML("beforeend", ui("route_trip_screen_014"));
   }
   function renderPreview(element, view) {
     const preview = element.querySelector(".trip-change-preview"),
@@ -90,10 +118,11 @@ export function registerTripChoice({
     preview.hidden = !view.preview && !view.busy && !view.error;
     footer.hidden = view.compact || !view.key;
     button.disabled = !view.preview || view.busy;
-    button.textContent = view.busy ? "接続を再計算中…" : "この便で経路を更新";
+    button.textContent = view.busy
+      ? ui("route_trip_screen_015")
+      : ui("route_trip_screen_016");
     if (view.busy) {
-      preview.innerHTML =
-        '<p class="loading-note" role="status">後続の乗換・到着時刻・運賃を再計算しています…</p>';
+      preview.innerHTML = ui("route_trip_screen_017");
       return;
     }
     if (view.error) {
@@ -106,8 +135,23 @@ export function registerTripChoice({
     }
     const change = journeyChange(view.original, view.preview),
       price = (n) =>
-        Number.isFinite(n) ? `${n.toLocaleString("ja-JP")}円` : "未確認";
-    preview.innerHTML = `<h2>変更後の旅程</h2><dl class="context-facts"><div><dt>到着</dt><dd>${formatTime(view.original.time)} → ${formatTime(view.preview.time)}</dd></div><div><dt>乗換</dt><dd>${view.original.transfers}回 → ${view.preview.transfers}回</dd></div><div><dt>追加運賃</dt><dd>${price(view.original.fare.additional)} → ${price(view.preview.fare.additional)}</dd></div></dl><p class="source-caption">${change.changedTrips}区間の便を更新。徒歩・滞在・乗換余裕・定期区間も再計算しました。</p>${change.deadline ? `<p class="planner-warning">元の到着指定より${change.deadline}分遅くなります。</p>` : ""}${routeHTML(view.preview, network, [], 0, tokyoNow(), true, { readOnly: true, hideActions: true })}`;
+        Number.isFinite(n)
+          ? ui("route_trip_screen_018", [n.toLocaleString("ja-JP")])
+          : ui("route_trip_screen_019");
+    preview.innerHTML = ui("route_trip_screen_027", [
+      formatTime(view.original.time),
+      formatTime(view.preview.time),
+      view.original.transfers,
+      view.preview.transfers,
+      price(view.original.fare.additional),
+      price(view.preview.fare.additional),
+      change.changedTrips,
+      change.deadline ? ui("route_trip_screen_020", [change.deadline]) : "",
+      routeHTML(view.preview, network, [], 0, tokyoNow(), true, {
+        readOnly: true,
+        hideActions: true,
+      }),
+    ]);
   }
   async function choose(element, route, index) {
     const view = views.get(route.key),
@@ -153,8 +197,7 @@ export function registerTripChoice({
       original = data?.routes[route.params.index],
       leg = original?.legs[route.params.legIndex];
     if (!valid(route) || leg?.kind !== "ride") {
-      element.innerHTML =
-        '<p class="empty-state">経路が更新されています。経路詳細へ戻り、便を選び直してください。</p>';
+      element.innerHTML = ui("route_trip_screen_021");
       return;
     }
     let view = views.get(route.key);
@@ -172,7 +215,11 @@ export function registerTripChoice({
       compact: route.key === "trip-sheet",
     };
     views.set(route.key, view);
-    element.innerHTML = `<p class="trip-choice-intro"><b>${esc(network.stops.get(leg.from)?.name ?? leg.from)} → ${esc(network.stops.get(leg.to)?.name ?? leg.to)}</b><small>現在 ${formatTime(leg.depart)}発 · 前後の便を選択</small></p><p class="source-caption" data-trip-feed-note></p><div class="trip-choice-list"><p class="loading-note">公式の時刻表を確認中…</p></div><section class="trip-change-preview" hidden aria-live="polite"></section><footer class="screen-bottom-action" hidden><button type="button" class="primary-action" data-apply-trip disabled>この便で経路を更新</button></footer>`;
+    element.innerHTML = ui("route_trip_screen_022", [
+      esc(network.stops.get(leg.from)?.name ?? leg.from),
+      esc(network.stops.get(leg.to)?.name ?? leg.to),
+      formatTime(leg.depart),
+    ]);
     try {
       view.context = await getContext(
         data,
@@ -198,9 +245,7 @@ export function registerTripChoice({
         ...new Set(
           (result.feedMeta ?? [])
             .filter((m) => m.stale || m.warning)
-            .map(
-              (m) => m.warning ?? "保存したダイヤです。変更をご確認ください。",
-            ),
+            .map((m) => m.warning ?? ui("route_trip_screen_023")),
         ),
       ].join(" ");
       renderOptions(element, view);
@@ -215,14 +260,16 @@ export function registerTripChoice({
       if (index >= 0) await choose(element, route, index);
     } catch (error) {
       if (!view.controller.signal.aborted)
-        element.querySelector(".trip-choice-list").innerHTML =
-          `<p class="planner-warning" role="alert">${esc(error.message)}</p><button class="plain-action" data-retry-trip>再取得</button>`;
+        element.querySelector(".trip-choice-list").innerHTML = ui(
+          "route_trip_screen_024",
+          [esc(error.message)],
+        );
     } finally {
       view.loading = false;
     }
   }
   navigation.register("departures", {
-    title: "便を変更",
+    title: ui("route_trip_screen_025"),
     create({ element, route }) {
       element.addEventListener("click", (event) => {
         const target = event.target.closest("button");

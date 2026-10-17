@@ -28,12 +28,12 @@
   gap: 3px;
   padding: 3px;
   margin-bottom: 14px;
-  border-radius: 13px;
+  border-radius: var(--radius-control-tight);
   background: var(--panel-2);
 }
 .planner-switch button {
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--muted);
   font-size: 0.8125rem;
@@ -64,7 +64,7 @@
   min-height: 58px;
   padding: 4px;
   border: 0;
-  border-radius: 11px;
+  border-radius: var(--radius-option);
   background: var(--surface-place-entry);
   text-align: left;
   font-size: var(--type-body);
@@ -74,7 +74,7 @@
   place-items: center;
   align-self: stretch;
   min-height: 48px;
-  border-radius: 8px;
+  border-radius: var(--radius-compact);
   background: var(--color-place-label);
   color: var(--color-on-transport);
   font-weight: 700;
@@ -92,7 +92,7 @@
   min-height: 44px;
   min-width: 44px;
   border: 1px solid var(--separator);
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   background: var(--surface-primary);
   color: var(--text);
   padding: 6px 12px;
@@ -107,7 +107,7 @@
   height: 44px;
   padding: 8px;
   border: 1px solid var(--separator);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--surface-primary);
   color: var(--text);
   font-size: 22px;
@@ -134,7 +134,7 @@
   margin: 14px 0 8px;
   padding: 8px 10px;
   border: 1px solid var(--separator);
-  border-radius: 11px;
+  border-radius: var(--radius-option);
   background: var(--surface-primary);
   text-align: left;
   font: inherit;
@@ -160,7 +160,7 @@
   margin: 18px auto 8px;
   padding: 10px 16px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   background: var(--color-search-action);
   color: var(--color-on-transport);
   font: inherit;
@@ -222,7 +222,7 @@
 }
 .departure-neighbor {
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   background: var(--color-search-action);
   color: var(--color-on-transport);
   font-weight: 700;
@@ -274,7 +274,7 @@
   min-width: 0;
   width: 100%;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   background: var(--surface-secondary);
   color: var(--text);
   font: inherit;
@@ -380,6 +380,16 @@
   font-size: 0.75rem;
   line-height: 1.5;
 }
+.journey-recovery {
+  margin-block: 16px;
+  padding-block: 12px;
+  border-block: 1px solid var(--separator);
+}
+.journey-recovery .secondary-action {
+  width: 100%;
+  min-height: 48px;
+  white-space: normal;
+}
 .planner-results-title {
   font-size: 0.9375rem;
   margin: 10px 2px;
@@ -425,7 +435,7 @@
   place-items: center;
   min-width: 22px;
   min-height: 22px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   font: inherit;
   font-size: var(--type-caption);
   font-style: normal;
@@ -548,7 +558,7 @@
   width: 100%;
   margin: 0;
   padding: 11px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   font-size: 0.875rem;
 }
 .planner-open-route {
@@ -613,7 +623,7 @@
   flex: none;
   padding: 10px;
   border: 1px solid var(--separator);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   fill: none;
   stroke: var(--color-link);
   stroke-width: 1.8;
@@ -683,7 +693,7 @@
   top: 0.55em;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--panel);
   border: 2px solid var(--journey-line-color, var(--blue));
 }
@@ -716,7 +726,7 @@
 .journey-station-kind {
   background: var(--muted);
   color: var(--surface-primary);
-  border-radius: 3px;
+  border-radius: var(--radius-detail);
   padding: 1px 3px;
   font-size: var(--type-caption);
   font-weight: 700;
@@ -764,7 +774,7 @@
 .journey-platform > b {
   background: var(--muted);
   color: var(--surface-primary);
-  border-radius: 3px;
+  border-radius: var(--radius-detail);
   padding: 1px 4px;
 }
 .journey-ride {
@@ -787,7 +797,7 @@
   width: 100%;
   min-height: 44px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-compact);
   background: transparent;
   color: var(--blue);
 }
@@ -995,7 +1005,7 @@
   width: 100%;
   min-height: 48px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   padding: 10px 12px;
   background: var(--surface-secondary);
   font-size: 1.0625rem;
@@ -1092,10 +1102,10 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  width: 56px;
-  min-height: 56px;
+  width: 3.5rem;
+  min-height: 3.5rem;
   border: 1px solid var(--separator);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   color: var(--color-link);
   font-size: var(--type-body);
   cursor: pointer;
@@ -1103,7 +1113,7 @@
   padding: 4px;
 }
 .planner-leg-stops summary small {
-  display: inline;
+  display: block;
   margin: 0;
   font-size: var(--type-caption);
   color: inherit;

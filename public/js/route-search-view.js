@@ -1,14 +1,17 @@
+import { ui, displayStopName } from "./locale.js";
 import { esc, icon } from "./vnext-state.js";
 import { formatTime } from "./router.js";
 import { boardingAvailable } from "./journey-session.js";
 import { routeObservationState } from "./route-search-model.js";
 const yen = (n) =>
-  Number.isFinite(n) ? `${Math.round(n).toLocaleString("ja-JP")}円` : "—";
+  Number.isFinite(n)
+    ? ui("route_search_view_001", [Math.round(n).toLocaleString("ja-JP")])
+    : "—";
 const dot = (source) =>
   `<i class="source-dot ${source === "live" ? "live" : source === "prediction" ? "prediction" : "schedule"}" aria-hidden="true"></i>`;
 function observationHTML(observations, delay) {
   const state = routeObservationState(observations);
-  return `${dot(state.source)}${state.label}${Number.isFinite(delay) ? ` · ${delay > 0 ? "+" : ""}${delay}分` : ""}`;
+  return `${dot(state.source)}${state.label}${Number.isFinite(delay) ? ui("route_search_view_002", [delay > 0 ? "+" : "", delay]) : ""}`;
 }
 export function refreshRouteObservations(element) {
   for (const node of element.querySelectorAll("[data-route-observations]")) {
@@ -20,18 +23,20 @@ export function refreshRouteObservations(element) {
   }
 }
 export const operatorLabel = {
-  subway: "地下鉄烏丸線",
-  kintetsu: "近鉄京都線",
-  through: "烏丸線・近鉄直通",
-  citybus: "京都市バス",
-  kyotobus: "京都バス",
+  subway: ui("route_search_view_003"),
+  kintetsu: ui("route_search_view_004"),
+  through: ui("route_search_view_005"),
+  citybus: ui("route_search_view_006"),
+  kyotobus: ui("route_search_view_007"),
 };
 const clock = (minute, label) => {
   const parts = formatTime(minute).split(" ");
   return `${parts.length > 1 ? `<small class="journey-clock-day">${esc(parts[0])}</small>` : ""}<b>${esc(parts.at(-1))}</b><small>${label}</small>`;
 };
 const serviceLabel = (leg) =>
-  leg.route ? `${leg.route}系統` : (operatorLabel[leg.operator] ?? leg.label);
+  leg.route
+    ? ui("route_search_view_008", [leg.route])
+    : (operatorLabel[leg.operator] ?? leg.label);
 
 export function routeHTML(
   route,
@@ -45,9 +50,10 @@ export function routeHTML(
     hideActions = false,
     position = routeIndex + 1,
     recommendations = [],
+    lockedThrough = -1,
   } = {},
 ) {
-  const name = (id) => network.stops.get(id)?.name ?? id,
+  const name = (id) => displayStopName(network.stops.get(id)) || id,
     available = route.legs
       .map((leg, i) => ({ leg, i }))
       .filter(({ i }) => rides[i]),
@@ -81,54 +87,161 @@ export function routeHTML(
     const previous = route.legs[legIndex - 1],
       fromTime = previous?.arrive ?? route.start;
     if (leg.depart > fromTime && (previous || leg.kind !== "ride")) {
-      if (!previous) timeline.push(point(fromTime, leg.from, "出発"));
+      if (!previous)
+        timeline.push(point(fromTime, leg.from, ui("route_search_view_009")));
       timeline.push(
-        `<div class="planner-leg journey-wait"><span class="journey-wait-time">${Math.round(leg.depart - fromTime)}分</span><span class="planner-line"></span><div><b>${previous && leg.kind === "ride" ? "乗換待ち" : "待ち時間"}</b><small>${esc(name(leg.from))}</small></div></div>`,
+        ui("route_search_view_049", [
+          Math.round(leg.depart - fromTime),
+          previous && leg.kind === "ride"
+            ? ui("route_search_view_010")
+            : ui("route_search_view_011"),
+          esc(name(leg.from)),
+        ]),
       );
     }
     if (leg.kind !== "ride") {
       timeline.push(
-        `<div class="planner-leg ${leg.kind === "walk" ? "walk" : "journey-dwell"}"><time class="planner-clock">${clock(leg.depart, "開始")}</time><span class="planner-line"></span><div><b>${leg.kind === "walk" ? "徒歩" : leg.kind === "dwell" ? "滞在" : "待ち"} ${leg.minutes}分</b><small>${esc(name(leg.from))}${leg.kind === "walk" ? ` → ${esc(name(leg.to))}` : ""}</small>${leg.kind === "dwell" ? "<small>指定した経由地での滞在</small>" : ""}</div></div>`,
+        ui("route_search_view_050", [
+          leg.kind === "walk" ? "walk" : "journey-dwell",
+          clock(leg.depart, ui("route_search_view_012")),
+          leg.kind === "walk"
+            ? ui("route_search_view_013")
+            : leg.kind === "dwell"
+              ? ui("route_search_view_014")
+              : ui("route_search_view_015"),
+          leg.minutes,
+          esc(name(leg.from)),
+          leg.kind === "walk" ? ` → ${esc(name(leg.to))}` : "",
+          leg.kind === "dwell" ? ui("route_search_view_016") : "",
+        ]),
       );
       if (legIndex === route.legs.length - 1)
-        timeline.push(point(leg.arrive, leg.to, "到着", "journey-final"));
+        timeline.push(
+          point(
+            leg.arrive,
+            leg.to,
+            ui("route_search_view_017"),
+            "journey-final",
+          ),
+        );
       return;
     }
     const ride = rides[legIndex],
       intermediate = (leg.path ?? []).slice(1, -1),
       stops =
         detail && intermediate.length
-          ? `<details class="planner-leg-stops" data-leg-disclosure="${esc(`${legIndex}:${leg.from}:${leg.to}`)}"><summary aria-label="途中の停車駅 · ${intermediate.length}駅"><span>${intermediate.length + 1}<small>駅</small></span><span aria-hidden="true">⌄</span></summary><ol>${intermediate.map((id, j) => `<li><span>${esc(name(id))}</span><time>${Number.isFinite(leg.times?.[j + 1]) ? formatTime(leg.times[j + 1]) : "時刻未取得"}</time></li>`).join("")}</ol></details>`
+          ? ui("route_search_view_051", [
+              esc(`${legIndex}:${leg.from}:${leg.to}`),
+              intermediate.length,
+              intermediate.length + 1,
+              intermediate
+                .map(
+                  (id, j) =>
+                    `<li><span>${esc(name(id))}</span><time>${Number.isFinite(leg.times?.[j + 1]) ? formatTime(leg.times[j + 1]) : ui("route_search_view_018")}</time></li>`,
+                )
+                .join(""),
+            ])
           : "",
       actions = hideActions
         ? ""
-        : `${ride && boardingAvailable(ride, current) ? `<button class="plain-action planner-board" data-board-route="${routeIndex}" data-board-leg="${legIndex}">この便に乗車中 · 案内を開始 ›</button>` : ""}${ride && !route.connectionUnavailable && first?.i !== legIndex ? `<button class="plain-action" data-arm-route="${routeIndex}" data-arm-leg="${legIndex}">この区間で案内を準備 ›</button>` : ""}`,
+        : `${ride && boardingAvailable(ride, current) ? ui("route_search_view_019", [routeIndex, legIndex]) : ""}${ride && !route.connectionUnavailable && first?.i !== legIndex ? ui("route_search_view_020", [routeIndex, legIndex]) : ""}`,
       departure =
-        detail && !readOnly
-          ? `<button class="journey-departure" data-change-route="${routeIndex}" data-change-leg="${legIndex}" aria-haspopup="dialog" aria-controls="trip-choice-sheet" aria-expanded="false" aria-label="${esc(name(leg.from))} ${formatTime(leg.depart)}発の便を変更">${clock(leg.depart, "発")}</button>`
-          : `<time class="planner-clock">${clock(leg.depart, "発")}</time>`,
+        detail && !readOnly && legIndex > lockedThrough
+          ? ui("route_search_view_052", [
+              routeIndex,
+              legIndex,
+              esc(name(leg.from)),
+              formatTime(leg.depart),
+              clock(leg.depart, ui("route_search_view_021")),
+            ])
+          : `<time class="planner-clock">${clock(leg.depart, ui("route_search_view_022"))}</time>`,
       source = leg.realtime
         ? `<span data-route-observations="${esc(JSON.stringify([leg.realtime]))}" data-delay="${esc(leg.realtime.delay)}">${observationHTML([leg.realtime], leg.realtime.delay)}</span>`
-        : `${dot("schedule")}${leg.dataConfidence === "stale" ? "保存した予定時刻" : "予定時刻"}`;
+        : `${dot("schedule")}${leg.dataConfidence === "stale" ? ui("route_search_view_023") : ui("route_search_view_024")}`;
     timeline.push(
-      `<div class="journey-ride" data-operator="${esc(leg.operatingCompany ?? leg.operator)}"><div class="planner-leg ride journey-point">${departure}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">発</span>${stationName(leg.from)}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><b>${esc(serviceLabel(leg))}${leg.category === "express" ? " · 急行" : leg.category === "local" ? " · 普通" : ""}</b><small>${esc(leg.destination ?? "行先未確認")}${leg.destination ? "行" : ""}${leg.through ? " · 直通、乗換不要" : ""}</small></div>${leg.platform ? `<p class="journey-platform"><span>発 </span><b>${esc(leg.platform)}</b>のりば</p>` : ""}<small class="journey-leg-source">${source}</small>${!leg.realtimeApplied && leg.realtime ? `<small>到着見込み（推定） ${formatTime(leg.arrive + leg.realtime.delay)}</small>` : ""}${stops}${actions ? `<div class="planner-leg-actions">${actions}</div>` : ""}</div></div>${point(leg.arrive, leg.to, "着", `${legIndex === route.legs.length - 1 ? "journey-final" : "journey-transfer"}`)}${leg.arrivalPlatform ? `<p class="journey-arrival-platform">着 ${esc(leg.arrivalPlatform)}のりば · 時刻表記載</p>` : ""}</div>`,
+      ui("route_search_view_053", [
+        esc(leg.operatingCompany ?? leg.operator),
+        departure,
+        stationName(leg.from),
+        esc(serviceLabel(leg)),
+        leg.category === "express"
+          ? ui("route_search_view_025")
+          : leg.category === "local"
+            ? ui("route_search_view_026")
+            : "",
+        esc(leg.destination ?? ui("route_search_view_027")),
+        leg.destination ? ui("route_search_view_028") : "",
+        leg.through ? ui("route_search_view_029") : "",
+        leg.platform ? ui("route_search_view_030", [esc(leg.platform)]) : "",
+        source,
+        !leg.realtimeApplied && leg.realtime
+          ? ui("route_search_view_031", [
+              formatTime(leg.arrive + leg.realtime.delay),
+            ])
+          : "",
+        stops,
+        actions ? `<div class="planner-leg-actions">${actions}</div>` : "",
+        point(
+          leg.arrive,
+          leg.to,
+          ui("route_search_view_032"),
+          `${legIndex === route.legs.length - 1 ? "journey-final" : "journey-transfer"}`,
+        ),
+        leg.arrivalPlatform
+          ? ui("route_search_view_033", [esc(leg.arrivalPlatform)])
+          : "",
+      ]),
     );
   });
   const startAction =
     detail && first && !hideActions && !route.connectionUnavailable
-      ? `<button type="button" class="primary-action" data-arm-route="${routeIndex}" data-arm-leg="${first.i}" aria-label="この経路を使う・案内を開始">${icon("location")}<span>案内を開始</span></button>`
+      ? ui("route_search_view_034", [routeIndex, first.i, icon("location")])
       : "";
   const toolbar =
     detail && !readOnly && !hideActions
-      ? `<div class="route-actions" role="group" aria-label="経路の操作"><button type="button" data-save-route aria-label="行き先を保存">${icon("bookmark")}<span>保存</span></button><button type="button" data-share-route aria-label="経路を共有">${icon("share")}<span>共有</span></button><button type="button" data-route-operations>${icon("operations")}<span>運行情報</span></button><button type="button" data-route-more aria-haspopup="dialog" aria-label="経路のその他の操作">${icon("more")}<span>その他</span></button></div><p class="source-caption" data-route-feedback aria-live="polite"></p>`
+      ? ui("route_search_view_035", [
+          icon("bookmark"),
+          icon("share"),
+          icon("operations"),
+          icon("more"),
+        ])
       : "";
   const observations = route.legs.map((leg) => leg.realtime).filter(Boolean);
   const quality = `<span class="planner-quality" data-route-observations="${esc(JSON.stringify(observations))}">${observationHTML(observations)}</span>`;
   const tags = recommendations
     .map(
       (key) =>
-        `<span class="route-rank ${key}" aria-label="${{ arrival: "早い", transfers: "楽", fare: "安い" }[key]}">${{ arrival: "早", transfers: "楽", fare: "安" }[key]}</span>`,
+        `<span class="route-rank ${key}" aria-label="${{ arrival: ui("route_search_view_036"), transfers: ui("route_search_view_037"), fare: ui("route_search_view_038") }[key]}">${{ arrival: ui("route_search_view_039"), transfers: ui("route_search_view_040"), fare: ui("route_search_view_041") }[key]}</span>`,
     )
     .join("");
-  return `<article class="planner-result ${detail ? "route-detail" : "route-option"}" data-operator="${esc(route.legs.find((l) => l.kind === "ride")?.operator ?? "walk")}">${!detail ? `<span class="route-position" aria-label="経路${position}">${position}</span>` : ""}<div class="planner-result-head">${route.changedLeg != null ? '<span class="planner-badge">選択した便</span>' : ""}</div><div class="planner-times"><strong>${formatTime(startTime)}</strong><span>→</span><strong>${formatTime(route.time)}</strong><small>(${shownDuration}分)</small></div><div class="planner-metrics"><span class="route-price"><b>${yen(route.fare.additional)}</b>${route.fare.additional !== route.fare.normal ? `<small>通常 ${yen(route.fare.normal)}</small>` : ""}</span><span>乗換${route.transfers}回</span><span>徒歩${walk}分</span>${!detail ? `<span class="route-ranks">${tags}</span>` : ""}${quality}</div>${passApplied ? '<p class="planner-pass-state">✓ 定期適用 · 区間外は追加運賃</p>' : ""}${detail ? toolbar : `<p class="planner-route-summary">${routeBadges}</p>`}${route.connectionUnavailable ? '<p class="planner-warning">この便の遅れを反映すると後続の接続がありません。別の便か経路を選んでください。</p>' : route.connectionRisk ? '<p class="planner-warning">推定の遅れでは乗換に間に合わない可能性があります。予定時刻は変更していません。</p>' : ""}<div class="planner-result-actions">${detail ? `<div class="planner-timeline">${timeline.join("")}</div>` : `<button type="button" class="planner-open-route" data-open-route="${routeIndex}"><span class="sr-only">経路詳細</span><span class="chevron" aria-hidden="true">›</span></button>`}</div></article>${startAction ? `<footer class="screen-bottom-action journey-start-action">${startAction}</footer>` : ""}`;
+  return ui("route_search_view_054", [
+    detail ? "route-detail" : "route-option",
+    esc(route.legs.find((l) => l.kind === "ride")?.operator ?? "walk"),
+    !detail ? ui("route_search_view_042", [position, position]) : "",
+    route.changedLeg != null ? ui("route_search_view_043") : "",
+    formatTime(startTime),
+    formatTime(route.time),
+    shownDuration,
+    yen(route.fare.additional),
+    route.fare.additional !== route.fare.normal
+      ? ui("route_search_view_044", [yen(route.fare.normal)])
+      : "",
+    route.transfers,
+    walk,
+    !detail ? `<span class="route-ranks">${tags}</span>` : "",
+    quality,
+    passApplied ? ui("route_search_view_045") : "",
+    detail ? toolbar : `<p class="planner-route-summary">${routeBadges}</p>`,
+    route.connectionUnavailable
+      ? ui("route_search_view_046")
+      : route.connectionRisk
+        ? ui("route_search_view_047")
+        : "",
+    detail
+      ? `<div class="planner-timeline">${timeline.join("")}</div>`
+      : ui("route_search_view_048", [routeIndex]),
+    startAction
+      ? `<footer class="screen-bottom-action journey-start-action">${startAction}</footer>`
+      : "",
+  ]);
 }

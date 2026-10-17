@@ -105,8 +105,8 @@ body:has(.navigation-app) {
   display: flex;
   flex-direction: column;
   background: var(--surface-primary);
-  border-radius: 26px 26px 0 0;
-  box-shadow: 0 -3px 18px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  box-shadow: var(--shadow-navigation);
   padding-bottom: calc(76px + var(--safe-bottom));
 }
 .place-sheet .sheet-body {
@@ -182,6 +182,32 @@ body:has(.navigation-app) {
   letter-spacing: 0;
   overflow-wrap: anywhere;
 }
+/* Accessibility text uses a full-width title below the Back/action row. */
+html[data-large-text="true"]
+  .navigation-app:not([data-navigation-depth="0"])
+  .topbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  row-gap: 4px;
+}
+html[data-large-text="true"]
+  .navigation-app:not([data-navigation-depth="0"])
+  .topbar-copy {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  text-align: left;
+}
+html[data-large-text="true"]
+  .navigation-app:not([data-navigation-depth="0"])
+  .topbar
+  h1 {
+  overflow-wrap: break-word;
+}
+html[data-large-text="true"]
+  .navigation-app:not([data-navigation-depth="0"])
+  .screen-toolbar {
+  grid-column: 2;
+  grid-row: 1;
+}
 .screen-toolbar {
   justify-self: end;
   display: flex;
@@ -202,7 +228,7 @@ body:has(.navigation-app) {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   background: var(--surface-primary);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   padding: 8px;
   margin: 12px 0;
 }
@@ -215,7 +241,7 @@ body:has(.navigation-app) {
   min-width: 0;
   min-height: 64px;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   background: transparent;
   color: var(--text);
   padding: 8px 2px;
@@ -263,7 +289,7 @@ body:has(.navigation-app) {
   background: var(--panel-2);
   color: var(--blue);
   text-align: left;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   overflow: hidden;
 }
 .mini-map-open > .route-map-host {
@@ -324,7 +350,7 @@ body:has(.navigation-app) {
   bottom: 0;
   margin: 12px 0 0;
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--panel);
   border-top: 1px solid var(--separator);
 }
@@ -350,7 +376,7 @@ body:has(.navigation-app) {
   touch-action: none;
 }
 .sheet::backdrop {
-  background: rgba(0, 0, 0, var(--sheet-backdrop, 0.32));
+  background: rgba(var(--color-backdrop-rgb), var(--sheet-backdrop, 0.32));
 }
 .sheet {
   display: none;

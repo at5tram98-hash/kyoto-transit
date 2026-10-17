@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import {
   groupCityBusRows,
   normalizedBusSources,
@@ -89,7 +90,7 @@ function kintetsuDepartureHTML(stop) {
         .catch(() => {})
         .finally(() => (nearbyRailJob = null));
     }
-    return '<p class="source-caption">近鉄の発車予定は時刻表で確認できます</p>';
+    return ui("vnext_view_001");
   }
   const rows = [];
   for (const service of nearbyRailFeed?.services ?? []) {
@@ -115,12 +116,20 @@ function kintetsuDepartureHTML(stop) {
     rows
       .sort((a, b) => a.depart - b.depart)
       .slice(0, 2)
-      .map(
-        (e) =>
-          `<div><span>${e.category === "express" ? "急行" : "普通"}${e.destination ? ` · ${esc(e.destination)}行` : ""}</span><time>${formatMinute(e.depart)}</time><b>${Math.round(e.depart - now.minute)}分<small>${nearbyRailFeed.meta?.stale ? "予定（保存）" : "発車予定"}</small></b></div>`,
+      .map((e) =>
+        ui("vnext_view_095", [
+          e.category === "express"
+            ? ui("vnext_view_002")
+            : ui("vnext_view_003"),
+          e.destination ? ui("vnext_view_004", [esc(e.destination)]) : "",
+          formatMinute(e.depart),
+          Math.round(e.depart - now.minute),
+          nearbyRailFeed.meta?.stale
+            ? ui("vnext_view_005")
+            : ui("vnext_view_006"),
+        ]),
       )
-      .join("") ||
-    '<p class="source-caption">1時間以内の発車予定はありません</p>'
+      .join("") || ui("vnext_view_007")
   }</div>`;
 }
 let north3Request = null;
@@ -135,12 +144,11 @@ function north3DepartureHTML(stop, expanded = false) {
         })
         .catch(() => {})
         .finally(() => (north3Request = null));
-    return '<p class="source-note">北3の発車予定を確認中…</p>';
+    return ui("vnext_view_008");
   }
   const now = tokyoNow(),
     day = north3Day(now.date);
-  if (!day)
-    return '<p class="source-note">北3の運行日区分は未確認です。公式時刻表をご確認ください。</p>';
+  if (!day) return ui("vnext_view_009");
   if (!expanded) {
     const rows = ["north", "south"]
       .flatMap((direction) => {
@@ -161,30 +169,42 @@ function north3DepartureHTML(stop, expanded = false) {
       })
       .sort((a, b) => a.depart - b.depart)
       .slice(0, 2);
-    return `<div class="nearby-departures compact-departures">${rows.map((e) => `<div><span>北3 · ${e.direction === "north" ? "京都産大前" : "北大路BT"}方面</span><time>${formatMinute(e.depart)}</time><b>${Math.round(e.depart - now.minute)}分<small>${e.operatingCompany === "kyotobus" ? "京都バス" : "市バス"} · 予定</small></b></div>`).join("") || '<p class="source-caption">1時間以内の通常便はありません</p>'}</div>`;
+    return `<div class="nearby-departures compact-departures">${rows.map((e) => ui("vnext_view_096", [e.direction === "north" ? ui("vnext_view_010") : ui("vnext_view_011"), formatMinute(e.depart), Math.round(e.depart - now.minute), e.operatingCompany === "kyotobus" ? ui("vnext_view_012") : ui("vnext_view_013")])).join("") || ui("vnext_view_014")}</div>`;
   }
-  return `<div class="nearby-departures">${["north", "south"]
-    .map((direction) => {
-      const b = north3Board(
-        state.north3Snapshot,
-        stop.fullName ?? stop.name,
-        direction,
-        day,
-      );
-      if (!b) return "";
-      const rows = b.entries
-        .filter(
-          (e) =>
-            e.depart >= now.minute &&
-            e.depart < now.minute + 60 &&
-            !e.operatingConditions,
-        )
-        .slice(0, 2);
-      return `<div><span>北3 · ${direction === "north" ? "京都産大前" : "北大路BT"}方面</span>${rows.map((e) => `<p><time>${formatMinute(e.depart)}</time><span>${e.operatingCompany === "kyotobus" ? "京都バス" : "京都市バス"} · 発車予定</span></p>`).join("") || '<p class="source-note">1時間以内の通常便はありません</p>'}</div>`;
-    })
-    .join(
-      "",
-    )}<p class="source-note">保存した公式時刻表 · ダイヤ変更・大学休校日は要確認</p></div>`;
+  return ui("vnext_view_110", [
+    ["north", "south"]
+      .map((direction) => {
+        const b = north3Board(
+          state.north3Snapshot,
+          stop.fullName ?? stop.name,
+          direction,
+          day,
+        );
+        if (!b) return "";
+        const rows = b.entries
+          .filter(
+            (e) =>
+              e.depart >= now.minute &&
+              e.depart < now.minute + 60 &&
+              !e.operatingConditions,
+          )
+          .slice(0, 2);
+        return ui("vnext_view_106", [
+          direction === "north" ? ui("vnext_view_015") : ui("vnext_view_016"),
+          rows
+            .map((e) =>
+              ui("vnext_view_097", [
+                formatMinute(e.depart),
+                e.operatingCompany === "kyotobus"
+                  ? ui("vnext_view_017")
+                  : ui("vnext_view_018"),
+              ]),
+            )
+            .join("") || ui("vnext_view_019"),
+        ]);
+      })
+      .join(""),
+  ]);
 }
 function directionRowsHTML(id, entries) {
   const directions = [
@@ -194,7 +214,7 @@ function directionRowsHTML(id, entries) {
     selected = directions.some(([key]) => key === remembered[id])
       ? remembered[id]
       : "all";
-  return `${directions.length > 1 ? `<div class="live-direction-segments" role="group" aria-label="方面">${[["all", "すべて"], ...directions].map(([key, label]) => `<button type="button" data-live-direction="${esc(key)}" data-live-direction-stop="${esc(id)}" aria-pressed="${selected === key}">${esc(label)}</button>`).join("")}</div>` : ""}<div class="nearby-departures compact-departures">${entries
+  return `${directions.length > 1 ? ui("vnext_view_098", [[["all", ui("vnext_view_020")], ...directions].map(([key, label]) => `<button type="button" data-live-direction="${esc(key)}" data-live-direction-stop="${esc(id)}" aria-pressed="${selected === key}">${esc(label)}</button>`).join("")]) : ""}<div class="nearby-departures compact-departures">${entries
     .filter((e) => selected === "all" || e.key === selected)
     .map((e) => e.html)
     .join("")}</div>`;
@@ -218,7 +238,7 @@ function nearbyBusHTML(stop) {
         rows.map((r) => ({
           key: r.dest,
           label: busDirectionLabel(r.route, r.dest),
-          html: `<div class="live-nearby-arrival" data-operator="citybus"><span><b class="transport-badge">${esc(r.route)}</b> ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(r.boarding)}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? "オフライン" : r.source === "schedule" ? "予定" : observed && r.source === "live" ? "実測" : "予測"}</small></b></div>`,
+          html: `<div class="live-nearby-arrival" data-operator="citybus"><span><b class="transport-badge">${esc(r.route)}</b> ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(r.boarding)}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
         })),
       )
     : north3DepartureHTML(stop);
@@ -227,27 +247,42 @@ function departureHTML(stopId, expanded = false) {
   const now = tokyoNow(),
     feed = state.subwayFeedDate === now.date ? state.subwayFeed : null;
   if (!feed)
-    return `<div class="nearby-departures"><p class="source-note">${nearbyRequest ? "発車予定を確認中…" : "発車予定を取得できませんでした。"}${!nearbyRequest ? '<button class="plain-action" data-retry-nearby>再取得</button>' : ""}</p></div>`;
+    return `<div class="nearby-departures"><p class="source-note">${nearbyRequest ? ui("vnext_view_025") : ui("vnext_view_026")}${!nearbyRequest ? ui("vnext_view_027") : ""}</p></div>`;
   const groups = nearbyDepartures(feed, stopId, now);
   if (!expanded) {
     const populated = groups.filter((g) => g.entries.length);
-    if (!populated.length)
-      return '<p class="nearby-summary source-caption">発車予定は時刻表で確認できます</p>';
+    if (!populated.length) return ui("vnext_view_028");
     return directionRowsHTML(
       stopId,
       populated.map((g) => {
         const e = g.entries[0],
-          label = g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面";
+          label =
+            g.direction === "north"
+              ? ui("vnext_view_029")
+              : ui("vnext_view_030");
         return {
           key: g.direction,
           label,
-          html: `<div><span>${label}</span><time>${formatMinute(e.depart)}</time><b>${Math.max(0, Math.round(e.depart - now.minute))}分<small>発車予定</small></b></div>`,
+          html: ui("vnext_view_031", [
+            label,
+            formatMinute(e.depart),
+            Math.max(0, Math.round(e.depart - now.minute)),
+          ]),
         };
       }),
     );
   }
 
-  return `<div class="nearby-departures">${groups.map((g) => `<div><span>${g.direction === "north" ? "国際会館方面" : "竹田・近鉄方面"}</span>${g.entries.length ? (expanded ? g.entries : g.entries.slice(0, 1)).map((e) => `<p><time>${formatMinute(e.depart)}</time><span>${esc(e.destination ?? "行先未取得")}行き</span></p>`).join("") : '<p class="source-note">1時間以内の発車予定はありません</p>'}</div>`).join("")}<p class="source-note">${feed.cached ? "保存した公式時刻表" : "公式時刻表"} · 発車予定${expanded && feed.meta?.stale ? " · ダイヤの変更を公式サイトで確認してください" : ""}</p></div>`;
+  return ui("vnext_view_107", [
+    groups
+      .map(
+        (g) =>
+          `<div><span>${g.direction === "north" ? ui("vnext_view_032") : ui("vnext_view_033")}</span>${g.entries.length ? (expanded ? g.entries : g.entries.slice(0, 1)).map((e) => ui("vnext_view_099", [formatMinute(e.depart), esc(e.destination ?? ui("vnext_view_034"))])).join("") : ui("vnext_view_035")}</div>`,
+      )
+      .join(""),
+    feed.cached ? ui("vnext_view_036") : ui("vnext_view_037"),
+    expanded && feed.meta?.stale ? ui("vnext_view_038") : "",
+  ]);
 }
 function enterContext(next) {
   const view = $('[data-view="now"]'),
@@ -269,28 +304,44 @@ function enterContext(next) {
 function renderStatusPill() {
   const b = $("#location-indicator");
   const labels = {
-    active: "取得中",
-    loading: "確認中",
-    denied: "端末の許可が必要",
-    unavailable: "電波を確認中",
-    unsupported: "この端末は未対応",
+    active: ui("vnext_view_039"),
+    loading: ui("vnext_view_040"),
+    denied: ui("vnext_view_041"),
+    unavailable: ui("vnext_view_042"),
+    unsupported: ui("vnext_view_043"),
     disabled: "OFF",
-    paused: "待機中",
+    paused: ui("vnext_view_044"),
   };
   b.classList.toggle("active", state.locationStatus === "active");
-  updateHTML(b, `${icon("location")}<span>現在地を再確認</span>`);
+  updateHTML(b, ui("vnext_view_045", [icon("location")]));
   const label = $("#location-status");
-  if (label) label.textContent = labels[state.locationStatus] ?? "待機中";
+  if (label)
+    label.textContent = labels[state.locationStatus] ?? ui("vnext_view_046");
 }
 function candidateHTML() {
   if (!state.rideCandidates?.length) return "";
-  return `<section class="section-block ride-choice-block"><div class="section-heading"><div><span class="section-label">乗車中の便</span><h3>${state.rideCandidates.length === 1 ? "この電車・バスに乗りましたか？" : "どの便に乗っていますか？"}</h3></div></div><div class="ride-choice-list">${state.rideCandidates
-    .slice(0, 3)
-    .map(
-      (c, i) =>
-        `<button class="native-row ride-choice-row" data-ride-candidate="${i}"><span class="mode-symbol ${modeClass(c.ride)}">${icon(["citybus", "kyotobus"].includes(c.ride.operator) ? "bus" : "train")}</span><span><b>${esc(serviceName(c.ride))}</b><small>${esc(c.ride.destination ?? "終点")}方面${Number.isFinite(c.ride.depart) ? `・${formatMinute(c.ride.depart)}発` : ""}</small></span><strong>選択</strong><span class="chevron">›</span></button>`,
-    )
-    .join("")}</div></section>`;
+  return ui("vnext_view_108", [
+    state.rideCandidates.length === 1
+      ? ui("vnext_view_047")
+      : ui("vnext_view_048"),
+    state.rideCandidates
+      .slice(0, 3)
+      .map((c, i) =>
+        ui("vnext_view_100", [
+          i,
+          modeClass(c.ride),
+          icon(
+            ["citybus", "kyotobus"].includes(c.ride.operator) ? "bus" : "train",
+          ),
+          esc(serviceName(c.ride)),
+          esc(c.ride.destination ?? ui("vnext_view_049")),
+          Number.isFinite(c.ride.depart)
+            ? ui("vnext_view_050", [formatMinute(c.ride.depart)])
+            : "",
+        ]),
+      )
+      .join(""),
+  ]);
 }
 export function renderNow() {
   updateRideAnchor();
@@ -332,7 +383,7 @@ export function renderNow() {
   $("#now-search").dispatchEvent(new Event("mymap-now-context"));
   updateHTML(
     vehicle,
-    `${state.armedJourney ? `<section class="section-block armed-journey" tabindex="-1"><span class="section-label">案内開始の準備ができました</span><h3>${esc(serviceName(state.armedJourney.ride))} · ${esc(state.armedJourney.ride.destination)}行き</h3><p class="source-note">${esc(state.armedJourney.ride.userDestination?.name ?? "目的地")}で降車予定。位置・移動・対象便が一致したら乗車を確認します。</p>${itinerarySummary(state.itinerary, state.network)}<div class="screen-action-group"><button class="secondary-action" data-board-armed>この便に乗車中 · 案内を開始</button><button class="plain-action" data-cancel-armed>解除</button></div></section>` : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    `${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
@@ -340,11 +391,18 @@ export function renderNow() {
     state.locationStatus === "active"
       ? ""
       : state.locationStatus === "loading"
-        ? "現在地を確認中"
-        : "現在地は未取得 · 検索から案内できます";
+        ? ui("vnext_view_052")
+        : ui("vnext_view_053");
   updateHTML(
     root,
-    `<div class="idle-status"><span class="idle-state">未乗車</span><p>${moving ? "移動中 · 便を確認しています" : locationNote || (near.all[0]?.meters <= 1000 ? `${esc(near.all[0].stop.name)}付近` : "現在地に合わせて周辺案内")}</p></div>`,
+    ui("vnext_view_102", [
+      moving
+        ? ui("vnext_view_054")
+        : locationNote ||
+          (near.all[0]?.meters <= 1000
+            ? ui("vnext_view_055", [esc(near.all[0].stop.name)])
+            : ui("vnext_view_056")),
+    ]),
   );
   const nearby = near.all
     .filter(
@@ -355,19 +413,57 @@ export function renderNow() {
     .filter((s, i, a) => a.findIndex((x) => x.id === s.id) === i)
     .slice(0, 4);
   if (nearby.some((s) => s.stop.type === "subway")) requestNearbyFeed();
-  const arrivalsEntry = `<div class="native-list"><button class="native-row" data-navigation-screen="arrivals"><span><b>すべての接近情報</b></span><span class="chevron">›</span></button></div>`;
+  const arrivalsEntry = ui("vnext_view_057");
   updateNearbyPanel(
     nearPanel,
     (nearby.length
-      ? `<section class="section-block nearby-guide"><div class="section-heading"><h3>付近の交通</h3><span class="source-caption">距離順</span></div>${nearby.map((s) => `<div class="nearby-item" data-nearby-key="${esc(s.id)}"><button class="nearby-row" data-operator="${esc(s.stop.type)}" data-nearby-detail="${esc(s.id)}"><span class="mode-symbol enhanced-mode ${s.stop.type.includes("bus") ? "bus" : s.stop.type === "kintetsu" ? "rail" : "subway"}" data-operator="${esc(s.stop.type)}">${icon(s.stop.type.includes("bus") ? "bus" : "train")}<small>${{ subway: "地下鉄", kintetsu: "近鉄", citybus: "市バス", kyotobus: "京都バス" }[s.stop.type] ?? "交通"}</small></span><span data-nearby-copy><b>${esc(s.stop.name)}</b><small>${esc(s.stop.lines?.join("・") ?? "")} · 徒歩約${Math.max(1, Math.ceil(s.meters / 70))}分 · ${Math.round(s.meters)}m</small></span><span class="chevron">›</span></button><div data-nearby-departures>${s.stop.type === "subway" ? departureHTML(s.id) : s.stop.type === "kintetsu" ? kintetsuDepartureHTML(s.stop) : nearbyBusHTML(s.stop)}</div></div>`).join("")}</section>`
+      ? ui("vnext_view_109", [
+          nearby
+            .map((s) =>
+              ui("vnext_view_103", [
+                esc(s.id),
+                esc(s.stop.type),
+                esc(s.id),
+                s.stop.type.includes("bus")
+                  ? "bus"
+                  : s.stop.type === "kintetsu"
+                    ? "rail"
+                    : "subway",
+                esc(s.stop.type),
+                icon(s.stop.type.includes("bus") ? "bus" : "train"),
+                {
+                  subway: ui("vnext_view_058"),
+                  kintetsu: ui("vnext_view_059"),
+                  citybus: ui("vnext_view_060"),
+                  kyotobus: ui("vnext_view_061"),
+                }[s.stop.type] ?? ui("vnext_view_062"),
+                esc(s.stop.name),
+                esc(s.stop.lines?.join("・") ?? ""),
+                Math.max(1, Math.ceil(s.meters / 70)),
+                Math.round(s.meters),
+                s.stop.type === "subway"
+                  ? departureHTML(s.id)
+                  : s.stop.type === "kintetsu"
+                    ? kintetsuDepartureHTML(s.stop)
+                    : nearbyBusHTML(s.stop),
+              ]),
+            )
+            .join(""),
+        ])
       : "") + arrivalsEntry,
   );
   navigation.refresh();
 }
 export function nearbyDetailHTML(id) {
   const stop = state.network.stops.get(id);
-  if (!stop) return '<p class="empty-state">駅・停留所が見つかりません。</p>';
-  return `${stop.type === "subway" ? departureHTML(id, true) : `${stop.type.includes("bus") ? '<section class="bus-stop-preview" data-bus-stop-preview></section>' : ""}${stop.type === "kintetsu" ? kintetsuDepartureHTML(stop) : ""}`}<div class="screen-action-group"><button class="primary-action" data-start-here="${esc(id)}">ここから出発</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button></div>`;
+  if (!stop) return ui("vnext_view_063");
+  return ui("vnext_view_064", [
+    stop.type === "subway"
+      ? departureHTML(id, true)
+      : `${stop.type.includes("bus") ? '<section class="bus-stop-preview" data-bus-stop-preview></section>' : ""}${stop.type === "kintetsu" ? kintetsuDepartureHTML(stop) : ""}`,
+    esc(id),
+    esc(id),
+  ]);
 }
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
@@ -419,8 +515,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
     if (!section) {
       section = document.createElement("section");
       section.className = "bus-mini-map";
-      section.innerHTML =
-        '<button class="mini-map-open" data-context-action="map" aria-label="地図と現在地を開く"><span class="route-map-host" aria-hidden="true"></span><span>地図・現在地 ›</span></button>';
+      section.innerHTML = ui("vnext_view_065");
       root.querySelector(".personal-destination").after(section);
     }
     renderRouteMap(section.querySelector(".route-map-host"), map, model);
@@ -446,15 +541,15 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
       lastAlertKey = key;
       const message =
         model.phase === "STOPPED"
-          ? `${model.userDestination?.name}に到着しました。ここで降ります`
-          : `次は ${model.userDestination?.name}。降車の準備をしてください`;
+          ? ui("vnext_view_066", [model.userDestination?.name])
+          : ui("vnext_view_067", [model.userDestination?.name]);
       toast(message);
       if (
         settings.notifications &&
         globalThis.Notification?.permission === "granted"
       ) {
         try {
-          new Notification("降車のお知らせ", {
+          new Notification(ui("vnext_view_068"), {
             body: message,
             tag: "mymap-alight",
           });
@@ -470,7 +565,22 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   ) {
     updateHTML(
       vehicle,
-      `<section class="section-block journey-stops"><div class="section-heading"><div><span class="section-label">${bus ? "停留所ごとの案内" : "終点までの停車案内"}</span><h3>${esc(ride.destination ?? stops.at(-1)?.name ?? "終点")}</h3></div>${!bus ? `<button class="plain-action" id="ride-foldback">${icon("fold")}折り返し</button>` : ""}</div><div class="journey-table-caption"><span>${bus ? "停留所" : "停車駅"}</span><span>予定 / 到着見込み</span></div>${timeline(tableStops, tableProgress, now.minute, shift, bus, ride)}<p class="source-note">${known ? "公式時刻表を基準に、現在の遅れ推定を到着見込みへ反映しています。" : "公式の途中時刻を取得できていないため、停留所の順序と現在地を案内しています。"}${state.locationStatus !== "active" ? " 位置情報が戻るまで、停車位置は時刻表からの推定です。" : ""}</p>${ride.operatingConditions?.schoolDayRequired ? '<p class="source-note">この便は京都バス運行で、大学休校日は運休します。運行条件をご確認ください。</p>' : ""}${settings.showConfidence ? `<details class="confidence"><summary>判定詳細</summary><p>一致度 ${Math.round(state.rideConfidence)} / 100</p><p>${esc(state.rideSource)}</p></details>` : ""}</section>`,
+      ui("vnext_view_104", [
+        bus ? ui("vnext_view_069") : ui("vnext_view_070"),
+        esc(ride.destination ?? stops.at(-1)?.name ?? ui("vnext_view_071")),
+        !bus ? ui("vnext_view_072", [icon("fold")]) : "",
+        bus ? ui("vnext_view_073") : ui("vnext_view_074"),
+        timeline(tableStops, tableProgress, now.minute, shift, bus, ride),
+        known ? ui("vnext_view_075") : ui("vnext_view_076"),
+        state.locationStatus !== "active" ? ui("vnext_view_077") : "",
+        ride.operatingConditions?.schoolDayRequired ? ui("vnext_view_078") : "",
+        settings.showConfidence
+          ? ui("vnext_view_079", [
+              Math.round(state.rideConfidence),
+              esc(state.rideSource),
+            ])
+          : "",
+      ]),
     );
     vehicle.dataset.rideKey = rideKey(ride);
     stopSources.set(vehicle, tableStops);
@@ -491,7 +601,24 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   ) {
     updateHTML(
       actionRoot,
-      `<div data-ride-next></div><div class="ride-action-list"><div class="ride-primary-actions">${action("stops", bus ? "停留所" : "停車駅", "timetable")}${action("map", "地図", "location")}${action(bus ? "arrivals" : "trains", bus ? "接近" : "列車位置", bus ? "bus" : "train")}${bus ? action("operation", "運行", "operations") : `<button class="ride-primary-action" data-open-foldback>${icon("fold")}<span>折り返し</span></button>`}</div><div class="native-list">${row("delay", "遅延分析", null)}${bus ? "" : row("operation", "運行情報", null)}<button class="native-row" id="ride-end"><span>乗車案内を終了</span><span class="chevron">›</span></button></div></div><div data-ride-foldback-plan></div>`,
+      ui("vnext_view_105", [
+        action(
+          "stops",
+          bus ? ui("vnext_view_080") : ui("vnext_view_081"),
+          "timetable",
+        ),
+        action("map", ui("vnext_view_082"), "location"),
+        action(
+          bus ? "arrivals" : "trains",
+          bus ? ui("vnext_view_083") : ui("vnext_view_084"),
+          bus ? "bus" : "train",
+        ),
+        bus
+          ? action("operation", ui("vnext_view_085"), "operations")
+          : ui("vnext_view_086", [icon("fold")]),
+        row("delay", ui("vnext_view_087"), null),
+        bus ? "" : row("operation", ui("vnext_view_088"), null),
+      ]),
     );
     actionRoot.dataset.mode = mode;
   }
@@ -530,8 +657,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   updateHTML(nearPanel, "");
 }
 function timeline(stops, progress, minute, shift, bus, ride) {
-  if (!stops.length)
-    return '<p class="empty-state">停車駅・停留所を確認中です。</p>';
+  if (!stops.length) return ui("vnext_view_089");
   return `<ol class="stop-list journey-stop-list">${stops.map((s, i) => timelineRow(s, { index: i, progress, minute, shift, bus, ride })).join("")}</ol>`;
 }
 let lastTrackIndex = null,
@@ -730,10 +856,17 @@ function foldbackPlanHTML(ride, now) {
       now: now.minute,
     });
   const text = {
-    possible: `乗換余裕 約${Math.floor(assessment.slack)}分`,
-    tight: "乗換の余裕が少なくなっています",
-    missed: "選んだ列車への乗換時間が不足しています",
-    unknown: "到着時刻を確認できません",
+    possible: ui("vnext_view_090", [Math.floor(assessment.slack)]),
+    tight: ui("vnext_view_091"),
+    missed: ui("vnext_view_092"),
+    unknown: ui("vnext_view_093"),
   }[assessment.status];
-  return `<section class="section-block foldback-plan ${assessment.status}"><div class="section-label">選択中の折り返し</div><button class="native-row" data-open-foldback><span class="mode-symbol info">${icon("fold")}</span><span><b>${esc(stop?.name ?? plan.stopId)} · ${formatMinute(plan.depart)}発</b><small>${esc(plan.destination)}行き · ${esc(text)}</small></span><span class="chevron">›</span></button><button class="secondary-action" data-start-foldback>折り返し列車に乗車したら案内を開始</button><p class="source-note">反対方向の列車は予定時刻です。ホーム移動と運行状況を確認してください。</p></section>`;
+  return ui("vnext_view_094", [
+    assessment.status,
+    icon("fold"),
+    esc(stop?.name ?? plan.stopId),
+    formatMinute(plan.depart),
+    esc(plan.destination),
+    esc(text),
+  ]);
 }

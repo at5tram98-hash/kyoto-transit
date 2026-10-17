@@ -1,14 +1,15 @@
+import { ui } from "./locale.js";
 // Places and route pairs are different records; each has one storage owner.
 const KEY = "mymap-saved-places-v1";
 export const QUICK_SYMBOLS = Object.freeze({
-  bolt: "クイック",
-  bookmark: "ブックマーク",
-  location: "現在地",
-  train: "電車",
-  bus: "バス",
-  clock: "時計",
-  map: "地図",
-  ticket: "定期券",
+  bolt: ui("saved_places_001"),
+  bookmark: ui("saved_places_002"),
+  location: ui("saved_places_003"),
+  train: ui("saved_places_004"),
+  bus: ui("saved_places_005"),
+  clock: ui("saved_places_006"),
+  map: ui("saved_places_007"),
+  ticket: ui("saved_places_008"),
 });
 export function quickPlaceSymbol(settings, id, type) {
   const selected = settings?.quickSymbols?.[id];

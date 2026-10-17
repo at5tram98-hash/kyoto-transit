@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { readSearchPairs } from "./search-history.js";
 import {
   esc,
@@ -22,11 +23,20 @@ import { routeMapHTML, renderRouteMap, nearbyMapModel } from "./route-map.js";
 import { updateHTML } from "./view-rendering.js";
 import { liveClock, appLocale, message } from "./locale.js";
 import { north3Day } from "./north3-feed.js";
+import { reducedMotion } from "./navigation-motion.js";
 
 // Live owns its screen, not a copy of the journey planner form or input store.
 export function mountLiveHome(host, search) {
   const text = (key) => message(key, settings);
-  host.innerHTML = `<div class="live-clock-bar"><span data-live-day></span><time data-live-clock aria-label="現在時刻" aria-live="off"></time><button type="button" data-clock-format aria-label="12時間・24時間表示を切り替える"></button></div><div class="live-quick-strip" aria-label="Quick Select"><button type="button" class="live-quick-trigger" data-quick-open aria-haspopup="dialog">${icon("bolt")}<span>Quick</span></button><div class="live-quick-destinations"></div></div><div class="live-location-header">${icon("location")}<span class="source-dot" data-location-dot></span><span data-live-location></span></div><button type="button" class="live-stop-search" data-live-stop-search>${icon("search")}<span>${text("searchStop")}</span></button><div class="live-map-host"></div><div class="live-map-actions"><button class="plain-action" type="button" data-live-full-map>${icon("map")}<span>${text("map")}</span></button><button type="button" class="plain-action" data-live-plan>${icon("search")}<span>経路を検索</span></button></div><p class="live-update-status source-caption" role="status" data-live-update></p>`;
+  host.innerHTML = ui("live_home_001", [
+    icon("bolt"),
+    icon("location"),
+    icon("search"),
+    text("searchStop"),
+    icon("map"),
+    text("map"),
+    icon("search"),
+  ]);
   const toolbar = `<div class="live-navigation-capsule"><button type="button" class="plain-action" data-live-refresh aria-label="${text("refresh")}">${icon("refresh")}</button><button type="button" class="plain-action" data-live-saved aria-label="${text("saved")}">${icon("bookmark")}</button><button type="button" class="plain-action" data-live-more aria-label="${text("more")}" aria-haspopup="dialog">${icon("more")}</button></div>`;
   navigation.register("root:now", {
     toolbar,
@@ -40,10 +50,33 @@ export function mountLiveHome(host, search) {
     start = null,
     suppressClick = false,
     refreshing = false;
+  const quickStrip = host.querySelector(".live-quick-strip"),
+    quickDestinations = host.querySelector(".live-quick-destinations");
+  let quickTouched = false,
+    lastQuickMove = 0;
+  const stopQuickScroll = () => {
+    quickTouched = true;
+    quickDestinations.scrollTo({
+      left: quickDestinations.scrollLeft,
+      behavior: "instant",
+    });
+  };
+  for (const event of ["pointerdown", "wheel", "keydown", "focusin"])
+    quickStrip.addEventListener(event, stopQuickScroll, { passive: true });
+  matchMedia("(prefers-reduced-motion: reduce)").addEventListener(
+    "change",
+    (event) => {
+      if (event.matches) stopQuickScroll();
+    },
+  );
   const quickPlaces = () => {
     const ids = readSavedPlaces();
     if (!ids.length) {
-      for (const name of ["京都", "京都産大前", "国際会館"]) {
+      for (const name of [
+        ui("live_home_002"),
+        ui("live_home_003"),
+        ui("live_home_004"),
+      ]) {
         const stop = [...state.network.stops.values()].find(
           (s) => s.name === name,
         );
@@ -74,14 +107,14 @@ export function mountLiveHome(host, search) {
     sheet.dataset.detent = "fit";
     openContextSheet(
       text("quick"),
-      `<p class="source-note">保存した場所から目的地を選べます。長押しして指を横へ動かしても選べます。</p><div class="live-quick-menu">${quickPlaces()
-        .map(
-          (s) =>
-            `<button type="button" class="native-row" data-quick-destination="${esc(s.id)}" data-quick-symbol="${quickPlaceSymbol(settings, s.id, s.type)}">${icon(quickPlaceSymbol(settings, s.id, s.type))}<span>${esc(s.name)}</span><span class="chevron">›</span></button>`,
-        )
-        .join(
-          "",
-        )}</div><button type="button" class="native-row" data-live-saved><span>Quick Selectを編集・保存した場所</span><span class="chevron">›</span></button>`,
+      ui("live_home_005", [
+        quickPlaces()
+          .map(
+            (s) =>
+              `<button type="button" class="native-row" data-quick-destination="${esc(s.id)}" data-quick-symbol="${quickPlaceSymbol(settings, s.id, s.type)}">${icon(quickPlaceSymbol(settings, s.id, s.type))}<span>${esc(s.name)}</span><span class="chevron">›</span></button>`,
+          )
+          .join(""),
+      ]),
     );
   }
   function openStopSearch() {
@@ -112,19 +145,25 @@ export function mountLiveHome(host, search) {
       const matches = stopSuggestions(state.network, q, 30);
       const sections = q
         ? [
-            ["駅", matches.filter((s) => !s.type.includes("bus"))],
-            ["停留所", matches.filter((s) => s.type.includes("bus"))],
+            [
+              ui("live_home_006"),
+              matches.filter((s) => !s.type.includes("bus")),
+            ],
+            [
+              ui("live_home_007"),
+              matches.filter((s) => s.type.includes("bus")),
+            ],
           ]
         : [
             [
-              "最近",
+              ui("live_home_008"),
               recentIds
                 .map((id) => state.network.stops.get(id))
                 .filter(Boolean)
                 .slice(0, 6),
             ],
-            ["保存", saved],
-            ["近く", near],
+            [ui("live_home_009"), saved],
+            [ui("live_home_010"), near],
           ];
       results.innerHTML =
         sections
@@ -134,7 +173,7 @@ export function mountLiveHome(host, search) {
               : "",
           )
           .join("") ||
-        `<p class="empty-state">${q ? "一致する駅・停留所がありません。" : "駅名・停留所名を入力してください。"}</p>`;
+        `<p class="empty-state">${q ? ui("live_home_011") : ui("live_home_012")}</p>`;
     };
     input.addEventListener("input", render);
     render();
@@ -145,16 +184,18 @@ export function mountLiveHome(host, search) {
     refreshing = true;
     const prior = state.subwayFeed,
       status = host.querySelector("[data-live-update]");
-    status.textContent = "交通情報を更新中…";
+    status.textContent = ui("live_home_013");
     try {
       const feed = await ensureSubwayFeed(true);
       document.dispatchEvent(new CustomEvent("mymap-live-refresh"));
       status.innerHTML =
         navigator.onLine === false
-          ? "オフライン · 保存した時刻表を使用します"
+          ? ui("live_home_014")
           : feed && feed !== prior && !feed.cached
-            ? "時刻表を確認しました"
-            : `${feed ? "保存した時刻表を表示しています。" : "時刻表を取得できません。"}<button type="button" class="plain-action" data-live-refresh>再試行</button>`;
+            ? ui("live_home_015")
+            : ui("live_home_024", [
+                feed ? ui("live_home_016") : ui("live_home_017"),
+              ]);
     } finally {
       refreshing = false;
     }
@@ -167,7 +208,15 @@ export function mountLiveHome(host, search) {
         sheet.dataset.detent = "fit";
         openContextSheet(
           stop.name,
-          `<p class="source-note">${esc(stop.lines?.join("・") ?? "")}</p><div class="native-list"><button type="button" class="native-row" data-live-stop="${esc(stop.id)}"><span>発車・接近情報を見る</span><span class="chevron">›</span></button><button type="button" class="native-row" data-open-timetable="${esc(stop.id)}"><span>時刻表を見る</span><span class="chevron">›</span></button><button type="button" class="native-row" data-live-save-place="${esc(stop.id)}"><span>${readSavedPlaces().includes(stop.id) ? "保存を解除" : "Quick Selectに保存"}</span><span class="chevron">›</span></button></div>`,
+          ui("live_home_025", [
+            esc(stop.lines?.join("・") ?? ""),
+            esc(stop.id),
+            esc(stop.id),
+            esc(stop.id),
+            readSavedPlaces().includes(stop.id)
+              ? ui("live_home_018")
+              : ui("live_home_019"),
+          ]),
         );
       }
       return;
@@ -211,10 +260,7 @@ export function mountLiveHome(host, search) {
       navigation.push("map", { nearby: true });
     else if (b.hasAttribute("data-live-more")) {
       sheet.dataset.detent = "fit";
-      openContextSheet(
-        "Liveの操作",
-        `<div class="native-list"><button type="button" class="native-row" data-live-plan><span>経路を検索</span><span class="chevron">›</span></button><button type="button" class="native-row" data-navigation-screen="arrivals"><span>すべての接近情報</span><span class="chevron">›</span></button><button type="button" class="native-row" data-open-settings><span>位置情報・表示の設定</span><span class="chevron">›</span></button></div>`,
-      );
+      openContextSheet(ui("live_home_020"), ui("live_home_021"));
     } else if (b.dataset.navigationScreen && sheet.open) {
       sheet.close();
       navigation.push(b.dataset.navigationScreen);
@@ -310,6 +356,19 @@ export function mountLiveHome(host, search) {
             ? "weekdays"
             : "unknownDay",
     );
+    // Optional quiet marquee uses the browser's native smooth scroll. User
+    // interaction cancels it for the session; it never changes scroll physics.
+    if (
+      !quickTouched &&
+      !reducedMotion() &&
+      !document.querySelector("dialog[open]") &&
+      Date.now() - lastQuickMove >= 1000 &&
+      quickDestinations.scrollLeft + quickDestinations.clientWidth <
+        quickDestinations.scrollWidth - 1
+    ) {
+      lastQuickMove = Date.now();
+      quickDestinations.scrollBy({ left: 2, behavior: "smooth" });
+    }
   }
   function syncClock() {
     clearInterval(timer);
@@ -339,7 +398,7 @@ export function mountLiveHome(host, search) {
     const dot = host.querySelector("[data-location-dot]");
     dot.dataset.quality = active ? (low ? "low" : "available") : "missing";
     const copy = active
-      ? `${closest && closest.meters <= 1000 ? closest.stop.name + "付近" : "現在地を取得"}${low ? ` · 精度約${Math.round(fix.accuracy)}m` : ""}`
+      ? `${closest && closest.meters <= 1000 ? closest.stop.name + ui("live_home_026") : ui("live_home_022")}${low ? ui("live_home_023", [Math.round(fix.accuracy)]) : ""}`
       : text(
           state.locationStatus === "loading"
             ? "locationLoading"

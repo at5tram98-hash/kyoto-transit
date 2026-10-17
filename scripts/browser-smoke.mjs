@@ -1,3 +1,4 @@
+import { completionChecks } from "./completion-browser-checks.mjs";
 import { liveInteractionChecks } from "./live-browser-checks.mjs";
 import { yahooScreenChecks } from "./yahoo-browser-checks.mjs";
 import { v3RedesignChecks } from "./v3-browser-checks.mjs";
@@ -123,7 +124,12 @@ async function fixture(page, scenario = {}) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(
-    ({ gps, corrupt, standalone }) => {
+    ({ gps, corrupt, standalone, initialSettings }) => {
+      if (initialSettings && !localStorage.getItem("mymap-vnext-settings"))
+        localStorage.setItem(
+          "mymap-vnext-settings",
+          JSON.stringify(initialSettings),
+        );
       if (standalone) {
         Object.defineProperty(navigator, "standalone", {
           value: true,
@@ -177,6 +183,7 @@ async function fixture(page, scenario = {}) {
       gps: scenario.gps ?? "active",
       corrupt: Boolean(scenario.corrupt),
       standalone: Boolean(scenario.standalone),
+      initialSettings: scenario.initialSettings ?? null,
     },
   );
   await page.route("**/*", async (route) => {
@@ -319,7 +326,10 @@ async function fixture(page, scenario = {}) {
       };
     } else if (url.pathname === "/api/static/feed") {
       data =
-        url.searchParams.get("operator") === "subway"
+        scenario.staticFeeds?.[
+          `${url.searchParams.get("operator")}:${url.searchParams.get("date")}`
+        ] ??
+        (url.searchParams.get("operator") === "subway"
           ? (scenario.subwayFeed ?? subwayFeed)
           : {
               validDates: [date],
@@ -329,7 +339,7 @@ async function fixture(page, scenario = {}) {
               },
               stops: [],
               services: [],
-            };
+            });
     } else if (url.pathname === "/api/bus/rt") {
       status = 503;
       data = { code: "odpt_not_configured", error: "ODPT fixture disabled" };
@@ -339,8 +349,11 @@ async function fixture(page, scenario = {}) {
           {
             id: "subway",
             name: "地下鉄烏丸線",
-            status: "normal",
-            summary: "平常どおり運行しています",
+            status: scenario.subwayOperationStatus ?? "normal",
+            summary:
+              scenario.subwayOperationStatus === "suspended"
+                ? "運転を見合わせています"
+                : "平常どおり運行しています",
             routes: ["烏丸線"],
             notices: [],
             fetchedAt: asOf,
@@ -449,11 +462,17 @@ async function open({
       .first()
       .waitFor({ state: "attached" });
   } catch (error) {
-    await page.screenshot({
-      path: resolve(artifacts, `startup-failure-${Date.now()}.png`),
-    });
+    let diagnostic = "";
+    try {
+      await page.screenshot({
+        path: resolve(artifacts, `startup-failure-${Date.now()}.png`),
+      });
+      diagnostic = await page.locator("body").innerText();
+    } catch (captureError) {
+      diagnostic = `Capture unavailable: ${captureError.message}`;
+    }
     throw new Error(
-      `${error.message}\nApplication startup errors: ${JSON.stringify(f.errors)}`,
+      `${error.message}\nApplication startup errors: ${JSON.stringify(f.errors)}\nFailed modules: ${JSON.stringify(f.failedModules)}\n${diagnostic}`,
       { cause: error },
     );
   }
@@ -1161,13 +1180,10 @@ async function searchComparisonChecks({ baseline = false } = {}) {
         }
         // A rail/bus name is never selected by an invisible heuristic.
         await page.locator("[name=to]").fill("京都");
-        await page.waitForFunction(() =>
-          Object.values(
+        await page.waitForFunction(
+          () =>
             JSON.parse(sessionStorage.getItem("mymap-navigation-v1") ?? "{}")
-              .ui ?? {},
-          ).some((screen) =>
-            screen.fields?.some((f) => f.name === "to" && f.value === "京都"),
-          ),
+              .memory?.["search-input"]?.to === "京都",
         );
         assert.ok(
           await page
@@ -1542,6 +1558,26 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 
 try {
   if (
+    process.env.BROWSER_COMPLETION_ONLY === "1" ||
+    !Object.keys(process.env).some(
+      (key) =>
+        key.startsWith("BROWSER_") &&
+        /ONLY|AUDIT|BASELINE/.test(key) &&
+        process.env[key] === "1",
+    )
+  )
+    await completionChecks({
+      open,
+      setRide,
+      searchScreen,
+      submitSearch,
+      settleNavigation,
+      backScreen,
+      layout,
+      artifacts,
+      summary,
+    });
+  if (
     process.env.BROWSER_LIVE_ONLY === "1" ||
     !Object.keys(process.env).some(
       (key) =>
@@ -1578,6 +1614,7 @@ try {
   if (
     process.env.BROWSER_V3_ONLY === "1" ||
     ![
+      "BROWSER_COMPLETION_ONLY",
       "BROWSER_LIVE_ONLY",
       "BROWSER_YAHOO_ONLY",
       "BROWSER_UI_AUDIT",
@@ -1602,12 +1639,14 @@ try {
       summary,
     });
   if (
+    process.env.BROWSER_COMPLETION_ONLY !== "1" &&
     process.env.BROWSER_LIVE_ONLY !== "1" &&
     process.env.BROWSER_V3_ONLY !== "1" &&
     process.env.BROWSER_YAHOO_ONLY !== "1"
   ) {
     if (
       ![
+        "BROWSER_COMPLETION_ONLY",
         "BROWSER_LIVE_ONLY",
         "BROWSER_YAHOO_ONLY",
         "BROWSER_UI_AUDIT",
@@ -2514,12 +2553,16 @@ try {
         );
 
         if (server) {
-          const context = await browser.newContext({ serviceWorkers: "allow" }),
+          const context = await browser.newContext({
+              serviceWorkers: "allow",
+            }),
             page = await context.newPage();
           try {
             await page.goto(`${base}/__sw-check`);
             await page.evaluate(async () => {
-              await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+              await navigator.serviceWorker.register("/sw.js", {
+                scope: "/",
+              });
               await navigator.serviceWorker.ready;
               if (!navigator.serviceWorker.controller)
                 await new Promise((resolve) =>

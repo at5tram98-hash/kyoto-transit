@@ -1,3 +1,4 @@
+import { stationEnglish } from "./station-names.js";
 // 駅・停留所カタログと、リアルタイム取得に失敗した場合の補助経路データ。
 // 発車間隔・所要時間は補助値であり、経路検索では静的ダイヤを優先する。
 export const SUBWAY_NAMES =
@@ -60,6 +61,18 @@ export function createNetwork(catalog) {
       });
   });
   stops.get("B07").aliases = ["丹波橋", "近鉄丹波橋駅"];
+  for (const stop of stops.values()) {
+    const english = stationEnglish[stop.id];
+    if (english) {
+      stop.en = english;
+      stop.aliases.push(
+        english,
+        english.replaceAll("-", " "),
+        `${english} Station`,
+        stop.id,
+      );
+    }
+  }
   const busIds = new Map();
   const busStop = (name) => {
     const key = shortName(name);

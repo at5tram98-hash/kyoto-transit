@@ -16,7 +16,7 @@
   padding: 4px 14px;
   margin: 8px 0 22px;
   background: var(--surface-primary);
-  border-radius: 0 14px 14px 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
 .operation-summary h2 {
   color: var(--status-color);
@@ -35,7 +35,7 @@
   width: 24px;
   height: 24px;
   border: 1.5px solid var(--status-color);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   color: var(--status-color);
   display: grid;
   place-items: center;
@@ -85,7 +85,7 @@
   flex: 1;
   min-height: 44px;
   border: 1px solid var(--separator);
-  border-radius: 11px;
+  border-radius: var(--radius-option);
   background: var(--surface-primary);
   color: var(--muted);
 }
@@ -96,7 +96,7 @@
 }
 .originating-badge {
   border: 1px solid currentColor;
-  border-radius: 4px;
+  border-radius: var(--radius-tiny);
   padding: 1px 4px;
 }
 .operations-head {
@@ -133,7 +133,7 @@
 }
 .operation-routes span {
   background: var(--panel-2);
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   padding: 5px 8px;
   font-size: var(--type-caption);
   font-weight: 700;
@@ -141,7 +141,7 @@
 .status-dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--muted);
 }
 .status-dot.normal {
@@ -198,7 +198,7 @@
   appearance: none;
   width: 48px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   background: var(--separator);
   position: relative;
   transition: 0.18s;
@@ -211,9 +211,9 @@
   height: 24px;
   left: 2px;
   top: 2px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--color-on-accent);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-toggle);
   transition: 0.18s;
 }
 .setting-row input[type="checkbox"]:checked {
@@ -253,7 +253,7 @@
   min-height: 44px;
   padding: 8px 10px;
   border: 1px solid var(--separator);
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   background: var(--panel-2);
   font: inherit;
   color: var(--text);
@@ -269,7 +269,7 @@
   min-height: 44px;
   padding: 8px 10px;
   border: 1px solid var(--separator);
-  border-radius: 11px;
+  border-radius: var(--radius-option);
   background: var(--surface-secondary);
   color: var(--text);
   font: inherit;
@@ -278,6 +278,9 @@
   container-type: inline-size;
 }
 @container (max-width:18rem) {
+  .setting-row:has(select) {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .pass-range {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -311,10 +314,11 @@
   max-height: min(82vh, 760px);
   padding: 0;
   border: 0;
-  border-radius: 28px 28px 20px 20px;
+  border-radius: var(--radius-glass) var(--radius-glass) var(--radius)
+    var(--radius);
   background: var(--panel);
   color: var(--text);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-sheet);
 }
 .sheet[data-detent] {
   position: fixed;
@@ -323,7 +327,7 @@
   width: min(100%, 680px);
   max-width: 100%;
   max-height: calc(var(--app-height, 100dvh) * 0.9);
-  border-radius: 26px 26px 0 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
 }
 .sheet[data-detent="fit"] {
   height: auto;
@@ -343,7 +347,7 @@
   flex: 1;
 }
 .sheet::backdrop {
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--material-backdrop);
   backdrop-filter: blur(3px);
 }
 .choice-icon svg {
@@ -384,7 +388,7 @@
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--panel-2);
   display: grid;
   place-items: center;
@@ -415,7 +419,7 @@
 .choice-row .choice-icon {
   width: 40px;
   height: 40px;
-  border-radius: 13px;
+  border-radius: var(--radius-control-tight);
   background: var(--blue-soft);
   color: var(--blue);
   display: grid;
@@ -468,7 +472,7 @@
   font-size: var(--type-caption);
 }
 .target-result {
-  border-radius: 18px;
+  border-radius: var(--radius-inset);
   padding: 16px;
   margin-top: 12px;
   background: var(--panel-2);
@@ -501,7 +505,7 @@
   background: color-mix(in srgb, var(--text) 88%, transparent);
   color: var(--bg);
   padding: 10px 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   font-size: 0.8125rem;
   font-weight: 700;
   opacity: 0;
@@ -525,7 +529,7 @@
     font-size: 2rem;
   }
   .hero-card {
-    border-radius: 26px;
+    border-radius: var(--radius-sheet);
     padding: 21px 18px;
   }
   .hero-card h2 {

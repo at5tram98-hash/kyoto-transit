@@ -1,3 +1,4 @@
+import { ui as screenText } from "./locale.js";
 import {
   NAV_TABS,
   restoreNavigation,
@@ -98,10 +99,10 @@ export function initializeNavigation({
   const frames = new Map(),
     titles = {
       now: "Live",
-      search: "検索",
-      timetable: "時刻表",
-      operations: "運行",
-      settings: "その他",
+      search: screenText("navigation_001"),
+      timetable: screenText("navigation_002"),
+      operations: screenText("navigation_003"),
+      settings: screenText("navigation_004"),
     };
   let busy = false,
     queued = null,
@@ -127,6 +128,9 @@ export function initializeNavigation({
     const fields = [
       ...element.querySelectorAll("input,select,textarea,details"),
     ]
+      .filter(
+        (e) => !getFrame(route)?.config?.ownsFields || e.tagName === "DETAILS",
+      )
       .filter(
         (e) =>
           !e.matches(
@@ -219,6 +223,9 @@ export function initializeNavigation({
   function restoreUI(element, key, focus = false) {
     const data = ui[key];
     if (!data) return;
+    const adapter = key.startsWith("root:")
+      ? registry.get(key)
+      : frames.get(key)?.config;
     if (
       element.dataset.contextIdentity &&
       data.contextIdentity !== element.dataset.contextIdentity
@@ -241,6 +248,7 @@ export function initializeNavigation({
             : null;
       if (
         !el ||
+        (adapter?.ownsFields && el.tagName !== "DETAILS") ||
         el.matches("[data-setting],[data-setting-value],[data-setting-range]")
       )
         continue;
@@ -276,11 +284,11 @@ export function initializeNavigation({
     const config = registry.get(route.type);
     return route.type === "root"
       ? tab === "now" && shell.dataset.rideMode
-        ? "乗車中"
+        ? screenText("navigation_005")
         : titles[tab]
       : ((typeof config?.title === "function"
           ? config.title(route)
-          : config?.title) ?? "詳細");
+          : config?.title) ?? screenText("navigation_006"));
   }
   function historyWrite(kind = "replace", snapshot = state, modal = sheet) {
     const route = currentRoute(snapshot),
@@ -370,7 +378,10 @@ export function initializeNavigation({
     );
     back.hidden = !stack.length;
     back.querySelector("span").textContent = title(parent);
-    back.setAttribute("aria-label", `${title(parent)}へ戻る`);
+    back.setAttribute(
+      "aria-label",
+      screenText("navigation_007", [title(parent)]),
+    );
     document.querySelector("#view-title").textContent =
       route.type === "root" ? titles[state.tab] : title(route);
     document.querySelectorAll(".tab-button").forEach((b) => {

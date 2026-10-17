@@ -49,12 +49,12 @@
       </header>
 
       <aside id="app-update" class="app-update" role="status" hidden>
-        <span>最新版を利用できます</span
-        ><button class="secondary-action" data-apply-update>
+        <span data-ui="static_update_available">最新版を利用できます</span
+        ><button class="secondary-action" data-ui="static_update_apply" data-apply-update>
           更新して再開
         </button>
       </aside>
-      <aside id="network-status" class="network-status" role="status" hidden>
+      <aside id="network-status" data-ui="static_offline" class="network-status" role="status" hidden>
         オフライン ·
         保存した時刻表を利用できます。接近情報は最新ではありません。
       </aside>
@@ -96,7 +96,7 @@
         </section>
         <section class="view" data-view="settings" aria-label="その他" hidden>
           <section id="location-settings" class="settings-section" hidden>
-            <h2>位置情報</h2>
+            <h2 data-ui="static_location">位置情報</h2>
             <div class="settings-card">
               <div class="setting-row">
                 <span
@@ -105,13 +105,14 @@
                 ><button
                   class="location-pill"
                   id="location-indicator"
+                  data-ui="static_location_check" data-ui-aria="static_location_check"
                   type="button"
                   aria-label="現在地を再確認"
                 >
                   現在地を再確認
                 </button>
               </div>
-              <p class="source-caption">
+              <p class="source-caption" data-ui="static_location_note">
                 表示中は自動で取得し、バックグラウンドでは停止します。端末の位置情報の許可はブラウザー設定で変更できます。
               </p>
             </div>
@@ -120,24 +121,24 @@
         </section>
       </main>
 
-      <nav class="tabbar" aria-label="メインナビゲーション"></nav>
+      <nav class="tabbar" aria-label="メインナビゲーション" data-ui-aria="static_navigation"></nav>
     </div>
 
     <dialog class="sheet" id="foldback-sheet">
       <button
         class="sheet-drag-handle"
         type="button"
-        aria-label="下へドラッグして閉じる"
+        aria-label="下へドラッグして閉じる" data-ui-aria="static_drag_close"
       >
         <span></span>
       </button>
       <div class="sheet-header">
-        <h2>折り返し乗車</h2>
+        <h2 data-ui="static_foldback">折り返し乗車</h2>
         <button
           class="sheet-close"
           type="button"
           data-sheet-close
-          aria-label="閉じる"
+          aria-label="閉じる" data-ui-aria="static_close"
         >
           ×
         </button>
@@ -152,17 +153,17 @@
       <button
         class="sheet-drag-handle"
         type="button"
-        aria-label="下へドラッグして閉じる"
+        aria-label="下へドラッグして閉じる" data-ui-aria="static_drag_close"
       >
         <span></span>
       </button>
       <div class="sheet-header">
-        <h2 id="context-sheet-title">詳細</h2>
+        <h2 id="context-sheet-title" data-ui="static_detail">詳細</h2>
         <button
           class="sheet-close"
           type="button"
           data-context-close
-          aria-label="閉じる"
+          aria-label="閉じる" data-ui-aria="static_close"
         >
           ×
         </button>

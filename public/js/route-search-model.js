@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { normalize } from "./network.js";
 import { stationModel } from "./now-model.js";
 import { isFresh } from "./realtime.js";
@@ -8,26 +9,27 @@ export function routeObservationState(
   { now = Date.now(), online = globalThis.navigator?.onLine !== false } = {},
 ) {
   const rows = observations.filter(Boolean);
-  if (!rows.length) return { source: "schedule", label: "予定時刻" };
+  if (!rows.length)
+    return { source: "schedule", label: ui("route_search_model_001") };
   if (!online)
-    return { source: "prediction", label: "オフライン · 保存時の遅れ" };
+    return { source: "prediction", label: ui("route_search_model_002") };
   if (
     rows.some((row) => row.source === "live" && isFresh(row.asOf, 90000, now))
   )
-    return { source: "live", label: "便別実測" };
+    return { source: "live", label: ui("route_search_model_003") };
   if (rows.every((row) => !isFresh(row.asOf, 90000, now)))
-    return { source: "prediction", label: "保存時の遅れ · 要更新" };
-  return { source: "prediction", label: "遅れの推定" };
+    return { source: "prediction", label: ui("route_search_model_004") };
+  return { source: "prediction", label: ui("route_search_model_005") };
 }
 
 const fold = (value) => normalize(String(value)).toLocaleLowerCase("en");
 export const stopTypeLabel = (stop) =>
   ({
-    subway: "地下鉄",
-    kintetsu: "近鉄",
-    citybus: "京都市バス",
-    kyotobus: "京都バス",
-  })[stop.type] ?? "交通機関";
+    subway: ui("route_search_model_006"),
+    kintetsu: ui("route_search_model_007"),
+    citybus: ui("route_search_model_008"),
+    kyotobus: ui("route_search_model_009"),
+  })[stop.type] ?? ui("route_search_model_010");
 const terms = (stop) =>
   [
     stop.name,

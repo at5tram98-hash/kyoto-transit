@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { mountLiveHome } from "./live-home.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { createNetwork } from "./network.js";
@@ -13,6 +14,7 @@ import {
   icon,
   state,
   settings,
+  saveSettings,
   tokyoNow,
   augmentKyotoBusGeometry,
   ensureRailFeed,
@@ -157,7 +159,7 @@ function setupEvents() {
         persistJourney(true);
         applyingUpdate = true;
         b.disabled = true;
-        b.textContent = "更新中…";
+        b.textContent = ui("vnext_001");
         updateRegistration.waiting.postMessage({ type: "ACTIVATE_UPDATE" });
       }
     } else if (b.hasAttribute("data-retry-nearby")) {
@@ -289,10 +291,10 @@ async function init() {
     '<div class="tab-selection" aria-hidden="true"></div>' +
     [
       ["now", "Live"],
-      ["search", "検索"],
-      ["timetable", "時刻表"],
-      ["operations", "運行"],
-      ["settings", "その他"],
+      ["search", ui("vnext_002")],
+      ["timetable", ui("vnext_003")],
+      ["operations", ui("vnext_004")],
+      ["settings", ui("vnext_005")],
     ]
       .map(
         ([id, label]) =>
@@ -303,11 +305,11 @@ async function init() {
   try {
     const [catalog, geo] = await Promise.all([
       fetch("data/bus-catalog.json").then((r) => {
-        if (!r.ok) throw Error("路線データを読み込めません");
+        if (!r.ok) throw Error(ui("vnext_006"));
         return r.json();
       }),
       fetch("data/locations.json").then((r) => {
-        if (!r.ok) throw Error("位置データを読み込めません");
+        if (!r.ok) throw Error(ui("vnext_007"));
         return r.json();
       }),
     ]);
@@ -327,8 +329,7 @@ async function init() {
     routeSearch = mountRouteSearch({
       onCurrentLocation: ({ silent = false } = {}) => {
         const stop = nearest().all[0]?.stop;
-        if (!stop && !silent)
-          toast("現在位置は未取得です。出発地を入力してください");
+        if (!stop && !silent) toast(ui("vnext_008"));
         return stop;
       },
       onArm: (ride, itinerary) => {
@@ -352,39 +353,27 @@ async function init() {
       onBoard: boardRide,
       getItinerary: () => state.itinerary,
       getCurrentRide: () => state.ride,
+      getRecoveryStop: () => state.heroModel?.nextStation?.id,
+      getRideDelay: () => (state.rideShiftKnown ? state.rideShift : 0),
       onItineraryAdvance: advancePlannedJourney,
+      onItineraryUpdate: (plan) => {
+        state.itinerary = plan;
+        if (state.armedJourney && plan.phase !== "riding")
+          state.armedJourney = {
+            ride: plan.rides[plan.legIndex],
+            selectedAt: Date.now(),
+          };
+        persistJourney(true);
+        renderNow();
+      },
     });
     operations = mountOperations({
-      onReplan: () => {
-        const selected = state.itinerary?.input;
-        if (selected) {
-          routeSearch.openInput(selected);
-          return;
-        }
-        const ride = state.ride,
-          from =
-            state.heroModel?.nextStation ?? state.network.stops.get(ride?.from),
-          to = ride?.userDestination ?? state.network.stops.get(ride?.to),
-          now = tokyoNow();
-        if (from && to)
-          routeSearch.openInput({
-            from: from.name,
-            fromId: from.id,
-            to: to.name,
-            toId: to.id,
-            date: now.date,
-            time: now.time,
-            timeMode: "departure",
-            via: [],
-          });
-        else {
-          const previous = (navigation.recalled("search-data") ?? []).at(
-            -1,
-          )?.input;
-          if (previous) routeSearch.openInput(previous);
-          else routeSearch.open();
-        }
+      getFavorites: () => settings.favoriteOperations,
+      setFavorites: (ids) => {
+        settings.favoriteOperations = ids;
+        saveSettings();
       },
+      onReplan: (avoid) => routeSearch.replan(avoid, { review: !avoid.length }),
       getCurrentOperators: () =>
         [
           state.ride?.operator === "through"
@@ -421,6 +410,9 @@ async function init() {
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
     routeSearch.restoreShared();
     setupEvents();
+    document.addEventListener("mymap-itinerary-replan", (event) => {
+      routeSearch.replan([], event.detail);
+    });
     $('[data-view="now"]').addEventListener("click", (event) => {
       if (event.target.closest("[data-open-itinerary]"))
         navigation.push("journey");
@@ -510,8 +502,7 @@ async function init() {
     }, 20000);
   } catch (e) {
     console.error(e);
-    $("#now-hero").innerHTML =
-      `<section class="hero-card warning"><h2>起動できませんでした</h2><p>${esc(e.message)}</p><button class="primary-action" data-reload>再読み込み</button></section>`;
+    $("#now-hero").innerHTML = ui("vnext_009", [esc(e.message)]);
     document.addEventListener(
       "click",
       (ev) => {

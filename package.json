@@ -9,7 +9,8 @@
     "check": "node scripts/check.mjs",
     "test:browser": "node scripts/browser-smoke-runner.mjs",
     "test:pwa": "node scripts/pwa-smoke.mjs",
-    "verify:production": "node scripts/verify-production.mjs"
+    "verify:production": "node scripts/verify-production.mjs",
+    "verify:all-providers": "node scripts/verify-production.mjs --all-providers"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { animateState as animate } from "./navigation-motion.js";
 // Preserve DOM nodes when the visible content has not changed.
 const markup = new WeakMap();
@@ -68,7 +69,7 @@ export function updateArrivalRows(root, rows, present) {
         '<div class="arrival-source" data-field="source"></div>' +
         '<div class="arrival-second" data-field="second" hidden></div>' +
         '<div class="arrival-approach" data-field="approach" hidden></div>' +
-        '<button type="button" class="arrival-toggle" aria-expanded="false"><span class="sr-only">接近情報の詳細</span></button>';
+        ui("view_rendering_006");
       const toggle = el.querySelector(".arrival-toggle");
       toggle.addEventListener("click", () => {
         const expanded = el.classList.toggle("expanded");
@@ -84,7 +85,13 @@ export function updateArrivalRows(root, rows, present) {
     if (toggle)
       toggle.setAttribute(
         "aria-label",
-        `${row.route ?? row.label ?? ""} ${row.dest ?? ""} 接近の詳細を${el.classList.contains("expanded") ? "閉じる" : "開く"}`,
+        ui("view_rendering_004", [
+          row.route ?? row.label ?? "",
+          row.dest ?? "",
+          el.classList.contains("expanded")
+            ? ui("view_rendering_001")
+            : ui("view_rendering_002"),
+        ]),
       );
     for (const field of fields) {
       if (cached[field] === view[field]) continue;
@@ -104,7 +111,7 @@ export function updateArrivalRows(root, rows, present) {
     if (!approach.hidden) {
       if (!approach.firstElementChild) {
         approach.innerHTML =
-          '<div class="arrival-track-labels"><span>6停留所以上前</span><span>この停留所</span></div>' +
+          ui("view_rendering_007") +
           '<div class="arrival-track" aria-hidden="true">' +
           '<div class="arrival-track-stops">' +
           "<i></i>".repeat(7) +
@@ -117,7 +124,10 @@ export function updateArrivalRows(root, rows, present) {
       if (cached.position !== position)
         approach.style.setProperty("--approach-position", position);
       cached.position = position;
-      const label = `${view.approachLabel ?? "公式接近位置"}：${Math.max(0, Math.round(view.stopsAway))}停留所前`;
+      const label = ui("view_rendering_005", [
+        view.approachLabel ?? ui("view_rendering_003"),
+        Math.max(0, Math.round(view.stopsAway)),
+      ]);
       if (approach.getAttribute("aria-label") !== label)
         approach.setAttribute("aria-label", label);
     }

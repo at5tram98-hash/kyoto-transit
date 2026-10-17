@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { esc } from "./vnext-state.js";
 import { formatMinute } from "./vnext-core.js";
 import { stationModel } from "./now-model.js";
@@ -14,33 +15,51 @@ export function itinerarySummary(plan, network, shift = null, ride = null) {
     name = (id) => network.stops.get(id)?.name ?? id,
     service = (leg) =>
       leg.route
-        ? `${leg.route}系統`
+        ? ui("now_components_001", [leg.route])
         : leg.operator === "subway"
-          ? "烏丸線"
+          ? ui("now_components_002")
           : leg.operator === "through"
-            ? "直通列車"
+            ? ui("now_components_003")
             : leg.operator === "kintetsu"
-              ? "近鉄京都線"
-              : "バス",
+              ? ui("now_components_004")
+              : ui("now_components_005"),
     title = changed
-      ? `${name(ride.userDestination.id)}で降車（経路変更）`
+      ? ui("now_components_006", [name(ride.userDestination.id)])
       : plan.phase === "arrived"
-        ? "旅程を終了しました"
+        ? ui("now_components_007")
         : plan.phase === "walking"
-          ? `${name(a.destination)}まで徒歩${a.walk}分`
+          ? ui("now_components_008", [name(a.destination), a.walk])
           : plan.phase === "riding"
-            ? `${name(a.current.to)}で${a.next ? "乗換" : "降車"}`
-            : `${name(a.current.from)}から乗車予定`,
+            ? ui("now_components_084", [
+                name(a.current.to),
+                a.next ? ui("now_components_009") : ui("now_components_010"),
+              ])
+            : ui("now_components_011", [name(a.current.from)]),
     detail =
       plan.phase === "riding"
         ? a.next
-          ? `${a.walk ? `徒歩${a.walk}分 · ` : ""}${a.dwell ? `滞在${a.dwell}分 · ` : ""}${service(a.next)} ${formatTime(a.next.depart)}発${a.next.platform ? ` · ${a.next.platform}のりば` : ""}`
+          ? ui("now_components_085", [
+              a.walk ? ui("now_components_012", [a.walk]) : "",
+              a.dwell ? ui("now_components_013", [a.dwell]) : "",
+              service(a.next),
+              formatTime(a.next.depart),
+              a.next.platform
+                ? ui("now_components_014", [a.next.platform])
+                : "",
+            ])
           : a.walk
-            ? `降車後、${name(a.destination)}へ徒歩${a.walk}分`
-            : `${name(a.destination)}までの旅程を確認`
+            ? ui("now_components_015", [name(a.destination), a.walk])
+            : ui("now_components_016", [name(a.destination)])
         : plan.phase === "walking" || plan.phase === "arrived"
-          ? "全区間と予定時刻を見る"
-          : `${service(a.current)} ${formatTime(a.current.depart)}発${a.current.platform ? ` · ${a.current.platform}のりば` : ""} · ${name(a.current.to)}で降車`,
+          ? ui("now_components_017")
+          : ui("now_components_086", [
+              service(a.current),
+              formatTime(a.current.depart),
+              a.current.platform
+                ? ui("now_components_018", [a.current.platform])
+                : "",
+              name(a.current.to),
+            ]),
     risky =
       plan.phase === "riding" &&
       a.next &&
@@ -53,12 +72,18 @@ export function itinerarySummary(plan, network, shift = null, ride = null) {
         a.dwell +
         Number(plan.input?.buffer ?? 3) >
         a.next.depart;
-  return `<div class="native-list itinerary-guide"><button class="native-row itinerary-summary" data-open-itinerary><span><small>次の行動 · ${esc(a.current.serviceDate ?? plan.route.date)}運行</small><b>${esc(title)}</b><small>${esc(detail)}</small>${changed ? '<small class="itinerary-warning">降車地点が元の旅程と異なります。後続は再検索してください。</small>' : ""}${risky ? '<small class="itinerary-warning">遅れの推定から、次便の接続を再確認してください</small>' : ""}</span><span class="chevron">›</span></button></div>`;
+  return ui("now_components_087", [
+    esc(a.current.serviceDate ?? plan.route.date),
+    esc(title),
+    esc(detail),
+    changed ? ui("now_components_019") : "",
+    risky ? ui("now_components_020") : "",
+  ]);
 }
 
 export function routeBadge(model, { small = false } = {}) {
   const badges = model.boundary?.codes ?? [
-    model.bus ? (model.route ?? "バス") : model.lineId,
+    model.bus ? (model.route ?? ui("now_components_021")) : model.lineId,
   ];
   return `<span class="route-tokens ${model.boundary ? "boundary" : ""}">${[
     0, 1,
@@ -71,31 +96,48 @@ export function routeBadge(model, { small = false } = {}) {
 }
 export function statusPill(confidence, text, updated) {
   const labels = {
-    confirmed: "現在地と一致",
-    estimated: "推定",
-    stale: "古いデータ",
-    unavailable: "時刻未取得",
+    confirmed: ui("now_components_022"),
+    estimated: ui("now_components_023"),
+    stale: ui("now_components_024"),
+    unavailable: ui("now_components_025"),
   };
-  return `<span class="status-pill ${confidence}">${esc(text ?? labels[confidence])}${confidence === "stale" && updated ? `<time> · ${esc(new Date(updated).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))}更新</time>` : ""}</span>`;
+  return `<span class="status-pill ${confidence}">${esc(text ?? labels[confidence])}${confidence === "stale" && updated ? ui("now_components_026", [esc(new Date(updated).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))]) : ""}</span>`;
 }
 export function estimateTime(value, confidence) {
   return Number.isFinite(value)
-    ? `${formatMinute(Math.round(value))}<small>${confidence === "confirmed" ? "予定" : "推定"}</small>`
-    : "<small>時刻未取得</small>";
+    ? `${formatMinute(Math.round(value))}<small>${confidence === "confirmed" ? ui("now_components_027") : ui("now_components_028")}</small>`
+    : ui("now_components_029");
 }
 export function nextStationHero(model, ride, progress) {
   const next = model.nextStation,
     destination = model.userDestination;
   const duration = model.routeUnavailable
-    ? "運休・経路変更を確認してください"
+    ? ui("now_components_030")
     : model.phase === "STOPPED"
-      ? `停車中${model.nextNext ? ` · 次は ${model.nextNext.name}` : " · 終点"}`
+      ? ui("now_components_088", [
+          model.nextNext
+            ? ui("now_components_031", [model.nextNext.name])
+            : ui("now_components_032"),
+        ])
       : model.minutes === null
-        ? "到着時刻を確認中"
+        ? ui("now_components_033")
         : model.minutes === 0
-          ? "まもなく到着（推定）"
-          : `あと${model.minutes}分${model.confidence === "confirmed" ? "で到着予定" : " · 推定"}`;
-  const spoken = `${model.label} ${next?.name ?? "確認中"} ${next?.code ?? ""}、${duration}、目的地${destination?.name ?? "未設定"}まで${model.remainingStops}${model.bus ? "停留所" : "駅"}`;
+          ? ui("now_components_034")
+          : ui("now_components_089", [
+              model.minutes,
+              model.confidence === "confirmed"
+                ? ui("now_components_035")
+                : ui("now_components_036"),
+            ]);
+  const spoken = ui("now_components_090", [
+    model.label,
+    next?.name ?? ui("now_components_037"),
+    next?.code ?? "",
+    duration,
+    destination?.name ?? ui("now_components_038"),
+    model.remainingStops,
+    model.bus ? ui("now_components_039") : ui("now_components_040"),
+  ]);
   const start = Math.max(0, model.index - 1),
     end = Math.min(
       progress.stops.length,
@@ -103,18 +145,18 @@ export function nextStationHero(model, ride, progress) {
     );
   const strip = progress.stops.slice(start, end).map((s) => stationModel(s));
   return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-operator="${esc(model.bus ? (ride.operatingCompany ?? ride.operator) : ride.operator)}" data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}">
-    ${model.routeUnavailable || (model.delayMinutes ?? 0) >= 10 ? `<p class="journey-warning" role="status">${model.routeUnavailable ? "運休・経路変更を確認してください。現在位置は未確認です。" : `約${model.delayMinutes}分の遅れ（推定）。運行情報をご確認ください。`}</p>` : ""}
-    <div class="route-header">${routeBadge({ ...model, route: ride.route })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : "系統"}` : model.lineId === "K" ? "烏丸線" : "近鉄京都線")} <span>${esc(model.destination ?? "行先確認中")}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? "京都バス運行" : ride.operatingCompany === "citybus" ? "京都市バス運行" : (ride.operatingCompany ?? (ride.route === "北3" ? "京都市バス · 便により京都バス" : ride.operator === "kyotobus" ? "京都バス" : "京都市バス"))) : model.serviceType)}${model.boundary ? " · 乗換不要" : ""}</p></div></div>
+    ${model.routeUnavailable || (model.delayMinutes ?? 0) >= 10 ? `<p class="journey-warning" role="status">${model.routeUnavailable ? ui("now_components_041") : ui("now_components_042", [model.delayMinutes])}</p>` : ""}
+    <div class="route-header">${routeBadge({ ...model, route: ride.route })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : ui("now_components_043")}` : model.lineId === "K" ? ui("now_components_044") : ui("now_components_045"))} <span>${esc(model.destination ?? ui("now_components_046"))}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? ui("now_components_047") : ride.operatingCompany === "citybus" ? ui("now_components_048") : (ride.operatingCompany ?? (ride.route === "北3" ? ui("now_components_049") : ride.operator === "kyotobus" ? ui("now_components_050") : ui("now_components_051")))) : model.serviceType)}${model.boundary ? ui("now_components_052") : ""}</p></div></div>
     <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
-      <div class="next-state-label">${esc(model.label === "に到着" ? "停車中" : model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(next?.name ?? "確認中")}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(model.boundary ? model.boundary.codes.join(" / ") : next.code)}</span>` : ""}</div>
+      <div class="next-state-label">${esc(model.label === ui("now_model_010") ? ui("now_components_053") : model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(next?.name ?? ui("now_components_054"))}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(model.boundary ? model.boundary.codes.join(" / ") : next.code)}</span>` : ""}</div>
       ${next?.en ? `<div class="station-en">${esc(next.en)}</div>` : ""}<p class="next-countdown">${esc(duration)}</p>
-      <p class="destination-progress">${model.routeUnavailable ? "停車順を確認中" : model.nextIsDestination ? (model.bus ? "この停留所で降ります" : "この駅で降ります") : `「${esc(destination?.name ?? "未設定")}」まであと<span class="remaining-number">${model.remainingStops}</span>${model.bus ? "停留所" : "駅"}`}</p>
-      <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? "停留所の並び" : "停車駅の並び"}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(s.name)}</b></span>`).join("")}</div></details>
+      <p class="destination-progress">${model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destination?.name ?? ui("now_components_058")), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
+      <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? ui("now_components_061") : ui("now_components_062")}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(s.name)}</b></span>`).join("")}</div></details>
     </div>
-    <button class="personal-destination" data-context-action="destination"><span><small>あなたの降車${model.bus ? "停留所" : "駅"}</small><b>${esc(destination?.name ?? "設定する")} ${model.bus ? "" : esc(destination?.code)}</b></span><strong>${estimateTime(model.destinationArrival, model.confidence)}</strong></button>
-    ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? `<p class="through-notice">${model.boundary.phase === "stopped" ? "竹田に停車中。" : "竹田で"}${model.boundary.nextLine === "B" ? "近鉄京都線" : "地下鉄烏丸線"}へ直通 · ${esc(model.serviceType)} ${esc(model.destination)}行き · 乗換不要</p>` : ""}
-    ${model.delayMinutes > 0 ? `<p class="journey-delay">約${model.delayMinutes}分の遅れ（推定）</p>` : ""}
-    ${model.confidence === "stale" ? `<p class="source-note">${statusPill("stale", null, model.lastUpdated)} · 保存したダイヤの予定時刻を表示</p>` : ""}
+    <button class="personal-destination" data-context-action="destination"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destination?.name ?? ui("now_components_065"))} ${model.bus ? "" : esc(destination?.code)}</b></span><strong>${estimateTime(model.destinationArrival, model.confidence)}</strong></button>
+    ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? ui("now_components_092", [model.boundary.phase === "stopped" ? ui("now_components_066") : ui("now_components_067"), model.boundary.nextLine === "B" ? ui("now_components_068") : ui("now_components_069"), esc(model.serviceType), esc(model.destination)]) : ""}
+    ${model.delayMinutes > 0 ? ui("now_components_070", [model.delayMinutes]) : ""}
+    ${model.confidence === "stale" ? ui("now_components_071", [statusPill("stale", null, model.lastUpdated)]) : ""}
 
   </section>`;
 }
@@ -139,5 +181,34 @@ export function timelineRow(
       stop.id ===
       (ride.userDestination?.id ?? ride.userDestinationId ?? ride.to),
     boarding = stop.id === ride.from;
-  return `<li class="${passed ? "passed" : ""} ${next ? "next" : ""} ${current ? "current" : ""} ${destination ? "destination" : ""} ${boarding ? "boarding" : ""}" ${next ? 'aria-current="step"' : ""}><button class="station-dot-button" data-station-detail="${esc(stop.id)}" aria-label="${esc(stop.name)}の詳細"><span class="rail-dot"></span></button><button class="station-name-button" data-station-detail="${esc(stop.id)}"><b>${esc(stop.name)}</b><small>${current ? "現在地付近" : passed ? "通過済み" : destination ? "降車予定" : boarding ? "乗車駅" : index === progress.stops.length - 1 ? "終点" : next ? `次の${bus ? "停留所" : "停車駅"}` : ""}</small></button><div class="stop-times">${Number.isFinite(adjusted) ? `<time>${formatMinute(Math.round(adjusted))}</time><small>${stop.estimated ? "推定時刻" : `予定 ${formatMinute(planned)}`}</small><span>${shift > 0 ? `+${Math.round(shift)}分 推定` : "予定"}</span>` : "<small>時刻未取得</small>"}</div></li>`;
+  return ui("now_components_094", [
+    passed ? "passed" : "",
+    next ? "next" : "",
+    current ? "current" : "",
+    destination ? "destination" : "",
+    boarding ? "boarding" : "",
+    next ? 'aria-current="step"' : "",
+    esc(stop.id),
+    esc(stop.name),
+    esc(stop.id),
+    esc(stop.name),
+    current
+      ? ui("now_components_072")
+      : passed
+        ? ui("now_components_073")
+        : destination
+          ? ui("now_components_074")
+          : boarding
+            ? ui("now_components_075")
+            : index === progress.stops.length - 1
+              ? ui("now_components_076")
+              : next
+                ? ui("now_components_093", [
+                    bus ? ui("now_components_077") : ui("now_components_078"),
+                  ])
+                : "",
+    Number.isFinite(adjusted)
+      ? `<time>${formatMinute(Math.round(adjusted))}</time><small>${stop.estimated ? ui("now_components_079") : ui("now_components_080", [formatMinute(planned)])}</small><span>${shift > 0 ? ui("now_components_081", [Math.round(shift)]) : ui("now_components_082")}</span>`
+      : ui("now_components_083"),
+  ]);
 }

@@ -1,0 +1,440 @@
+{
+  "version": "fa429f63131d",
+  "files": [
+    {
+      "path": "data/bus-catalog.json",
+      "bytes": 12972,
+      "sha256": "9d4fab352258a99576f3b0a426828892774db10f31beb528f5062617a44e728b"
+    },
+    {
+      "path": "data/locations.json",
+      "bytes": 36503,
+      "sha256": "a0a467248c2f661aa0c05c51bb94b9453950759c1296d095e340c5b61c76a5e4"
+    },
+    {
+      "path": "data/north3-timetables.json",
+      "bytes": 28408,
+      "sha256": "9a4984cb1a5733edf7d7df30b3161597df1b558bab11f966194343f147a21f28"
+    },
+    {
+      "path": "icon.svg",
+      "bytes": 393,
+      "sha256": "61c3647e2d0b6e54b5f2e94917a89c062e140d19a24cff6926b5e7bd5f013dfb"
+    },
+    {
+      "path": "idle-experience.css",
+      "bytes": 6854,
+      "sha256": "0f0db1bb9bc797fa23fdb68a9d94c3839371481ea37dd4a6ee608ab9c77f2412"
+    },
+    {
+      "path": "index.html",
+      "bytes": 6743,
+      "sha256": "717f75f5179d62a7922785b00bf5702e101c6c89e12499dc40e694e5ad019e75"
+    },
+    {
+      "path": "interaction-guard.css",
+      "bytes": 682,
+      "sha256": "700404ed188dec863e8557dbee15b43fb3a8eb06a8ddb191b2b3f1d17812e2df"
+    },
+    {
+      "path": "js/announcement-parser.js",
+      "bytes": 2469,
+      "sha256": "b65f470d9ae7b5a232dda11a236880979d4f66101e868ab28474dffc8be9a7dc"
+    },
+    {
+      "path": "js/app-enhancements.js",
+      "bytes": 534,
+      "sha256": "d3605ac747676c4a1480dad14d08f2cb40aa02e0215179056e96cc4961612cd0"
+    },
+    {
+      "path": "js/arrival-schedule.js",
+      "bytes": 2545,
+      "sha256": "8bea3e011042d528d0d4754e1615d039eac1b7372c3a3fd380f84f062327d677"
+    },
+    {
+      "path": "js/arrival-stability.js",
+      "bytes": 7061,
+      "sha256": "258e0455b4f3586bcb40f26bb43ec087bb932826922c3b48d0fc36a48e62feb6"
+    },
+    {
+      "path": "js/boarding.js",
+      "bytes": 2899,
+      "sha256": "9af3efeaf39b5043079a14dc1e2c825005927a7a2b5b21392a15aebd1b426240"
+    },
+    {
+      "path": "js/bootstrap.js",
+      "bytes": 2308,
+      "sha256": "59f9ba3be113a09f792549733d145a8389c9767430e95e43ef513204199e66be"
+    },
+    {
+      "path": "js/bus-routes.js",
+      "bytes": 1592,
+      "sha256": "67ad02fba99ef875783a5dd8d2253ad22bc493791365a4fcfd4186d8774297ff"
+    },
+    {
+      "path": "js/bus-stop-preview.js",
+      "bytes": 4154,
+      "sha256": "4e143c10c75cac6aa09369af25891494471070b5ea67d8b7542c35fd92a6a5b8"
+    },
+    {
+      "path": "js/context-sheet.js",
+      "bytes": 9230,
+      "sha256": "ce15aeb880319661062e5b2100c9fc1892c0346afe462eb859691f9f182759ce"
+    },
+    {
+      "path": "js/fares.js",
+      "bytes": 7948,
+      "sha256": "b50270b74e702f8d789aaa2d51fbcf2859b44c4da6e71b04ed2a9630971ef501"
+    },
+    {
+      "path": "js/fast-data.js",
+      "bytes": 5523,
+      "sha256": "6df7ce0264b2263e296359318713a4574023b652e268f779287400c3c8fb2149"
+    },
+    {
+      "path": "js/foldback-meetings.js",
+      "bytes": 1845,
+      "sha256": "c3caed51d62c2ec369258dc02196e241a169974e8293a2fa838e257bd155a6cc"
+    },
+    {
+      "path": "js/interaction-guard.js",
+      "bytes": 540,
+      "sha256": "b1cd243b5c7b549df868bf2dfd2c0ca39cd08573aee7fe7593f792ba0dd665b1"
+    },
+    {
+      "path": "js/journey-core.js",
+      "bytes": 6523,
+      "sha256": "3d1e2d46f60e423c342d8a0879245bf2dc3dbdfdd490c958ad3a002b8d0afc0f"
+    },
+    {
+      "path": "js/journey-observation.js",
+      "bytes": 1793,
+      "sha256": "533d41d49ba67a82db293695a28d23cb29eedbe41d794703b4d25b206c168a13"
+    },
+    {
+      "path": "js/journey-plan.js",
+      "bytes": 14249,
+      "sha256": "fc028774f14a2e60e08f693c8fbbb1d3f2f76b0cbbd5a6baf997ba8238fbd3e0"
+    },
+    {
+      "path": "js/journey-recovery.js",
+      "bytes": 3318,
+      "sha256": "99beb70300a87d482d3980f8bbfdd86cdcd12ad0b4b60532b1e93175c2e31e97"
+    },
+    {
+      "path": "js/journey-session.js",
+      "bytes": 9205,
+      "sha256": "b0efbc538fe4454f52495e5dbada61fe2730276300d03b2006409f23e3c5bb82"
+    },
+    {
+      "path": "js/journey.js",
+      "bytes": 5932,
+      "sha256": "c2dc1ba17b8269098e7150eb7322e392f074ce79e7ca86fcbb7785e12ba57255"
+    },
+    {
+      "path": "js/live-home.js",
+      "bytes": 16151,
+      "sha256": "601374e600cebbdcc16a2f590f3cede1d85206265bb94ef6b8e65c12d8004395"
+    },
+    {
+      "path": "js/live.js",
+      "bytes": 1420,
+      "sha256": "c295329c6e8fa4c311aa8dd4183b1c231cb2642111bcfaf68cddf82f4e3970d4"
+    },
+    {
+      "path": "js/locale-ui-en.js",
+      "bytes": 79679,
+      "sha256": "296086ea2578f94656e1cfe9c6eece225f3596d978de569fbfe71d6453b9f2ad"
+    },
+    {
+      "path": "js/locale-ui-ja.js",
+      "bytes": 82732,
+      "sha256": "da8e11af83e2cb7275d22581a6bd496aeb9e48d549657ea23134cabfcf852e3b"
+    },
+    {
+      "path": "js/locale.js",
+      "bytes": 3511,
+      "sha256": "d3a3ad7c09b2ceb13625fd2168a39123ee6c4fe34a3a606be179faa15bab4982"
+    },
+    {
+      "path": "js/location-session.js",
+      "bytes": 2500,
+      "sha256": "0f27b87a29e42efecf431eecf46e748ef169df024a72419b6fb687b22fcf06c3"
+    },
+    {
+      "path": "js/mobility.js",
+      "bytes": 4639,
+      "sha256": "b06020462cffd90c7d3d0157b4a711927625be70d32ed283831e6ee04c439e13"
+    },
+    {
+      "path": "js/motion-assist.js",
+      "bytes": 10440,
+      "sha256": "c76a3935e47d7382e13ccc2067f9e6ad0e3d3ce01160dcebfcdee20897833d70"
+    },
+    {
+      "path": "js/navigation-core.js",
+      "bytes": 3393,
+      "sha256": "7c643fc721eb95629b37229911f90289ac65f01d96ad310b4786a510f97ca724"
+    },
+    {
+      "path": "js/navigation-motion.js",
+      "bytes": 5528,
+      "sha256": "485d08bb0849ae38b3fb7fa76deaf2fb480eae4493211db08c0ba52b479c9aeb"
+    },
+    {
+      "path": "js/navigation.js",
+      "bytes": 28044,
+      "sha256": "f3b56021143a9f4e6273cd66b2601a1f578d344629b70a9ac3280b46b0ae219d"
+    },
+    {
+      "path": "js/nearby-departures.js",
+      "bytes": 1597,
+      "sha256": "0ada67f215575f9871735f965e5ff34c3a95cf6845bad5bdf38bf7cd95e20dd1"
+    },
+    {
+      "path": "js/network.js",
+      "bytes": 9336,
+      "sha256": "7a991bd9238b847f29958364b6c12edfc1d8f46714e782bb4dd9dfbfcaa63577"
+    },
+    {
+      "path": "js/north3-feed.js",
+      "bytes": 5703,
+      "sha256": "07a9fa5845bd2b2e62fd37e116bfb68ce1c224456a2ab9c6dcbc86ab576f7963"
+    },
+    {
+      "path": "js/north3-live.js",
+      "bytes": 2829,
+      "sha256": "526599681eaffd84bd20603bd973013960499d5d22743759bea0995542ff7372"
+    },
+    {
+      "path": "js/now-components.js",
+      "bytes": 11087,
+      "sha256": "30502c792606605f19e7562fc587d2da72df9961f62b5d0dc57b8b3d7ff599c6"
+    },
+    {
+      "path": "js/now-model.js",
+      "bytes": 9573,
+      "sha256": "a50865bf00149c47e4b00854adec1be6807541ae7bf7d4d397d21bbb4e99bf4a"
+    },
+    {
+      "path": "js/now-navigation.js",
+      "bytes": 12038,
+      "sha256": "c8866cb0771f9dffc9059779efe5af6f0b58865206d2d84ffcda6d9a7b9fb3e9"
+    },
+    {
+      "path": "js/operation-status.js",
+      "bytes": 3287,
+      "sha256": "01b67509eb0c230005ad099cd5805ba2e66edb3082ca40b4e2869dd7c4513e35"
+    },
+    {
+      "path": "js/planner-worker.js",
+      "bytes": 2292,
+      "sha256": "281fc3386874cda6ea963e888d7d12355313e60faf2df0898ef37879c885c4b6"
+    },
+    {
+      "path": "js/providers.js",
+      "bytes": 4399,
+      "sha256": "cacea60417ec6ea9c0d984b95b71b4e0931a1d437e0429d44b359d00cf29ef6f"
+    },
+    {
+      "path": "js/rail-arrivals-core.js",
+      "bytes": 1122,
+      "sha256": "71f52d8a9ae96b097e29cbd2a941c4121d8bb2b4d3df0745ef6cf5a9da2cb346"
+    },
+    {
+      "path": "js/realtime.js",
+      "bytes": 12490,
+      "sha256": "93c9a034d4d3f069957cf6db0be80cedcf5078cab031580daa20dab3c1b2d5ed"
+    },
+    {
+      "path": "js/refresh.js",
+      "bytes": 773,
+      "sha256": "7fed603a85f528612934e8a098b449a91ac7159b107c33fbc2af0bc8e65ffa7a"
+    },
+    {
+      "path": "js/ride-state-resolver.js",
+      "bytes": 2447,
+      "sha256": "b391a4a330717b2b1187fc4155e15098d19527dbf40daedb41957c0ca63a92bb"
+    },
+    {
+      "path": "js/riding.js",
+      "bytes": 15026,
+      "sha256": "ac885a6d4a1ad6aa11c17df77137b034044bd6c4a3bbb544fc65c352bc177c23"
+    },
+    {
+      "path": "js/route-image.js",
+      "bytes": 4814,
+      "sha256": "8c431a0624fd0fa68552d6eb7442d15a25ff273d691853be7731ced3965e7f72"
+    },
+    {
+      "path": "js/route-map.js",
+      "bytes": 20966,
+      "sha256": "ee3e9a4b59ccd7f39a1e8b61578701861a6b0f612113bdf6a9796411ea60840c"
+    },
+    {
+      "path": "js/route-search-model.js",
+      "bytes": 7007,
+      "sha256": "a023489fa0239687136ccfd3b532f52cfcbdabf55df0408ac0a48ac3ceec81af"
+    },
+    {
+      "path": "js/route-search-ui.js",
+      "bytes": 57764,
+      "sha256": "8aba92fd30dbda26bb8fd331f73a2c734daf85af1d46469e9a2fc8d512c59dbe"
+    },
+    {
+      "path": "js/route-search-view.js",
+      "bytes": 10337,
+      "sha256": "7f81b036d47983d84aa9515fd5aa4036cc8cd59d0393bb638b1383e6561d71d2"
+    },
+    {
+      "path": "js/route-trip-screen.js",
+      "bytes": 11968,
+      "sha256": "4ca81d77bfaf12a415c530e113f91370a00514aad0bce2cd0651329a9cb1faf2"
+    },
+    {
+      "path": "js/router.js",
+      "bytes": 11350,
+      "sha256": "76f2fb4b30b740bcc37e6e55bbd28149a588b972bff8a3e2c0c2a0164e44ddd9"
+    },
+    {
+      "path": "js/saved-places.js",
+      "bytes": 1523,
+      "sha256": "9132a600bf299b1a8bea75f5569f35e894e878ae5a88c1e7faccbb78958d9ceb"
+    },
+    {
+      "path": "js/search-core.js",
+      "bytes": 14620,
+      "sha256": "73073b375ecda229b4eacaf0f7ad99fcb05697af014a11628ca2b26e72aa065f"
+    },
+    {
+      "path": "js/search-history.js",
+      "bytes": 2363,
+      "sha256": "9b4fb7831aaaadfffb579d00c865dba8bf0565fd4298e91a7f81bfb556d3665f"
+    },
+    {
+      "path": "js/station-names.js",
+      "bytes": 949,
+      "sha256": "851396da47df7d8a894eae6d16c0ebc22a857cc8b99a32361f3c4d6de56d5b4a"
+    },
+    {
+      "path": "js/stop-autocomplete.js",
+      "bytes": 7803,
+      "sha256": "41558fc4e711190cd365a5f8c68c7cf5a0ade21d848a33ea50d7997c5d279306"
+    },
+    {
+      "path": "js/timetable-ui.js",
+      "bytes": 26500,
+      "sha256": "5c3d57d8e8c110eaffbfabbbd8a020d48d272613a108bf46b9b22158161e0ba0"
+    },
+    {
+      "path": "js/transit-evidence.js",
+      "bytes": 6582,
+      "sha256": "cf08a5f90a48352448b40cbcf8dcf5648b49dc4be4600904dcbe5a113819dfea"
+    },
+    {
+      "path": "js/vehicle.js",
+      "bytes": 3074,
+      "sha256": "f4c17f73a93b1dadb690a53547ba00e514ecb962a76e0c7a3f76f9ff2e8a52a4"
+    },
+    {
+      "path": "js/view-rendering.js",
+      "bytes": 7537,
+      "sha256": "1aa19c1902e212b068950ef7cc5928fd821d48b573a45f82041c2d2977c17806"
+    },
+    {
+      "path": "js/vnext-arrivals.js",
+      "bytes": 22206,
+      "sha256": "77e4c8e46a29311e4fdfaecd005a6571f56fc80862e601286f1279fbe7994d65"
+    },
+    {
+      "path": "js/vnext-core.js",
+      "bytes": 15490,
+      "sha256": "29ffde75c574a201b20f0172086d34bac01306ec99acac127813443d222f3154"
+    },
+    {
+      "path": "js/vnext-detect.js",
+      "bytes": 20462,
+      "sha256": "9f4bf11171a6ed1b955d644f220b791641ce7c81697cc6d3b9311bba5fc6bec1"
+    },
+    {
+      "path": "js/vnext-foldback.js",
+      "bytes": 14103,
+      "sha256": "7d4f9cc641e232af143821b1ff0eda89077b191482e85c82d48c6f737c51435f"
+    },
+    {
+      "path": "js/vnext-network-view.js",
+      "bytes": 22152,
+      "sha256": "efcd9196222e7f46caf4f6461cd79e224b69c053abdc7b28c9492df85840e9fe"
+    },
+    {
+      "path": "js/vnext-state.js",
+      "bytes": 12414,
+      "sha256": "3608b70cd13057fccefc4f874c6a9e0d54d688b6d4d66ea43eedea22b32b3449"
+    },
+    {
+      "path": "js/vnext-view.js",
+      "bytes": 30654,
+      "sha256": "e37165b5922d0a96dace60d9df02f5712bbba7adcc0f5a97a3de1b3de85d30c5"
+    },
+    {
+      "path": "js/vnext.js",
+      "bytes": 17766,
+      "sha256": "b09e6a50e1619d11a84be066e5ff1973fe429741b81b0af8e3710e73fb26e3e0"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "bytes": 501,
+      "sha256": "14ca3ebae2bbf145ba12d536b7f115e51c1b7ebb74d0c251cab4096dde3c264c"
+    },
+    {
+      "path": "route-search.css",
+      "bytes": 24605,
+      "sha256": "413b40080f4c0660313764cbdaab31535c65ac096df51559e7fde7a44405dbf0"
+    },
+    {
+      "path": "stability.css",
+      "bytes": 3289,
+      "sha256": "73ac241835b6f13a40fdb0b62cee0918a07649128cd8ce064b3f626d9b465ef5"
+    },
+    {
+      "path": "sw.js",
+      "bytes": 6118,
+      "sha256": "b30221132309f301a7d74046f79768a369c25a086170ab56c5d84425283d2ea3"
+    },
+    {
+      "path": "vnext-arrivals.css",
+      "bytes": 11658,
+      "sha256": "d2b5bc86c2e4ce5cefe30d7ec93c88d6680c906998fe3efc5e28b52140c51c42"
+    },
+    {
+      "path": "vnext-journey.css",
+      "bytes": 22965,
+      "sha256": "859ab025a34c9180d0cb4a6ef9c2231e3a20f0142a470a84bf50ead4057f57eb"
+    },
+    {
+      "path": "vnext-navigation.css",
+      "bytes": 9471,
+      "sha256": "8463913bf2ffdaac4d8fc95adb73c3e1d20c7022c436d898a18261612f31e0c7"
+    },
+    {
+      "path": "vnext-sheets.css",
+      "bytes": 11415,
+      "sha256": "8f4ff21ebd8e74489bff71bf43a2299ecca85cbeedfa79c5f29a4dd1651c17d4"
+    },
+    {
+      "path": "vnext-tabbar.css",
+      "bytes": 2797,
+      "sha256": "b49d0ced0b2bcb25b2567a721d17e969e37be2729b3290f0f46cf5d58cf4d494"
+    },
+    {
+      "path": "vnext-ui.css",
+      "bytes": 13297,
+      "sha256": "01212bd19d83cde05475501e1dde561af443a410aec84dec4577d1a985653971"
+    },
+    {
+      "path": "vnext.css",
+      "bytes": 11197,
+      "sha256": "ef6cfb72e5c228c7611cb0b97fd561bea874efd25e648fe4f2090617e38cd7b9"
+    }
+  ]
+}

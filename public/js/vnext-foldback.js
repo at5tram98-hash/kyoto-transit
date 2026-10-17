@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { foldbackJourney } from "./boarding.js";
 import {
   foldbackMeetingPoints,
@@ -35,12 +36,12 @@ let version = 0,
   baseChoiceCount = 0;
 const category = (entry) =>
   entry.category === "express"
-    ? "急行"
+    ? ui("vnext_foldback_001")
     : entry.category === "local"
-      ? "普通"
+      ? ui("vnext_foldback_002")
       : entry.category === "other"
-        ? "その他"
-        : "種別未取得";
+        ? ui("vnext_foldback_003")
+        : ui("vnext_foldback_004");
 function invalidate() {
   version++;
   controller?.abort();
@@ -67,11 +68,10 @@ const options = (items) =>
   items
     .map(
       (s) =>
-        `<option value="${esc(s.id)}">${esc(s.name)}${Number.isFinite(stopTime(s)) ? ` · ${formatMinute(Math.round(stopTime(s) + state.rideShift))}着` : " · 時刻未取得"}</option>`,
+        `<option value="${esc(s.id)}">${esc(s.name)}${Number.isFinite(stopTime(s)) ? ui("vnext_foldback_005", [formatMinute(Math.round(stopTime(s) + state.rideShift))]) : ui("vnext_foldback_006")}</option>`,
     )
     .join("");
-const bufferField = () =>
-  '<label class="sheet-field"><span>ホーム移動に必要な時間</span><select id="fold-buffer"><option value="2">2分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="8">8分</option></select></label>';
+const bufferField = () => ui("vnext_foldback_007");
 
 export function openFoldback() {
   const ride = state.ride;
@@ -80,26 +80,18 @@ export function openFoldback() {
   const dialog = $("#foldback-sheet");
   if (!dialog.open) opener = document.activeElement;
   replaceBody(
-    `<p class="sheet-intro">現在の遅れを含む到着見込みから、反対方向への乗換時間を確認します。</p>${[
+    ui("vnext_foldback_051", [
       [
-        "station",
-        "fold",
-        "降りる駅から探す",
-        "指定した駅の到着・反対方向の便を比較",
-      ],
-      ["train", "train", "好きな電車を選ぶ", "指定列車に折り返せるかを確認"],
-      [
-        "next",
-        "bolt",
-        "次駅ですぐ折り返し",
-        "次の停車駅で、移動時間を確保できる最短の便",
-      ],
-    ]
-      .map(
-        ([mode, symbol, title, detail]) =>
-          `<button class="choice-row" data-foldback-mode="${mode}"><span class="choice-icon">${icon(symbol)}</span><span><b>${title}</b><small>${detail}</small></span><span>›</span></button>`,
-      )
-      .join("")}`,
+        ["station", "fold", ui("vnext_foldback_008"), ui("vnext_foldback_009")],
+        ["train", "train", ui("vnext_foldback_010"), ui("vnext_foldback_011")],
+        ["next", "bolt", ui("vnext_foldback_012"), ui("vnext_foldback_013")],
+      ]
+        .map(
+          ([mode, symbol, title, detail]) =>
+            `<button class="choice-row" data-foldback-mode="${mode}"><span class="choice-icon">${icon(symbol)}</span><span><b>${title}</b><small>${detail}</small></span><span>›</span></button>`,
+        )
+        .join(""),
+    ]),
   );
   if (!dialog.open) dialog.showModal();
   $("#foldback-body [data-foldback-mode]")?.focus({ preventScroll: true });
@@ -109,7 +101,18 @@ function showMode(mode) {
     train = mode === "train";
   $("#foldback-sheet").dataset.foldbackMode = mode;
   replaceBody(
-    `<button class="sheet-back" data-foldback-home>‹ 選び方に戻る</button><div class="fold-step"><span>1</span><b>${train ? "駅と列車を選ぶ" : "折り返す駅を選ぶ"}</b></div><p class="sheet-intro">${train ? "急行・普通・行き先を見ながら、反対方向の列車を選べます。" : "終点でも折り返せます。降車から反対ホームへ移動する時間を確保してください。"}</p><label class="sheet-field"><span>${train ? "列車を選ぶ駅" : "降りる駅"}</span><select id="${train ? "target-station" : "fold-station"}">${options(items)}</select></label>${bufferField()}<button class="primary-action" ${train ? "data-load-target-trains" : "data-foldback-search"} ${items.length ? "" : "disabled"}>${train ? "反対方向の列車を表示" : "乗り換えられる列車を探す"}</button><div id="${train ? "target-trains" : "fold-result"}" aria-live="polite"></div><p class="source-note">到着は現在の遅れを含む推定、反対方向の列車は公式時刻表の予定です。番線や運行変更は駅の表示も確認してください。</p>`,
+    ui("vnext_foldback_052", [
+      train ? ui("vnext_foldback_014") : ui("vnext_foldback_015"),
+      train ? ui("vnext_foldback_016") : ui("vnext_foldback_017"),
+      train ? ui("vnext_foldback_018") : ui("vnext_foldback_019"),
+      train ? "target-station" : "fold-station",
+      options(items),
+      bufferField(),
+      train ? "data-load-target-trains" : "data-foldback-search",
+      items.length ? "" : "disabled",
+      train ? ui("vnext_foldback_020") : ui("vnext_foldback_021"),
+      train ? "target-trains" : "fold-result",
+    ]),
   );
   const select = $("#foldback-body select");
   if (mode === "next") {
@@ -119,26 +122,21 @@ function showMode(mode) {
       void load("next");
     } else {
       $("#foldback-body [data-foldback-search]").disabled = true;
-      $("#fold-result").innerHTML =
-        '<p class="source-note" role="status">次の停車駅を確認できません。選び方に戻り、折り返す駅を指定してください。</p>';
+      $("#fold-result").innerHTML = ui("vnext_foldback_022");
     }
   } else select?.focus({ preventScroll: true });
 }
 async function reverseBoard(stopId, signal) {
   const ride = state.foldbackRide,
     reverse = reverseDirection(ride, stopId);
-  if (!reverse)
-    throw Error("進行方向を確認できません。乗車中の便を確認してください。");
+  if (!reverse) throw Error(ui("vnext_foldback_023"));
   const data = await officialData(
       "/timetable/options",
       { stop: stopId },
       signal,
     ),
     board = data.boards?.find((x) => x.key === reverse);
-  if (!board)
-    throw Error(
-      "この駅の反対方向の時刻表を取得できません。別の駅を選んでください。",
-    );
+  if (!board) throw Error(ui("vnext_foldback_024"));
   const now = clock(),
     stop = ride.officialStops?.find((s) => s.id === stopId),
     arrival = Number.isFinite(stopTime(stop))
@@ -187,8 +185,7 @@ async function load(mode) {
     buffer = Number($("#fold-buffer").value),
     now = clock();
   const stop = ride?.officialStops?.find((s) => s.id === id);
-  root.innerHTML =
-    '<p class="loading-line" role="status">反対方向の公式時刻表を確認中…</p>';
+  root.innerHTML = ui("vnext_foldback_025");
   root.setAttribute("aria-busy", "true");
   controller = new AbortController();
   const request = controller,
@@ -216,28 +213,44 @@ async function load(mode) {
       .map((entry) => ({ ...entry, stopId: id, direction: board.key, buffer }));
     baseChoiceCount = choices.length;
     if (!Number.isFinite(stopTime(stop)) && !train) {
-      root.innerHTML =
-        '<p class="empty-state">この駅の到着時刻が未取得のため、乗換可能な列車を判定できません。「好きな電車を選ぶ」から予定時刻を確認できます。</p>';
+      root.innerHTML = ui("vnext_foldback_026");
       return;
     }
     root.innerHTML = choices.length
-      ? `<div class="fold-step"><span>2</span><b>${train ? "好きな列車を選択" : "折り返す列車を選択"}</b></div><p class="fold-direction">${esc(board.label)}</p><div class="fold-results">${choices
+      ? `<div class="fold-step"><span>2</span><b>${train ? ui("vnext_foldback_027") : ui("vnext_foldback_028")}</b></div><p class="fold-direction">${esc(board.label)}</p><div class="fold-results">${choices
           .map((entry, i) => {
             const assessment = assessFoldback(stop, entry.depart, {
               shift: state.rideShift,
               buffer,
               now: now.minute,
             });
-            return `<button class="target-train" data-target-index="${i}"><b>${formatMinute(entry.depart)}<small>発</small></b><span><strong>${esc(entry.destination ?? board.label)}</strong><small>${esc(category(entry))}${entry.tripId ? ` · 便 ${esc(entry.tripId)}` : ""}</small></span><span class="fold-margin ${assessment.status}">${assessment.status === "unknown" ? "時刻未取得" : assessment.slack < 0 ? "時間不足" : `余裕 ${Math.floor(assessment.slack)}分`}<small>選択 ›</small></span></button>`;
+            return ui("vnext_foldback_053", [
+              i,
+              formatMinute(entry.depart),
+              esc(entry.destination ?? board.label),
+              esc(category(entry)),
+              entry.tripId ? ui("vnext_foldback_029", [esc(entry.tripId)]) : "",
+              assessment.status,
+              assessment.status === "unknown"
+                ? ui("vnext_foldback_030")
+                : assessment.slack < 0
+                  ? ui("vnext_foldback_031")
+                  : ui("vnext_foldback_032", [Math.floor(assessment.slack)]),
+            ]);
           })
           .join("")}</div>`
-      : '<p class="empty-state">条件に合う反対方向の列車がありません。駅やホーム移動の時間を変更してください。</p>';
+      : ui("vnext_foldback_033");
     if (mode === "next" && choices.length) evaluate(0);
   } catch (error) {
     if (current() && error.name !== "AbortError")
-      root.innerHTML = `<p class="empty-state">${esc(error.message)}</p><button class="secondary-action" ${train ? "data-load-target-trains" : "data-foldback-search"}>もう一度取得</button>`;
+      root.innerHTML = ui("vnext_foldback_034", [
+        esc(error.message),
+        train ? "data-load-target-trains" : "data-foldback-search",
+      ]);
     else if (current())
-      root.innerHTML = `<p class="empty-state">取得に時間がかかっています。</p><button class="secondary-action" ${train ? "data-load-target-trains" : "data-foldback-search"}>再試行</button>`;
+      root.innerHTML = ui("vnext_foldback_035", [
+        train ? "data-load-target-trains" : "data-foldback-search",
+      ]);
   } finally {
     clearTimeout(timer);
     if (current()) root.removeAttribute("aria-busy");
@@ -259,13 +272,31 @@ function evaluate(index, entry = choices[index]) {
     rideKey: rideKey(state.ride),
   };
   const labels = {
-    possible: "乗換時間を確保できます",
-    tight: "乗換の余裕が少なめです",
-    missed: "乗換時間が不足しています",
-    unknown: "到着時刻を確認できません",
+    possible: ui("vnext_foldback_036"),
+    tight: ui("vnext_foldback_037"),
+    missed: ui("vnext_foldback_038"),
+    unknown: ui("vnext_foldback_039"),
   };
   const root = $("#target-trains") ?? $("#fold-result");
-  root.innerHTML = `<div class="fold-step"><span>3</span><b>折り返しを確認</b></div><article class="target-result ${assessment.status}" role="status" tabindex="-1"><span>${labels[assessment.status]}</span><b>${esc(stop?.name ?? entry.stopId)}で折り返し</b><p>${esc(category(entry))} ${esc(entry.destination ?? "反対方向")}行き</p><dl class="fold-timing"><div><dt>自分の到着見込み</dt><dd>${Number.isFinite(assessment.arrival) ? formatMinute(Math.round(assessment.arrival)) : "時刻未取得"}</dd></div><div><dt>選んだ列車の発車</dt><dd>${formatMinute(entry.depart)}</dd></div><div><dt>ホーム移動</dt><dd>${buffer}分</dd></div><div><dt>乗換余裕</dt><dd>${Number.isFinite(assessment.slack) ? (assessment.slack >= 0 ? `約${Math.floor(assessment.slack)}分` : `約${Math.ceil(-assessment.slack)}分不足`) : "判定できません"}</dd></div></dl></article><div class="screen-action-group"><button class="primary-action" data-save-foldback ${["possible", "tight"].includes(assessment.status) ? "" : "disabled"}>この折り返しを案内に表示</button><button class="secondary-action" ${$("#target-station") ? "data-load-target-trains" : "data-foldback-search"}>別の列車を選ぶ</button></div>`;
+  root.innerHTML = ui("vnext_foldback_054", [
+    assessment.status,
+    labels[assessment.status],
+    esc(stop?.name ?? entry.stopId),
+    esc(category(entry)),
+    esc(entry.destination ?? ui("vnext_foldback_040")),
+    Number.isFinite(assessment.arrival)
+      ? formatMinute(Math.round(assessment.arrival))
+      : ui("vnext_foldback_041"),
+    formatMinute(entry.depart),
+    buffer,
+    Number.isFinite(assessment.slack)
+      ? assessment.slack >= 0
+        ? ui("vnext_foldback_042", [Math.floor(assessment.slack)])
+        : ui("vnext_foldback_043", [Math.ceil(-assessment.slack)])
+      : ui("vnext_foldback_044"),
+    ["possible", "tight"].includes(assessment.status) ? "" : "disabled",
+    $("#target-station") ? "data-load-target-trains" : "data-foldback-search",
+  ]);
   root.querySelector(".target-result").focus();
   if ($("#foldback-sheet").dataset.foldbackMode === "train")
     void showMeetingPoints(selected, root);
@@ -277,8 +308,7 @@ async function showMeetingPoints(entry, root) {
   meetingController = job;
   const region = document.createElement("section");
   region.className = "foldback-meeting-points";
-  region.innerHTML =
-    '<h3>この列車に乗り換えられる駅</h3><p class="source-note" role="status">共通の停車駅と時刻を確認中…</p>';
+  region.innerHTML = ui("vnext_foldback_045");
   root.append(region);
   const timer = setTimeout(() => job.abort(), 12000);
   try {
@@ -296,7 +326,7 @@ async function showMeetingPoints(entry, root) {
       offset: entry.depart - entry.serviceDepart,
       minIndex: state.heroModel?.index ?? 0,
     });
-    region.innerHTML = `<h3>この列車に乗り換えられる駅</h3>${
+    region.innerHTML = ui("vnext_foldback_055", [
       points.length
         ? `<div class="native-list">${points
             .map((point) => {
@@ -307,15 +337,21 @@ async function showMeetingPoints(entry, root) {
                 depart: point.depart,
                 serviceDepart: point.serviceDepart,
               });
-              return `<button type="button" class="native-row" data-target-index="${choiceIndex}"><span><b>${esc(point.name)}</b><small>${formatMinute(Math.round(point.assessment.arrival))}着 → ${formatMinute(point.depart)}発 · 移動${entry.buffer}分 · 余裕${Math.floor(point.assessment.slack)}分</small></span><span class="chevron">›</span></button>`;
+              return ui("vnext_foldback_046", [
+                choiceIndex,
+                esc(point.name),
+                formatMinute(Math.round(point.assessment.arrival)),
+                formatMinute(point.depart),
+                entry.buffer,
+                Math.floor(point.assessment.slack),
+              ]);
             })
             .join("")}</div>`
-        : '<p class="source-note">取得できた時刻では、他の共通駅の乗換時間を確保できません。</p>'
-    }`;
+        : ui("vnext_foldback_047"),
+    ]);
   } catch {
     if (!job.signal.aborted && selected === entry && region.isConnected)
-      region.innerHTML =
-        '<p class="source-note">この列車の全駅時刻を取得できないため、選択した駅での判定を表示しています。別の駅からも確認できます。</p>';
+      region.innerHTML = ui("vnext_foldback_048");
   } finally {
     clearTimeout(timer);
   }
@@ -329,7 +365,7 @@ function save() {
       now: clock().minute,
     });
   if (!["possible", "tight"].includes(assessment.status)) {
-    toast("到着見込みが変わりました。折り返しを再確認してください。");
+    toast(ui("vnext_foldback_049"));
     evaluate(selected.choiceIndex, selected);
     return;
   }
@@ -337,7 +373,7 @@ function save() {
   state.foldbackPlan = selected;
   $("#foldback-sheet").close();
   renderNow();
-  toast("折り返し案内を設定しました");
+  toast(ui("vnext_foldback_050"));
 }
 export function setupFoldback() {
   const dialog = $("#foldback-sheet");

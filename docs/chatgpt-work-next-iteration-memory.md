@@ -1,8 +1,19 @@
 # ChatGPT Work 引継ぎ：Google Maps・Yahoo!乗換案内とMyMapの操作差
 
-更新: 2026-10-16。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
+更新: 2026-10-17。対象 `at5tram98-hash/kyoto-transit`、本番 https://at5tram98-hash.github.io/kyoto-transit/ 。最初にmainを取得し、その時点のコード・公開build・テストを再確認する。古い検証結果を現在の動作の証拠としない。
 
-## 最新公開記録（2026-10-16）
+## 最新改修（2026-10-17）
+
+今回build **`fa429f63131d`**、開始main `dfd4352`。公開とCIの確定情報は [最新の実装・公開記録](spec-completion-2026-10-16.md) を正とする。旧版の未実装リストをこの版へ転用しない。
+
+- 運行の関連→保存→全路線。既存settings.favoriteOperationsが唯一の保存先。明示的で新鮮な運休/遅延だけ自動回避に使い、古い/未確認の公式お知らせを運休と捏造しない。既存plannerのoperatorsを使用し、throughは両社許可が必要。運行からの回避検索は実際の候補まで進み、選択まで現在Journeyを破壊しない。
+- `journey-recovery.js`は明示的な途中降車、未完了経由、現在の運行日/時刻/既知の到着と余裕を使う。時刻だけの自動乗車は禁止。全旅程の将来便も既存snapshot最大5件・別便Sheet/再計算で変更。完了/乗車中区間は固定、revision/変更降車先/過去便を適用前にも確認する。
+- Search入力は既存モデルが所有する。root:searchの`ownsFields:true`を削除すると、Historyの古いDOM値が新しい回避条件を上書きする。Navigationは引き続きscroll・focus・detailsを所有する。履歴detailsには安定idを使う。別のStateを増やさない。
+- `locale-ui-ja/en.js`の846項目、`locale.js`、公式駅English名の単一所有`station-names.js`。操作ラベルと画面HTMLを分離し、action属性・placeholder・データIDは両言語同一。日本語の公式固有名/外部原文は未翻訳。localeは既存settingsに保存し、変更reload後も旅程・保存運行を保持する。
+- CSSのradius/shadow/colorはroot tokenを唯一のownerとし、gestureのbackdrop進捗は動的変数のまま。200%時は設定controlを縦に、Nav titleをBackの下に配置。英語TabはTimes。Quick Selectの任意低速移動は既存tickとnative scrollで、操作/Reduce Motion/非表示で停止する。
+- 未達: 京都バスODPTの本番health=false。環境候補keyの公式応答は403 Invalid acl:consumerKey.。無効値をWorkerに設定しない。実機/実走も未実施であり、全78節のoverall100Percent=false / Global Release Ready=falseを維持する。Safariの触覚はWeb API対応が前提。
+
+## 前回公開記録（2026-10-16）
 
 frontend build **`06ad19dcadc7`** は本番公開済み。UI source `2659964` / merge `0a99bf8`、API修正 source `6248187` / merge `f26fb06`。Pages [38837839758](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38837839758) とWorker [38840924385](https://github.com/at5tram98-hash/kyoto-transit/actions/runs/38840924385) はSUCCESS。
 
@@ -10,7 +21,7 @@ frontend build **`06ad19dcadc7`** は本番公開済み。UI source `2659964` / 
 
 公開HTTPSでfixtureなしに当日丸太町→京都を検索、11:27発から11:42発へ変更、案内準備・reload保持・全旅程・Back・解除を確認。実際の旧PWA `0e633053b133`→`06ad19dcadc7`更新でも選択tripIdと全旅程を保持した。[公開記録・原本JSON](evidence/native-2026-10-15/production-release.json) / [報告](native-final-implementation-2026-10-15.md#本番公開結果2026-10-16) / [実公開8画像](evidence/native-2026-10-15/README.md#本番公開後の実画面2026-10-16)。Global Release Readyは引き続きNO。公開済みであることを実機・実走合格と混同しない。
 
-## 最新：iOS純正アプリ級 最終仕様（2026-10-15）
+## 前版の設計記録：iOS純正アプリ級 最終仕様（2026-10-15）
 
 今回のユーザー0–77節を最優先する。実装・新Navigation Map・Main/Push/Sheet/Fullscreenの配置・操作数・実機試験表・残存制限は [最終仕様の実装対応表](native-final-implementation-2026-10-15.md) に記録する。以前の「今もYahooと同じ検索画面」は今回のLive専用構成へ置換された。競合の優れた操作原則を使い、ブランド固有画像はコピーしない。
 
