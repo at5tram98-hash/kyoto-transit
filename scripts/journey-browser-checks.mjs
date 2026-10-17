@@ -99,8 +99,10 @@ export async function journeyUpgradeChecks({
                 clientWidth: e.clientWidth,
               });
           }
-          const footer = root.querySelector(".route-actions"),
-            button = footer?.querySelector("button");
+          // Save/share scroll with the journey. The persistent primary action
+          // is the bottom footer, including after expanding intermediate stops.
+          const footer = root.querySelector(".screen-bottom-action"),
+            button = footer?.querySelector(".primary-action");
           if (button && !footer.hidden) {
             const r = button.getBoundingClientRect(),
               bar = document.querySelector(".tabbar").getBoundingClientRect();
