@@ -82,7 +82,7 @@ test("現在便と矛盾する具体的な次駅アナウンスを検出する",
   );
   assert.equal(
     announcementContradictsRide(
-      { line: null, route: null, destination: null, nextStop: "K05", trainType: null },
+      { line: null, route: null, destination: null, nextStop: "K08", trainType: null },
       ride,
       600,
     ),
