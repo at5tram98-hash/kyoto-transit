@@ -106,6 +106,17 @@ function moveTabSelection() {
   pill.style.transform = `translate3d(${rect.left - parent.left}px,0,0)`;
   nav.classList.add("tab-ready");
 }
+function primaryRootTitle(tab) {
+  const english = document.documentElement.lang === "en";
+  if (tab === "now") return english ? "Now" : "今";
+  if (tab === "settings") return english ? "Settings" : "設定";
+  return null;
+}
+function syncPrimaryRootTitle() {
+  if (navigation.route.type !== "root") return;
+  const title = primaryRootTitle(state.tab);
+  if (title) $("#view-title").textContent = title;
+}
 function syncTab(tab) {
   state.tab = tab;
   if (tab !== "now") $(".app-shell").dataset.nowHome = "false";
@@ -117,7 +128,10 @@ function syncTab(tab) {
   if (tab === "timetable") timetables?.show();
   if (tab === "operations") operations?.show();
   if (tab === "settings") renderSettings();
-  requestAnimationFrame(moveTabSelection);
+  requestAnimationFrame(() => {
+    moveTabSelection();
+    syncPrimaryRootTitle();
+  });
 }
 function setTab(tab) {
   navigation.selectTab(tab);
@@ -438,6 +452,7 @@ async function init() {
     registerNowScreens({ arrivals, onFoldback: openFoldback });
     mountLiveHome($("#now-search"), routeSearch);
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
+    syncPrimaryRootTitle();
     routeSearch.restoreShared();
     setupEvents();
     document.addEventListener("mymap-itinerary-replan", (event) => {
@@ -456,6 +471,7 @@ async function init() {
       }),
     );
     document.addEventListener("mymap-navigation-change", () => {
+      syncPrimaryRootTitle();
       requestAnimationFrame(moveTabSelection);
       if (
         navigation.route.type === "arrivals" ||
