@@ -7,83 +7,64 @@ export async function liveInteractionChecks({
   artifacts,
   summary,
 }) {
+  async function openFullNearbyMap(page) {
+    await page.evaluate(() => {
+      window.__state.state.locationStatus = "active";
+      window.__state.state.fix = {
+        lat: 35.0116,
+        lng: 135.7681,
+        accuracy: 10,
+        timestamp: Date.now(),
+        speed: 0,
+        heading: null,
+      };
+      window.__view.renderNow();
+    });
+    const rootMap = page.locator(
+      ".live-map-host .route-map.map-interactive .map-canvas",
+    );
+    await rootMap.waitFor();
+    await page.locator("[data-live-full-map]").click();
+    const map = page.locator(
+      ".navigation-current .route-map.map-interactive .map-canvas",
+    );
+    await map.waitFor();
+    return map;
+  }
+  async function firstStopPositions(page) {
+    return page.evaluate(() =>
+      [...document.querySelectorAll(".navigation-current .route-map .map-stop")]
+        .slice(0, 2)
+        .map((node) => ({
+          x: Number(node.getAttribute("cx")),
+          y: Number(node.getAttribute("cy")),
+        })),
+    );
+  }
+  const distance = ([a, b]) => Math.hypot(a.x - b.x, a.y - b.y);
+
   {
-    const pinch = await open({
+    const zoom = await open({
       width: 390,
       time: "2026-10-17T01:00:00Z",
       scenario: { gps: "active", initialSettings: { autoDetect: false } },
     });
     try {
-      const page = pinch.page;
-      await page.evaluate(() => {
-        window.__state.state.fix = {
-          lat: 35.0116,
-          lng: 135.7681,
-          accuracy: 10,
-          timestamp: Date.now(),
-          speed: 0,
-          heading: null,
-        };
-        window.__view.renderNow();
-      });
-      const map = page.locator(".idle-context .map-canvas");
-      await map.waitFor();
-      const box = await map.boundingBox();
-      assert.ok(box, "idle map is visible");
-      const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-      const startScale = await page.evaluate(() =>
-        Number(document.querySelector(".idle-context .map-canvas")?.dataset.scale ?? 1),
+      const page = zoom.page;
+      await openFullNearbyMap(page);
+      const before = await firstStopPositions(page);
+      assert.equal(before.length, 2, "nearby full map renders multiple stops");
+      await page.locator('[data-map-zoom="1"]').click();
+      const after = await firstStopPositions(page);
+      assert.ok(
+        distance(after) > distance(before) * 1.2,
+        "map zoom increases the rendered spacing between stops",
       );
-      await page.touchscreen.tap(center.x, center.y);
-      await page.evaluate(
-        ({ x, y }) => {
-          const target = document.querySelector(".idle-context .map-canvas");
-          const touch = (identifier, offset) => ({
-            identifier,
-            target,
-            clientX: x + offset,
-            clientY: y,
-            pageX: x + offset,
-            pageY: y,
-            screenX: x + offset,
-            screenY: y,
-            radiusX: 2,
-            radiusY: 2,
-            rotationAngle: 0,
-            force: 1,
-          });
-          const dispatch = (type, touches) =>
-            target.dispatchEvent(
-              new TouchEvent(type, {
-                bubbles: true,
-                cancelable: true,
-                touches,
-                targetTouches: touches,
-                changedTouches: touches,
-              }),
-            );
-          dispatch("touchstart", [touch(1, -30), touch(2, 30)]);
-          dispatch("touchmove", [touch(1, -70), touch(2, 70)]);
-          dispatch("touchend", []);
-        },
-        center,
-      );
-      const endScale = await page.evaluate(() =>
-        Number(document.querySelector(".idle-context .map-canvas")?.dataset.scale ?? 1),
-      );
-      assert.ok(endScale > startScale, "pinch increases map scale");
-      await layout(page, "live-pinch-true");
-      await page.screenshot({ path: resolve(artifacts, "live-pinch-true.png") });
-      await page.evaluate(() => {
-        window.__state.state.fix = null;
-        window.__state.state.location = null;
-        window.__view.renderNow();
-      });
-      await layout(page, "live-pinch-false");
-      await page.screenshot({ path: resolve(artifacts, "live-pinch-false.png") });
-      assert.deepEqual(pinch.errors, []);
+      await layout(page, "live-map-zoom");
+      await page.screenshot({ path: resolve(artifacts, "live-map-zoom.png") });
+      assert.deepEqual(zoom.errors, []);
     } finally {
-      await pinch.context.close();
+      await zoom.context.close();
     }
   }
 
@@ -95,45 +76,24 @@ export async function liveInteractionChecks({
     });
     try {
       const page = pan.page;
-      await page.evaluate(() => {
-        window.__state.state.fix = {
-          lat: 35.0116,
-          lng: 135.7681,
-          accuracy: 10,
-          timestamp: Date.now(),
-          speed: 0,
-          heading: null,
-        };
-        window.__view.renderNow();
-      });
-      const map = page.locator(".idle-context .map-canvas");
-      await map.waitFor();
+      const map = await openFullNearbyMap(page);
       const box = await map.boundingBox();
-      assert.ok(box);
-      const start = await page.evaluate(() => ({
-        x: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panX ?? 0),
-        y: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panY ?? 0),
-      }));
+      assert.ok(box, "full nearby map is visible");
+      const before = await firstStopPositions(page);
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.mouse.down();
       await page.mouse.move(box.x + box.width / 2 + 70, box.y + box.height / 2 + 45, {
         steps: 4,
       });
       await page.mouse.up();
-      const end = await page.evaluate(() => ({
-        x: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panX ?? 0),
-        y: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panY ?? 0),
-      }));
-      assert.ok(end.x !== start.x || end.y !== start.y, "map pan moves viewport");
-      await layout(page, "live-pan-true");
-      await page.screenshot({ path: resolve(artifacts, "live-pan-true.png") });
-      await page.evaluate(() => {
-        window.__state.state.fix = null;
-        window.__state.state.location = null;
-        window.__view.renderNow();
-      });
-      await layout(page, "live-pan-false");
-      await page.screenshot({ path: resolve(artifacts, "live-pan-false.png") });
+      const after = await firstStopPositions(page);
+      assert.ok(
+        Math.abs(after[0].x - before[0].x) > 1 ||
+          Math.abs(after[0].y - before[0].y) > 1,
+        "map pan moves the rendered viewport",
+      );
+      await layout(page, "live-map-pan");
+      await page.screenshot({ path: resolve(artifacts, "live-map-pan.png") });
       assert.deepEqual(pan.errors, []);
     } finally {
       await pan.context.close();
@@ -148,60 +108,80 @@ export async function liveInteractionChecks({
     });
     try {
       const page = tracking.page;
-      await page.evaluate(() => {
-        window.__state.state.fix = {
-          lat: 35.0116,
-          lng: 135.7681,
-          accuracy: 10,
-          timestamp: Date.now(),
-          speed: 0,
-          heading: null,
-        };
-        window.__view.renderNow();
+      const map = await openFullNearbyMap(page);
+      const box = await map.boundingBox();
+      assert.ok(box);
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 55, box.y + box.height / 2 + 30, {
+        steps: 4,
       });
-      await page.locator(".idle-context .map-canvas").waitFor();
-      await page.evaluate(() => {
-        const target = document.querySelector(".idle-context .map-canvas");
-        target.dataset.panX = "50";
-        target.dataset.panY = "30";
-        target.style.setProperty("--map-pan-x", "50px");
-        target.style.setProperty("--map-pan-y", "30px");
-      });
-      const before = await page.evaluate(() => ({
-        x: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panX ?? 0),
-        y: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panY ?? 0),
-      }));
-      assert.deepEqual(before, { x: 50, y: 30 });
-      await page.evaluate(() => {
-        window.__state.state.fix = {
-          ...window.__state.state.fix,
+      await page.mouse.up();
+      const before = await firstStopPositions(page);
+      await page.evaluate(async () => {
+        const query = new URL(
+          document.querySelector("script[type=module]").src,
+        ).search;
+        const routeMap = await import(
+          new URL(`js/route-map.js${query}`, location.href).href
+        );
+        const { state, nearest } = window.__state;
+        state.fix = {
+          ...state.fix,
           lat: 35.012,
           lng: 135.7685,
           timestamp: Date.now(),
         };
-        window.__view.renderNow();
+        state.nearbyMap = routeMap.nearbyMapModel(
+          state.geo,
+          nearest(),
+          state.fix,
+          state.network,
+        );
+        routeMap.renderRouteMap(
+          document.querySelector(".navigation-current"),
+          state.nearbyMap,
+          { bus: false, lineId: "nearby" },
+        );
       });
-      const after = await page.evaluate(() => ({
-        x: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panX ?? 0),
-        y: Number(document.querySelector(".idle-context .map-canvas")?.dataset.panY ?? 0),
-      }));
-      assert.deepEqual(after, before, "quick location update preserves manual pan");
-      await layout(page, "live-quick-tracking-true");
+      const after = await firstStopPositions(page);
+      assert.ok(
+        Math.abs(after[0].x - before[0].x) < 0.01 &&
+          Math.abs(after[0].y - before[0].y) < 0.01,
+        "quick location update preserves the manually panned viewport",
+      );
+      assert.equal(
+        await page.locator(".navigation-current .route-map .map-position").count(),
+        1,
+        "location refresh keeps the current-position marker",
+      );
+      await layout(page, "live-map-tracking");
       await page.screenshot({
-        path: resolve(artifacts, "live-quick-tracking-true.png"),
-      });
-      await page.evaluate(() => {
-        window.__state.state.fix = null;
-        window.__state.state.location = null;
-        window.__view.renderNow();
-      });
-      await layout(page, "live-quick-tracking-false");
-      await page.screenshot({
-        path: resolve(artifacts, "live-quick-tracking-false.png"),
+        path: resolve(artifacts, "live-map-tracking.png"),
       });
       assert.deepEqual(tracking.errors, []);
     } finally {
       await tracking.context.close();
+    }
+  }
+
+  {
+    const denied = await open({
+      width: 390,
+      time: "2026-10-17T01:00:00Z",
+      scenario: { gps: "denied", initialSettings: { autoDetect: false } },
+    });
+    try {
+      const page = denied.page;
+      await page.locator(".live-map-host .route-map .map-canvas").waitFor();
+      assert.equal(
+        await page.locator(".live-map-host .route-map .map-position").count(),
+        0,
+        "denied location never draws a fabricated current-position marker",
+      );
+      assert.deepEqual(denied.errors, []);
+    } finally {
+      await denied.context.close();
     }
   }
 
@@ -307,6 +287,6 @@ export async function liveInteractionChecks({
     }
   }
   summary.checks.push(
-    "Live interactions: map pinch/pan and quick tracking use granted location and preserve state; denied-location microphone checks never fabricate location, prompt permission never auto-starts, granted sessions stop at the 60-second limit, cooldown applies, disabling audio assist aborts immediately, and auto-detect off prevents restart",
+    "Live interactions: dedicated nearby map zoom/pan and quick tracking preserve viewport; denied location never fabricates a current-position marker; microphone prompt never auto-starts, granted sessions stop at the 60-second limit, cooldown applies, disabling audio assist aborts immediately, and auto-detect off prevents restart",
   );
 }
