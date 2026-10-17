@@ -3,7 +3,7 @@
 const TTL = {
   gps: 45000,
   motion: 15000,
-  audio: 45000,
+  audio: 75000,
   realtime: 90000,
   timetable: 60000,
   journey: 60000,
@@ -104,8 +104,9 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
         fix &&
         now - fix.timestamp <= 45000 &&
         fix.timestamp <= now + 5000 &&
-        fix.accuracy <= 100 &&
-        station.meters <= Math.max(180, fix.accuracy * 2)
+        fix.accuracy <= 80 &&
+        station.meters <=
+          Math.min(150, Math.max(90, fix.accuracy * 1.5))
       )
         lastStation = { station, fix: { ...fix }, at: fix.timestamp };
     },
@@ -208,11 +209,19 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       const walkingOnly =
         matching.some((e) => e.type === "gps" && e.metadata?.walkingLikely) &&
         !sources.some((type) => ["audio", "realtime"].includes(type));
-      const transportSpecific =
-        sources.some((type) => ["audio", "realtime"].includes(type)) ||
-        matching.some((e) => e.metadata?.orderedStops >= 3);
+      const orderedRoute = matching.some((e) => e.metadata?.orderedStops >= 3),
+        transportSpecific =
+          sources.some((type) => ["audio", "realtime"].includes(type)) ||
+          orderedRoute,
+        routeIdentitySources = sources.filter((type) =>
+          ["gps", "audio", "realtime"].includes(type),
+        ),
+        multimodalIdentity =
+          routeIdentitySources.length >= 2 ||
+          (orderedRoute && sources.includes("motion"));
       const confirmed =
         transportSpecific &&
+        multimodalIdentity &&
         stable &&
         !locked &&
         !rejected &&
