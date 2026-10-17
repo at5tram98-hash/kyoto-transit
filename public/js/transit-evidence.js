@@ -115,6 +115,10 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
     lock(ride) {
       locked = transitCandidateKey(ride);
     },
+    unlock() {
+      locked = null;
+      pending = null;
+    },
     reset() {
       events.clear();
       locked = null;
