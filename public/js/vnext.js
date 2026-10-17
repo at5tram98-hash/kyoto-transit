@@ -26,6 +26,7 @@ import {
   restoreJourney,
   rideKey,
   toast,
+  serviceName,
 } from "./vnext-state.js";
 import {
   autoDetectRide,
@@ -121,6 +122,15 @@ function syncTab(tab) {
 function setTab(tab) {
   navigation.selectTab(tab);
 }
+function openRideCandidateConfirmation(index) {
+  const candidate = state.rideCandidates[Number(index)];
+  if (!candidate) return;
+  const key = rideKey(candidate.ride);
+  openContextSheet(
+    ui("navigation_005"),
+    `<section class="section-block ride-confirmation"><span class="section-label">${esc(serviceName(candidate.ride))}</span><h2>${esc(candidate.ride.destination ?? "")}</h2><p class="source-note">${esc(candidate.source ?? "")}</p><div class="screen-action-group"><button type="button" class="primary-action" data-confirm-ride-candidate="${esc(key)}">${ui("route_search_ui_036")}</button><button type="button" class="secondary-action" data-context-close>${ui("static_close")}</button></div></section>`,
+  );
+}
 function setupEvents() {
   setupNowInteractions();
   setupContextSheet(renderNow, openFoldback);
@@ -201,8 +211,16 @@ function setupEvents() {
     } else if (b.hasAttribute("data-not-riding")) {
       clearFalseRide();
       renderNow();
+    } else if (b.dataset.confirmRideCandidate !== undefined) {
+      const index = state.rideCandidates.findIndex(
+        (candidate) => rideKey(candidate.ride) === b.dataset.confirmRideCandidate,
+      );
+      if (index >= 0 && confirmRideCandidate(index)) {
+        $("#context-sheet")?.close();
+        renderNow();
+      }
     } else if (b.dataset.rideCandidate !== undefined) {
-      if (confirmRideCandidate(b.dataset.rideCandidate)) renderNow();
+      openRideCandidateConfirmation(b.dataset.rideCandidate);
     } else if (b.id === "ride-foldback" || b.hasAttribute("data-open-foldback"))
       openFoldback();
     else if (b.id === "ride-operations")
@@ -299,11 +317,14 @@ async function init() {
   $(".tabbar").innerHTML =
     '<div class="tab-selection" aria-hidden="true"></div>' +
     [
-      ["now", "Live"],
+      ["now", document.documentElement.lang === "en" ? "Now" : "今"],
       ["search", ui("vnext_002")],
       ["timetable", ui("vnext_003")],
       ["operations", ui("vnext_004")],
-      ["settings", ui("vnext_005")],
+      [
+        "settings",
+        document.documentElement.lang === "en" ? "Settings" : "設定",
+      ],
     ]
       .map(
         ([id, label]) =>
