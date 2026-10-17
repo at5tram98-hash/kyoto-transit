@@ -77,6 +77,10 @@ function nextTrips(service, index, ready, date) {
         headsign: t.headsign ?? null,
       }));
   }
+  // Static timetable services are authoritative. If their trips are absent,
+  // never manufacture a headway-based train/bus. The prototype network keeps
+  // the old interval model only for explicit non-timetable/demo use.
+  if (service.prototype === false) return [];
   const offset = service.offsets[index];
   const base =
     service.first +
