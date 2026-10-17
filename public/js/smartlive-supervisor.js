@@ -24,16 +24,22 @@ import { state, settings, tokyoNow, nearest } from "./vnext-state.js";
 import {
   tenSecondMovement,
   movementAgainstStops,
+  routeTrajectoryEvidence,
+  mergeAnnouncementWindow,
   specificAnnouncement,
 } from "./smartlive-evidence.js";
 
-const AUDIO_TTL_MS = 45000,
-  AUDIO_COOLDOWN_MS = 11000,
+const AUDIO_TTL_MS = 70000,
+  AUDIO_SESSION_MS = 60000,
+  AUDIO_COOLDOWN_MS = 30000,
+  AUDIO_RESTART_DELAY_MS = 250,
   VERIFY_INTERVAL_MS = 4000;
 
 let pendingAnnouncement = null,
   preRecognition = null,
   preRecognitionTimer = null,
+  preRecognitionRestartTimer = null,
+  preRecognitionDeadline = 0,
   preRecognitionActive = false,
   lastPreRecognitionAt = 0,
   lastDirectionEvidenceAt = 0,
@@ -45,12 +51,29 @@ function speechCtor() {
   );
 }
 
+function preRecognitionCanContinue() {
+  return Boolean(
+    preRecognitionActive &&
+      Date.now() < preRecognitionDeadline &&
+      !document.hidden &&
+      settings.autoDetect !== false &&
+      settings.audioAssist !== false &&
+      !state.ride &&
+      state.network &&
+      speechCtor() &&
+      nearbyBoardingContext(),
+  );
+}
+
 function stopPreRecognition() {
   releaseAudioWindow("candidate");
   clearTimeout(preRecognitionTimer);
+  clearTimeout(preRecognitionRestartTimer);
   const active = preRecognition;
   preRecognition = null;
   preRecognitionActive = false;
+  preRecognitionDeadline = 0;
+  if (active) lastPreRecognitionAt = Date.now();
   try {
     active?.abort();
   } catch {}
@@ -69,7 +92,7 @@ function nearbyBoardingContext(now = Date.now()) {
     const near = nearest();
     return Boolean(
       (near.rail &&
-        near.rail.meters <= Math.max(220, state.fix.accuracy * 2.3)) ||
+        near.rail.meters <= Math.max(180, state.fix.accuracy * 1.8)) ||
         (near.bus &&
           near.bus.meters <= Math.max(140, state.fix.accuracy * 2)) ||
         (near.kyotoBus &&
@@ -91,16 +114,23 @@ function specificity(parsed) {
   );
 }
 
-function rememberAnnouncement(parsed, transcript) {
+function rememberAnnouncement(parsed) {
   if (!specificAnnouncement(parsed)) return false;
+  const now = Date.now(),
+    merged = mergeAnnouncementWindow(
+      pendingAnnouncement,
+      parsed,
+      now,
+      AUDIO_TTL_MS,
+    );
+  if (!merged) return false;
   pendingAnnouncement = {
-    parsed,
-    at: Date.now(),
+    ...merged,
     applied: new Set(),
   };
   state.smartLiveAnnouncement = {
-    parsed: { ...parsed },
-    at: pendingAnnouncement.at,
+    parsed: { ...merged.parsed },
+    at: merged.at,
   };
   return true;
 }
@@ -117,11 +147,12 @@ function ingestAnnouncementForCandidate(candidate, minute, now = Date.now()) {
   const key = transitCandidateKey(ride);
   if (pendingAnnouncement.applied.has(key)) return false;
   pendingAnnouncement.applied.add(key);
+  const repetitionBoost = Math.min(0.08, Math.max(0, pendingAnnouncement.hits - 1) * 0.02);
   transitEvidenceEngine.ingest({
     type: "audio",
     candidate: ride,
     direction: ride.directionId ?? ride.direction,
-    confidence: match.confidence,
+    confidence: Math.min(0.98, match.confidence + repetitionBoost),
     observedAt: pendingAnnouncement.at,
     metadata: {
       directionVerified: true,
@@ -129,6 +160,8 @@ function ingestAnnouncementForCandidate(candidate, minute, now = Date.now()) {
       destination: pendingAnnouncement.parsed.destination,
       route: pendingAnnouncement.parsed.route,
       line: pendingAnnouncement.parsed.line,
+      audioHits: pendingAnnouncement.hits,
+      audioWindowMs: pendingAnnouncement.at - pendingAnnouncement.firstAt,
     },
   });
   return true;
@@ -151,8 +184,6 @@ function applyPendingAnnouncement() {
   for (const candidate of state.rideCandidates ?? [])
     changed = ingestAnnouncementForCandidate(candidate, minute, now) || changed;
 
-  // A selected journey is a safe seed only after the announcement itself
-  // matches that exact planned ride. It is not treated as proof by itself.
   if (
     !state.ride &&
     !(state.rideCandidates ?? []).length &&
@@ -186,17 +217,54 @@ function transcriptResult(event) {
   const stops = [...state.network.stops.values()],
     parsed = [...event.results]
       .flatMap((result) => [...result])
-      .map((alternative) => ({
-        transcript: alternative.transcript,
-        parsed: parseAnnouncement(alternative.transcript, stops),
-      }))
-      .filter((row) => specificAnnouncement(row.parsed))
-      .sort((a, b) => specificity(b.parsed) - specificity(a.parsed))[0];
-  if (!parsed || !rememberAnnouncement(parsed.parsed, parsed.transcript))
-    return false;
+      .map((alternative) => parseAnnouncement(alternative.transcript, stops))
+      .filter((row) => specificAnnouncement(row))
+      .sort((a, b) => specificity(b) - specificity(a))[0];
+  if (!parsed || !rememberAnnouncement(parsed)) return false;
   applyPendingAnnouncement();
   document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
   return true;
+}
+
+function startPreRecognitionPass() {
+  if (!preRecognitionCanContinue()) {
+    stopPreRecognition();
+    return;
+  }
+  const Recognition = speechCtor(),
+    recognition = new Recognition();
+  recognition.lang = "ja-JP";
+  recognition.interimResults = false;
+  recognition.continuous = true;
+  recognition.maxAlternatives = 5;
+  preRecognition = recognition;
+  recognition.onresult = (event) => {
+    if (preRecognition === recognition && preRecognitionCanContinue())
+      transcriptResult(event);
+  };
+  recognition.onerror = (event) => {
+    if (preRecognition !== recognition) return;
+    if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event?.error))
+      stopPreRecognition();
+  };
+  recognition.onend = () => {
+    if (preRecognition !== recognition) return;
+    preRecognition = null;
+    if (!preRecognitionCanContinue()) {
+      stopPreRecognition();
+      return;
+    }
+    clearTimeout(preRecognitionRestartTimer);
+    preRecognitionRestartTimer = setTimeout(
+      startPreRecognitionPass,
+      AUDIO_RESTART_DELAY_MS,
+    );
+  };
+  try {
+    recognition.start();
+  } catch {
+    stopPreRecognition();
+  }
 }
 
 async function maybeStartPreCandidateAudio() {
@@ -227,38 +295,12 @@ async function maybeStartPreCandidateAudio() {
     return;
 
   if (!acquireAudioWindow("candidate")) return;
-  const Recognition = speechCtor(),
-    recognition = new Recognition();
-  recognition.lang = "ja-JP";
-  recognition.interimResults = false;
-  recognition.continuous = false;
-  recognition.maxAlternatives = 4;
-  preRecognition = recognition;
   preRecognitionActive = true;
+  preRecognitionDeadline = now + AUDIO_SESSION_MS;
   lastPreRecognitionAt = now;
-  preRecognitionTimer = setTimeout(stopPreRecognition, 6000);
-  recognition.onresult = (event) => {
-    if (
-      preRecognition === recognition &&
-      !document.hidden &&
-      settings.autoDetect !== false &&
-      settings.audioAssist !== false
-    )
-      transcriptResult(event);
-  };
-  recognition.onerror = stopPreRecognition;
-  recognition.onend = () => {
-    if (preRecognition !== recognition) return;
-    releaseAudioWindow("candidate");
-    clearTimeout(preRecognitionTimer);
-    preRecognition = null;
-    preRecognitionActive = false;
-  };
-  try {
-    recognition.start();
-  } catch {
-    stopPreRecognition();
-  }
+  clearTimeout(preRecognitionTimer);
+  preRecognitionTimer = setTimeout(stopPreRecognition, AUDIO_SESSION_MS + 250);
+  startPreRecognitionPass();
 }
 
 function geoStop(id) {
@@ -285,14 +327,13 @@ function nextStopIndex(ride) {
 function candidateDirectionEvidence() {
   const candidates = state.rideCandidates ?? [];
   if (!candidates.length || !state.geo) return false;
-  const movement = tenSecondMovement(state.samples);
-  if (
-    !Number.isFinite(movement.heading) ||
-    !movement.last ||
-    movement.last.timestamp <= lastDirectionEvidenceAt
-  )
-    return false;
-  lastDirectionEvidenceAt = movement.last.timestamp;
+  const movement = tenSecondMovement(state.samples),
+    newest = state.samples
+      ?.filter((sample) => Number.isFinite(sample?.timestamp))
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .at(-1);
+  if (!newest || newest.timestamp <= lastDirectionEvidenceAt) return false;
+  lastDirectionEvidenceAt = newest.timestamp;
   let changed = false;
   for (const candidate of candidates) {
     const ride = candidate.ride,
@@ -300,7 +341,9 @@ function candidateDirectionEvidence() {
     if (stops.length < 2) continue;
     const previous = geoStop(stops[0].id),
       next = geoStop(stops[1].id),
-      result = movementAgainstStops(movement, next, previous);
+      trajectory = routeTrajectoryEvidence(state.samples, next, previous),
+      simple = movementAgainstStops(movement, next, previous),
+      result = trajectory.status !== "neutral" ? trajectory : simple;
     if (result.status === "neutral") continue;
     changed =
       transitEvidenceEngine.ingest({
@@ -308,15 +351,18 @@ function candidateDirectionEvidence() {
         candidate: ride,
         direction: ride.directionId ?? ride.direction,
         confidence: result.confidence,
-        observedAt: movement.last.timestamp,
+        observedAt: trajectory.last?.timestamp ?? movement.last?.timestamp ?? newest.timestamp,
         metadata: {
           directionVerified: result.status === "supportive",
           rejected: result.status === "contradictory",
-          tenSecondDirection: true,
-          heading: movement.heading,
-          meters: movement.meters,
+          routeTrajectory: trajectory.status !== "neutral",
+          trajectoryConsistency: trajectory.consistency,
+          tenSecondDirection: simple.status !== "neutral",
+          meters: result.meters ?? movement.meters,
+          speed: result.speed ?? movement.speed,
           walkingLikely:
-            Number.isFinite(movement.speed) && movement.speed < 2.5,
+            Number.isFinite(result.speed ?? movement.speed) &&
+            (result.speed ?? movement.speed) < 2.5,
         },
       }) || changed;
   }
@@ -332,28 +378,33 @@ function verifyCurrentRideDirection() {
   if (!ride || !state.geo) return;
   const movement = tenSecondMovement(state.samples),
     stops = ride.officialStops ?? [],
-    index = nextStopIndex(ride);
-  if (
-    !Number.isFinite(movement.heading) ||
-    !movement.last ||
-    movement.last.timestamp <= lastDirectionEvidenceAt ||
-    index <= 0 ||
-    index >= stops.length
-  )
+    index = nextStopIndex(ride),
+    newest = state.samples
+      ?.filter((sample) => Number.isFinite(sample?.timestamp))
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .at(-1);
+  if (!newest || newest.timestamp <= lastDirectionEvidenceAt || index <= 0 || index >= stops.length)
     return;
-  lastDirectionEvidenceAt = movement.last.timestamp;
+  lastDirectionEvidenceAt = newest.timestamp;
   const next = geoStop(stops[index].id),
     previous = geoStop(stops[index - 1].id),
-    result = movementAgainstStops(movement, next, previous),
-    signature = `${stops[index - 1].id}>${stops[index].id}:${Math.round(movement.heading / 15) * 15}`;
+    trajectory = routeTrajectoryEvidence(state.samples, next, previous),
+    simple = movementAgainstStops(movement, next, previous),
+    result = trajectory.status !== "neutral" ? trajectory : simple,
+    signature = `${stops[index - 1].id}>${stops[index].id}:${result.status}:${Math.round(result.meters ?? movement.meters ?? 0)}`;
   if (result.status === "supportive") {
     rideDetectionSession.clear("direction");
     transitEvidenceEngine.ingest({
       type: "gps",
       candidate: ride,
       confidence: result.confidence,
-      observedAt: movement.last.timestamp,
-      metadata: { directionVerified: true, tenSecondDirection: true },
+      observedAt: trajectory.last?.timestamp ?? movement.last?.timestamp ?? newest.timestamp,
+      metadata: {
+        directionVerified: true,
+        routeTrajectory: trajectory.status === "supportive",
+        trajectoryConsistency: trajectory.consistency,
+        tenSecondDirection: simple.status === "supportive",
+      },
     });
   } else if (result.status === "contradictory")
     recordContradiction("direction", result.confidence, signature);
@@ -490,7 +541,7 @@ function cycle() {
   if (document.hidden || settings.autoDetect === false || !state.network)
     return;
   applyPendingAnnouncement();
-  if (state.ride || (state.rideCandidates ?? []).length) stopPreRecognition();
+  if (state.ride) stopPreRecognition();
   if (state.ride) {
     void refreshRideRealtime();
     verifyCurrentRideDirection();
