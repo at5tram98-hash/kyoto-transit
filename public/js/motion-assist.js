@@ -1,17 +1,29 @@
 import { parseAnnouncement, announcementMatch } from "./announcement-parser.js";
-import { transitEvidenceEngine } from "./transit-evidence.js";
+import {
+  transitEvidenceEngine,
+  orderedStopEvidence,
+} from "./transit-evidence.js";
 import { distance } from "./mobility.js";
 import { freshFix } from "./riding.js";
-import { state, settings, tokyoNow } from "./vnext-state.js";
+import {
+  state,
+  settings,
+  tokyoNow,
+  persistJourney,
+  toast,
+} from "./vnext-state.js";
 
-const RETRY_MS = 30000,
+const RETRY_MS = 16000,
   MOTION_WINDOW_MS = 15000,
-  SENSOR_LIMIT = 180;
+  SENSOR_LIMIT = 180,
+  VERIFY_INTERVAL_MS = 8000,
+  CONTRADICTION_TTL_MS = 90000;
 let recognitionActive = false,
   lastAttemptAt = 0,
   motionInstalled = false,
   activeRecognition = null,
-  recognitionTimer = null;
+  recognitionTimer = null,
+  assistInterval = null;
 const motionSamples = [];
 
 function speechCtor() {
@@ -25,6 +37,9 @@ function uncertainCandidates() {
   const top = candidates[0]?.score ?? 0,
     second = candidates[1]?.score ?? 0;
   return top < 72 || (candidates.length > 1 && top - second < 14);
+}
+function speechNeeded() {
+  return Boolean(state.ride) || uncertainCandidates();
 }
 
 function finiteNumber(value) {
@@ -210,23 +225,191 @@ async function microphoneAlreadyGranted() {
       if (status.state === "denied" || status.state === "prompt") return false;
     }
   } catch {}
-
-  // When permission cannot be verified, keep the non-audio fallback. Media
-  // device labels are not a reliable microphone authorization on every browser.
+  // Safari does not consistently expose microphone permission through the
+  // Permissions API. A non-empty audio-input label is a prompt-free signal that
+  // access was granted previously; enumerateDevices itself never requests it.
+  try {
+    const devices = await navigator.mediaDevices?.enumerateDevices?.();
+    if (
+      devices?.some(
+        (device) => device.kind === "audioinput" && device.label?.trim(),
+      )
+    )
+      return true;
+  } catch {}
   return false;
+}
+
+function announcementSignature(parsed) {
+  return [
+    parsed.line ?? "",
+    parsed.route ?? "",
+    parsed.destination ?? "",
+    parsed.nextStop ?? "",
+    parsed.trainType ?? "",
+  ].join("|");
+}
+
+export function announcementContradictsRide(parsed, ride, minute) {
+  if (!ride || !parsed) return false;
+  const specific = Boolean(
+    parsed.nextStop || parsed.destination || parsed.route || parsed.line,
+  );
+  if (!specific) return false;
+  return !announcementMatch(parsed, ride, minute);
+}
+
+export function shouldReleaseRideContradictions(rows = [], now = Date.now()) {
+  const recent = rows
+    .filter(
+      (row) =>
+        row &&
+        Number.isFinite(row.at) &&
+        now - row.at <= CONTRADICTION_TTL_MS &&
+        row.confidence >= 0.75,
+    )
+    .sort((a, b) => a.at - b.at);
+  if (!recent.length) return false;
+  const sources = new Set(recent.map((row) => row.source));
+  if (sources.size >= 2) return true;
+  const audio = recent.filter((row) => row.source === "audio");
+  if (audio.length >= 2 && audio.at(-1).at - audio[0].at >= 4000) return true;
+  const patterns = recent.filter((row) => row.source === "pattern"),
+    signatures = new Set(patterns.map((row) => row.signature).filter(Boolean));
+  return (
+    patterns.length >= 2 &&
+    signatures.size >= 2 &&
+    patterns.at(-1).at - patterns[0].at >= 8000
+  );
+}
+
+function recentContradictions(now = Date.now()) {
+  state.rideContradictions = (state.rideContradictions ?? []).filter(
+    (row) => now - row.at <= CONTRADICTION_TTL_MS,
+  );
+  return state.rideContradictions;
+}
+
+function clearContradictions(source) {
+  const now = Date.now();
+  state.rideContradictions = recentContradictions(now).filter(
+    (row) => row.source !== source,
+  );
+}
+
+function releaseRideForRecheck() {
+  if (!state.ride) return false;
+  transitEvidenceEngine.unlock();
+  state.ride = null;
+  state.rideShift = 0;
+  state.rideShiftKnown = false;
+  state.rideObservation = null;
+  state.heroObservation = null;
+  state.rideSource = "乗車中の便を再確認中";
+  state.rideConfidence = 0;
+  state.rideConsensusCount = 0;
+  state.foldbackPlan = null;
+  state.rideContradictions = [];
+  persistJourney(true);
+  toast("乗車中の便を再確認しています");
+  queueMicrotask(() =>
+    document.dispatchEvent(new CustomEvent("mymap-transit-evidence")),
+  );
+  return true;
+}
+
+function recordContradiction(source, confidence, signature) {
+  if (!state.ride) return false;
+  const now = Date.now(),
+    rows = recentContradictions(now),
+    previous = rows.at(-1);
+  if (
+    previous?.source === source &&
+    previous?.signature === signature &&
+    now - previous.at < 3500
+  )
+    return false;
+  rows.push({ source, confidence, signature, at: now });
+  state.rideContradictions = rows.slice(-8);
+  if (shouldReleaseRideContradictions(state.rideContradictions, now))
+    return releaseRideForRecheck();
+  return false;
+}
+
+function verifyCurrentBusPattern() {
+  const ride = state.ride;
+  if (!ride || !["citybus", "kyotobus"].includes(ride.operator)) return;
+  const trail = (state.busTrail ?? []).filter(
+    (row) => Date.now() - row.at <= 8 * 60 * 1000,
+  );
+  if (trail.length < 2) return;
+  const service = state.network?.services?.find(
+      (row) =>
+        row.id === (ride.servicePatternId ?? ride.serviceId) ||
+        row.id === ride.serviceId,
+    ),
+    pattern = service?.stops ?? ride.officialStops ?? [],
+    circular =
+      pattern.length > 1 &&
+      (typeof pattern[0] === "string" ? pattern[0] : pattern[0]?.id) ===
+        (typeof pattern.at(-1) === "string"
+          ? pattern.at(-1)
+          : pattern.at(-1)?.id),
+    ordered = orderedStopEvidence(pattern, trail, { circular }),
+    signature = trail.map((row) => row.id).join(">");
+  if (ordered.matched) clearContradictions("pattern");
+  else if (ordered.rejected) recordContradiction("pattern", 0.95, signature);
 }
 
 function confirmFromTranscript(event) {
   const transcripts = [...event.results]
     .flatMap((result) => [...result])
     .map((item) => item.transcript);
-  const stops = [...state.network.stops.values()];
+  const stops = [...state.network.stops.values()],
+    minute =
+      tokyoNow().minute -
+      (state.ride && state.rideShiftKnown ? state.rideShift : 0);
   for (const transcript of transcripts) {
     const parsed = parseAnnouncement(transcript, stops);
+    if (state.ride) {
+      const current = announcementMatch(parsed, state.ride, minute);
+      if (current) {
+        transitEvidenceEngine.ingest({
+          type: "audio",
+          candidate: state.ride,
+          confidence: current.confidence,
+          observedAt: Date.now(),
+          metadata: { directionVerified: true },
+        });
+        clearContradictions("audio");
+        document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
+        return true;
+      }
+      const alternatives = (state.rideCandidates ?? [])
+        .map((candidate) => ({
+          candidate,
+          match: announcementMatch(parsed, candidate.ride, minute),
+        }))
+        .filter((row) => row.match);
+      if (alternatives.length === 1)
+        transitEvidenceEngine.ingest({
+          type: "audio",
+          candidate: alternatives[0].candidate.ride,
+          confidence: alternatives[0].match.confidence,
+          observedAt: Date.now(),
+          metadata: { directionVerified: true },
+        });
+      if (announcementContradictsRide(parsed, state.ride, minute)) {
+        recordContradiction("audio", 0.9, announcementSignature(parsed));
+        document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
+        return alternatives.length === 1;
+      }
+      continue;
+    }
     const matches = state.rideCandidates
       .map((candidate) => ({
         candidate,
-        match: announcementMatch(parsed, candidate.ride, tokyoNow().minute),
+        match: announcementMatch(parsed, candidate.ride, minute),
       }))
       .filter((row) => row.match);
     if (matches.length !== 1) continue;
@@ -257,8 +440,8 @@ async function autoSpeechAssist() {
     settings.audioAssist === false ||
     recognitionActive ||
     document.hidden ||
-    state.ride ||
-    !uncertainCandidates() ||
+    !state.network ||
+    !speechNeeded() ||
     !speechCtor()
   )
     return;
@@ -271,8 +454,7 @@ async function autoSpeechAssist() {
     settings.autoDetect === false ||
     settings.audioAssist === false ||
     document.hidden ||
-    state.ride ||
-    !uncertainCandidates()
+    !speechNeeded()
   )
     return;
 
@@ -306,23 +488,33 @@ async function autoSpeechAssist() {
   }
 }
 
+function runVerificationCycle() {
+  if (document.hidden || settings.autoDetect === false) return;
+  verifyCurrentBusPattern();
+  void autoSpeechAssist();
+}
+
 export function installMotionAssist() {
   installDeviceMotion();
   const panel = document.querySelector("#vehicle-panel");
   if (!panel) return;
   const observer = new MutationObserver(() => void autoSpeechAssist());
   observer.observe(panel, { childList: true, subtree: true });
+  if (!assistInterval)
+    assistInterval = setInterval(runVerificationCycle, VERIFY_INTERVAL_MS);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) stopRecognition();
-    else void autoSpeechAssist();
+    else runVerificationCycle();
   });
   document.addEventListener("mymap-settings-change", () => {
     if (settings.autoDetect === false || settings.audioAssist === false)
       stopRecognition();
+    else runVerificationCycle();
   });
   window.addEventListener("pagehide", stopRecognition);
   document.addEventListener("mymap-navigation-change", () => {
-    if (state.ride || settings.audioAssist === false) stopRecognition();
+    if (settings.audioAssist === false || !speechNeeded()) stopRecognition();
+    else void autoSpeechAssist();
   });
-  void autoSpeechAssist();
+  runVerificationCycle();
 }
