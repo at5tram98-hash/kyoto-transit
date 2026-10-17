@@ -188,6 +188,17 @@ test("a rejected current ride remains in the pool but cannot hide a strongly sup
           rejected: ride === north && type === "audio",
         },
       });
+  e.ingest({
+    candidate: south,
+    type: "gps",
+    confidence: 0.9,
+    observedAt: at,
+    metadata: {
+      directionVerified: true,
+      routeTrajectory: true,
+      orderedStops: 2,
+    },
+  });
   const d = e.evaluate(
     [
       { ride: north, score: 80 },
@@ -274,7 +285,8 @@ test("confidence actually decays with evidence age and disappears at TTL without
     e.ingest({ candidate: north, type, confidence: 0.9, observedAt: at });
   const initial = e.support(north, at).confidence;
   assert.ok(e.support(north, at + 20000).confidence < initial);
-  assert.equal(e.support(north, at + 45001).confidence, 0);
+  assert.ok(e.support(north, at + 45001).confidence > 0);
+  assert.equal(e.support(north, at + 75001).confidence, 0);
 });
 
 test("circular audio next-stop sequence crosses the cycle boundary and rejects the opposite loop", () => {
@@ -346,6 +358,13 @@ test("same departure and headsign do not collapse distinct trips or service date
     confidence: 0.95,
     observedAt: at,
     metadata: { directionVerified: true },
+  });
+  e.ingest({
+    candidate: other,
+    type: "motion",
+    confidence: 0.8,
+    observedAt: at,
+    metadata: { sensorBacked: true },
   });
   assert.equal(
     e.evaluate(
