@@ -1,4 +1,4 @@
-import { ui } from "./locale.js";
+import { displayStopName, ui } from "./locale.js";
 import { esc } from "./vnext-state.js";
 import { formatMinute } from "./vnext-core.js";
 import { stationModel } from "./now-model.js";
@@ -12,7 +12,7 @@ export function itinerarySummary(plan, network, shift = null, ride = null) {
   if (!plan) return "";
   const a = itineraryAction(plan),
     changed = itineraryDestinationChanged(plan, ride),
-    name = (id) => network.stops.get(id)?.name ?? id,
+    name = (id) => displayStopName(network.stops.get(id)) || "",
     service = (leg) =>
       leg.route
         ? ui("now_components_001", [leg.route])
@@ -110,13 +110,15 @@ export function estimateTime(value, confidence) {
 }
 export function nextStationHero(model, ride, progress) {
   const next = model.nextStation,
-    destination = model.userDestination;
+    destination = model.userDestination,
+    nextName = displayStopName(next) || ui("now_components_054"),
+    destinationName = displayStopName(destination) || ui("now_components_065");
   const duration = model.routeUnavailable
     ? ui("now_components_030")
     : model.phase === "STOPPED"
       ? ui("now_components_088", [
           model.nextNext
-            ? ui("now_components_031", [model.nextNext.name])
+            ? ui("now_components_031", [displayStopName(model.nextNext)])
             : ui("now_components_032"),
         ])
       : model.minutes === null
@@ -131,10 +133,10 @@ export function nextStationHero(model, ride, progress) {
             ]);
   const spoken = ui("now_components_090", [
     model.label,
-    next?.name ?? ui("now_components_037"),
+    displayStopName(next) || ui("now_components_037"),
     next?.code ?? "",
     duration,
-    destination?.name ?? ui("now_components_038"),
+    displayStopName(destination) || ui("now_components_038"),
     model.remainingStops,
     model.bus ? ui("now_components_039") : ui("now_components_040"),
   ]);
@@ -148,12 +150,12 @@ export function nextStationHero(model, ride, progress) {
     ${model.routeUnavailable || (model.delayMinutes ?? 0) >= 10 ? `<p class="journey-warning" role="status">${model.routeUnavailable ? ui("now_components_041") : ui("now_components_042", [model.delayMinutes])}</p>` : ""}
     <div class="route-header">${routeBadge({ ...model, route: ride.route })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : ui("now_components_043")}` : model.lineId === "K" ? ui("now_components_044") : ui("now_components_045"))} <span>${esc(model.destination ?? ui("now_components_046"))}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? ui("now_components_047") : ride.operatingCompany === "citybus" ? ui("now_components_048") : (ride.operatingCompany ?? (ride.route === "北3" ? ui("now_components_049") : ride.operator === "kyotobus" ? ui("now_components_050") : ui("now_components_051")))) : model.serviceType)}${model.boundary ? ui("now_components_052") : ""}</p></div></div>
     <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
-      <div class="next-state-label">${esc(model.label === ui("now_model_010") ? ui("now_components_053") : model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(next?.name ?? ui("now_components_054"))}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(model.boundary ? model.boundary.codes.join(" / ") : next.code)}</span>` : ""}</div>
-      ${next?.en ? `<div class="station-en">${esc(next.en)}</div>` : ""}<p class="next-countdown">${esc(duration)}</p>
-      <p class="destination-progress">${model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destination?.name ?? ui("now_components_058")), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
-      <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? ui("now_components_061") : ui("now_components_062")}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(s.name)}</b></span>`).join("")}</div></details>
+      <div class="next-state-label">${esc(model.label === ui("now_model_010") ? ui("now_components_053") : model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(nextName)}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(next.code)}</span>` : ""}</div>
+      <p class="next-countdown">${esc(duration)}</p>
+      <p class="destination-progress">${model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
+      <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? ui("now_components_061") : ui("now_components_062")}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(displayStopName(s))}</b></span>`).join("")}</div></details>
     </div>
-    <button class="personal-destination" data-context-action="destination"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destination?.name ?? ui("now_components_065"))} ${model.bus ? "" : esc(destination?.code)}</b></span><strong>${estimateTime(model.destinationArrival, model.confidence)}</strong></button>
+    <button class="personal-destination" data-context-action="destination"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destinationName)} ${model.bus ? "" : esc(destination?.code)}</b></span><strong>${estimateTime(model.destinationArrival, model.confidence)}</strong></button>
     ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? ui("now_components_092", [model.boundary.phase === "stopped" ? ui("now_components_066") : ui("now_components_067"), model.boundary.nextLine === "B" ? ui("now_components_068") : ui("now_components_069"), esc(model.serviceType), esc(model.destination)]) : ""}
     ${model.delayMinutes > 0 ? ui("now_components_070", [model.delayMinutes]) : ""}
     ${model.confidence === "stale" ? ui("now_components_071", [statusPill("stale", null, model.lastUpdated)]) : ""}
@@ -189,9 +191,9 @@ export function timelineRow(
     boarding ? "boarding" : "",
     next ? 'aria-current="step"' : "",
     esc(stop.id),
-    esc(stop.name),
+    esc(displayStopName(stop)),
     esc(stop.id),
-    esc(stop.name),
+    esc(displayStopName(stop)),
     current
       ? ui("now_components_072")
       : passed
