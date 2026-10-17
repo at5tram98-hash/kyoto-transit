@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   tenSecondMovement,
   movementAgainstStops,
+  routeTrajectoryEvidence,
+  mergeAnnouncementWindow,
   contradictionDecision,
   specificAnnouncement,
 } from "../public/js/smartlive-evidence.js";
@@ -61,6 +63,76 @@ test("次停留所へ近づく移動と反対方向を区別する", () => {
     { lat: 34.9995, lng: 135.75 },
   );
   assert.equal(contradictory.status, "contradictory");
+});
+
+test("複数GPS点の軌跡が次駅方向へ連続して進むと支持Evidenceになる", () => {
+  const result = routeTrajectoryEvidence(
+    [
+      sample(35.0, 135.75, 22000),
+      sample(35.00035, 135.75, 15000),
+      sample(35.00075, 135.75, 7000),
+      sample(35.00105, 135.75, 0),
+    ],
+    { lat: 35.0017, lng: 135.75 },
+    { lat: 34.9996, lng: 135.75 },
+    now,
+  );
+  assert.equal(result.status, "supportive");
+  assert.ok(result.consistency >= 0.6);
+  assert.ok(result.meters > 100);
+});
+
+test("GPS軌跡が候補路線の逆方向へ進む場合は矛盾Evidenceになる", () => {
+  const result = routeTrajectoryEvidence(
+    [
+      sample(35.00105, 135.75, 22000),
+      sample(35.00075, 135.75, 15000),
+      sample(35.00035, 135.75, 7000),
+      sample(35.0, 135.75, 0),
+    ],
+    { lat: 35.0017, lng: 135.75 },
+    { lat: 34.9996, lng: 135.75 },
+    now,
+  );
+  assert.equal(result.status, "contradictory");
+});
+
+test("約1分の音声窓で断片アナウンスを統合し全文は保持しない", () => {
+  let window = mergeAnnouncementWindow(
+    null,
+    { line: "subway", nextStop: "K09" },
+    now - 50000,
+  );
+  window = mergeAnnouncementWindow(
+    window,
+    { destination: "K15", trainType: "local" },
+    now,
+  );
+  assert.equal(window.firstAt, now - 50000);
+  assert.equal(window.hits, 2);
+  assert.deepEqual(window.parsed, {
+    line: "subway",
+    nextStop: "K09",
+    destination: "K15",
+    trainType: "local",
+  });
+  assert.equal("transcript" in window, false);
+});
+
+test("矛盾する路線の音声は同一の1分窓へ混ぜない", () => {
+  const first = mergeAnnouncementWindow(
+    null,
+    { line: "subway", nextStop: "K09" },
+    now - 30000,
+  );
+  const second = mergeAnnouncementWindow(
+    first,
+    { line: "kintetsu", nextStop: "B07" },
+    now,
+  );
+  assert.equal(second.firstAt, now);
+  assert.equal(second.hits, 1);
+  assert.equal(second.parsed.line, "kintetsu");
 });
 
 test("単発矛盾では解除せず独立ソースまたは時間差のある反復で解除する", () => {
