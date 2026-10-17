@@ -10,6 +10,25 @@ const epoch = (v) =>
       : v
     : Date.parse(v ?? "");
 
+// Native GTFS direction 0/1 has no geographic meaning. Compare it only with
+// another native ID, and never treat 0 as a missing value.
+function directions(row, ride) {
+  const actual = value(row.directionId ?? row.direction);
+  const expected = value(ride.directionId ?? ride.direction);
+  const domain = (v) =>
+    /^[01]$/.test(v)
+      ? "gtfs"
+      : /^(north|south|east|west)$/.test(v)
+        ? "compass"
+        : null;
+  return actual &&
+    expected &&
+    domain(actual) &&
+    domain(actual) === domain(expected)
+    ? { actual, expected, matches: actual === expected }
+    : null;
+}
+
 // A missing provider/vehicle is unavailable, never evidence of a wrong ride.
 // Contradictions require an exact trip or already-bound vehicle identity.
 export function realtimeRideEvidence(
@@ -46,16 +65,19 @@ export function realtimeRideEvidence(
       r.source !== "schedule"
     );
   });
+  const sameInstance = (r) =>
+    (!r.serviceDate || r.serviceDate === ride.serviceDate) &&
+    (!r.startTime || r.startTime === (ride.startTime ?? ride.tripStartTime));
   const exact = fresh.filter(
     (r) =>
-      (ride.tripId &&
-        r.tripId === ride.tripId &&
-        (!r.serviceDate || r.serviceDate === ride.serviceDate)) ||
-      (vehicleId && (r.vehicleId ?? r.id) === vehicleId),
+      sameInstance(r) &&
+      ((ride.tripId && (r.tripId ?? r.trip) === ride.tripId) ||
+        (vehicleId && (r.vehicleId ?? r.id) === vehicleId)),
   );
   const matching = exact.length
     ? exact
     : fresh.filter((r) => {
+        if (!sameInstance(r)) return false;
         const rail = ["kintetsu", "through"].includes(provider);
         if (
           rail
@@ -64,9 +86,7 @@ export function realtimeRideEvidence(
         )
           return false;
         return (
-          (r.directionId ?? r.direction) &&
-          value(r.directionId ?? r.direction) ===
-            value(ride.directionId ?? ride.direction) &&
+          directions(r, ride)?.matches &&
           value(r.destination ?? r.headsign ?? r.dest) ===
             value(ride.destination)
         );
@@ -75,21 +95,15 @@ export function realtimeRideEvidence(
     return { ...result, status: fresh.length ? "neutral" : "unavailable" };
   const row = matching[0],
     at = epoch(row.timestamp ?? row.sourceUpdatedAt ?? row.asOf) || observedAt;
-  const direction = row.directionId ?? row.direction,
-    expected = ride.directionId ?? ride.direction;
-  const contradicts =
-    exact.length &&
-    direction &&
-    expected &&
-    value(direction) !== value(expected);
+  const direction = value(row.directionId ?? row.direction),
+    pair = directions(row, ride);
+  const contradicts = exact.length && pair && !pair.matches;
   return {
     ...result,
     status: contradicts ? "contradictory" : "supportive",
     observedAt: at,
     confidence: exact.length ? 0.92 : 0.65,
-    directionVerified: Boolean(
-      direction && expected && value(direction) === value(expected),
-    ),
+    directionVerified: Boolean(pair?.matches),
     signature: `${provider}:${at}:${direction ?? ""}`,
   };
 }

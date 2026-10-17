@@ -4,7 +4,7 @@
 
 **✅はコード実装・自動検証対象の充足、🟡は外部データの制約が残る項目。全75項目とも実車・実機の精度は未検証。CI成功を現地の完成判定へ置換しない。**
 
-現在は検証中であり未公開。確定したcommit/run/production版と検証結果は公開確認後に追記する。
+初回公開 b70a781 / Pages #266 は全成功し、本番611554317b83を確認。追加の本番検証で検証スクリプトの対象指定（更新ボタンと表示中の運行画面）を修正した。GTFS-RT便ID・方向0・営業日・発車時刻をWorker応答から共通Evidenceまで保持し、別営業日/便を混同しない回帰検証を追加。最終修正は再検証中。
 
 | # | 項目 | 前回報告 | 今回実装 | コード根拠・実装範囲 |
 |---:|---|:---:|:---:|---|
@@ -19,7 +19,7 @@
 | 9 | 加速・減速・停止Pattern | 🟡 | ✅ | [motion-assist.js](../public/js/motion-assist.js#L119) — 姿勢非依存の加速度大きさ、GPS速度の符号付き加速度、減速停止・停止発車Pattern。実センサー/音声APIの可用性はOS依存。 |
 | 10 | 姿勢に依存しにくい加速度 | ✅ | ✅ | [motion-assist.js](../public/js/motion-assist.js#L119) — 姿勢非依存の加速度大きさ、GPS速度の符号付き加速度、減速停止・停止発車Pattern。実センサー/音声APIの可用性はOS依存。 |
 | 11 | 時刻表の乗車候補 | ✅ | ✅ | [vnext-detect.js](../public/js/vnext-detect.js#L460) — 時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。 |
-| 12 | Realtime照合 | 🟡 | 🟡 | [realtime-evidence.js](../public/js/realtime-evidence.js#L15) — 共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。 |
+| 12 | Realtime照合 | 🟡 | 🟡 | [realtime-evidence.js](../public/js/realtime-evidence.js#L34) — 共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPTは登録申請済み（ユーザー報告）。承認・キー発行・本番設定待ち。 |
 | 13 | 候補生成前の許可済みマイク | ✅ | ✅ | [audio-window.js](../public/js/audio-window.js#L11) — 既許可を確認し、前候補/乗車後で排他的な最大6秒Window。新規許可要求・常時録音なし。 |
 | 14 | 短時間Audio Window | ✅ | ✅ | [audio-window.js](../public/js/audio-window.js#L11) — 既許可を確認し、前候補/乗車後で排他的な最大6秒Window。新規許可要求・常時録音なし。 |
 | 15 | 音声の構造化 | ✅ | ✅ | [announcement-parser.js](../public/js/announcement-parser.js#L8) — 路線/系統/行先/次駅/種別、既存alias・英語名・主要駅の読みを処理。単なる駅名言及では一致しない。実車認識精度は未検証。 |
@@ -37,7 +37,7 @@
 | 27 | Bus方向と停留所Trail | ✅ | ✅ | [vnext-detect.js](../public/js/vnext-detect.js#L460) — 時刻表/直前駅/音声/選択旅程で候補を生成。再確認時はRail/Busと現Rideを同じPoolで評価。GPS時刻以外のEvidenceイベントでも進行。 |
 | 28 | 循環路線 | ✅ | ✅ | [vnext-core.js](../public/js/vnext-core.js#L396) — 循環の停留所順とwrapを検証し、現在停留所から一周を保持。途中時刻の生成なし。 |
 | 29 | Bus Audio行先 | 🟡 | ✅ | [announcement-parser.js](../public/js/announcement-parser.js#L8) — 路線/系統/行先/次駅/種別、既存alias・英語名・主要駅の読みを処理。単なる駅名言及では一致しない。実車認識精度は未検証。 |
-| 30 | Bus車両単位Realtime照合 | 🟡 | 🟡 | [realtime-evidence.js](../public/js/realtime-evidence.js#L15) — 共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。 |
+| 30 | Bus車両単位Realtime照合 | 🟡 | 🟡 | [realtime-evidence.js](../public/js/realtime-evidence.js#L34) — 共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPTは登録申請済み（ユーザー報告）。承認・キー発行・本番設定待ち。 |
 | 31 | Confidence | ✅ | ✅ | [transit-evidence.js](../public/js/transit-evidence.js#L62) — 候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。 |
 | 32 | 判定段階UI | 🟡 | ✅ | [vnext-view.js](../public/js/vnext-view.js#L390) — 確認/確定/再確認と、Modeだけ分かるshellを表示。疑わしい系統/行先を主表示として断定しない。PWA reloadもshellを維持。 |
 | 33 | Top候補とのMargin | ✅ | ✅ | [transit-evidence.js](../public/js/transit-evidence.js#L62) — 候補×sourceの最新1票、TTL、direction、context、margin、複数実観測を確認。Audio単独・歩行・単なるGPS＋振動を確定しない。 |
@@ -80,7 +80,7 @@
 | 70 | 共通Correction Lock | 🟡 | ✅ | [ride-detection-session.js](../public/js/ride-detection-session.js#L150) — 旧/新の復旧経路を共通化。修正後45秒は前候補への復帰に3source・90以上を要求。 |
 | 71 | Confidence Decay | ✅ | ✅ | [transit-evidence.js](../public/js/transit-evidence.js#L128) — source品質を経過時間で減衰し、期限後は0。Unavailableを矛盾へ変換しない。 |
 | 72 | Realtime更新ごとの再検証 | 🟡 | ✅ | [smartlive-supervisor.js](../public/js/smartlive-supervisor.js#L489) — 継続検証とprovider更新のadapter評価。矛盾時30秒だけ再評価4秒/Realtime8秒、通常は既存周期/キャッシュを利用。GPSのOS配信頻度は強制しない。 |
-| 73 | データなしと矛盾の分離 | ✅ | ✅ | [realtime-evidence.js](../public/js/realtime-evidence.js#L33) — Unavailable/neutral/supportive/contradictoryを区別。通信断/古いデータ/無関係な車両は矛盾にしない。 |
+| 73 | データなしと矛盾の分離 | ✅ | ✅ | [realtime-evidence.js](../public/js/realtime-evidence.js#L34) — Unavailable/neutral/supportive/contradictoryを区別。通信断/古いデータ/無関係な車両は矛盾にしない。 |
 | 74 | 今の便を修正 | 🟡 | ✅ | [vnext.js](../public/js/vnext.js#L197) — 控えめな修正導線から既存候補選択へ。明示の「乗車していません」も用意し、自動補正を主とする。 |
 | 75 | Privacy-safe診断履歴 | 🟡 | ✅ | [ride-detection-session.js](../public/js/ride-detection-session.js#L336) — メモリ内最大100件、時刻・種別・score・状態遷移・一時aliasのみ。座標/音声/駅名/便IDを診断履歴に残さず送信しない。 |
 
@@ -121,3 +121,5 @@ Phase 0でgit fetch/pullを実行し、main=70004fe、Pages #265のChromium候�
 - Web SpeechとMotion APIの可用性・精度・電池負荷は実機条件に依存。取得頻度をOSへ強制しない。
 
 Global Release Ready は NO。検証前の未達を成功と書かず、公開後の結果を以下へ追記する。
+
+WebKitのprotocol offline指定はSWキャッシュも失敗させる既知のテスト実装制約があるため、本番HTTPSの追加検証では明記して除外し、通信元サーバーを実際に停止する既存WebKit PWA試験でオフライン復元を検証する。実機オフラインは未検証。

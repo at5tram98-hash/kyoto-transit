@@ -2,7 +2,7 @@
   "date": "2026-10-17",
   "repository": "at5tram98-hash/kyoto-transit",
   "base": "70004fedfe00b334387d3e03bee4c2fc70f3b2b6",
-  "releaseStatus": "検証中・未公開",
+  "releaseStatus": "611554317b83公開済み・追加修正の検証中",
   "globalReleaseReady": false,
   "requirements": [
     {
@@ -144,9 +144,9 @@
       "implementation": "🟡",
       "evidence": {
         "path": "public/js/realtime-evidence.js",
-        "line": 15
+        "line": 34
       },
-      "note": "共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。",
+      "note": "共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。 GTFS-RT便ID・方向0・営業日・発車時刻を保持し、異なる営業日/便や方向表現の種類を混同しない。ODPT登録申請済み、承認・本番設定待ち。",
       "fieldValidation": "未検証"
     },
     {
@@ -360,9 +360,9 @@
       "implementation": "🟡",
       "evidence": {
         "path": "public/js/realtime-evidence.js",
-        "line": 15
+        "line": 34
       },
-      "note": "共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。",
+      "note": "共通adapterは実装済み。便/車両IDのない事業者データから完全な便照合は作れない。京都バスODPT本番認証は外部設定待ち。 GTFS-RT便ID・方向0・営業日・発車時刻を保持し、異なる営業日/便や方向表現の種類を混同しない。ODPT登録申請済み、承認・本番設定待ち。",
       "fieldValidation": "未検証"
     },
     {
@@ -876,7 +876,7 @@
       "implementation": "✅",
       "evidence": {
         "path": "public/js/realtime-evidence.js",
-        "line": 33
+        "line": 34
       },
       "note": "Unavailable/neutral/supportive/contradictoryを区別。通信断/古いデータ/無関係な車両は矛盾にしない。",
       "fieldValidation": "未検証"
@@ -910,5 +910,6 @@
     "京都バスODPTの有効な認証設定と事業者データの便ID粒度",
     "物理iPhone Safari/PWA/VoiceOver/OS設定/センサー復帰",
     "地下鉄・近鉄両方向合計5回、市バス循環/双方向合計5回の実走"
-  ]
+  ],
+  "odptRegistration": "申請済み（ユーザー報告）。承認・キー発行待ち。"
 }

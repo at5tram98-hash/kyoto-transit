@@ -136,7 +136,7 @@ try {
     await page
       .locator("#app-update:not([hidden])")
       .waitFor({ timeout: 120000 });
-    await page.locator("#app-update").click();
+    await page.locator("#app-update [data-apply-update]").click();
     await page.waitForFunction(
       (expected) =>
         new URL(
@@ -175,7 +175,7 @@ try {
   await shot("06-timetable");
   await tab("operations");
   await page
-    .locator(".native-list,.operations-list,.operations-head")
+    .locator(".navigation-current .operations-head")
     .first()
     .waitFor({ timeout: 60000 });
   await shot("07-operations");
@@ -185,23 +185,35 @@ try {
   await page.locator('[data-setting-value="clockFormat"]').selectOption("12");
   await page.locator('[data-setting-value="fontScale"]').selectOption("2");
   await shot("08-large-text-settings");
-  const before = await version();
-  await context.setOffline(true);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page
-    .locator('[data-setting-value="clockFormat"]')
-    .waitFor({ timeout: 60000 });
-  assert.equal(
-    await page.locator('[data-setting-value="clockFormat"]').inputValue(),
-    "12",
-  );
-  assert.equal(await version(), before);
-  assert.equal(await page.evaluate(() => navigator.onLine), false);
-  await shot("09-offline-reload");
-  await context.setOffline(false);
   report.checks.push(
-    "Production timetable, operations, 200% text setting and real offline Service Worker reload preserve display settings and release version",
+    "Production timetable, operations and 200% text settings through visible controls",
   );
+  const before = await version();
+  // WebKit's protocol offline switch rejects even SW-cached HTTPS responses.
+  // Its actual unreachable-origin coverage lives in pwa-smoke (stopped server).
+  // Keep this live HTTPS probe explicit rather than claiming a physical test.
+  if (engineName === "webkit") {
+    report.limitations = [
+      "Live HTTPS protocol-offline emulation is unsupported by WebKit; unreachable-origin reload is covered by the separate WebKit PWA suite. Physical iPhone offline remains unverified.",
+    ];
+  } else {
+    await context.setOffline(true);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page
+      .locator('[data-setting-value="clockFormat"]')
+      .waitFor({ timeout: 60000 });
+    assert.equal(
+      await page.locator('[data-setting-value="clockFormat"]').inputValue(),
+      "12",
+    );
+    assert.equal(await version(), before);
+    assert.equal(await page.evaluate(() => navigator.onLine), false);
+    await shot("09-offline-reload");
+    await context.setOffline(false);
+    report.checks.push(
+      "Real production offline Service Worker reload preserves display settings and release version",
+    );
+  }
   assert.deepEqual(report.errors, []);
   report.status = "passed";
 } catch (error) {
