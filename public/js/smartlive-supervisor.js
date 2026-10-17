@@ -23,7 +23,7 @@ import {
 
 const AUDIO_TTL_MS = 45000,
   AUDIO_COOLDOWN_MS = 11000,
-  VERIFY_INTERVAL_MS = 2500,
+  VERIFY_INTERVAL_MS = 4000,
   CONTRADICTION_TTL_MS = 90000;
 
 let pendingAnnouncement = null,
@@ -31,6 +31,7 @@ let pendingAnnouncement = null,
   preRecognitionTimer = null,
   preRecognitionActive = false,
   lastPreRecognitionAt = 0,
+  lastDirectionEvidenceAt = 0,
   interval = null,
   contradictions = [];
 
@@ -299,6 +300,7 @@ function releaseForRecheck(reason) {
   state.rideConsensusCount = 0;
   state.foldbackPlan = null;
   state.rideCandidates = [];
+  state.rideContradictions = [];
   contradictions = [];
   state.smartLiveContradictions = [];
   persistJourney(true);
@@ -323,7 +325,11 @@ function recordContradiction(source, confidence, signature) {
   contradictions.push({ source, confidence, signature, at: now });
   contradictions = contradictions.slice(-10);
   state.smartLiveContradictions = contradictions.map((row) => ({ ...row }));
-  const decision = contradictionDecision(contradictions, now);
+  const combined = [
+      ...(state.rideContradictions ?? []),
+      ...contradictions,
+    ].filter((row) => now - row.at <= CONTRADICTION_TTL_MS),
+    decision = contradictionDecision(combined, now);
   return decision.release ? releaseForRecheck(decision.reason) : false;
 }
 
@@ -331,7 +337,13 @@ function candidateDirectionEvidence() {
   const candidates = state.rideCandidates ?? [];
   if (!candidates.length || !state.geo) return false;
   const movement = tenSecondMovement(state.samples);
-  if (!Number.isFinite(movement.heading)) return false;
+  if (
+    !Number.isFinite(movement.heading) ||
+    !movement.last ||
+    movement.last.timestamp <= lastDirectionEvidenceAt
+  )
+    return false;
+  lastDirectionEvidenceAt = movement.last.timestamp;
   let changed = false;
   for (const candidate of candidates) {
     const ride = candidate.ride,
@@ -341,22 +353,22 @@ function candidateDirectionEvidence() {
       next = geoStop(stops[1].id),
       result = movementAgainstStops(movement, next, previous);
     if (result.status === "neutral") continue;
-    transitEvidenceEngine.ingest({
-      type: "gps",
-      candidate: ride,
-      direction: ride.directionId ?? ride.direction,
-      confidence: result.confidence,
-      observedAt: movement.last.timestamp,
-      metadata: {
-        directionVerified: result.status === "supportive",
-        rejected: result.status === "contradictory",
-        tenSecondDirection: true,
-        heading: movement.heading,
-        meters: movement.meters,
-        walkingLikely: Number.isFinite(movement.speed) && movement.speed < 2.5,
-      },
-    });
-    changed = true;
+    changed =
+      transitEvidenceEngine.ingest({
+        type: "gps",
+        candidate: ride,
+        direction: ride.directionId ?? ride.direction,
+        confidence: result.confidence,
+        observedAt: movement.last.timestamp,
+        metadata: {
+          directionVerified: result.status === "supportive",
+          rejected: result.status === "contradictory",
+          tenSecondDirection: true,
+          heading: movement.heading,
+          meters: movement.meters,
+          walkingLikely: Number.isFinite(movement.speed) && movement.speed < 2.5,
+        },
+      }) || changed;
   }
   if (changed)
     queueMicrotask(() =>
@@ -371,8 +383,15 @@ function verifyCurrentRideDirection() {
   const movement = tenSecondMovement(state.samples),
     stops = ride.officialStops ?? [],
     index = nextStopIndex(ride);
-  if (!Number.isFinite(movement.heading) || index <= 0 || index >= stops.length)
+  if (
+    !Number.isFinite(movement.heading) ||
+    !movement.last ||
+    movement.last.timestamp <= lastDirectionEvidenceAt ||
+    index <= 0 ||
+    index >= stops.length
+  )
     return;
+  lastDirectionEvidenceAt = movement.last.timestamp;
   const next = geoStop(stops[index].id),
     previous = geoStop(stops[index - 1].id),
     result = movementAgainstStops(movement, next, previous),
@@ -418,6 +437,7 @@ function verifyCurrentBusPattern() {
 function cycle() {
   if (document.hidden || settings.autoDetect === false || !state.network) return;
   applyPendingAnnouncement();
+  if (state.ride || (state.rideCandidates ?? []).length) stopPreRecognition();
   if (state.ride) {
     verifyCurrentRideDirection();
     verifyCurrentBusPattern();
