@@ -40,6 +40,13 @@ select {
 .board-place {
   overflow-wrap: anywhere;
 }
+.next-stop-grid strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
 .arrival-lines {
   contain: layout style;
 }
