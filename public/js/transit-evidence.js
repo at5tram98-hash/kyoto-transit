@@ -189,11 +189,21 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
           matching.filter((e) => observations.has(e.type)).map((e) => e.type),
         ),
       ];
-      const directionVerified = matching.some(
-        (e) =>
-          e.metadata?.directionVerified === true &&
-          ["gps", "audio", "realtime"].includes(e.type),
-      );
+      const routeProgressGps = matching.some(
+          (e) =>
+            e.type === "gps" &&
+            e.metadata?.directionVerified === true &&
+            (e.metadata?.routeTrajectory === true ||
+              Number(e.metadata?.orderedStops ?? 0) >= 2),
+        ),
+        audioDirection = matching.some(
+          (e) => e.type === "audio" && e.metadata?.directionVerified === true,
+        ),
+        realtimeDirection = matching.some(
+          (e) => e.type === "realtime" && e.metadata?.directionVerified === true,
+        ),
+        directionVerified =
+          routeProgressGps || audioDirection || realtimeDirection;
       const rejected =
         matching.some((e) => e.metadata?.rejected === true) ||
         top.directionRejected;
@@ -209,16 +219,17 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       const walkingOnly =
         matching.some((e) => e.type === "gps" && e.metadata?.walkingLikely) &&
         !sources.some((type) => ["audio", "realtime"].includes(type));
-      const orderedRoute = matching.some((e) => e.metadata?.orderedStops >= 3),
-        transportSpecific =
-          sources.some((type) => ["audio", "realtime"].includes(type)) ||
-          orderedRoute,
-        routeIdentitySources = sources.filter((type) =>
-          ["gps", "audio", "realtime"].includes(type),
+      const orderedRoute = matching.some(
+          (e) => Number(e.metadata?.orderedStops ?? 0) >= 3,
         ),
+        hasAudio = sources.includes("audio"),
+        hasRealtime = sources.includes("realtime"),
+        hasMotion = sources.includes("motion"),
+        transportSpecific = hasAudio || hasRealtime || orderedRoute,
         multimodalIdentity =
-          routeIdentitySources.length >= 2 ||
-          (orderedRoute && sources.includes("motion"));
+          (routeProgressGps && (hasAudio || hasRealtime)) ||
+          (hasAudio && hasRealtime && hasMotion) ||
+          (orderedRoute && (hasMotion || hasAudio || hasRealtime));
       const confirmed =
         transportSpecific &&
         multimodalIdentity &&
