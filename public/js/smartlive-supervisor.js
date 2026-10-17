@@ -66,14 +66,15 @@ function preRecognitionCanContinue() {
 }
 
 function stopPreRecognition() {
+  const wasActive = preRecognitionActive,
+    active = preRecognition;
   releaseAudioWindow("candidate");
   clearTimeout(preRecognitionTimer);
   clearTimeout(preRecognitionRestartTimer);
-  const active = preRecognition;
   preRecognition = null;
   preRecognitionActive = false;
   preRecognitionDeadline = 0;
-  if (active) lastPreRecognitionAt = Date.now();
+  if (wasActive) lastPreRecognitionAt = Date.now();
   try {
     active?.abort();
   } catch {}
