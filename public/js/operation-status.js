@@ -9,19 +9,27 @@ export function operationStatus(
     maxAge = 5 * 60 * 1000,
   } = {},
 ) {
+  const fetchedAt = Date.parse(line?.fetchedAt ?? "");
   if (
     !online ||
     !line?.fetchedAt ||
-    now - Date.parse(line.fetchedAt) > maxAge ||
-    Date.parse(line.fetchedAt) - now > 60000 ||
-    !Number.isFinite(Date.parse(line.fetchedAt)) ||
-    ["unavailable", "unconfirmed"].includes(line.status)
+    now - fetchedAt > maxAge ||
+    fetchedAt - now > 60000 ||
+    !Number.isFinite(fetchedAt) ||
+    ["unavailable", "unconfirmed"].includes(line?.status)
   )
     return {
       kind: "unknown",
       label: ui("operation_status_001"),
-      symbol: "?",
+      symbol: "—",
       rank: 1,
+      reason: !online
+        ? "offline"
+        : !line?.fetchedAt || !Number.isFinite(fetchedAt)
+          ? "unavailable"
+          : now - fetchedAt > maxAge || fetchedAt - now > 60000
+            ? "stale"
+            : "unconfirmed",
     };
   if (
     ["delay", "delayed", "suspended", "stopped", "disrupted"].includes(
@@ -51,8 +59,9 @@ export function operationStatus(
   return {
     kind: "unknown",
     label: ui("operation_status_005"),
-    symbol: "?",
+    symbol: "—",
     rank: 1,
+    reason: "unsupported",
   };
 }
 export function journeyOperationStatus(lines, operators) {
@@ -85,6 +94,7 @@ export function journeyOperationStatus(lines, operators) {
       rank === 0
         ? ui("operation_status_011")
         : (relevant[i]?.summary ?? ui("operation_status_012")),
+    reason: states[i].reason ?? null,
   };
 }
 
