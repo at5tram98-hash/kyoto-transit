@@ -1,5 +1,7 @@
 // Presentation messages; official place names retain their source spelling.
 export default {
+  recovery_time_confirmation:
+    "The arrival time for your current ride is unavailable. Confirm a departure time after you alight before searching.",
   vnext_001: "Updating…",
   vnext_002: "Search",
   vnext_003: "Times",

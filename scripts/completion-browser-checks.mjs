@@ -375,6 +375,74 @@ export async function completionChecks({
   } finally {
     await run.context.close();
   }
+  const unknown = await open({
+    time,
+    scenario: {
+      gps: "denied",
+      subwayFeed: rail,
+      initialSettings: { locale: "en", autoDetect: false },
+    },
+  });
+  try {
+    const { page } = unknown;
+    await searchScreen(page);
+    await submitSearch(page);
+    await page.locator(".navigation-current [data-open-route]").first().click();
+    await settleNavigation(page);
+    await page
+      .locator(".navigation-current .screen-bottom-action [data-arm-route]")
+      .click();
+    await settleNavigation(page);
+    await page.locator(".navigation-current [data-board-armed]").click();
+    await settleNavigation(page);
+    const id = await page.evaluate(() => {
+      const { state } = window.__state;
+      for (const stop of state.ride.officialStops)
+        stop.time = stop.arrival = stop.departure = null;
+      window.__view.renderNow();
+      return state.itinerary.id;
+    });
+    await page.locator('[data-tab="operations"]').click();
+    await settleNavigation(page);
+    await page.locator('[data-operation-id="citybus"]').click();
+    await settleNavigation(page);
+    await page.locator('[data-operation-avoid="citybus"]').click();
+    await settleNavigation(page);
+    assert.equal(
+      await page.locator('[data-tab="search"]').getAttribute("aria-current"),
+      "page",
+    );
+    assert.match(
+      await page.locator("#search-inline-status").textContent(),
+      /Confirm a departure time after you alight/,
+    );
+    assert.equal(
+      await page.locator(".navigation-current [data-open-route]").count(),
+      0,
+    );
+    assert.equal(
+      await page.evaluate(() => window.__state.state.itinerary.id),
+      id,
+    );
+    assert.equal(
+      await page.evaluate(() => window.__state.state.itinerary.phase),
+      "riding",
+    );
+    await shot(page, "completion-unknown-arrival-review");
+    // The normal form remains usable once the rider explicitly chooses search.
+    await page.locator("#planner-form .planner-submit").click();
+    await page
+      .locator(".navigation-current [data-open-route]")
+      .first()
+      .waitFor();
+    assert.equal(
+      await page.evaluate(() => window.__state.state.itinerary.id),
+      id,
+    );
+    assert.deepEqual(unknown.errors, []);
+  } finally {
+    await unknown.context.close();
+  }
   const recovery = await open({
     time,
     scenario: {
@@ -477,5 +545,8 @@ export async function completionChecks({
   );
   summary.checks.push(
     "Recovery and midnight: explicitly alighting at a changed destination launches a genuine onward search from that stop without inferring boarding; initial late-night search joins the following day's official connection and retains both original service dates",
+  );
+  summary.checks.push(
+    "Unknown onboard arrival: show departure-time confirmation instead of automatically searching from the current time; preserve the current ride and permit an explicit manual search",
   );
 }

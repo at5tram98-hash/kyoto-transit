@@ -148,6 +148,38 @@ test("missed departures propose recovery without inferring boarding or alighting
   assert.equal(nextDaySearch(date, 1380, "departure"), "2026-10-17");
   assert.equal(nextDaySearch(date, 1380, "last"), null);
 });
+test("an unknown onboard arrival requires departure-time review, while explicit alighting does not", () => {
+  const ride = { serviceDate: date, officialStops: [{ id: "c", time: null }] };
+  for (const candidate of [
+    ride,
+    { ...ride, officialStops: [] },
+    {
+      ...ride,
+      serviceDate: undefined,
+      officialStops: [{ id: "c", time: 625 }],
+    },
+  ]) {
+    assert.equal(
+      recoveryInput({ plan, ride: candidate, stopId: "c", now, network })
+        .needsDepartureTime,
+      true,
+    );
+  }
+  ride.officialStops[0].time = 625;
+  assert.equal(
+    recoveryInput({ plan, ride, stopId: "c", now, network }).needsDepartureTime,
+    false,
+  );
+  assert.equal(
+    recoveryInput({ plan, stopId: "c", now, network }).needsDepartureTime,
+    true,
+  );
+  assert.equal(
+    recoveryInput({ plan, stopId: "c", now, network, atStop: true })
+      .needsDepartureTime,
+    false,
+  );
+});
 test("operation groups are unique and saved routes do not remove current routes", () => {
   const lines = ["subway", "kintetsu", "citybus", "kyotobus"].map((id) => ({
       id,
@@ -200,7 +232,13 @@ test("future service edits keep the active ride and reject stale or prefix-chang
   assert.equal(updated.phase, "riding");
   assert.equal(updated.legIndex, 2);
   assert.equal(updated.route.legs[3].depart, 650);
-  assert.equal(updateItineraryRoute(active, changed, rides, 3, version, { date, minute: 651 }), null);
+  assert.equal(
+    updateItineraryRoute(active, changed, rides, 3, version, {
+      date,
+      minute: 651,
+    }),
+    null,
+  );
   assert.equal(active.route.legs[3].depart, undefined);
   assert.equal(
     updateItineraryRoute(

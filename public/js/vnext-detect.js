@@ -385,7 +385,9 @@ export function finishCurrentRide({ keepItinerary = false } = {}) {
       stopId = recoveryStop ?? plan.route.legs[plan.legIndex].from;
     queueMicrotask(() =>
       document.dispatchEvent(
-        new CustomEvent("mymap-itinerary-replan", { detail: { plan, stopId } }),
+        new CustomEvent("mymap-itinerary-replan", {
+          detail: { plan, stopId, atStop: true },
+        }),
       ),
     );
   }
