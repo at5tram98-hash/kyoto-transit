@@ -277,7 +277,7 @@
 .nearby-guide .mode-symbol.enhanced-mode {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   display: grid;
   grid-template-rows: 24px auto;
   place-items: center;

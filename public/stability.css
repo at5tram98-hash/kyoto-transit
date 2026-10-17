@@ -103,7 +103,7 @@ select {
     font-size: 1.9375rem;
   }
   .hero-card {
-    border-radius: 24px;
+    border-radius: var(--radius-surface);
     padding: 20px 17px;
     margin-bottom: 12px;
   }
@@ -112,7 +112,7 @@ select {
   }
   .section-block {
     padding: 15px;
-    border-radius: 19px;
+    border-radius: var(--radius-vehicle);
     margin-bottom: 11px;
   }
   .section-heading {

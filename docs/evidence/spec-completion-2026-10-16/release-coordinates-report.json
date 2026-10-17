@@ -1,0 +1,9 @@
+{
+  "browser": "chromium",
+  "layouts": 272,
+  "errors": [],
+  "checks": [
+    "UI coordinate audit: 34 screens, effective44px targets, standalone action8px gaps, trailing chevrons, no clipped labels, collapsed search has zero layout height"
+  ],
+  "performance": []
+}

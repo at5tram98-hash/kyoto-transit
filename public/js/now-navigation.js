@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { currentMotionEvidence } from "./motion-assist.js";
 import { readSavedPlaces, toggleSavedPlace } from "./saved-places.js";
 import { setupSheetGestures } from "./context-sheet.js";
@@ -47,7 +48,10 @@ export function registerNowScreens({ arrivals, onFoldback }) {
   };
   navigation.register("stops", {
     ...source("#ride-stops-source"),
-    title: () => (state.heroModel?.bus ? "停留所" : "停車駅"),
+    title: () =>
+      state.heroModel?.bus
+        ? ui("now_navigation_001")
+        : ui("now_navigation_002"),
     onShow({ element }) {
       element.append($("#ride-stops-source"));
       $("#ride-stops-source").hidden = false;
@@ -56,7 +60,7 @@ export function registerNowScreens({ arrivals, onFoldback }) {
   });
   navigation.register("trains", {
     ...source("#network-panel"),
-    title: "列車位置",
+    title: ui("now_navigation_003"),
     onShow({ element }) {
       element.append($("#network-panel"));
       $("#network-panel").hidden = false;
@@ -76,7 +80,7 @@ export function registerNowScreens({ arrivals, onFoldback }) {
   });
   navigation.register("arrivals", {
     ...source("#arrivals-root"),
-    title: "接近情報",
+    title: ui("now_navigation_004"),
     onShow({ element, route }) {
       element.append($("#arrivals-root"));
       $("#arrivals-root").hidden = false;
@@ -97,14 +101,43 @@ export function registerNowScreens({ arrivals, onFoldback }) {
         ? [position.lng, position.lat]
         : null;
     element.classList.add("place-screen");
-    element.innerHTML = `<div class="place-map" aria-label="${esc(stop.name)}の小地図">${point ? routeMapHTML({ points: [point], stops: [{ ...stop, ...position }], position: null, place: true, source: "schedule" }, { bus: stop.type.includes("bus"), lineId: stop.type === "subway" ? "K" : "B" }) : '<p class="source-note">地図の位置データは未取得です</p>'}</div><section class="place-sheet" data-detent="${parseFloat(getComputedStyle(document.documentElement).fontSize) > 20 ? "large" : "medium"}" aria-label="${esc(stop.name)}の次便と操作"><button type="button" class="sheet-drag-handle" aria-label="停留所詳細の高さを変更"><span></span></button><div class="sheet-header"><h2>${esc(stop.name)}</h2><button type="button" class="plain-action" data-save-place="${esc(stop.id)}" aria-pressed="${readSavedPlaces().includes(stop.id)}">${readSavedPlaces().includes(stop.id) ? "保存済み" : "保存"}</button></div><div class="sheet-body" data-place-content></div></section>`;
+    element.innerHTML = ui("now_navigation_029", [
+      esc(stop.name),
+      point
+        ? routeMapHTML(
+            {
+              points: [point],
+              stops: [{ ...stop, ...position }],
+              position: null,
+              place: true,
+              source: "schedule",
+            },
+            {
+              bus: stop.type.includes("bus"),
+              lineId: stop.type === "subway" ? "K" : "B",
+            },
+          )
+        : ui("now_navigation_005"),
+      parseFloat(getComputedStyle(document.documentElement).fontSize) > 20
+        ? "large"
+        : "medium",
+      esc(stop.name),
+      esc(stop.name),
+      esc(stop.id),
+      readSavedPlaces().includes(stop.id),
+      readSavedPlaces().includes(stop.id)
+        ? ui("now_navigation_006")
+        : ui("now_navigation_007"),
+    ]);
     const panel = element.querySelector(".place-sheet");
     panel.addEventListener("mymap-sheet-dismiss", () => navigation.pop());
     element.addEventListener("click", (e) => {
       const b = e.target.closest("[data-save-place]");
       if (b) {
         const saved = toggleSavedPlace(b.dataset.savePlace);
-        b.textContent = saved ? "保存済み" : "保存";
+        b.textContent = saved
+          ? ui("now_navigation_008")
+          : ui("now_navigation_009");
         b.setAttribute("aria-pressed", String(saved));
       }
     });
@@ -150,13 +183,15 @@ export function registerNowScreens({ arrivals, onFoldback }) {
     const stop = state.network.stops.get(route.params.stopId);
     if (!stop || stop.type.includes("bus")) return "";
     const saved = readSavedPlaces().includes(stop.id);
-    return `<button type="button" class="plain-action" data-save-place="${esc(stop.id)}" aria-pressed="${saved}">${saved ? "保存済み" : "保存"}</button>`;
+    return `<button type="button" class="plain-action" data-save-place="${esc(stop.id)}" aria-pressed="${saved}">${saved ? ui("now_navigation_010") : ui("now_navigation_011")}</button>`;
   };
   const onPlaceToolbar = ({ event }) => {
     const b = event.target.closest("[data-save-place]");
     if (b) {
       const saved = toggleSavedPlace(b.dataset.savePlace);
-      b.textContent = saved ? "保存済み" : "保存";
+      b.textContent = saved
+        ? ui("now_navigation_012")
+        : ui("now_navigation_013");
       b.setAttribute("aria-pressed", String(saved));
     }
   };
@@ -164,7 +199,8 @@ export function registerNowScreens({ arrivals, onFoldback }) {
     toolbar: placeToolbar,
     onToolbar: onPlaceToolbar,
     title: (r) =>
-      state.network.stops.get(r.params.stopId)?.name ?? "駅・停留所",
+      state.network.stops.get(r.params.stopId)?.name ??
+      ui("now_navigation_014"),
     create({ element }) {
       element.addEventListener("click", (e) => {
         const b = e.target.closest("button");
@@ -188,7 +224,9 @@ export function registerNowScreens({ arrivals, onFoldback }) {
   navigation.register("nearby", {
     toolbar: placeToolbar,
     onToolbar: onPlaceToolbar,
-    title: (r) => state.network.stops.get(r.params.stopId)?.name ?? "近く",
+    title: (r) =>
+      state.network.stops.get(r.params.stopId)?.name ??
+      ui("now_navigation_015"),
     ...stopLifecycle(nearbyDetailHTML),
   });
   const fillDelay = ({ element }) => {
@@ -203,16 +241,16 @@ export function registerNowScreens({ arrivals, onFoldback }) {
         .join(" ");
     updateHTML(
       element,
-      `<section class="section-block"><h2>${esc(a.conclusion)}</h2><p class="source-note">My Mapの推定です。公式の運行情報とは区別して表示します。</p><dl class="context-facts"><div><dt>時刻表</dt><dd>公式の予定時刻</dd></div><div><dt>現在位置</dt><dd>${state.heroModel.locationConfidence === "available" ? "GPSと停車位置を照合" : "未取得。ダイヤから推定"}</dd></div><div><dt>接近情報</dt><dd>${state.heroModel.dataSources.includes("接近") ? "取得データを参照" : "実測データは未取得"}</dd></div></dl><details class="ride-diagnostics"><summary>位置情報・乗車判定の詳細</summary><dl class="context-facts"><div><dt>GPS精度</dt><dd>${Number.isFinite(state.fix?.accuracy) ? `${Math.round(state.fix.accuracy)}m` : "未取得"}</dd></div><div><dt>速度</dt><dd>${Number.isFinite(trajectory(state.samples).speed) ? `${(trajectory(state.samples).speed * 3.6).toFixed(1)}km/h` : "未取得"}</dd></div><div><dt>加速度</dt><dd>${Number.isFinite(currentMotionEvidence().peakAcceleration) ? `${currentMotionEvidence().peakAcceleration.toFixed(2)}m/s²` : "未取得"}</dd></div><div><dt>一致度</dt><dd>${Number.isFinite(state.rideConfidence) ? `${Math.round(state.rideConfidence)} / 100` : "未確認"}</dd></div><div><dt>判定根拠</dt><dd>${esc(state.rideSource ?? "未確認")}</dd></div></dl></details>${samples.length > 1 ? `<svg class="delay-chart" viewBox="0 0 300 120" role="img" aria-label="観測した遅れの推移、推定"><path d="M20 95H280" class="map-grid"/><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="3"/></svg>` : '<p class="source-note">推移を表示するための観測データがまだ不足しています。</p>'}</section>`,
+      `<section class="section-block"><h2>${esc(a.conclusion)}</h2><p class="source-note">My Mapの推定です。公式の運行情報とは区別して表示します。</p><dl class="context-facts"><div><dt>時刻表</dt><dd>公式の予定時刻</dd></div><div><dt>現在位置</dt><dd>${state.heroModel.locationConfidence === "available" ? ui("now_navigation_016") : ui("now_navigation_017")}</dd></div><div><dt>接近情報</dt><dd>${state.heroModel.dataSources.includes("接近") ? ui("now_navigation_018") : ui("now_navigation_019")}</dd></div></dl><details class="ride-diagnostics"><summary>位置情報・乗車判定の詳細</summary><dl class="context-facts"><div><dt>GPS精度</dt><dd>${Number.isFinite(state.fix?.accuracy) ? `${Math.round(state.fix.accuracy)}m` : ui("now_navigation_020")}</dd></div><div><dt>速度</dt><dd>${Number.isFinite(trajectory(state.samples).speed) ? `${(trajectory(state.samples).speed * 3.6).toFixed(1)}km/h` : ui("now_navigation_021")}</dd></div><div><dt>加速度</dt><dd>${Number.isFinite(currentMotionEvidence().peakAcceleration) ? `${currentMotionEvidence().peakAcceleration.toFixed(2)}m/s²` : ui("now_navigation_022")}</dd></div><div><dt>一致度</dt><dd>${Number.isFinite(state.rideConfidence) ? `${Math.round(state.rideConfidence)} / 100` : ui("now_navigation_023")}</dd></div><div><dt>判定根拠</dt><dd>${esc(state.rideSource ?? ui("now_navigation_024"))}</dd></div></dl></details>${samples.length > 1 ? ui("now_navigation_025", [points]) : ui("now_navigation_026")}</section>`,
     );
   };
   navigation.register("delay", {
-    title: "遅延分析",
+    title: ui("now_navigation_027"),
     onShow: fillDelay,
     update: fillDelay,
   });
   navigation.register("map", {
-    title: "地図と現在地",
+    title: ui("now_navigation_028"),
     fullscreen: true,
     onShow({ element, route }) {
       const nearby = route.params.nearby;

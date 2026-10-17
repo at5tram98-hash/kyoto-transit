@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { settleSheet } from "./navigation-motion.js";
 import {
   $,
@@ -26,21 +27,44 @@ export function openContextSheet(title, body) {
 export function destinationSheet(bus = false) {
   const stops = state.ride?.officialStops ?? [];
   openContextSheet(
-    bus ? "降車停留所と通知" : "降車駅と通知",
-    `<p class="sheet-intro">列車・バスの終点とは別に、あなたの降車地点を選べます。</p><label class="sheet-field">降車地点<select id="personal-stop">${stops.map((s) => `<option value="${esc(s.id)}" ${s.id === (state.ride?.userDestination?.id ?? state.ride?.to) ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label><div class="screen-action-group"><button class="primary-action" data-save-destination>ここで降ります</button></div><label class="setting-row"><span>1つ前の駅・停留所で知らせる</span><input type="checkbox" data-alight-setting ${settings.alightAssist !== false ? "checked" : ""}></label><label class="setting-row"><span>許可済みのシステム通知を使う</span><input type="checkbox" data-notification-setting ${settings.notifications ? "checked" : ""}></label><div class="screen-action-group"><button class="secondary-action" data-enable-notification>通知を設定</button></div><p class="source-note">画面内の案内は常に表示します。システム通知は対応端末で許可した場合に利用できます。</p>`,
+    bus ? ui("context_sheet_001") : ui("context_sheet_002"),
+    ui("context_sheet_003", [
+      stops
+        .map(
+          (s) =>
+            `<option value="${esc(s.id)}" ${s.id === (state.ride?.userDestination?.id ?? state.ride?.to) ? "selected" : ""}>${esc(s.name)}</option>`,
+        )
+        .join(""),
+      settings.alightAssist !== false ? "checked" : "",
+      settings.notifications ? "checked" : "",
+    ]),
   );
 }
 export function stationDetailHTML(id) {
   const stop = (
     state.ride?.fullOfficialStops ?? state.ride?.officialStops
   )?.find((s) => s.id === id);
-  if (!stop) return '<p class="empty-state">この乗車案内は終了しました。</p>';
+  if (!stop) return ui("context_sheet_004");
   const bus = ["citybus", "kyotobus"].includes(state.ride.operator),
     time = stopTime(stop),
     n = state.network.stops.get(id);
   const activeIndex = state.ride.officialStops.findIndex((s) => s.id === id);
   const canChoose = activeIndex >= (state.heroModel?.index ?? 0);
-  return `${bus ? '<section class="bus-stop-preview" data-bus-stop-preview></section>' : ""}<dl class="context-facts"><div><dt>到着予定</dt><dd>${Number.isFinite(time) ? formatMinute(time) : "時刻未取得"}</dd></div><div><dt>到着見込み（推定）</dt><dd>${Number.isFinite(time) ? formatMinute(Math.round(time + state.rideShift)) : "未確認"}</dd></div><div><dt>接続路線</dt><dd>${esc(n?.lines?.join("・") ?? "未確認")}</dd></div></dl><div class="screen-action-group"><button class="primary-action" data-choose-destination="${esc(id)}" ${canChoose ? "" : "disabled"}>${canChoose ? "ここで降ります" : "通過した地点です"}</button><button class="secondary-action" data-open-timetable="${esc(id)}">時刻表を見る</button>${!bus ? '<button class="secondary-action" data-context-foldback>この先の折り返しを探す</button>' : ""}</div>`;
+  return ui("context_sheet_015", [
+    bus
+      ? '<section class="bus-stop-preview" data-bus-stop-preview></section>'
+      : "",
+    Number.isFinite(time) ? formatMinute(time) : ui("context_sheet_005"),
+    Number.isFinite(time)
+      ? formatMinute(Math.round(time + state.rideShift))
+      : ui("context_sheet_006"),
+    esc(n?.lines?.join("・") ?? ui("context_sheet_007")),
+    esc(id),
+    canChoose ? "" : "disabled",
+    canChoose ? ui("context_sheet_008") : ui("context_sheet_009"),
+    esc(id),
+    !bus ? ui("context_sheet_010") : "",
+  ]);
 }
 export function setupContextSheet(onChange, onFoldback) {
   const dialog = $("#context-sheet");
@@ -68,7 +92,7 @@ export function setupContextSheet(onChange, onFoldback) {
       }
     } else if (b.hasAttribute("data-enable-notification")) {
       if (!("Notification" in window)) {
-        b.textContent = "この端末では画面内でお知らせします";
+        b.textContent = ui("context_sheet_011");
         return;
       }
       try {
@@ -76,10 +100,10 @@ export function setupContextSheet(onChange, onFoldback) {
         settings.notifications = permission === "granted";
         saveSettings();
         b.textContent = settings.notifications
-          ? "通知を有効にしました"
-          : "画面内でお知らせします";
+          ? ui("context_sheet_012")
+          : ui("context_sheet_013");
       } catch {
-        b.textContent = "画面内でお知らせします";
+        b.textContent = ui("context_sheet_014");
       }
     } else if (b.dataset.openTimetable) dialog.close();
   });

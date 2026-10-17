@@ -21,6 +21,7 @@ const date = new Intl.DateTimeFormat("sv-SE", {
   day: "2-digit",
 }).format(new Date());
 const checks = [];
+const requireAllProviders = process.argv.includes("--all-providers");
 async function publishedFile(path) {
   const url = new URL(path, site);
   const { stdout } = await run(
@@ -208,16 +209,23 @@ if (health) {
     );
   });
   if (health.odpt)
-    await check("Kyoto bus real-time", "/api/bus/rt", (d) =>
+    await check("Kyoto bus real-time", "/api/bus/rt", (d) => {
       required(
         Array.isArray(d.vehicles),
         "京都バスの位置データを確認できません",
-      ),
-    );
+      );
+      if (requireAllProviders)
+        required(
+          d.source === "live" && !d.stale,
+          "京都バスの実測・鮮度を確認できません",
+        );
+    });
   else
     checks.push({
       name: "Kyoto bus real-time",
-      status: "optional_unconfigured",
+      status: requireAllProviders
+        ? "blocked_external"
+        : "optional_unconfigured",
       note: "ODPTキーが未設定。公式時刻表の案内を使用。",
     });
 }
@@ -263,6 +271,7 @@ try {
   });
 }
 const result = {
+  mode: requireAllProviders ? "all_providers" : "standard",
   checkedAt: new Date().toISOString(),
   api: base.origin,
   site: site.href,

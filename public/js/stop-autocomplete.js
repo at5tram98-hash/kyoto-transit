@@ -1,3 +1,4 @@
+import { ui, displayStopName } from "./locale.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { stopSuggestions, stopTypeLabel } from "./route-search-model.js";
 import { readSearchPairs } from "./search-history.js";
@@ -12,15 +13,14 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
   const dialog = document.createElement("dialog");
   dialog.className = "sheet suggestion-screen";
   dialog.id = `${list.id}-screen`;
-  dialog.setAttribute("aria-label", "駅・停留所を選択");
-  dialog.innerHTML =
-    '<div class="suggestion-toolbar"><button type="button" class="plain-action" data-suggestion-cancel>取消</button><label><span class="sr-only">駅・停留所を検索</span><input type="search" data-suggestion-input autocomplete="off" placeholder="駅・停留所を検索"></label></div><div class="suggestion-body"></div>';
+  dialog.setAttribute("aria-label", ui("stop_autocomplete_001"));
+  dialog.innerHTML = ui("stop_autocomplete_002");
   const editor = dialog.querySelector("input");
   const home = list.parentElement;
   dialog.querySelector(".suggestion-body").append(list);
   document.body.append(dialog);
   list.role = "listbox";
-  list.setAttribute("aria-label", "駅・停留所の候補");
+  list.setAttribute("aria-label", ui("stop_autocomplete_003"));
   editor.setAttribute("role", "combobox");
   editor.setAttribute("aria-autocomplete", "list");
   editor.setAttribute("aria-controls", list.id);
@@ -59,9 +59,9 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     const matches = (stop) => !q || candidates.some((s) => s.id === stop.id);
     const seen = new Set();
     const groups = [
-      ["最近", pairStops("history")],
+      [ui("stop_autocomplete_004"), pairStops("history")],
       [
-        "保存済み",
+        ui("stop_autocomplete_005"),
         [
           ...readSavedPlaces()
             .map((id) => network.stops.get(id))
@@ -70,13 +70,19 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
         ],
       ],
       [
-        "近く",
+        ui("stop_autocomplete_006"),
         nearest()
           .all.slice(0, 5)
           .map((s) => s.stop),
       ],
-      ["駅・停留所", candidates.filter((stop) => !stop.facilityName)],
-      ["施設", candidates.filter((stop) => stop.facilityName)],
+      [
+        ui("stop_autocomplete_007"),
+        candidates.filter((stop) => !stop.facilityName),
+      ],
+      [
+        ui("stop_autocomplete_008"),
+        candidates.filter((stop) => stop.facilityName),
+      ],
     ];
     rows = [];
     index = -1;
@@ -108,8 +114,8 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
         const copy = document.createElement("span"),
           name = document.createElement("b"),
           meta = document.createElement("small");
-        name.textContent = stop.name;
-        meta.textContent = `${stop.facilityName ? `${stop.facilityName}付近の停留所 · ` : ""}${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
+        name.textContent = displayStopName(stop);
+        meta.textContent = `${stop.facilityName ? ui("stop_autocomplete_009", [stop.facilityName]) : ""}${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
         copy.append(name, meta);
         button.append(symbol, copy);
         list.append(button);
@@ -118,7 +124,7 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     if (!rows.length) {
       const empty = document.createElement("p");
       empty.className = "empty-state";
-      empty.textContent = "該当する駅・停留所がありません";
+      empty.textContent = ui("stop_autocomplete_010");
       list.append(empty);
     }
     list.hidden = false;
@@ -137,7 +143,7 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
   function choose(stop) {
     if (!active || !stop) return;
     const input = active;
-    input.value = stop.name;
+    input.value = displayStopName(stop);
     onSelect(input, stop);
     close();
     input.focus({ preventScroll: true });

@@ -1,4 +1,5 @@
 import { subwayIds, kintetsuIds } from "./network.js";
+import { setAppLocale, ui } from "./locale.js";
 import { distance } from "./mobility.js";
 import { trajectory, freshFix } from "./riding.js";
 import { getRailLocation, CAPTURE_API } from "./live.js";
@@ -104,6 +105,7 @@ export const saveSettings = () => {
     localStorage.setItem("mymap-vnext-settings", JSON.stringify(settings));
   } catch {}
 };
+setAppLocale(settings.locale);
 export const state = {
   network: null,
   geo: null,
@@ -226,7 +228,7 @@ export function restoreJourney() {
     });
     if (saved) {
       Object.assign(state, saved);
-      toast("保存した乗車案内を再開しました");
+      toast(ui("ride_restored"));
     } else localStorage.removeItem("mymap-active-journey-v1");
     state.itinerary = readItinerary(localStorage, state.network);
     if (state.itinerary) {

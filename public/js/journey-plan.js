@@ -25,9 +25,12 @@ export function tripOptions(network, request, journey, legIndex) {
   if (!isRide(original ?? {})) throw Error("乗車区間を選択してください。");
   const prefix = journey.legs.slice(0, legIndex),
     priorRides = prefix.filter(isRide).length,
-    ready = priorRides
-      ? (prefix.at(-1)?.arrive ?? journey.start) + request.buffer
-      : -Infinity,
+    ready = Math.max(
+      request.notBefore ?? -Infinity,
+      priorRides
+        ? (prefix.at(-1)?.arrive ?? journey.start) + request.buffer
+        : -Infinity,
+    ),
     pendingVia = (request.via ?? []).slice(
       prefix.filter((l) => l.kind === "dwell").length,
     ),
@@ -302,6 +305,68 @@ export function advanceItinerary(plan) {
     legIndex: next < 0 ? plan.legIndex : next,
     phase: next < 0 ? (walking ? "walking" : "arrived") : "transfer",
   };
+}
+export const itineraryRevision = (plan) =>
+  plan
+    ? JSON.stringify([
+        plan.id,
+        plan.legIndex,
+        plan.phase,
+        plan.route.legs.map((leg) => [
+          tripChoiceKey(leg),
+          leg.depart,
+          leg.arrive,
+        ]),
+      ])
+    : "";
+export function editableItineraryLeg(plan, index) {
+  return Boolean(
+    plan &&
+    ["armed", "riding", "transfer"].includes(plan.phase) &&
+    Number.isInteger(index) &&
+    index >= plan.legIndex + (plan.phase === "riding" ? 1 : 0) &&
+    plan.route.legs[index]?.kind === "ride",
+  );
+}
+export function updateItineraryRoute(
+  plan,
+  journey,
+  rides,
+  index,
+  revision,
+  now,
+) {
+  if (
+    itineraryRevision(plan) !== revision ||
+    !editableItineraryLeg(plan, index) ||
+    journey?.connectionUnavailable ||
+    journey?.date !== plan.route.date ||
+    !Array.isArray(rides) ||
+    rides.length !== journey.legs.length
+  )
+    return null;
+  if (now) {
+    const current =
+      now.minute +
+      (Date.parse(`${now.date}T00:00:00Z`) -
+        Date.parse(`${journey.date}T00:00:00Z`)) /
+        60000;
+    if (!Number.isFinite(current) || journey.legs[index]?.depart < current)
+      return null;
+  }
+  const locked = plan.legIndex + (plan.phase === "riding" ? 1 : 0);
+  for (let i = 0; i < locked; i++) {
+    const a = plan.route.legs[i],
+      b = journey.legs[i];
+    if (
+      !b ||
+      tripChoiceKey(a) !== tripChoiceKey(b) ||
+      a.depart !== b.depart ||
+      a.arrive !== b.arrive
+    )
+      return null;
+  }
+  return { ...plan, route: clone(journey), rides: clone(rides) };
 }
 function validItinerary(plan, network, at) {
   return (

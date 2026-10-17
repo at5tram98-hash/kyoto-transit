@@ -16,7 +16,7 @@
   place-items: center;
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--panel-2);
   color: var(--text);
   flex: 0 0 auto;
@@ -156,7 +156,7 @@
 .round-action {
   width: 38px;
   height: 38px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--panel-2);
   justify-content: center;
   padding: 0;
@@ -185,7 +185,7 @@
 .rail-dot {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--panel);
   border: 2px solid var(--muted);
   z-index: 1;
@@ -193,7 +193,7 @@
 .stop-list li.next .rail-dot {
   background: var(--blue);
   border-color: var(--blue);
-  box-shadow: 0 0 0 5px var(--blue-soft);
+  box-shadow: var(--shadow-focus-wide);
 }
 .stop-list li.passed {
   opacity: 0.45;
@@ -299,7 +299,7 @@
 .native-row .mode-symbol {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
 }
 .native-row .mode-symbol svg {
   width: 20px;
@@ -316,7 +316,7 @@
   margin: 0 0 7px;
 }
 .train-rows {
-  border-radius: 16px;
+  border-radius: var(--radius-group);
   background: var(--panel-2);
   overflow: hidden;
 }
@@ -373,11 +373,11 @@
   width: min(calc(100% - 22px), 720px);
   height: 66px;
   border: 1px solid color-mix(in srgb, var(--separator) 80%, transparent);
-  border-radius: 24px;
+  border-radius: var(--radius-surface);
   background: color-mix(in srgb, var(--panel) 82%, transparent);
   backdrop-filter: saturate(180%) blur(26px);
   -webkit-backdrop-filter: saturate(180%) blur(26px);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--shadow-toast);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding: 5px;
@@ -385,7 +385,7 @@
 .tab-button {
   border: 0;
   background: transparent;
-  border-radius: 19px;
+  border-radius: var(--radius-vehicle);
   color: var(--muted);
   display: flex;
   flex-direction: column;
@@ -419,10 +419,10 @@
   align-items: center;
   gap: 8px;
   background: var(--panel);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   padding: 10px 12px;
   margin-bottom: 12px;
-  box-shadow: 0 0 0 1px var(--separator);
+  box-shadow: var(--shadow-hairline);
 }
 .native-search input {
   min-height: 44px;
@@ -445,9 +445,22 @@
 .operation-card,
 .settings-card {
   background: var(--panel);
-  border-radius: 18px;
+  border-radius: var(--radius-inset);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+.operation-card [data-operation-save] svg {
+  width: 21px;
+  height: 21px;
+  margin-inline-end: 8px;
+  vertical-align: middle;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+.operation-card [data-operation-save][aria-pressed="true"] svg {
+  fill: currentColor;
 }
 .native-row {
   background: var(--panel);
@@ -457,7 +470,7 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   background: var(--panel-2);
 }
 .system-symbol svg {
@@ -516,8 +529,8 @@
   min-height: 44px;
   border: 0;
   background: var(--panel);
-  box-shadow: 0 0 0 1px var(--separator);
-  border-radius: 12px;
+  box-shadow: var(--shadow-hairline);
+  border-radius: var(--radius-row);
   padding: 11px;
 }
 .board-summary {
@@ -529,7 +542,7 @@
 }
 .hour-table {
   background: var(--panel);
-  border-radius: 18px;
+  border-radius: var(--radius-inset);
   overflow: hidden;
 }
 .hour-row {
@@ -558,7 +571,7 @@
   border: 0;
   border-inline-start: 3px solid var(--color-walk);
   background: var(--panel-2);
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   min-width: 52px;
   padding: 7px 8px;
   display: flex;
@@ -575,7 +588,7 @@
 }
 .minute-cell.express {
   border-inline-start-color: var(--color-kintetsu);
-  box-shadow: inset 0 0 0 1px var(--purple);
+  box-shadow: var(--shadow-boundary);
 }
 .source-caption {
   font-size: var(--type-caption);

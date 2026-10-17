@@ -1,0 +1,960 @@
+{
+  "baselineMain": "dfd4352",
+  "requirements": [
+    {
+      "id": 0,
+      "title": "最終目標",
+      "status": "総合受入待ち",
+      "evidence": [
+        "docs/spec-completion-2026-10-16.md"
+      ],
+      "note": "外部Realtime認証と物理iPhone・実走の受入が残る。自動検査だけで認定しない。"
+    },
+    {
+      "id": 1,
+      "title": "対応交通機関",
+      "status": "実装・自動検証済み／外部実測待ち",
+      "evidence": [
+        "public/js/network.js",
+        "public/js/transit-evidence.js",
+        "tests/journey-recovery.test.js",
+        "scripts/verify-production.mjs"
+      ],
+      "note": "全既存路線・北3・直通を保持。京都バスODPTの本番未設定と候補キー403により、公式時刻表fallback。実測取得成功とはしない。"
+    },
+    {
+      "id": 2,
+      "title": "主要機能",
+      "status": "実装・自動検証済み／外部実測待ち",
+      "evidence": [
+        "public/js/network.js",
+        "public/js/transit-evidence.js",
+        "tests/journey-recovery.test.js",
+        "scripts/verify-production.mjs"
+      ],
+      "note": "全既存路線・北3・直通を保持。京都バスODPTの本番未設定と候補キー403により、公式時刻表fallback。実測取得成功とはしない。"
+    },
+    {
+      "id": 3,
+      "title": "用語",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/vnext.css",
+        "tests/design-tokens.test.js",
+        "public/js/vnext-state.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 4,
+      "title": "Design System",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/vnext.css",
+        "tests/design-tokens.test.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 5,
+      "title": "色",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/vnext.css",
+        "tests/design-tokens.test.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 6,
+      "title": "Material",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/vnext.css",
+        "tests/design-tokens.test.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 7,
+      "title": "アイコン",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/vnext.css",
+        "tests/design-tokens.test.js",
+        "public/js/vnext-state.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 8,
+      "title": "Typography",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/vnext.css",
+        "tests/design-tokens.test.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 9,
+      "title": "5 Tab",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 10,
+      "title": "Live全体",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 11,
+      "title": "Live Header",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 12,
+      "title": "時計バー",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 13,
+      "title": "Quick Select",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "Quick Selectのtap/長押し・指追従を維持。任意の低速自動移動は既存時計tick・native scrollで実装。操作開始で停止、Reduce Motion・非表示・Sheet表示中は動かさない。"
+    },
+    {
+      "id": 14,
+      "title": "現在地Header",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 15,
+      "title": "交通地点検索",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 16,
+      "title": "Mini Map",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 17,
+      "title": "付近の交通",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 18,
+      "title": "方面Segment",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 19,
+      "title": "接近Row",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 20,
+      "title": "鉄道乗車Hero",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 21,
+      "title": "鉄道Secondary",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 22,
+      "title": "バスHero",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 23,
+      "title": "バスSecondary",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/live-home.js",
+        "public/js/now-components.js",
+        "public/js/now-model.js",
+        "public/js/now-navigation.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 24,
+      "title": "Evidence Engine",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 25,
+      "title": "GPS保持",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 26,
+      "title": "Motion",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 27,
+      "title": "短時間音声",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 28,
+      "title": "音声Parser",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 29,
+      "title": "独立Source Consensus",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 30,
+      "title": "地下鉄検知",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 31,
+      "title": "バス方向",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 32,
+      "title": "循環",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 33,
+      "title": "方向安全",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 34,
+      "title": "Hysteresis",
+      "status": "実装・合成証拠検証済み／実走待ち",
+      "evidence": [
+        "public/js/transit-evidence.js",
+        "public/js/announcement-parser.js",
+        "public/js/motion-assist.js",
+        "public/js/vnext-detect.js",
+        "tests/transit-evidence.test.js"
+      ],
+      "note": "独立Source、地下、停車、方向・循環・逆順、hysteresisを合成データで検証。実路線の検知秒数・誤方向率は未計測。"
+    },
+    {
+      "id": 35,
+      "title": "検索Tab",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 36,
+      "title": "検索入力",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 37,
+      "title": "日時Sheet",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 38,
+      "title": "検索条件",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 39,
+      "title": "Suggestion",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 40,
+      "title": "検索結果",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 41,
+      "title": "結果Card",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 42,
+      "title": "Journey Timeline",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 43,
+      "title": "乗換",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 44,
+      "title": "別便",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "発時刻→別便Sheet→後続/運賃再計算。全旅程から将来区間も変更可能。乗車済み区間を固定し、古いrevision・過去の便の適用を拒否。"
+    },
+    {
+      "id": 45,
+      "title": "Journey CTA",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-search-ui.js",
+        "public/js/route-search-view.js",
+        "public/js/route-search-model.js",
+        "public/js/journey-plan.js",
+        "public/js/journey-recovery.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 46,
+      "title": "時刻表Home",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/timetable-ui.js",
+        "scripts/ui-coordinate-audit.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 47,
+      "title": "時刻表詳細",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/timetable-ui.js",
+        "scripts/ui-coordinate-audit.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 48,
+      "title": "運行から回避検索",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/operation-status.js",
+        "public/js/timetable-ui.js",
+        "tests/journey-recovery.test.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "既存Storeに運行路線保存。現在→保存→全路線を重複なしに表示。新鮮な明示障害から既存plannerで回避検索し、候補選択まで現在旅程を保持。"
+    },
+    {
+      "id": 49,
+      "title": "関連・保存・全運行路線",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/operation-status.js",
+        "public/js/timetable-ui.js",
+        "tests/journey-recovery.test.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "既存Storeに運行路線保存。現在→保存→全路線を重複なしに表示。新鮮な明示障害から既存plannerで回避検索し、候補選択まで現在旅程を保持。"
+    },
+    {
+      "id": 50,
+      "title": "その他",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext-network-view.js",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 51,
+      "title": "折り返し3方式",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext-foldback.js",
+        "public/js/foldback-meetings.js",
+        "tests/foldback-meetings.test.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 52,
+      "title": "折り返し可否",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext-foldback.js",
+        "public/js/foldback-meetings.js",
+        "tests/foldback-meetings.test.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 53,
+      "title": "共通Sheet",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/context-sheet.js",
+        "public/js/navigation.js",
+        "public/js/navigation-motion.js",
+        "public/js/live-home.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 54,
+      "title": "Navigation Motion",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/context-sheet.js",
+        "public/js/navigation.js",
+        "public/js/navigation-motion.js",
+        "public/js/live-home.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 55,
+      "title": "Long Press",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/context-sheet.js",
+        "public/js/navigation.js",
+        "public/js/navigation-motion.js",
+        "public/js/live-home.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 56,
+      "title": "Haptic",
+      "status": "対応API実装／実機未確認",
+      "evidence": [
+        "public/vnext-navigation.css",
+        "scripts/ui-coordinate-audit.mjs",
+        "public/js/vnext-state.js"
+      ],
+      "note": "既存Web API対応時のみhaptic。Safari/PWAで触覚APIが利用できない場合は振動なし。物理iPhoneで触覚を確認したとはしない。"
+    },
+    {
+      "id": 57,
+      "title": "Accessibility",
+      "status": "自動検証済み／VoiceOver実機待ち",
+      "evidence": [
+        "public/vnext-navigation.css",
+        "scripts/ui-coordinate-audit.mjs",
+        "scripts/v3-browser-checks.mjs"
+      ],
+      "note": "明暗・100/150/200%・High Contrast・Reduce Motion・focusを自動検証。物理VoiceOver、OSの文字設定は未試験。"
+    },
+    {
+      "id": 58,
+      "title": "i18n",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/locale.js",
+        "public/js/locale-ui-ja.js",
+        "public/js/locale-ui-en.js",
+        "public/js/station-names.js",
+        "tests/locale.test.js"
+      ],
+      "note": "846表示項目の日本語/英語辞書と同一action属性・placeholder検査。English選択、ローマ字駅検索、東京の運行日を維持。公式固有名・外部原文は未翻訳のまま。"
+    },
+    {
+      "id": 59,
+      "title": "Privacy",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext-network-view.js",
+        "tests/permission-interaction-contract.test.js"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 60,
+      "title": "Offline",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 61,
+      "title": "Loading",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 62,
+      "title": "Error Recovery",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 63,
+      "title": "Performance",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 64,
+      "title": "PWA",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 65,
+      "title": "復帰再同期",
+      "status": "実装・イベント検証済み／実機待ち",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "visibility/pagehide/復帰・Offline/PWAのブラウザー試験。iOS OS suspend、実センサー復帰は物理端末待ち。"
+    },
+    {
+      "id": 66,
+      "title": "機能保持",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 67,
+      "title": "技術情報の階層",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/vnext.js",
+        "public/js/arrival-stability.js",
+        "public/js/operation-status.js",
+        "scripts/pwa-smoke.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 68,
+      "title": "Browser品質",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "scripts/browser-smoke.mjs",
+        "scripts/ui-coordinate-audit.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 69,
+      "title": "座標",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "scripts/browser-smoke.mjs",
+        "scripts/ui-coordinate-audit.mjs",
+        "scripts/completion-browser-checks.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 70,
+      "title": "実走",
+      "status": "未実施",
+      "evidence": [
+        "docs/native-final-implementation-2026-10-15.md"
+      ],
+      "note": "烏丸線両方向・直通、市バス循環/反対方向/同一停留所両方向、北3の実走は未実施。60秒以内・誤方向0の実測結果なし。"
+    },
+    {
+      "id": 71,
+      "title": "Map Gesture",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-map.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 72,
+      "title": "UX操作数",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "public/js/route-map.js",
+        "scripts/browser-smoke.mjs"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 73,
+      "title": "Release Gate",
+      "status": "未達",
+      "evidence": [
+        "docs/spec-completion-2026-10-16.md"
+      ],
+      "note": "Global Release Ready: NO。京都バスODPT本番実測と実機/実走のP0判定が未了。公開済み/CI Greenで上書きしない。"
+    },
+    {
+      "id": 74,
+      "title": "完成像",
+      "status": "総合受入待ち",
+      "evidence": [
+        "docs/spec-completion-2026-10-16.md"
+      ],
+      "note": "外部Realtime認証と物理iPhone・実走の受入が残る。自動検査だけで認定しない。"
+    },
+    {
+      "id": 75,
+      "title": "開発禁止事項",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "docs/spec-completion-2026-10-16.md"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 76,
+      "title": "開発順",
+      "status": "実装・自動検証済み",
+      "evidence": [
+        "docs/spec-completion-2026-10-16.md"
+      ],
+      "note": "ブラウザー・モデル回帰と34画面の座標検査。現地品質は別途受入。"
+    },
+    {
+      "id": 77,
+      "title": "成果物",
+      "status": "自動検証資料作成／実機結果未提出",
+      "evidence": [
+        "docs/spec-completion-2026-10-16.md"
+      ],
+      "note": "Before/After・全78節表・モデル/Browser/PWA/座標/公開実接続を記録。実機試験表の未実施を残す。"
+    }
+  ],
+  "overall100Percent": false,
+  "globalReleaseReady": false,
+  "externalDependencies": [
+    "Valid ODPT authentication and production Worker binding",
+    "Physical iPhone and field rides"
+  ],
+  "runtimeBuild": "fa429f63131d",
+  "updatedAt": "2026-10-17"
+}

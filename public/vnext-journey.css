@@ -61,7 +61,7 @@
 .journey-stop-list .current .rail-dot {
   background: var(--green);
   border-color: var(--green);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 14%, transparent);
+  box-shadow: var(--shadow-live-ring);
 }
 .journey-stops .plain-action {
   flex-shrink: 0;
@@ -162,7 +162,7 @@
   place-items: center;
   background: var(--blue-soft);
   color: var(--blue);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   font-size: 0.75rem;
   font-weight: 750;
 }
@@ -189,7 +189,7 @@
   gap: 9px;
   padding: 15px 3px;
   min-height: 76px;
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   transition: background 0.15s;
 }
 .target-train:hover,
@@ -294,9 +294,9 @@
   gap: 12px;
   margin: 0 0 16px;
   padding: 12px 16px;
-  border-radius: 18px;
+  border-radius: var(--radius-inset);
   background: var(--panel);
-  box-shadow: 0 2px 16px #00000008;
+  box-shadow: var(--shadow-next-stop);
   font-size: 0.875rem;
 }
 .app-update[hidden] {
@@ -407,7 +407,7 @@
     var(--surface-primary)
   );
   padding: 14px;
-  border-radius: 26px;
+  border-radius: var(--radius-sheet);
 }
 .journey-display.rail {
   --journey-accent: var(--transport-color);
@@ -462,7 +462,7 @@
   min-width: 36px;
   min-height: 36px;
   padding: 5px;
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   display: inline-grid;
   place-items: center;
   color: var(--color-on-transport);
@@ -487,7 +487,7 @@
 }
 .status-pill {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-capsule);
   padding: 4px 7px;
   font-size: var(--type-caption);
   line-height: 1.4;
@@ -506,7 +506,7 @@
 .next-station-hero {
   padding: 16px 10px 12px;
   text-align: center;
-  border-radius: 18px;
+  border-radius: var(--radius-inset);
   background: var(--route-tint);
   transition: background-color 280ms ease;
 }
@@ -554,7 +554,7 @@
   border: 3px solid var(--journey-accent);
   color: var(--journey-accent);
   background: var(--panel);
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   padding: 8px 5px;
   font-size: 0.88rem;
   font-weight: 800;
@@ -605,7 +605,7 @@
   height: 12px;
   border: 3px solid var(--separator);
   background: var(--panel);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
 }
 .station-strip .selected i {
   border-color: var(--journey-accent);
@@ -628,7 +628,7 @@
   background: var(--surface-destination);
   color: var(--color-destination);
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
 }
 .personal-destination > span {
   min-width: 0;
@@ -693,11 +693,11 @@
 }
 .journey-stop-list .destination {
   background: var(--blue-soft);
-  border-radius: 12px;
+  border-radius: var(--radius-row);
 }
 .journey-stop-list .boarding {
   background: var(--panel-2);
-  border-radius: 12px;
+  border-radius: var(--radius-row);
 }
 .stop-times {
   font-size: 0.85rem;
@@ -724,7 +724,7 @@
 .route-map {
   --journey-accent: var(--color-subway);
   background: var(--panel-2);
-  border-radius: 18px;
+  border-radius: var(--radius-inset);
   overflow: hidden;
 }
 .route-map[data-line="B"] {
@@ -823,9 +823,9 @@
 }
 .map-controls button {
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   background: var(--panel);
-  box-shadow: 0 1px 5px #0002;
+  box-shadow: var(--shadow-vehicle);
   font-size: 1rem;
   width: 44px;
   height: 44px;
@@ -848,7 +848,7 @@
   color: var(--muted);
   background: var(--panel);
   padding: 6px;
-  border-radius: 8px;
+  border-radius: var(--radius-compact);
 }
 .bus-mini-map {
   margin-top: 10px;
@@ -918,7 +918,7 @@
   width: 36px;
   height: 5px;
   background: var(--separator);
-  border-radius: 4px;
+  border-radius: var(--radius-tiny);
 }
 .sheet-close {
   min-width: 44px;
@@ -999,7 +999,7 @@ button {
   right: 0;
   height: 4px;
   background: color-mix(in srgb, var(--journey-accent) 25%, var(--separator));
-  border-radius: 3px;
+  border-radius: var(--radius-detail);
   transition: background-color 750ms;
 }
 .live-track-opposite {
@@ -1015,7 +1015,7 @@ button {
   top: 22px;
   left: 50%;
   transform: translateX(-50%);
-  border-radius: 7px;
+  border-radius: var(--radius-marker);
   padding: 5px;
   font-size: var(--type-caption);
   white-space: nowrap;
@@ -1058,7 +1058,7 @@ button {
     padding-right: 16px;
   }
   .hero-card:not(.journey-display) {
-    border-radius: 22px;
+    border-radius: var(--radius-map);
   }
 }
 a.plain,
@@ -1119,7 +1119,7 @@ a.plain-action {
 }
 .journey-warning {
   background: color-mix(in srgb, var(--orange) 13%, var(--panel));
-  border-radius: 12px;
+  border-radius: var(--radius-row);
   padding: 10px;
   margin-bottom: 12px !important;
   font-size: 0.8rem !important;

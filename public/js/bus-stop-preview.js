@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { esc } from "./vnext-state.js";
 import { compactBusHTML } from "./vnext-arrivals.js";
 import {
@@ -32,7 +33,25 @@ export function mountBusStopPreview(host, stop) {
       focus = document.activeElement?.dataset.previewRoute;
     updateHTML(
       host,
-      `<h2>この停留所の接近情報</h2><div class="stop-route-chips" aria-label="利用系統"><button type="button" class="${route === null ? "active" : ""}" data-preview-route="" aria-pressed="${route === null}">すべて</button>${(stop.lines ?? []).map((r) => `<button type="button" class="${route === String(r) ? "active" : ""}" data-preview-route="${esc(r)}" aria-pressed="${route === String(r)}">${esc(r)}</button>`).join("")}</div>${rows || `<p class="source-note">${city ? (data ? "接近車両の時刻・位置を確認できません。全方面の状態を確認できます。" : updating ? "接近情報を確認中…" : "接近情報を取得できません。再試行できます。") : "この停留所の接近実測は未取得です。公式時刻表をご確認ください。"}</p>`}${updating && rows ? '<p class="source-caption" role="status">更新中…</p>' : ""}${data && !fresh ? '<p class="source-caption">保存した情報からの予測です。最新の接近を再確認してください。</p>' : ""}${failed && city ? '<button class="plain-action" data-preview-retry>再取得</button>' : ""}<button class="native-row" ${city ? `data-open-arrivals="${esc(stop.id)}"` : `data-open-timetable="${esc(stop.id)}"`}><span>${city ? "すべての接近情報" : "公式時刻表を見る"}</span><span class="chevron">›</span></button>`,
+      ui("bus_stop_preview_010", [
+        route === null ? "active" : "",
+        route === null,
+        (stop.lines ?? [])
+          .map(
+            (r) =>
+              `<button type="button" class="${route === String(r) ? "active" : ""}" data-preview-route="${esc(r)}" aria-pressed="${route === String(r)}">${esc(r)}</button>`,
+          )
+          .join(""),
+        rows ||
+          `<p class="source-note">${city ? (data ? ui("bus_stop_preview_001") : updating ? ui("bus_stop_preview_002") : ui("bus_stop_preview_003")) : ui("bus_stop_preview_004")}</p>`,
+        updating && rows ? ui("bus_stop_preview_005") : "",
+        data && !fresh ? ui("bus_stop_preview_006") : "",
+        failed && city ? ui("bus_stop_preview_007") : "",
+        city
+          ? `data-open-arrivals="${esc(stop.id)}"`
+          : `data-open-timetable="${esc(stop.id)}"`,
+        city ? ui("bus_stop_preview_008") : ui("bus_stop_preview_009"),
+      ]),
     );
     const chips = host.querySelector(".stop-route-chips");
     if (chips) chips.scrollLeft = scroll;

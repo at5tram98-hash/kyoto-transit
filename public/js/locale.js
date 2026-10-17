@@ -1,4 +1,37 @@
 // Locale and time zone have a single owner. Transit service dates stay in Japan.
+import japaneseUI from "./locale-ui-ja.js";
+import englishUI from "./locale-ui-en.js";
+// Initialize before any screen's module-level labels are evaluated. The
+// persisted settings remain the only preference store.
+let activeLocale = (() => {
+  try {
+    return JSON.parse(
+      globalThis.localStorage?.getItem("mymap-vnext-settings") ?? "{}",
+    ).locale === "en"
+      ? "en"
+      : "ja";
+  } catch {
+    return "ja";
+  }
+})();
+export function setAppLocale(value) {
+  activeLocale = value === "en" ? "en" : "ja";
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = activeLocale;
+    for (const node of document.querySelectorAll("[data-ui]"))
+      node.textContent = ui(node.dataset.ui);
+    for (const node of document.querySelectorAll("[data-ui-aria]"))
+      node.setAttribute("aria-label", ui(node.dataset.uiAria));
+  }
+}
+export function ui(key, values = []) {
+  const pattern =
+    (activeLocale === "en" ? englishUI[key] : null) ?? japaneseUI[key];
+  if (pattern === undefined) throw Error(`Unknown UI message: ${key}`);
+  return pattern.replace(/\{(\d+)\}/g, (_, i) => String(values[Number(i)]));
+}
+export const displayStopName = (stop) =>
+  activeLocale === "en" ? (stop?.en ?? stop?.name ?? "") : (stop?.name ?? "");
 export const transitTimeZone = "Asia/Tokyo";
 const messages = {
   ja: {

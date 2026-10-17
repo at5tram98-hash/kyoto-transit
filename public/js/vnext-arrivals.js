@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
 import { getStaticFeed } from "./fast-data.js";
 import { mergeTimetableFeeds } from "./search-core.js";
@@ -63,15 +64,22 @@ const sourceDot = (source) =>
 const delayText = (d) =>
   Number.isFinite(d)
     ? Math.abs(Math.round(d)) < 1
-      ? "定刻"
-      : `${Math.abs(Math.round(d))}分${d > 0 ? "遅れ" : "早め"}`
+      ? ui("vnext_arrivals_001")
+      : ui("vnext_arrivals_041", [
+          Math.abs(Math.round(d)),
+          d > 0 ? ui("vnext_arrivals_002") : ui("vnext_arrivals_003"),
+        ])
     : "—";
 const minuteText = (r) =>
   Number.isFinite(r.minutes)
-    ? `あと${Math.max(0, Math.round(r.minutes))}分`
+    ? ui("vnext_arrivals_004", [Math.max(0, Math.round(r.minutes))])
     : (r.status ?? "—");
 const sourceLabel = (source) =>
-  source === "live" ? "実測" : source === "prediction" ? "予測" : "予定";
+  source === "live"
+    ? ui("vnext_arrivals_005")
+    : source === "prediction"
+      ? ui("vnext_arrivals_006")
+      : ui("vnext_arrivals_007");
 const timestamp = (value) =>
   typeof value === "number" ? value : Date.parse(value);
 const updateTime = new Intl.DateTimeFormat("ja-JP", {
@@ -82,13 +90,19 @@ const updateTime = new Intl.DateTimeFormat("ja-JP", {
 
 function arrivalValue(r) {
   if (Number.isFinite(r.minutes))
-    return `<span aria-label="${esc(minuteText(r))}"><b>${Math.max(0, Math.round(r.minutes))}</b><small>分</small></span>`;
+    return ui("vnext_arrivals_008", [
+      esc(minuteText(r)),
+      Math.max(0, Math.round(r.minutes)),
+    ]);
   if (Number.isFinite(r.stopsAway))
-    return `<span><b>${Math.max(0, Math.round(r.stopsAway))}</b><small>停留所前</small></span>`;
+    return ui("vnext_arrivals_009", [Math.max(0, Math.round(r.stopsAway))]);
   const scheduled = r.scheduledDeparture ?? r.depart;
   if (Number.isFinite(scheduled))
-    return `<span class="arrival-unconfirmed">次の予定 ${String(Math.floor(scheduled / 60) % 24).padStart(2, "0")}:${String(scheduled % 60).padStart(2, "0")}</span>`;
-  return `<span class="arrival-unconfirmed">${esc(r.status === "時刻未確定" || !r.status ? "予定を確認" : r.status)}</span>`;
+    return ui("vnext_arrivals_010", [
+      String(Math.floor(scheduled / 60) % 24).padStart(2, "0"),
+      String(scheduled % 60).padStart(2, "0"),
+    ]);
+  return `<span class="arrival-unconfirmed">${esc(r.status === "時刻未確定" || !r.status ? ui("vnext_arrivals_011") : r.status)}</span>`;
 }
 function busRow(r) {
   const arrivals = (r.arrivals ?? [r]).slice(0, 2),
@@ -96,7 +110,7 @@ function busRow(r) {
     congestion = busCongestionText(r),
     observed = arrivals.find((a) => Number.isFinite(a.stopsAway)),
     source = (a) =>
-      `<span class="arrival-source-label">${sourceDot(a.source)}${a.scheduleStale ? "予定（保存）" : sourceLabel(a.source)}${Number.isFinite(timestamp(a.asOf)) ? ` ${updateTime.format(timestamp(a.asOf))}更新` : ""}</span>`;
+      `<span class="arrival-source-label">${sourceDot(a.source)}${a.scheduleStale ? ui("vnext_arrivals_012") : sourceLabel(a.source)}${Number.isFinite(timestamp(a.asOf)) ? ui("vnext_arrivals_013", [updateTime.format(timestamp(a.asOf))]) : ""}</span>`;
   return {
     operator: "citybus",
     delayed: r.delay > 0,
@@ -105,32 +119,42 @@ function busRow(r) {
       ((Number.isFinite(primary.stopsAway) && primary.stopsAway <= 1) ||
         (Number.isFinite(primary.minutes) && primary.minutes <= 1)),
     service: `<b class="arrival-route-badge" aria-label="${esc(busServiceLabel(r))}" title="${esc(busServiceLabel(r))}">${esc(r.route)}</b>`,
-    destination: `<b>${esc(r.dest || "行先未確認")}</b>`,
+    destination: `<b>${esc(r.dest || ui("vnext_arrivals_014"))}</b>`,
     minutes: arrivalValue(primary),
-    second: arrivals[1] ? `<span>2便目</span>${arrivalValue(arrivals[1])}` : "",
+    second: arrivals[1]
+      ? ui("vnext_arrivals_015", [arrivalValue(arrivals[1])])
+      : "",
     delay: Number.isFinite(r.delay)
-      ? `<span aria-label="遅延 ${esc(delayText(r.delay))}">${esc(delayText(r.delay))}</span>`
+      ? ui("vnext_arrivals_016", [
+          esc(delayText(r.delay)),
+          esc(delayText(r.delay)),
+        ])
       : "",
     details: `${r.boarding ? `<span>${esc(r.boarding)}</span>` : ""}${congestion !== "—" ? `<span>${esc(congestion)}</span>` : ""}`,
-    source: `${source(primary)}${arrivals[1] && (arrivals[1].source !== primary.source || arrivals[1].asOf !== primary.asOf) ? `<span>2便目 ${source(arrivals[1])}</span>` : ""}`,
+    source: `${source(primary)}${arrivals[1] && (arrivals[1].source !== primary.source || arrivals[1].asOf !== primary.asOf) ? ui("vnext_arrivals_017", [source(arrivals[1])]) : ""}`,
     // Animate only an observed stop count; never derive minutes from it.
     stopsAway: observed?.stopsAway,
     approachLabel:
-      observed?.source === "live" ? "公式接近位置" : "保存した接近位置（予測）",
+      observed?.source === "live"
+        ? ui("vnext_arrivals_018")
+        : ui("vnext_arrivals_019"),
   };
 }
 function railRow(r) {
   return {
     operator: "kintetsu",
     delayed: r.delay > 0,
-    service: `<b class="arrival-rail-badge">${esc(r.label ?? r.category ?? "列車")}</b>`,
-    destination: `<b>${esc(r.dest ?? "行先未確認")}</b>`,
+    service: `<b class="arrival-rail-badge">${esc(r.label ?? r.category ?? ui("vnext_arrivals_020"))}</b>`,
+    destination: `<b>${esc(r.dest ?? ui("vnext_arrivals_021"))}</b>`,
     minutes: arrivalValue(r),
     delay: Number.isFinite(r.delay)
-      ? `<span aria-label="遅延 ${esc(delayText(r.delay))}">${esc(delayText(r.delay))}</span>`
+      ? ui("vnext_arrivals_022", [
+          esc(delayText(r.delay)),
+          esc(delayText(r.delay)),
+        ])
       : "",
     details: "",
-    source: `<span class="arrival-source-label">${sourceDot(r.source)}${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ` ${updateTime.format(timestamp(r.asOf))}更新` : ""}</span>`,
+    source: `<span class="arrival-source-label">${sourceDot(r.source)}${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_023", [updateTime.format(timestamp(r.asOf))]) : ""}</span>`,
   };
 }
 function stale(data, limit = LIVE_MAX_AGE) {
@@ -183,7 +207,7 @@ function normalizeRail(data, timetable = null, nowMinute = null) {
 export function compactBusHTML(data) {
   const rows = busPreviewRows(data);
   if (!rows.length) return "";
-  return `<div class="arrival-compact">${rows.map((r) => `<div><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}${Number.isFinite(timestamp(r.asOf)) ? ` · ${updateTime.format(timestamp(r.asOf))}更新` : ""}</small></span><strong>${esc(busArrivalText(r))}</strong></div>`).join("")}</div>`;
+  return `<div class="arrival-compact">${rows.map((r) => `<div><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</small></span><strong>${esc(busArrivalText(r))}</strong></div>`).join("")}</div>`;
 }
 
 export function mountArrivals({ network }) {
@@ -208,14 +232,17 @@ export function mountArrivals({ network }) {
     busScheduleController = null,
     railScheduleJob = null,
     awaitingLocation = !stopId && !state.fix;
-  root.innerHTML = `<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">京都市バス</span><h3>接近情報</h3></div><button class="round-action" data-arrival-nearest aria-label="現在地から停留所を選ぶ">${icon("location")}</button></div><button class="arrival-stop" data-arrival-change><span><small>停留所</small><b id="arrival-stop-name">停留所を選択</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="停留所名・系統を検索" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>系統・方面</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">近鉄京都線</span><h3>接近情報</h3></div><button class="round-action" data-rail-refresh aria-label="更新">${icon("refresh")}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>種別</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>`;
+  root.innerHTML = ui("vnext_arrivals_025", [
+    icon("location"),
+    icon("refresh"),
+  ]);
   const stopEl = () => root.querySelector("#arrival-stop-name"),
     busRoot = () => root.querySelector("#arrival-live"),
     railRoot = () => root.querySelector("#arrival-rail"),
     railCard = () => root.querySelector("#kintetsu-arrival-card");
   root
     .querySelector("#arrival-stop-search")
-    .setAttribute("aria-label", "停留所名・系統を検索");
+    .setAttribute("aria-label", ui("vnext_arrivals_026"));
   const stopButton = root.querySelector("[data-arrival-change]");
   stopButton.setAttribute("aria-expanded", "false");
   stopButton.setAttribute("aria-controls", "arrival-stop-picker");
@@ -226,30 +253,28 @@ export function mountArrivals({ network }) {
     const status = document.createElement("p");
     status.className = "arrival-update-status";
     status.id = id;
-    status.textContent = "更新中";
+    status.textContent = ui("vnext_arrivals_027");
     card.querySelector(".section-heading").after(status);
   }
   const setStatus = (id, data) => {
     const at = Date.parse(data?.asOf),
       text =
         navigator.onLine === false
-          ? "オフライン · 前回取得した情報"
+          ? ui("vnext_arrivals_028")
           : data
-            ? `${sourceLabel(data.source)}${Number.isFinite(at) ? ` · ${updateTime.format(at)} 更新` : ""}`
-            : "接続を確認してください";
+            ? `${sourceLabel(data.source)}${Number.isFinite(at) ? ui("vnext_arrivals_029", [updateTime.format(at)]) : ""}`
+            : ui("vnext_arrivals_030");
     root.querySelector(`#${id}`).textContent = text;
   };
   const showEmpty = (target, message) =>
-    updateHTML(
-      target,
-      `<div class="arrival-empty"><span>${icon("bus")}</span><p>${esc(message)}</p><button class="plain-action" data-arrival-retry>再試行</button></div>`,
-    );
+    updateHTML(target, ui("vnext_arrivals_031", [icon("bus"), esc(message)]));
   function showLoading() {
     updateHTML(
       busRoot(),
       '<div class="arrival-skeleton" aria-hidden="true"><i></i><i></i><i></i></div>',
     );
-    root.querySelector("#bus-update-status").textContent = "更新中";
+    root.querySelector("#bus-update-status").textContent =
+      ui("vnext_arrivals_032");
   }
   const currentStop = () => network.stops.get(stopId);
   function updateRailVisibility() {
@@ -258,14 +283,14 @@ export function mountArrivals({ network }) {
     return visible;
   }
   function renderStop() {
-    stopEl().textContent = currentStop()?.name ?? "停留所を選択";
+    stopEl().textContent = currentStop()?.name ?? ui("vnext_arrivals_033");
   }
   function renderSearch(q = "") {
     const items = searchStops(network, q, "bus")
       .filter((s) => s.type === "citybus")
       .slice(0, 24);
     root.querySelector("#arrival-stop-results").innerHTML =
-      `<div class="native-list">${items.map((s) => `<button class="native-row" data-arrival-stop="${esc(s.id)}"><span class="mode-symbol bus">${icon("bus")}</span><span><b>${esc(s.name)}</b><small>${esc(s.lines.join("・"))}</small></span><span class="chevron">›</span></button>`).join("")}</div>${!items.length ? '<p class="empty-state">停留所が見つかりません。</p>' : ""}`;
+      `<div class="native-list">${items.map((s) => `<button class="native-row" data-arrival-stop="${esc(s.id)}"><span class="mode-symbol bus">${icon("bus")}</span><span><b>${esc(s.name)}</b><small>${esc(s.lines.join("・"))}</small></span><span class="chevron">›</span></button>`).join("")}</div>${!items.length ? ui("vnext_arrivals_034") : ""}`;
   }
   function ensureBusSchedule(rows) {
     const current = tokyoNow();
@@ -301,10 +326,7 @@ export function mountArrivals({ network }) {
   function renderBus(data, opts = {}) {
     if (!data) {
       setStatus("bus-update-status", null);
-      showEmpty(
-        busRoot(),
-        "接近情報を取得できません。通信を確認して再試行できます。",
-      );
+      showEmpty(busRoot(), ui("vnext_arrivals_035"));
       return;
     }
     const recovered = interpolateCityBusRecovery(busData, data);
@@ -323,11 +345,7 @@ export function mountArrivals({ network }) {
     ensureBusSchedule(rows);
     applyNotice(root.querySelector("#bus-stale"), projected, opts);
     updateArrivalRows(busRoot(), presented, busRow);
-    if (!rows.length)
-      updateHTML(
-        busRoot(),
-        '<p class="empty-state">接近中のバスはありません。</p>',
-      );
+    if (!rows.length) updateHTML(busRoot(), ui("vnext_arrivals_036"));
     setStatus("bus-update-status", projected);
     state.busLive = {
       ...projected,
@@ -350,10 +368,7 @@ export function mountArrivals({ network }) {
     if (!updateRailVisibility()) return;
     if (!data) {
       setStatus("rail-update-status", null);
-      showEmpty(
-        railRoot(),
-        "接近情報を取得できません。通信を確認して再試行できます。",
-      );
+      showEmpty(railRoot(), ui("vnext_arrivals_037"));
       return;
     }
     const recovered = interpolateRailRecovery(railData, data);
@@ -362,10 +377,7 @@ export function mountArrivals({ network }) {
     applyNotice(root.querySelector("#rail-stale"), view, opts);
     updateArrivalRows(railRoot(), view?.results ?? [], railRow);
     if (view && !view.results.length)
-      updateHTML(
-        railRoot(),
-        '<p class="empty-state">接近中の列車はありません。</p>',
-      );
+      updateHTML(railRoot(), ui("vnext_arrivals_038"));
     setStatus("rail-update-status", view);
     state.railFeed = {
       ...recovered,
@@ -381,7 +393,7 @@ export function mountArrivals({ network }) {
   function chooseNearest() {
     const n = nearest().all.find((x) => x.stop.type === "citybus");
     if (!n) {
-      toast("近くの市バス停を確認できません");
+      toast(ui("vnext_arrivals_039"));
       return false;
     }
     return selectStop(n.id, true);
@@ -444,7 +456,7 @@ export function mountArrivals({ network }) {
         signal: AbortSignal.timeout(7000),
         cache: "no-store",
       });
-      if (!r.ok) throw Error("近鉄の時刻データを取得できませんでした。");
+      if (!r.ok) throw Error(ui("vnext_arrivals_040"));
       const d = await r.json();
       railSchedule = d;
       railScheduleDate = date;

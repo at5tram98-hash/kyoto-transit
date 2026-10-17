@@ -145,6 +145,10 @@ mainへの反映後、GitHub Pagesのワークフローが自動テスト・Chro
 
 `npm run verify:production` は設定を変更せず、公開HTML・Service Worker・乗車画面のファイルの版と、本番WorkerのBrowser Rendering/KV、公開元に対するCORS、当日の地下鉄全駅時刻表・発車表、市バス接近情報と近鉄列車位置を読み取ります。ODPTキーが設定済みの場合は京都バスの実測も確認します。確認結果は `/tmp/my-map-browser/production-report.json` に保存します。別の環境は `APP_URL`、`CAPTURE_API_URL`、`APP_ORIGIN` で指定できます。Pages公開後のCIは `EXPECTED_BUILD_VERSION` も指定し、今回公開した版が配信されていることを確認します。接続確認の失敗時は公開済みサイトとは別のジョブに原因を記録します。
 
+`npm run verify:all-providers` は任意連携も必須として検証します。京都バスODPT未設定は `blocked_external` を記録して失敗終了し、公式時刻表fallbackで実測確認を代替しません。キーは有効なものをWorker secretに登録し、ソース・チャット・ログに記載しません。全仕様の実装と実機受入の状態は [78節の対応表](docs/spec-completion-2026-10-16.md) を参照してください。
+
+表示言語は「その他 → 表示 / アクセシビリティ → 言語」から日本語・Englishを選択できます。操作表示を切り替えても旅程と保存設定を保持します。公式の未翻訳駅名・停留所名・運行お知らせは原文を表示します。
+
 `npm run test:pwa` はGitHub Pagesと同じ `/kyoto-transit/` 配下で複数の版と複数のウィンドウを動かし、更新待ち、選択後の乗車・折り返し復元、古いウィンドウのモジュール、オフライン再読み込み、未知の版の拒否、取得失敗時の旧版維持を実ブラウザで検証します。通信断はテストサーバーが接続を切断して再現し、未保存のURLに接続できないことも確認します。CIはChromiumとWebKitの両方でこの検証を実行します。
 
 PWA検証の運行APIは、別の公開元のHTTPサーバーが固定データを返します。Service Workerの通信もHTTP経路で検証し、CORSの公開元を確認します。テストで配信するモジュールのAPI接続先だけを置換し、本番の接続先は変更しません。

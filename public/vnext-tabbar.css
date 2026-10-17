@@ -10,10 +10,10 @@
   display: flex;
   gap: 2px;
   isolation: isolate;
-  border: 0.5px solid rgba(60, 60, 67, 0.14);
-  border-radius: 30px;
+  border: 0.5px solid var(--separator-tab-light);
+  border-radius: var(--radius-hero);
   background: var(--material-navigation);
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.07);
+  box-shadow: var(--shadow-tab-light);
   backdrop-filter: blur(24px) saturate(145%);
   -webkit-backdrop-filter: blur(24px) saturate(145%);
   transform: none;
@@ -26,7 +26,7 @@
   width: 0;
   z-index: 0;
   pointer-events: none;
-  border-radius: 24px;
+  border-radius: var(--radius-surface);
   background: var(--blue-soft);
   border: 0.5px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
   opacity: 0;
@@ -47,7 +47,7 @@
   min-width: 0;
   min-height: 46px;
   border: 0;
-  border-radius: 24px;
+  border-radius: var(--radius-surface);
   background: transparent !important;
   color: var(--muted);
   display: flex;
@@ -96,8 +96,8 @@
 @media (prefers-color-scheme: dark) {
   .tabbar {
     background: var(--material-navigation);
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.16);
+    border-color: var(--separator-tab-dark);
+    box-shadow: var(--shadow-tab-dark);
   }
   .tab-selection {
     background: var(--blue-soft);

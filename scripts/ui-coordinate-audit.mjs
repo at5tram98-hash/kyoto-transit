@@ -65,6 +65,7 @@ export async function runCoordinateAudit({
   };
   for (const c of cases) {
     const scenario = {
+      initialSettings: { fontScale: c.scale },
       gps: "denied",
       subwayFeed: fullFeed,
       foldEntries: [615, 630, 640].map((depart, i) => ({
@@ -403,7 +404,20 @@ export async function runCoordinateAudit({
       await page.locator(".minute-cell").first().waitFor();
       await capture("station-timetable");
       await page.locator(".minute-cell").first().click();
-      await page.locator("#timetable-trip .stop-timeline").waitFor();
+      try {
+        await page.locator("#timetable-trip .stop-timeline").waitFor();
+      } catch (error) {
+        await page.screenshot({
+          path: resolve(
+            artifacts,
+            `timetable-trip-failure-${c.width}-${c.colorScheme}-${c.scale}.png`,
+          ),
+        });
+        throw new Error(
+          `${error.message}\nTrip content: ${await page.locator("#timetable-trip").textContent()}\nPage errors: ${JSON.stringify(run.errors)}`,
+          { cause: error },
+        );
+      }
       await capture("timetable-trip");
       await tabRoot(page, "operations");
       await page.locator("[data-operation-id]").first().waitFor();

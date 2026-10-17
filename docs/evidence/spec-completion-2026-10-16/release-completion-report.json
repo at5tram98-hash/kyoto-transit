@@ -1,0 +1,10 @@
+{
+  "browser": "chromium",
+  "layouts": 58,
+  "errors": [],
+  "checks": [
+    "Completion flows: English Live/search/results/journey/future trip edits/service details/saved lines/settings at 390px light/dark 100–200%, official English station aliases, language reload preserving the active ride, current-ride lock, real planner excludes a suspended operator and finds the bus alternative without replacing the armed journey until selection",
+    "Recovery and midnight: explicitly alighting at a changed destination launches a genuine onward search from that stop without inferring boarding; initial late-night search joins the following day's official connection and retains both original service dates"
+  ],
+  "performance": []
+}

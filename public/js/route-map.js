@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { freshFix } from "./riding.js";
 import { distance } from "./mobility.js";
 import { esc } from "./vnext-state.js";
@@ -199,7 +200,7 @@ function mapDrawing(map, view) {
         x <= WIDTH &&
         y >= 0 &&
         y <= (view.height ?? HEIGHT);
-      return `<g data-map-stop="${esc(s.id)}" data-operator="${esc(s.operator ?? "")}"${map.nearby ? ` role="button" tabindex="0" aria-label="${esc(s.name)}の詳細"` : ""}>${map.nearby ? `<circle cx="${x}" cy="${y}" r="26" fill="transparent"/>` : ""}<circle cx="${x}" cy="${y}" r="4" class="map-stop"/><text ${label ? "" : "hidden"} x="${Math.max(5, Math.min(WIDTH - 5, x))}" y="${Math.max(16, Math.min((view.height ?? HEIGHT) - 8, y - 10))}" text-anchor="${x < 80 ? "start" : x > WIDTH - 80 ? "end" : "middle"}">${esc(s.name.replace(/（[^）]+）/g, "").replace("バスターミナル", "BT"))}</text></g>`;
+      return `<g data-map-stop="${esc(s.id)}" data-operator="${esc(s.operator ?? "")}"${map.nearby ? ui("route_map_001", [esc(s.name)]) : ""}>${map.nearby ? `<circle cx="${x}" cy="${y}" r="26" fill="transparent"/>` : ""}<circle cx="${x}" cy="${y}" r="4" class="map-stop"/><text ${label ? "" : "hidden"} x="${Math.max(5, Math.min(WIDTH - 5, x))}" y="${Math.max(16, Math.min((view.height ?? HEIGHT) - 8, y - 10))}" text-anchor="${x < 80 ? "start" : x > WIDTH - 80 ? "end" : "middle"}">${esc(s.name.replace(/（[^）]+）/g, "").replace(ui("route_map_002"), "BT"))}</text></g>`;
     })
     .join("");
   const accuracy =
@@ -220,25 +221,39 @@ function mapDrawing(map, view) {
 const mapNote = (map) =>
   map.nearby
     ? map.position
-      ? "現在地と付近の交通"
-      : "京都中心部 · 現在地は未取得"
+      ? ui("route_map_003")
+      : ui("route_map_004")
     : map.place
-      ? "駅・停留所の登録位置"
-      : `${map.unavailable ? "経路変更・運休のため現在位置は未確認" : map.source === "location" ? "現在地を経路上に表示" : "現在地は時刻表から推定"}${map.approximate ? " · 路線は概略" : ""}`;
+      ? ui("route_map_005")
+      : `${map.unavailable ? ui("route_map_006") : map.source === "location" ? ui("route_map_007") : ui("route_map_008")}${map.approximate ? ui("route_map_009") : ""}`;
 export function routeMapHTML(
   map,
   model,
   { expanded = false, interactive = expanded, controls = true } = {},
 ) {
-  if (map.points.length < (map.place ? 1 : 2))
-    return '<p class="source-note">経路の位置データは未取得です。停車順と時刻表で案内します。</p>';
+  if (map.points.length < (map.place ? 1 : 2)) return ui("route_map_010");
   const key = JSON.stringify([map.points, map.stops.map((s) => s.id)]);
   mapData.set(key, { ...map, nextId: model.nextStation?.id, model });
   // Only keep current journey contexts, not a growing history of GPS updates.
   if (mapData.size > 6) mapData.delete(mapData.keys().next().value);
   const view = mapViewport(map.points),
     drawing = mapDrawing({ ...map, nextId: model.nextStation?.id }, view);
-  return `<div class="route-map ${expanded ? "expanded" : ""} ${interactive ? "map-interactive" : ""}" data-map-key="${esc(key)}" data-line="${model.lineId}"><div class="map-canvas"><div class="map-tiles">${drawing.tiles}</div><svg viewBox="0 0 ${WIDTH} ${HEIGHT}" role="${map.nearby ? "group" : "img"}" aria-label="道路・地名を含む${model.bus ? "バス" : "鉄道"}の地図。${mapNote(map)}">${drawing.overlay}</svg>${controls ? '<div class="map-controls"><button data-map-zoom="1" aria-label="地図を拡大">＋</button><button data-map-zoom="-1" aria-label="地図を縮小">−</button><button data-map-reset aria-label="経路全体を表示">⌖</button></div>' : ""}<span class="map-load-note" hidden>背景地図を取得できません · ${map.place ? "登録位置" : "経路"}のみ表示</span><a class="map-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div><p>${mapNote(map)}</p></div>`;
+  return ui("route_map_018", [
+    expanded ? "expanded" : "",
+    interactive ? "map-interactive" : "",
+    esc(key),
+    model.lineId,
+    drawing.tiles,
+    WIDTH,
+    HEIGHT,
+    map.nearby ? "group" : "img",
+    model.bus ? ui("route_map_011") : ui("route_map_012"),
+    mapNote(map),
+    drawing.overlay,
+    controls ? ui("route_map_013") : "",
+    map.place ? ui("route_map_014") : ui("route_map_015"),
+    mapNote(map),
+  ]);
 }
 function draw(element, map, view) {
   const svg = element.querySelector("svg");
@@ -351,7 +366,10 @@ export function renderRouteMap(element, map, model, options = {}) {
       .querySelector("svg")
       .setAttribute(
         "aria-label",
-        `道路・地名を含む${model.bus ? "バス" : "鉄道"}の地図。${mapNote(map)}`,
+        ui("route_map_019", [
+          model.bus ? ui("route_map_016") : ui("route_map_017"),
+          mapNote(map),
+        ]),
       );
     [...target.querySelectorAll("[data-map-stop]")].forEach((stop, i) => {
       const point = stop.querySelector(".map-stop"),

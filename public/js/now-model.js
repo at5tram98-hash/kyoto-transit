@@ -1,3 +1,5 @@
+import { ui } from "./locale.js";
+import { stationEnglish } from "./station-names.js";
 import { stopTime } from "./journey-core.js";
 import { freshFix } from "./riding.js";
 import { distance } from "./mobility.js";
@@ -8,53 +10,14 @@ export const TRAIN_STATES = Object.freeze({
   STOPPED: "STOPPED",
   LINE_BOUNDARY: "LINE_BOUNDARY",
 });
-const english = {
-  K01: "Kokusaikaikan",
-  K02: "Matsugasaki",
-  K03: "Kitayama",
-  K04: "Kitaoji",
-  K05: "Kuramaguchi",
-  K06: "Imadegawa",
-  K07: "Marutamachi",
-  K08: "Karasuma Oike",
-  K09: "Shijo",
-  K10: "Gojo",
-  K11: "Kyoto",
-  K12: "Kujo",
-  K13: "Jujo",
-  K14: "Kuinabashi",
-  K15: "Takeda",
-  B01: "Kyoto",
-  B02: "Toji",
-  B03: "Jujo",
-  B04: "Kamitobaguchi",
-  B06: "Fushimi",
-  B07: "Kintetsu-Tambabashi",
-  B08: "Momoyamagoryomae",
-  B09: "Mukaijima",
-  B10: "Ogura",
-  B11: "Iseda",
-  B12: "Okubo",
-  B13: "Kutsukawa",
-  B14: "Terada",
-  B15: "Tonosho",
-  B16: "Shin-Tanabe",
-  B17: "Kodo",
-  B18: "Miyamaki",
-  B19: "Kintetsu-Miyazu",
-  B20: "Komada",
-  B21: "Shin-Hosono",
-  B22: "Kizugawadai",
-  B23: "Yamadagawa",
-  B24: "Takanohara",
-  B25: "Heijo",
-  B26: "Yamato-Saidaiji",
-  A27: "Shin-Omiya",
-  A28: "Kintetsu-Nara",
-};
+
 export function stationModel(stop) {
   return stop
-    ? { ...stop, code: stop.id ?? "", en: stop.en ?? english[stop.id] ?? "" }
+    ? {
+        ...stop,
+        code: stop.id ?? "",
+        en: stop.en ?? stationEnglish[stop.id] ?? "",
+      }
     : null;
 }
 export function nearbyDirection(fix, point) {
@@ -68,9 +31,16 @@ export function nearbyDirection(fix, point) {
       Math.PI +
       360) %
     360;
-  return ["北", "北東", "東", "南東", "南", "南西", "西", "北西"][
-    Math.round(angle / 45) % 8
-  ];
+  return [
+    ui("now_model_001"),
+    ui("now_model_002"),
+    ui("now_model_003"),
+    ui("now_model_004"),
+    ui("now_model_005"),
+    ui("now_model_006"),
+    ui("now_model_007"),
+    ui("now_model_008"),
+  ][Math.round(angle / 45) % 8];
 }
 const lineOf = (stop) => (stop?.id?.startsWith("K") ? "K" : "B");
 
@@ -117,7 +87,7 @@ export function heroModel(
     bus = ["citybus", "kyotobus"].includes(ride.operator);
   const routeUnavailable = Boolean(
     ride.routeVariant &&
-      (ride.routeVariant.suspended || ride.routeVariant.verified !== true),
+    (ride.routeVariant.suspended || ride.routeVariant.verified !== true),
   );
   const validFix =
     !routeUnavailable && locationStatus === "active" && freshFix(fix, at);
@@ -250,16 +220,16 @@ export function heroModel(
     userDestination.code = "B05";
   const nextIsDestination = nextStation?.id === userDestination?.id;
   const label = routeUnavailable
-    ? "運行状況を確認中"
+    ? ui("now_model_009")
     : trainState === TRAIN_STATES.STOPPED
-      ? "に到着"
+      ? ui("now_model_010")
       : nextIsDestination
-        ? "次で降ります"
+        ? ui("now_model_011")
         : trainState === TRAIN_STATES.APPROACHING
-          ? "まもなく"
+          ? ui("now_model_012")
           : bus
-            ? "次の停留所"
-            : "次は";
+            ? ui("now_model_013")
+            : ui("now_model_014");
   const minutes = Number.isFinite(arrivalEstimate)
     ? Math.max(0, Math.ceil(arrivalEstimate - minute))
     : null;
@@ -268,12 +238,12 @@ export function heroModel(
     lineColor: lineId === "K" ? "green" : lineId === "B" ? "orange" : "blue",
     serviceType:
       ride.category === "express"
-        ? "急行"
+        ? ui("now_model_015")
         : ride.category === "local"
-          ? "普通"
+          ? ui("now_model_016")
           : bus
-            ? "バス"
-            : "種別未確認",
+            ? ui("now_model_017")
+            : ui("now_model_018"),
     destination: ride.destination,
     nextStation,
     nextNext,
@@ -288,14 +258,16 @@ export function heroModel(
       !boundary &&
       displayIndex >= boundaryIndex - 2 &&
       displayIndex < boundaryIndex
-        ? `この電車は${lineOf(after) === "B" ? "近鉄京都線" : "地下鉄烏丸線"}へ直通`
+        ? ui("now_model_029", [
+            lineOf(after) === "B" ? ui("now_model_019") : ui("now_model_020"),
+          ])
         : "",
     confidence,
     dataSources: [
-      "時刻表",
-      "旅程",
-      ...(validFix ? ["位置"] : []),
-      ...(feed && !stale && !routeUnavailable ? ["接近"] : []),
+      ui("now_model_021"),
+      ui("now_model_022"),
+      ...(validFix ? [ui("now_model_023")] : []),
+      ...(feed && !stale && !routeUnavailable ? [ui("now_model_024")] : []),
     ],
     delayMinutes: shiftKnown && !stale ? Math.round(shift) : null,
     arrivalEstimate,
@@ -323,12 +295,12 @@ export function delayAnalysis(model, observations = []) {
   const trend =
     recent.length >= 2 ? recent.at(-1).shift - recent[0].shift : null;
   const conclusion = !known
-    ? "遅れの実測情報を確認できません"
+    ? ui("now_model_025")
     : model.delayMinutes <= 0
-      ? "時刻表に近いペースで進んでいます"
+      ? ui("now_model_026")
       : trend < -0.5
-        ? "遅れは回復傾向です"
-        : `このままなら降車駅で約${model.delayMinutes}分の遅れ（推定）`;
+        ? ui("now_model_027")
+        : ui("now_model_028", [model.delayMinutes]);
   return {
     conclusion,
     trend,

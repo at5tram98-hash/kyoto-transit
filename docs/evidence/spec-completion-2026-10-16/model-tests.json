@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "tests": 375,
+  "pass": 375,
+  "fail": 0,
+  "skipped": 0,
+  "command": "npm test",
+  "log": "/tmp/mymap-completion-final-models4.log",
+  "runtime": "fa429f63131d",
+  "note": "合成/モデル試験。実走精度の測定ではない。"
+}
