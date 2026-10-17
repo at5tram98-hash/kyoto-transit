@@ -1,4 +1,5 @@
 import { installFastData } from "./fast-data.js";
+import { installBoardingFusion } from "./boarding-fusion.js";
 import { installMotionAssist } from "./motion-assist.js";
 import { installSmartLiveSupervisor } from "./smartlive-supervisor.js";
 import { installInteractionGuard } from "./interaction-guard.js";
@@ -8,6 +9,7 @@ function start() {
   installFastData();
   installInteractionGuard();
   installNorth3Live();
+  installBoardingFusion();
   installMotionAssist();
   installSmartLiveSupervisor();
 }
