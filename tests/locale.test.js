@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import ja from "../public/js/locale-ui-ja.js";
 import en from "../public/js/locale-ui-en.js";
-import { ui, setAppLocale, liveClock } from "../public/js/locale.js";
+import {
+  ui,
+  setAppLocale,
+  liveClock,
+  serviceDateLabel,
+} from "../public/js/locale.js";
 const slots = (text) =>
   [...text.matchAll(/\{(\d+)\}/g)]
     .map((m) => Number(m[1]))
@@ -37,6 +42,11 @@ test("the transit clock uses Japan time across locale and date boundaries", () =
       .time,
     "00:03:04",
   );
+  setAppLocale("en");
+  assert.match(serviceDateLabel("2026-10-11"), /Oct/);
+  assert.equal(/年|月|日/.test(serviceDateLabel("2026-10-11")), false);
+  setAppLocale("ja");
+  assert.match(serviceDateLabel("2026-10-11"), /2026年10月11日/);
 });
 
 test("English station aliases retain official Japanese identity and distinguish operators", async () => {

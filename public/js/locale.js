@@ -33,6 +33,15 @@ export function ui(key, values = []) {
 export const displayStopName = (stop) =>
   activeLocale === "en" ? (stop?.en ?? stop?.name ?? "") : (stop?.name ?? "");
 export const transitTimeZone = "Asia/Tokyo";
+export function serviceDateLabel(date) {
+  return new Intl.DateTimeFormat(activeLocale === "en" ? "en-GB" : "ja-JP", {
+    timeZone: transitTimeZone,
+    year: "numeric",
+    month: activeLocale === "en" ? "short" : "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date(`${date}T12:00:00+09:00`));
+}
 const messages = {
   ja: {
     live: "Live",
