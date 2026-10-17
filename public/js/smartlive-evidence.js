@@ -294,9 +294,21 @@ export function mergeAnnouncementWindow(
   const merged = { ...base };
   for (const key of ["line", "route", "destination", "nextStop", "trainType"])
     if (parsed[key]) merged[key] = parsed[key];
-  for (const key of ["destinationIds", "nextStopIds"]) {
-    const values = [...(active ? current.parsed?.[key] ?? [] : []), ...(parsed[key] ?? [])];
-    if (values.length) merged[key] = [...new Set(values)];
+
+  if (parsed.nextStop) {
+    const values = parsed.nextStopIds ?? [parsed.nextStop];
+    merged.nextStopIds = [...new Set(values)];
+  } else if (active && current.parsed?.nextStopIds) {
+    merged.nextStopIds = [...current.parsed.nextStopIds];
+  }
+  if (parsed.destination) {
+    const values = [
+      ...(active ? current.parsed?.destinationIds ?? [] : []),
+      ...(parsed.destinationIds ?? [parsed.destination]),
+    ];
+    merged.destinationIds = [...new Set(values)];
+  } else if (active && current.parsed?.destinationIds) {
+    merged.destinationIds = [...current.parsed.destinationIds];
   }
   return {
     parsed: merged,
