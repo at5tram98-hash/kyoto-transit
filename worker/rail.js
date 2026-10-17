@@ -2,6 +2,12 @@ import {load} from 'cheerio';
 export const LOCATION_URL='https://tid.kintetsu.co.jp/LocationWeb/trainlocationinfoweb03.html';
 // The official diagram has alternating station / inter-station cells, starting at Kyoto.
 // This is a snapshot position, not a stable train identifier.
+export function parseRailDelay(value){
+  const text=String(value??'').trim().replace(/\s+/g,'');
+  if(!text)return 0;
+  const match=text.match(/^\+?(\d{1,3})(?:分(?:遅れ)?)?$/);
+  return match?Number(match[1]):null;
+}
 export function parseRailLocation(html){
   const $=load(html),stations=[];
   $('#stations [data-stationid]').each((_,e)=>{const id=$(e).attr('data-stationid'),name=$(e).find('.station-name').text().replace(/\s/g,'');if(/^B\d{2}$/.test(id??'')&&name&&!stations.some(s=>s.id===id))stations.push({id:id==='B05'?'K15':id,name});});
@@ -14,7 +20,7 @@ export function parseRailLocation(html){
       const parent=$(e).parent(),cell=Number(parent.attr('class')?.match(/\bcell-(\d+)\b/)?.[1]),destination=$(e).find('.train-destination-text').text().trim(),src=$(e).find('img').attr('src')??'',delayText=$(e).find('.delay-time').text().trim();
       if(!Number.isInteger(cell)||cell<1||cell>51||!destination)throw Error('近鉄の列車位置を読み取れませんでした。');
       const low=Math.floor((cell-1)/2),high=Math.ceil((cell-1)/2),kind=src.match(/tr_[rl]_(\d{2})\.png$/)?.[1];
-      trains.push({position:cell,from:stations[low].id,to:stations[high].id,atStation:low===high,direction,destination,category:kind==='01'?'local':kind==='05'?'express':'other',label:kind==='01'?'普通':kind==='05'?'急行':/ex_/.test(src)?'特急':'種別未確認',delay:delayText?/^\+\d{1,3}$/.test(delayText)?Number(delayText.slice(1)):null:0,delayText});
+      trains.push({position:cell,from:stations[low].id,to:stations[high].id,atStation:low===high,direction,destination,category:kind==='01'?'local':kind==='05'?'express':'other',label:kind==='01'?'普通':kind==='05'?'急行':/ex_/.test(src)?'特急':'種別未確認',delay:parseRailDelay(delayText),delayText});
     });
   }
   if(!$('#train-points-up').length||!$('#train-points-down').length)throw Error('近鉄の列車画面を取得できませんでした。');
