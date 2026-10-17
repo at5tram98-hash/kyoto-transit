@@ -393,14 +393,15 @@ function recognitionCanContinue() {
 }
 
 function stopRecognition() {
+  const wasActive = recognitionActive,
+    current = activeRecognition;
   releaseAudioWindow("ride");
   clearTimeout(recognitionTimer);
   clearTimeout(recognitionRestartTimer);
-  const current = activeRecognition;
   activeRecognition = null;
   recognitionActive = false;
   recognitionDeadline = 0;
-  if (current) lastAttemptAt = Date.now();
+  if (wasActive) lastAttemptAt = Date.now();
   try {
     current?.abort();
   } catch {}
