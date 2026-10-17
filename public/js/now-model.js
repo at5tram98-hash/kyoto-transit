@@ -116,7 +116,7 @@ export function heroModel(
     current &&
     ((stationary &&
       (!hasStopTime || Math.abs(scheduled + shift - minute) <= 4)) ||
-      ((!validFix || speedUnknown) &&
+      (!validFix &&
         hasStopTime &&
         minute >= scheduled + shift &&
         minute < departure + shift + 0.35));
