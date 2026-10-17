@@ -19,12 +19,16 @@ import { state, settings, tokyoNow } from "./vnext-state.js";
 const RETRY_MS = 16000,
   MOTION_WINDOW_MS = 15000,
   SENSOR_LIMIT = 180,
-  VERIFY_INTERVAL_MS = 8000;
+  VERIFY_INTERVAL_MS = 8000,
+  SPEECH_SESSION_MS = 60000,
+  SPEECH_RESTART_DELAY_MS = 250;
 let recognitionActive = false,
   lastAttemptAt = 0,
   motionInstalled = false,
   activeRecognition = null,
   recognitionTimer = null,
+  recognitionRestartTimer = null,
+  recognitionDeadline = 0,
   assistInterval = null;
 const motionSamples = [];
 
@@ -374,16 +378,75 @@ function confirmFromTranscript(event) {
   }
   return false;
 }
+
+function recognitionCanContinue() {
+  return Boolean(
+    recognitionActive &&
+      Date.now() < recognitionDeadline &&
+      settings.autoDetect !== false &&
+      settings.audioAssist !== false &&
+      !document.hidden &&
+      state.network &&
+      speechNeeded() &&
+      speechCtor(),
+  );
+}
+
 function stopRecognition() {
   releaseAudioWindow("ride");
   clearTimeout(recognitionTimer);
+  clearTimeout(recognitionRestartTimer);
   const current = activeRecognition;
   activeRecognition = null;
   recognitionActive = false;
+  recognitionDeadline = 0;
+  if (current) lastAttemptAt = Date.now();
   try {
     current?.abort();
   } catch {}
 }
+
+function startRecognitionPass() {
+  if (!recognitionCanContinue()) {
+    stopRecognition();
+    return;
+  }
+  const Recognition = speechCtor(),
+    recognition = new Recognition();
+  recognition.lang = "ja-JP";
+  recognition.interimResults = false;
+  recognition.continuous = true;
+  recognition.maxAlternatives = 5;
+  activeRecognition = recognition;
+  recognition.onresult = (event) => {
+    if (activeRecognition === recognition && recognitionCanContinue())
+      confirmFromTranscript(event);
+  };
+  recognition.onerror = (event) => {
+    if (activeRecognition !== recognition) return;
+    if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event?.error))
+      stopRecognition();
+  };
+  recognition.onend = () => {
+    if (activeRecognition !== recognition) return;
+    activeRecognition = null;
+    if (!recognitionCanContinue()) {
+      stopRecognition();
+      return;
+    }
+    clearTimeout(recognitionRestartTimer);
+    recognitionRestartTimer = setTimeout(
+      startRecognitionPass,
+      SPEECH_RESTART_DELAY_MS,
+    );
+  };
+  try {
+    recognition.start();
+  } catch {
+    stopRecognition();
+  }
+}
+
 async function autoSpeechAssist() {
   if (
     settings.autoDetect === false ||
@@ -413,46 +476,12 @@ async function autoSpeechAssist() {
     return;
 
   if (!acquireAudioWindow("ride")) return;
-  const Recognition = speechCtor();
-  if (!Recognition) {
-    releaseAudioWindow("ride");
-    return;
-  }
-  const recognition = new Recognition();
-  recognition.lang = "ja-JP";
-  recognition.interimResults = false;
-  recognition.continuous = false;
-  recognition.maxAlternatives = 3;
   recognitionActive = true;
-  activeRecognition = recognition;
-  recognitionTimer = setTimeout(stopRecognition, 6000);
-  lastAttemptAt = Date.now();
-
-  recognition.onresult = (event) => {
-    if (
-      activeRecognition === recognition &&
-      !document.hidden &&
-      settings.autoDetect !== false &&
-      settings.audioAssist !== false
-    )
-      confirmFromTranscript(event);
-  };
-  recognition.onerror = () => {
-    if (activeRecognition === recognition) stopRecognition();
-  };
-  recognition.onend = () => {
-    if (activeRecognition !== recognition) return;
-    releaseAudioWindow("ride");
-    clearTimeout(recognitionTimer);
-    activeRecognition = null;
-    recognitionActive = false;
-  };
-
-  try {
-    recognition.start();
-  } catch {
-    stopRecognition();
-  }
+  recognitionDeadline = now + SPEECH_SESSION_MS;
+  lastAttemptAt = now;
+  clearTimeout(recognitionTimer);
+  recognitionTimer = setTimeout(stopRecognition, SPEECH_SESSION_MS + 250);
+  startRecognitionPass();
 }
 
 function runVerificationCycle() {
