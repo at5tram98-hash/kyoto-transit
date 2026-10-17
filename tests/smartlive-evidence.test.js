@@ -113,7 +113,9 @@ test("約1分の音声窓で断片アナウンスを統合し全文は保持し�
   assert.deepEqual(window.parsed, {
     line: "subway",
     nextStop: "K09",
+    nextStopIds: ["K09"],
     destination: "K15",
+    destinationIds: ["K15"],
     trainType: "local",
   });
   assert.equal("transcript" in window, false);
