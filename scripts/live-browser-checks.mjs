@@ -11,7 +11,7 @@ export async function liveInteractionChecks({
     const pinch = await open({
       width: 390,
       time: "2026-10-17T01:00:00Z",
-      scenario: { gps: "denied", initialSettings: { autoDetect: false } },
+      scenario: { gps: "active", initialSettings: { autoDetect: false } },
     });
     try {
       const page = pinch.page;
@@ -91,7 +91,7 @@ export async function liveInteractionChecks({
     const pan = await open({
       width: 390,
       time: "2026-10-17T01:00:00Z",
-      scenario: { gps: "denied", initialSettings: { autoDetect: false } },
+      scenario: { gps: "active", initialSettings: { autoDetect: false } },
     });
     try {
       const page = pan.page;
@@ -144,7 +144,7 @@ export async function liveInteractionChecks({
     const tracking = await open({
       width: 390,
       time: "2026-10-17T01:00:00Z",
-      scenario: { gps: "denied", initialSettings: { autoDetect: false } },
+      scenario: { gps: "active", initialSettings: { autoDetect: false } },
     });
     try {
       const page = tracking.page;
@@ -307,6 +307,6 @@ export async function liveInteractionChecks({
     }
   }
   summary.checks.push(
-    "Live interactions: map pinch/pan and quick tracking preserve state; microphone prompt never auto-starts, granted sessions stop at the 60-second limit, cooldown applies, disabling audio assist aborts immediately, and auto-detect off prevents restart",
+    "Live interactions: map pinch/pan and quick tracking use granted location and preserve state; denied-location microphone checks never fabricate location, prompt permission never auto-starts, granted sessions stop at the 60-second limit, cooldown applies, disabling audio assist aborts immediately, and auto-detect off prevents restart",
   );
 }
