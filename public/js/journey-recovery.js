@@ -12,6 +12,7 @@ export function recoveryInput({
   network,
   avoid = [],
   delay = 0,
+  atStop = false,
 }) {
   if (!input || !now || !network) return null;
   const current = plan?.route.legs[plan.legIndex],
@@ -45,21 +46,28 @@ export function recoveryInput({
         Date.parse(`${now.date}T00:00:00Z`)) /
       60000,
     arrival = stop?.arrival ?? stop?.time ?? stop?.departure,
-    ready =
-      stop && Number.isFinite(arrival) && Number.isFinite(serviceOffset)
-        ? Math.max(
-            now.minute,
-            serviceOffset +
-              arrival +
-              (Number.isFinite(delay) ? delay : 0) +
-              Number(input.buffer ?? 3),
-          )
-        : now.minute,
+    timedArrival = Boolean(
+      stop && Number.isFinite(arrival) && Number.isFinite(serviceOffset),
+    ),
+    ready = timedArrival
+      ? Math.max(
+          now.minute,
+          serviceOffset +
+            arrival +
+            (Number.isFinite(delay) ? delay : 0) +
+            Number(input.buffer ?? 3),
+        )
+      : now.minute,
     rounded = Math.ceil(ready),
     day = Math.floor(rounded / 1440),
     minute = ((rounded % 1440) + 1440) % 1440;
   return {
     ...input,
+    // The current time is only the form's default when an onboard arrival is
+    // unknown. The caller must require review rather than search automatically.
+    needsDepartureTime: Boolean(
+      (ride || plan?.phase === "riding") && !atStop && !timedArrival,
+    ),
     from: from.name,
     fromId: from.id,
     to: to.name,

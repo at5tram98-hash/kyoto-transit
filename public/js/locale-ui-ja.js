@@ -1,5 +1,7 @@
 // Presentation messages; official place names retain their source spelling.
 export default {
+  recovery_time_confirmation:
+    "乗車中の区間の到着時刻が未取得です。降車後に利用できる出発時刻を確認して検索してください。",
   vnext_001: "更新中…",
   vnext_002: "検索",
   vnext_003: "時刻表",

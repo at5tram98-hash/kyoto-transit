@@ -1677,7 +1677,7 @@ export function mountRouteSearch({
             }
           : ([...snapshots.values()].at(-1)?.input ?? captureInput());
     try {
-      const input = recoveryInput({
+      const recovery = recoveryInput({
         plan,
         input: plan?.input ?? fallback,
         ride,
@@ -1686,9 +1686,14 @@ export function mountRouteSearch({
         network,
         avoid,
         delay: getRideDelay?.() ?? 0,
+        atStop: options.atStop === true,
       });
-      if (input) search(input, { review: options.review });
-      else {
+      if (recovery) {
+        const { needsDepartureTime, ...input } = recovery;
+        search(input, { review: options.review || needsDepartureTime });
+        if (needsDepartureTime)
+          inlineStatus.innerHTML = `<p class="planner-warning" role="status">${ui("recovery_time_confirmation")}</p>`;
+      } else {
         navigation.root("search");
         inlineStatus.textContent = ui("route_search_ui_077");
       }
