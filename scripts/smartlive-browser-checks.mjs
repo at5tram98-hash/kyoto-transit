@@ -151,7 +151,9 @@ export async function smartLiveChecks({
           await window.__detect.autoDetectRide(true, window.__view.renderNow);
           settings.autoDetect = false;
         });
-        await page.locator("[data-detection-status]").waitFor();
+        await page.waitForFunction(
+          () => window.__state?.state?.ride?.tripId === "N1",
+        );
         assert.equal(await page.locator("[data-rechecking-shell]").count(), 0);
         assert.equal(
           await page.evaluate(() => window.__state.state.ride.tripId),
