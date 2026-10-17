@@ -73,6 +73,29 @@ export async function completionChecks({
       for (let i = 1; i < tabs.length; i++)
         if (tabs[i].left - tabs[i - 1].right < 8)
           issues.push("tab label gap smaller than 8px");
+      for (const node of document.querySelectorAll(
+        ".place-label,.route-rank",
+      )) {
+        const box = node.getBoundingClientRect();
+        if (!box.width || !box.height) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const text = range.getBoundingClientRect();
+        if (
+          text.left < box.left + 2 ||
+          text.right > box.right - 2 ||
+          text.top < box.top - 1 ||
+          text.bottom > box.bottom + 1
+        )
+          issues.push(`clipped label: ${node.textContent}`);
+      }
+      for (const node of document.querySelectorAll(".departure-neighbor")) {
+        if (!node.getBoundingClientRect().width) continue;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        if (range.getClientRects().length > 1)
+          issues.push(`split departure action: ${node.textContent}`);
+      }
       return issues;
     });
     assert.deepEqual(collisions, [], name);
@@ -156,6 +179,12 @@ export async function completionChecks({
           .locator(".navigation-current [data-open-route]")
           .first()
           .waitFor();
+        assert.match(
+          await page
+            .locator(".navigation-current [data-result-date]")
+            .textContent(),
+          /Oct/,
+        );
         await shot(page, `${prefix}-results`);
         await page
           .locator(".navigation-current [data-open-route]")
@@ -165,6 +194,18 @@ export async function completionChecks({
         assert.match(
           await page.locator("#view-title").textContent(),
           /Journey details/,
+        );
+        assert.equal(
+          await page
+            .locator(".navigation-current .journey-station-button")
+            .first()
+            .evaluate((el) => {
+              const range = document.createRange();
+              range.selectNodeContents(el.firstChild);
+              return range.getClientRects().length;
+            }),
+          1,
+          "the station name Marutamachi must remain readable on one line",
         );
         await shot(page, `${prefix}-journey`);
         await page
@@ -415,6 +456,11 @@ export async function completionChecks({
     assert.match(
       await page.locator("#search-inline-status").textContent(),
       /Confirm a departure time after you alight/,
+    );
+    const recoveryOrigin = await page.locator('[name="fromId"]').inputValue();
+    assert.equal(
+      await page.locator('[name="from"]').inputValue(),
+      network.stops.get(recoveryOrigin).en,
     );
     assert.equal(
       await page.locator(".navigation-current [data-open-route]").count(),

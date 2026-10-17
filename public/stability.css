@@ -143,10 +143,6 @@ select {
   .planner-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .planner-leg {
-    grid-template-columns: 4.25rem 12px minmax(0, 1fr);
-    gap: 6px;
-  }
   .board-controls {
     grid-template-columns: 1fr;
   }

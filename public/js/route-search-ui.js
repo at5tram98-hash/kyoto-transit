@@ -1,4 +1,4 @@
-import { ui, displayStopName } from "./locale.js";
+import { ui, displayStopName, serviceDateLabel } from "./locale.js";
 import { downloadRouteImage } from "./route-image.js";
 import { esc, icon } from "./vnext-state.js";
 import {
@@ -506,6 +506,10 @@ export function mountRouteSearch({
     ])
       if (typeof input[name] === "string" && input[name].length < 200)
         form.elements[name].value = input[name];
+    for (const side of ["from", "to"]) {
+      const stop = network.stops.get(input[`${side}Id`]);
+      if (stop) form.elements[side].value = displayStopName(stop);
+    }
     draftVia = Array.isArray(input.via)
       ? input.via
           .slice(0, 3)
@@ -621,13 +625,7 @@ export function mountRouteSearch({
       : "—";
     resultFrame.querySelector("[data-result-date]").textContent = data?.input
       ?.date
-      ? new Intl.DateTimeFormat("ja-JP", {
-          timeZone: "Asia/Tokyo",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          weekday: "short",
-        }).format(new Date(`${data.input.date}T12:00:00+09:00`))
+      ? serviceDateLabel(data.input.date)
       : "";
     resultFrame.querySelector("[data-result-places]").textContent = data?.input
       ? `${data.input.from} → ${data.input.to}`
