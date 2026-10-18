@@ -5,6 +5,7 @@ import { stationEnglish } from "./station-names.js";
 import { stopTime } from "./journey-core.js";
 import { freshFix } from "./riding.js";
 import { distance } from "./mobility.js";
+import { railGuideInfo } from "./rail-guide-phase.js";
 
 export const TRAIN_STATES = Object.freeze({
   DEPARTED: "DEPARTED",
@@ -242,6 +243,15 @@ export function heroModel(
   const minutes = Number.isFinite(arrivalEstimate)
     ? Math.max(0, Math.ceil(arrivalEstimate - minute))
     : null;
+  const railGuide = bus ? null : railGuideInfo({
+    trainState,
+    positionSource: observed.positionSource,
+    hasFreshGps: validFix,
+    motionSpeed: measuredSpeed,
+    hasNextStation: Boolean(nextStation),
+    routeUnavailable,
+    minutes,
+  });
   return {
     lineId,
     lineColor: lineId === "K" ? "green" : lineId === "B" ? "orange" : "blue",
@@ -256,6 +266,7 @@ export function heroModel(
     destination: ride.destination,
     nextStation,
     nextNext,
+    railGuide,
     userDestination,
     remainingStops,
     trainState: boundary ? TRAIN_STATES.LINE_BOUNDARY : trainState,
