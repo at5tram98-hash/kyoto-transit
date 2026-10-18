@@ -98,7 +98,7 @@ export function initializeNavigation({
   );
   const frames = new Map(),
     titles = {
-      now: "Live",
+      now: document.documentElement.lang === "en" ? "Now" : "今",
       search: screenText("navigation_001"),
       timetable: screenText("navigation_002"),
       operations: screenText("navigation_003"),
