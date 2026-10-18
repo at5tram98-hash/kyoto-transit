@@ -81,7 +81,7 @@ export function matchMeasuredVehicles(leg,vehicles,{network,samples=[],now=Date.
   if(!leg||!Array.isArray(vehicles)||!vehicles.length)return [];
   const motion=trajectory(samples,now),fix=motion.points.at(-1),derivedHeading=motion.points.length>1?bearingBetween(motion.points[0],motion.points.at(-1)):null,heading=Number.isFinite(motion.heading)?motion.heading:derivedHeading,route=routeToken(leg.route),officialIds=new Set((leg.officialStops??[]).flatMap(s=>{const stop=network?.stops?.get(s.id);return [s.id,stop?.officialId].filter(Boolean).map(String);}));
   return vehicles.map(vehicle=>{
-    const timestamp=Number(vehicle.timestamp)*1000,age=now-timestamp;if(!Number.isFinite(timestamp)||age< -10000||age>90000)return null;
+    const timestamp=Number(vehicle.timestamp)*1000,age=now-timestamp;if(vehicle.fresh===false||!Number.isFinite(timestamp)||age< -5000||age>90000)return null;
     if(route&&routeToken(vehicle.route)!==route)return null;
     const evidence=[],add=(reason,points)=>evidence.push({reason,points}),freshness=Math.max(0,1-age/90000);add('車両データが新しい',5+Math.round(5*freshness));
     let meters=null;if(fix&&Number.isFinite(vehicle.lat)&&Number.isFinite(vehicle.lon)){meters=distance(fix,{lat:vehicle.lat,lng:vehicle.lon});const w=gpsAccuracyWeight(fix.accuracy),raw=meters<=60?38:meters<=140?30:meters<=280?20:meters<=500?8:-18;add('端末と車両の位置',Math.round(raw*w));}
