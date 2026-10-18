@@ -145,6 +145,9 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
             e.type === "gps" &&
             e.confidence >= 0.45 &&
             !e.metadata?.walkingLikely &&
+            e.metadata?.vehicleMoving === true &&
+            e.metadata?.vehicleMoving === true &&
+            !e.metadata?.walkingLikely &&
             e.metadata?.directionVerified === true &&
             (e.metadata?.routeTrajectory === true ||
               Number(e.metadata?.orderedStops ?? 0) >= 2),
@@ -228,17 +231,29 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       const walkingOnly =
         matching.some((e) => e.type === "gps" && e.metadata?.walkingLikely) &&
         !sources.some((type) => ["audio", "realtime"].includes(type));
-      const orderedRoute = matching.some(
-          (e) => Number(e.metadata?.orderedStops ?? 0) >= 3,
+      const movingMotion = matching.some(
+          (e) => e.type === "motion" && e.metadata?.vehicleMoving === true,
+        ),
+        orderedRoute = matching.some(
+          (e) =>
+            e.type === "gps" &&
+            e.metadata?.vehicleMoving === true &&
+            e.metadata?.directionVerified === true &&
+            Number(e.metadata?.orderedStops ?? 0) >= 3,
+        ),
+        verifiedAudioSequence = matching.some(
+          (e) =>
+            e.type === "audio" &&
+            e.metadata?.directionVerified === true &&
+            e.metadata?.sequenceValidated === true,
         ),
         hasAudio = sources.includes("audio"),
         hasRealtime = sources.includes("realtime"),
-        hasMotion = sources.includes("motion"),
         transportSpecific = hasAudio || hasRealtime || orderedRoute,
         multimodalIdentity =
           (routeProgressGps && (hasAudio || hasRealtime)) ||
-          (hasAudio && hasRealtime && hasMotion) ||
-          (orderedRoute && (hasMotion || hasAudio || hasRealtime));
+          (orderedRoute && movingMotion) ||
+          (verifiedAudioSequence && hasRealtime && movingMotion);
       const confirmed =
         transportSpecific &&
         multimodalIdentity &&

@@ -371,7 +371,10 @@ function confirmFromTranscript(event) {
       candidate: matches[0].candidate.ride,
       confidence: matches[0].match.confidence,
       observedAt: Date.now(),
-      metadata: { directionVerified: true },
+      metadata: {
+        directionVerified: true,
+        sequenceValidated: sequence.confidence >= 0.9,
+      },
     });
     document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
     return true;

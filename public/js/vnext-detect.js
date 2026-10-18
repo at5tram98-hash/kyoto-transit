@@ -17,6 +17,7 @@ import {
   applyRideMotionEvidence,
 } from "./riding.js";
 import { currentMotionEvidence } from "./motion-assist.js";
+import { assessBoardingMovement } from "./auto-boarding-evidence.js";
 import { getBusChoices, getBusData, getKyotoBusRT } from "./live.js";
 import { officialTripLeg } from "./vehicle.js";
 import {
@@ -658,17 +659,22 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
         state.busTrail,
         { circular: routePattern?.stops?.[0] === routePattern?.stops?.at(-1) },
       );
+      const movement = assessBoardingMovement(
+        state.samples,
+        candidate.evidence ?? [],
+        observedAt,
+      );
       const direction =
-        ordered.matched ||
-        candidate.evidence?.some((e) =>
-          /次の停車地点へ進行|方位が路線方向と一致/.test(e.reason),
-        );
-      candidate.directionRejected =
-        ordered.rejected ||
-        candidate.evidence?.some((e) => /進行方向が逆|方位が逆/.test(e.reason));
+        (ordered.matched && movement.moving) || movement.routeTrajectory;
+      candidate.directionRejected = Boolean(
+        ordered.rejected || movement.reversed ||
+        candidate.evidence?.some((e) => /進行方向が逆|方位が逆/.test(e.reason)),
+      );
       if (fixFresh && (candidate.score >= 55 || ordered.matched))
         add("gps", 0.65, state.fix.timestamp, {
           directionVerified: direction,
+          routeTrajectory: movement.routeTrajectory,
+          vehicleMoving: movement.moving,
           orderedStops: ordered.matched ? ordered.steps.length : 0,
           walkingLikely:
             motion.span >= 15 && motion.speed >= 0.6 && motion.speed < 2.5,
@@ -684,6 +690,7 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
           phase: motionEvidence.phase,
           pattern: motionEvidence.pattern,
           acceleration: motionEvidence.acceleration,
+          vehicleMoving: movement.moving && motionEvidence.speed >= 2.8,
         });
       const live = candidate.live,
         liveAt =
