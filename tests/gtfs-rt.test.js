@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {decodeGtfsRealtime,filterKyotoBusVehicles,routeLabel,freshMeasurement,decayDelay} from '../worker/gtfs-rt.js';
 import worker from '../worker/index.js';
 import {realtimeRideEvidence} from '../public/js/realtime-evidence.js';
+import {matchMeasuredVehicles} from '../public/js/riding.js';
 
 const enc=new TextEncoder();
 const cat=(...parts)=>Uint8Array.from(parts.flatMap(p=>[...p]));
@@ -71,4 +72,27 @@ test('未来時刻・明示的に古い車両は測定便の照合証拠とし�
   const ts=1_700_000_000,d=decodeGtfsRealtime(feed(ts));
   const r=filterKyotoBusVehicles([{...d.vehicles[0],timestamp:ts+30}],d.tripUpdates,ts);
   assert.equal(r.vehicles[0].fresh,false);
+});
+
+test('GTFS-RT FeedHeaderで時刻を持つTripUpdateを鮮度付きで結合する',()=>{
+  const ts=1_700_000_000;
+  const header=cat(st(1,'2.0'),vint(3,ts));
+  const update=cat(ld(1,trip()),vint(5,180));
+  const encoded=cat(ld(1,header),ld(2,cat(st(1,'u'),ld(3,update))));
+  const decoded=decodeGtfsRealtime(encoded);
+  assert.equal(decoded.headerTimestamp,ts);
+  assert.equal(decoded.tripUpdates[0].timestamp,ts);
+  const original=decodeGtfsRealtime(feed(ts)).vehicles[0];
+  assert.equal(filterKyotoBusVehicles([original],decoded.tripUpdates,ts+20).vehicles[0].delay,3);
+  assert.equal(filterKyotoBusVehicles([{...original,timestamp:ts+250}],decoded.tripUpdates,ts+250).vehicles[0].delay,null);
+});
+
+test('ブラウザ側もサーバーでstale判定された位置情報を便照合に使用しない',()=>{
+  const ts=Math.floor(Date.now()/1000);
+  const matched=matchMeasuredVehicles(
+    {route:'40',officialStops:[]},
+    [{id:'V1',route:'40',lat:35.06,lon:135.75,timestamp:ts,fresh:false}],
+    {network:{stops:new Map()},samples:[],now:ts*1000},
+  );
+  assert.deepEqual(matched,[]);
 });
