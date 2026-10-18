@@ -122,15 +122,29 @@ async function detectKintetsu(stopId) {
 }
 
 async function ensureKyotoBusFeed() {
-  if (state.kyotoBusFeed && Date.now() - state.kyotoBusFeedAt < 12000)
-    return state.kyotoBusFeed;
+  const now = Date.now();
+  // Avoid repeatedly calling an unconfigured provider on every GPS update.
+  if (now < (state.kyotoBusNextFetchAt ?? 0))
+    return state.kyotoBusAvailability === "live" ? state.kyotoBusFeed : null;
+  state.kyotoBusNextFetchAt = now + 20000;
   try {
-    state.kyotoBusFeed = await getKyotoBusRT(AbortSignal.timeout(4000));
+    const feed = await getKyotoBusRT(AbortSignal.timeout(4000));
+    if (!Array.isArray(feed?.vehicles)) throw Error("京都バスの車両情報が不正です。");
+    state.kyotoBusFeed = feed;
     state.kyotoBusFeedAt = Date.now();
-    return state.kyotoBusFeed;
+    state.kyotoBusAvailability =
+      feed.source === "live" && !feed.stale ? "live" : "stale";
+    state.kyotoBusNextFetchAt = Date.now() + (state.kyotoBusAvailability === "live" ? 12000 : 30000);
+    return state.kyotoBusAvailability === "live" ? feed : null;
   } catch (e) {
+    state.kyotoBusAvailability =
+      e?.code === "odpt_not_configured" ? "unconfigured" : "unavailable";
+    state.kyotoBusNextFetchAt =
+      Date.now() + (e?.code === "odpt_not_configured" ? 300000 : e?.status === 429 ? 60000 : 30000);
+    // Old vehicle locations are not current boarding evidence.
+    state.kyotoBusFeed = null;
     if (e?.code !== "odpt_not_configured") console.warn("kyotobus rt", e);
-    return state.kyotoBusFeed;
+    return null;
   }
 }
 
