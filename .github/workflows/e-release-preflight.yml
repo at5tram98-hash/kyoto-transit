@@ -1,0 +1,50 @@
+name: E release candidate preflight (no deploy)
+on:
+  push:
+    branches: [chat/e-prepublication-audit-20261019]
+permissions:
+  contents: read
+jobs:
+  candidate:
+    name: Candidate packaging and Worker dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Validate complete atomic release assets
+        run: node scripts/e-release-preflight.mjs
+      - name: Validate production Worker bundle (no publish)
+        run: |
+          mkdir -p e-release-artifacts
+          npx wrangler deploy --dry-run --outfile e-release-artifacts/worker.js --config worker/wrangler.jsonc
+          test -s e-release-artifacts/worker.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-build-and-worker
+          path: e-release-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+  current-production:
+    name: Existing live deployment diagnosis (read-only; not candidate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Probe existing Pages, Worker and real external sources
+        run: npm run verify:production
+        env:
+          PRODUCTION_REPORT_DIR: e-live-artifacts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e-existing-production-health
+          path: e-live-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
