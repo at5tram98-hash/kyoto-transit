@@ -146,7 +146,8 @@ test("B-1: unavailable diversion remains visibly unverified", () => {
 test("B-1: station English and alighting stay separate from rail stage", () => {
   const result = model(601);
   const html = nextStationHero(result, ride, { stops });
-  assert.match(html, /class="station-en" lang="en"/);
+  assert.doesNotMatch(html, /class="station-en"/);
+  assert.match(html, /class="journey-next-name">烏丸御池/);
   assert.match(html, /あなたの降車/);
   assert.equal(result.userDestination.id, "K10");
   assert.equal(result.nextStation.id, "K08");
