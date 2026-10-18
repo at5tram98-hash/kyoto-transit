@@ -1,17 +1,23 @@
 import { ui } from "./locale.js";
 import { esc } from "./vnext-state.js";
-import { compactBusHTML } from "./vnext-arrivals.js";
+import { compactBusHTML, busRow } from "./vnext-arrivals.js";
 import {
   getCached,
   fetchRealtime,
   createLiveLoop,
   isFresh,
 } from "./realtime.js";
-import { updateHTML } from "./view-rendering.js";
+import {
+  busServiceKey,
+  normalizedBusSources,
+  groupCityBusRows,
+} from "./arrival-stability.js";
+import { navigation } from "./navigation.js";
+import { updateArrivalRows, updateHTML } from "./view-rendering.js";
 
 // A visible stop detail owns this loop. It uses the existing cache/network
 // layer; leaving the screen stops it and does not change the arrivals picker.
-export function mountBusStopPreview(host, stop) {
+export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
   let shown = false,
     disposed = false,
     controller = null,
@@ -21,13 +27,40 @@ export function mountBusStopPreview(host, stop) {
     name = stop.fullName ?? stop.name,
     key = `citybus:${name}`;
   function render({ updating = false, failed = false } = {}) {
+    if (serviceKey) {
+      if (!host.querySelector(".arrival-lines"))
+        host.innerHTML = `<div class="arrival-lines" aria-live="polite"></div><p class="source-note" data-approach-message></p>`;
+      const rows = groupCityBusRows(
+        normalizedBusSources(data).filter(
+          (r) => busServiceKey(r) === serviceKey,
+        ),
+      );
+      const root = host.querySelector(".arrival-lines");
+      updateArrivalRows(root, rows, busRow);
+      root.querySelectorAll(".arrival-line").forEach((el) => {
+        el.classList.add("expanded");
+        el.querySelector(".arrival-toggle")?.setAttribute(
+          "aria-expanded",
+          "true",
+        );
+      });
+      host.querySelector("[data-approach-message]").textContent = failed
+        ? ui("bus_stop_preview_007").replace(/<[^>]+>/g, "")
+        : !rows.some((r) =>
+              r.arrivals.some((a) => Number.isFinite(a.stopsAway)),
+            )
+          ? ui("arrival_position_unavailable")
+          : "";
+      return;
+    }
     const filtered = data && {
         ...data,
         results: route
           ? data.results?.filter((r) => String(r.route) === route)
           : data.results,
       },
-      rows = city && filtered ? compactBusHTML(filtered) : "",
+      rows =
+        city && filtered ? compactBusHTML(filtered, { stopId: stop.id }) : "",
       fresh = data && !data.stale && isFresh(data.asOf);
     const scroll = host.querySelector(".stop-route-chips")?.scrollLeft ?? 0,
       focus = document.activeElement?.dataset.previewRoute;
@@ -89,6 +122,11 @@ export function mountBusStopPreview(host, stop) {
   });
   host.addEventListener("click", (event) => {
     const b = event.target.closest("button");
+    if (b?.dataset.busApproach)
+      navigation.push("arrival-detail", {
+        stopId: stop.id,
+        serviceKey: b.dataset.busApproach,
+      });
     if (b?.dataset.previewRoute !== undefined) {
       route = b.dataset.previewRoute || null;
       render();

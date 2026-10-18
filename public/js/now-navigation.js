@@ -1,3 +1,4 @@
+import { mountStationArrivals } from "./station-arrivals.js";
 import { ui } from "./locale.js";
 import { currentMotionEvidence } from "./motion-assist.js";
 import { readSavedPlaces, toggleSavedPlace } from "./saved-places.js";
@@ -93,6 +94,31 @@ export function registerNowScreens({ arrivals, onFoldback }) {
     },
     onDispose: source("#arrivals-root").onDispose,
   });
+  const approachViews = new Map();
+  navigation.register("arrival-detail", {
+    title: ui("arrival_detail_title"),
+    create({ element, route }) {
+      const stop = state.network.stops.get(route.params.stopId);
+      if (!stop || stop.type !== "citybus" || !route.params.serviceKey) return;
+      element.innerHTML = `<h2 class="native-section-label">${esc(stop.name)}</h2><section class="bus-stop-preview" data-operator="${esc(stop.type)}"></section>`;
+      approachViews.set(
+        element,
+        mountBusStopPreview(element.querySelector("section"), stop, {
+          serviceKey: route.params.serviceKey,
+        }),
+      );
+    },
+    onShow({ element }) {
+      void approachViews.get(element)?.show();
+    },
+    onHide({ element }) {
+      approachViews.get(element)?.pause();
+    },
+    onDispose({ element }) {
+      approachViews.get(element)?.dispose();
+      approachViews.delete(element);
+    },
+  });
   const previews = new Map();
   function placeSurface(element, stop) {
     const position = state.geo.stops.find((s) => s.id === stop.id);
@@ -152,7 +178,9 @@ export function registerNowScreens({ arrivals, onFoldback }) {
       placeSurface(element, stop);
     const content = element.querySelector("[data-place-content]") ?? element;
     updateHTML(content, html(route.params.stopId));
-    const host = content.querySelector("[data-bus-stop-preview]");
+    const host = content.querySelector(
+      "[data-bus-stop-preview], [data-station-arrivals]",
+    );
     if (host && stop) host.dataset.operator = stop.type;
     if (!host || !stop) {
       saved?.dispose();
@@ -160,7 +188,11 @@ export function registerNowScreens({ arrivals, onFoldback }) {
       return;
     }
     if (saved && host !== saved.host) host.replaceWith(saved.host);
-    const preview = saved ?? mountBusStopPreview(host, stop);
+    const preview =
+      saved ??
+      (bus
+        ? mountBusStopPreview(host, stop)
+        : mountStationArrivals(host, stop));
     previews.set(element, preview);
     if (show) void preview.show();
   }
@@ -302,6 +334,12 @@ export function registerNowScreens({ arrivals, onFoldback }) {
   });
 }
 export function validNowScreen(route) {
+  if (route.type === "arrival-detail")
+    return (
+      state.network.stops.get(route.params.stopId)?.type === "citybus" &&
+      typeof route.params.serviceKey === "string" &&
+      route.params.serviceKey.length > 0
+    );
   if (route.type === "map" && route.params.nearby) return true;
   if (["stops", "station", "map", "delay", "trains"].includes(route.type))
     return (

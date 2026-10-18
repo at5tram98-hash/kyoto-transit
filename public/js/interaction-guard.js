@@ -16,4 +16,25 @@ function installGestureGuard() {
 
 export function installInteractionGuard() {
   installGestureGuard();
+  // Pointer activation must not leave the browser's focus ring behind; Tab and
+  // directional keyboard navigation restore a visible, accessible focus state.
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      document.documentElement.dataset.inputModality = "pointer";
+    },
+    { capture: true, passive: true },
+  );
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        ["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+          event.key,
+        )
+      )
+        document.documentElement.dataset.inputModality = "keyboard";
+    },
+    true,
+  );
 }

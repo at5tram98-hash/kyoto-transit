@@ -1,11 +1,44 @@
 // Presentation messages; official place names retain their source spelling.
 export default {
+  station_retry: "Refresh / Retry",
+  station_north: "Toward {0}",
+  station_south: "Toward {0}",
+  station_kokusai: "Kokusaikaikan",
+  station_takeda: "Takeda",
+  station_kyoto: "Kyoto",
+  station_nara: "Nara",
+  station_minutes: "min",
+  station_eta_unknown: "Arrival time unknown",
+  station_scheduled_at: "Scheduled {0}",
+  station_observed_eta: "Live position · ETA matched to timetable",
+  station_scheduled_position: "Position estimated from timetable",
+  station_observed_position: "Observed train position",
+  station_six_before: "6+ stations away",
+  station_this_station: "This station",
+  station_position_description: "Approximately {0} stations from here",
+  station_no_services:
+    "No scheduled services in the next hour. Check the timetable.",
+  station_loading: "Checking departures and arrivals…",
+  station_load_failed:
+    "Could not refresh. Check the displayed schedule or retry.",
+  station_offline:
+    "Offline · Saved schedule. This is not the current train position.",
+  station_schedule_disclaimer:
+    "Subway positions are estimated from the official timetable. Actual position and delays are unavailable.",
+  station_live_disclaimer:
+    "Arrival estimates use observed positions matched to the official timetable. Other services are marked as scheduled or unknown.",
+
+  arrival_detail_title: "Arrival details",
+  arrival_position_unavailable:
+    "Approach position unavailable. Wait for an update or check the timetable.",
+  settings_saved_places: "Saved places",
+  settings_saved_routes: "Saved routes",
   recovery_time_confirmation:
     "The arrival time for your current ride is unavailable. Confirm a departure time after you alight before searching.",
   vnext_001: "Updating…",
   vnext_002: "Search",
   vnext_003: "Times",
-  vnext_004: "Service", 
+  vnext_004: "Service",
   vnext_005: "More",
   vnext_006: "Unable to load transit routes.",
   vnext_007: "Unable to load stop locations.",
@@ -174,7 +207,7 @@ export default {
   vnext_network_view_039: "Advanced settings",
   vnext_network_view_040: "Location, microphone and notifications",
   vnext_network_view_041:
-    '<div class="settings-card source-list"><div><b>Location</b><small>Location is obtained while the app is visible and is used on your device for ride detection, next stops and nearby transit. GPS history is not stored on our server. Arrival requests send the selected stop name to the transit API.</small></div><div><b>Announcement assistance</b><small>Only an already permitted microphone is used, for up to six seconds when a possible ride is detected. MyMap does not record continuously or save audio or transcripts to its servers or storage. Your device or browser recognition service may process audio. Manual boarding and timetables remain available when assistance is off.</small></div><div><b>Stored information</b><small>Recent searches, saved places, commuter passes and preferences use this device’s Local Storage; screen state uses Session Storage. An active journey is kept for up to four hours for restoration.</small></div><div><b>Network</b><small>Official timetables, arrivals and service information come from MyMap’s transit API. OpenStreetMap receives tile coordinates to provide the basemap. Requests to these providers include normal network information such as your IP address.</small></div><div><b>Offline</b><small>Saved timetables, places and settings remain available. Arrivals that cannot be refreshed are never presented as current live data.</small></div></div>',
+    '<div class="settings-card source-list"><div><b>Location</b><small>Location is obtained while the app is visible and is used on your device for ride detection, next stops and nearby transit. GPS history is not stored on our server. Arrival requests send the selected stop name to the transit API.</small></div><div><b>Announcement assistance</b><small>Only an already permitted microphone is used, for a session of up to 60 seconds when a possible ride or active journey needs verification. Recognition stops when the app is hidden or assistance is disabled. MyMap does not record continuously or save audio or transcripts to its servers or storage. Your device or browser recognition service may process audio. Manual boarding and timetables remain available when assistance is off.</small></div><div><b>Stored information</b><small>Recent searches, saved places, commuter passes and preferences use this device’s Local Storage; screen state uses Session Storage. An active journey is kept for up to four hours for restoration.</small></div><div><b>Network</b><small>Official timetables, arrivals and service information come from MyMap’s transit API. OpenStreetMap receives tile coordinates to provide the basemap. Requests to these providers include normal network information such as your IP address.</small></div><div><b>Offline</b><small>Saved timetables, places and settings remain available. Arrivals that cannot be refreshed are never presented as current live data.</small></div></div>',
   vnext_network_view_042:
     '<div class="settings-card source-list"><div><b>Coverage</b><small>Guidance covers supported routes in Kyoto. Follow official operator information and local signs for service changes, timetables and fares.</small></div><div><b>Live, estimated and scheduled</b><small>Sources and freshness are shown separately. Unavailable arrival times, platforms or fares are never presented as confirmed.</small></div></div>',
   vnext_network_view_043: "Unavailable",
@@ -316,7 +349,7 @@ export default {
   vnext_arrivals_023: " Updated {0}",
   vnext_arrivals_024: " · Updated {0}",
   vnext_arrivals_025:
-    '<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">Kyoto City Bus</span><h3>Arrivals</h3></div><button class="round-action" data-arrival-nearest aria-label="Choose a stop near my location">{0}</button></div><button class="arrival-stop" data-arrival-change><span><small>Stop</small><b id="arrival-stop-name">Choose a stop</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="Search stops and routes" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>Route and direction</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">Kintetsu Kyoto Line</span><h3>Arrivals</h3></div><button class="round-action" data-rail-refresh aria-label="Refresh">{1}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>Type</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>',
+    '<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">Kyoto City Bus</span><h3>Arrivals</h3></div></div><button class="arrival-stop" data-arrival-change><span><small>Stop</small><b id="arrival-stop-name">Choose a stop</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="Search stops and routes" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>Route and direction</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">Kintetsu Kyoto Line</span><h3>Arrivals</h3></div><button class="round-action" data-rail-refresh aria-label="Refresh">{1}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>Type</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>',
   vnext_arrivals_026: "Search stops and routes",
   vnext_arrivals_027: "Updating",
   vnext_arrivals_028: "Offline · Previously retrieved information",
@@ -861,7 +894,7 @@ export default {
   vnext_network_view_085:
     '<div class="debug-live" {0}><div><b>Refresh interval</b><span>{1} sec</span></div>{2}</div>',
   vnext_network_view_086:
-    '<h2 class="native-section-label">Save</h2><div class="native-list"><button class="native-row" data-saved-page="places"><span>Saved places</span><span class="chevron">›</span></button><button class="native-row" data-saved-page="routes"><span>Saved journeys</span><span class="chevron">›</span></button></div><h2 class="native-section-label">Transit</h2><div class="native-list">{0}{1}{2}{3}{4}</div><h2 class="native-section-label">App</h2><div class="native-list">{5}{6}{7}{8}{9}{10}</div><h2 class="native-section-label">Status</h2><div class="native-list">{11}</div>',
+    '<h2 class="native-section-label">Save</h2><div class="native-list">{12}{13}</div><h2 class="native-section-label">Transit</h2><div class="native-list">{0}{1}{2}{3}{4}</div><h2 class="native-section-label">App</h2><div class="native-list">{5}{6}{7}{8}{9}{10}</div><h2 class="native-section-label">Status</h2><div class="native-list">{11}</div>',
   vnext_network_view_087:
     '<div class="settings-card"><div class="setting-row"><span>Location</span><span data-permission="geolocation">{0}</span></div><div class="setting-row"><span>Microphone</span><span data-permission="microphone">Checking</span></div><div class="setting-row"><span>Notifications</span><span>{1}</span></div><label class="setting-row"><span>Announcement assistance with an allowed microphone</span><input type="checkbox" data-setting="audioAssist" {2}></label><div class="setting-row"><span>Speech recognition</span><span>{3}</span></div><div class="setting-row"><span>Version</span><span>{4}</span></div></div><p class="source-note">Manage permissions in device or browser settings. This screen does not request permissions automatically. See Privacy for network and storage details.</p>',
   vnext_network_view_088:
@@ -902,7 +935,7 @@ export default {
   route_search_view_053:
     '<div class="journey-ride" data-operator="{0}"><div class="planner-leg ride journey-point">{1}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">Dep.</span>{2}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><b>{3}{4}</b><small>{5}{6}{7}</small></div>{8}<small class="journey-leg-source">{9}</small>{10}{11}{12}</div></div>{13}{14}</div>',
   route_search_view_054:
-    '<article class="planner-result {0}" data-operator="{1}">{2}<div class="planner-result-head">{3}</div><div class="planner-times"><strong>{4}</strong><span>→</span><strong>{5}</strong><small>({6} min)</small></div><div class="planner-metrics"><span class="route-price"><b>{7}</b>{8}</span><span>Transfers {9}</span><span>Walk {10} min</span>{11}{12}</div>{13}{14}{15}<div class="planner-result-actions">{16}</div></article>{17}',
+    '<article class="planner-result {0}" data-operator="{1}">{2}<div class="planner-result-head">{3}</div><div class="planner-times"><strong>{4}</strong><span>→</span><strong>{5}</strong><small>({6})</small></div><div class="planner-metrics"><span class="route-price"><b>{7}</b>{8}</span><span>Transfers {9}</span><span>Walk {10} min</span>{11}{12}</div>{13}{14}{15}<div class="planner-result-actions">{16}</div></article>{17}',
   route_trip_screen_026:
     '<button type="button" class="trip-choice-row {0}" data-trip-choice="{1}" aria-pressed="{2}" {3}><span class="trip-choice-times"><b>{4}</b><small>{5}</small></span><span class="trip-choice-description"><b>{6}{7}</b><small>{8}{9}{10}</small><small>{11}Service{12}{13}</small>{14}</span><span class="trip-choice-check" aria-hidden="true">{15}</span></button>',
   route_trip_screen_027:

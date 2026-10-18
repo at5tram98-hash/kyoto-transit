@@ -224,8 +224,24 @@ export function renderSettings(
   category = "home",
 ) {
   if (category === "home") {
-    const row = (id, title) =>
-      `<button class="native-row" data-setting-page="${id}"><span>${title}</span><span class="chevron">›</span></button>`;
+    const symbols = {
+      pass: "ticket",
+      distance: "location",
+      notifications: "bell",
+      auto: "bolt",
+      location: "location",
+      display: "display",
+      accessibility: "accessibility",
+      routes: "train",
+      info: "info",
+      privacy: "shield",
+      terms: "document",
+      advanced: "settings",
+      permissions: "info",
+      places: "bookmark",
+    };
+    const row = (id, title, saved = false) =>
+      `<button class="native-row settings-menu-row" ${saved ? "data-saved-page" : "data-setting-page"}="${id}"><span class="settings-menu-symbol">${icon(saved && id === "routes" ? "map" : (symbols[id] ?? "map"))}</span><span>${title}</span><span class="chevron">›</span></button>`;
     root.innerHTML = ui("vnext_network_view_086", [
       row("pass", ui("vnext_network_view_029")),
       row("distance", ui("vnext_network_view_030")),
@@ -240,6 +256,8 @@ export function renderSettings(
       row("terms", ui("vnext_network_view_038")),
       row("advanced", ui("vnext_network_view_039")),
       row("permissions", ui("vnext_network_view_040")),
+      row("places", ui("settings_saved_places"), true),
+      row("routes", ui("settings_saved_routes"), true),
     ]);
     return;
   }

@@ -1,5 +1,38 @@
 // Presentation messages; official place names retain their source spelling.
 export default {
+  station_retry: "更新・再試行",
+  station_north: "{0}方面",
+  station_south: "{0}方面",
+  station_kokusai: "国際会館",
+  station_takeda: "竹田",
+  station_kyoto: "京都",
+  station_nara: "奈良",
+  station_minutes: "分後",
+  station_eta_unknown: "到着時刻未確定",
+  station_scheduled_at: "予定 {0}",
+  station_observed_eta: "位置は実測 · 到着は公式時刻と照合した予測",
+  station_scheduled_position: "公式時刻からの推定位置",
+  station_observed_position: "取得した列車位置",
+  station_six_before: "6駅以上手前",
+  station_this_station: "この駅",
+  station_position_description: "この駅まで約{0}駅分の位置",
+  station_no_services:
+    "1時間以内の公式便はありません。時刻表をご確認ください。",
+  station_loading: "発車・接近情報を確認中…",
+  station_load_failed:
+    "更新できませんでした。表示中の予定を確認するか再試行してください。",
+  station_offline:
+    "オフライン · 保存した予定です。現在の列車位置ではありません。",
+  station_schedule_disclaimer:
+    "地下鉄の位置は公式時刻表からの推定です。実際の走行位置・遅れは確認できません。",
+  station_live_disclaimer:
+    "実測位置と公式時刻を照合できる列車に到着予測を表示します。その他は予定・時刻未確定として区別します。",
+
+  arrival_detail_title: "接近の詳細",
+  arrival_position_unavailable:
+    "現在の接近位置は未取得です。更新を待つか、時刻表をご確認ください。",
+  settings_saved_places: "保存した場所",
+  settings_saved_routes: "保存した経路",
   recovery_time_confirmation:
     "乗車中の区間の到着時刻が未取得です。降車後に利用できる出発時刻を確認して検索してください。",
   vnext_001: "更新中…",
@@ -311,7 +344,7 @@ export default {
   vnext_arrivals_023: " {0}更新",
   vnext_arrivals_024: " · {0}更新",
   vnext_arrivals_025:
-    '<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">京都市バス</span><h3>接近情報</h3></div><button class="round-action" data-arrival-nearest aria-label="現在地から停留所を選ぶ">{0}</button></div><button class="arrival-stop" data-arrival-change><span><small>停留所</small><b id="arrival-stop-name">停留所を選択</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="停留所名・系統を検索" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>系統・方面</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">近鉄京都線</span><h3>接近情報</h3></div><button class="round-action" data-rail-refresh aria-label="更新">{1}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>種別</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>',
+    '<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">京都市バス</span><h3>接近情報</h3></div></div><button class="arrival-stop" data-arrival-change><span><small>停留所</small><b id="arrival-stop-name">停留所を選択</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="停留所名・系統を検索" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>系統・方面</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">近鉄京都線</span><h3>接近情報</h3></div><button class="round-action" data-rail-refresh aria-label="更新">{1}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>種別</span><span>行先</span><span>到着</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>',
   vnext_arrivals_026: "停留所名・系統を検索",
   vnext_arrivals_027: "更新中",
   vnext_arrivals_028: "オフライン · 前回取得した情報",
@@ -852,7 +885,7 @@ export default {
   vnext_network_view_085:
     '<div class="debug-live" {0}><div><b>更新間隔</b><span>{1}秒</span></div>{2}</div>',
   vnext_network_view_086:
-    '<h2 class="native-section-label">保存</h2><div class="native-list"><button class="native-row" data-saved-page="places"><span>保存した場所</span><span class="chevron">›</span></button><button class="native-row" data-saved-page="routes"><span>保存した経路</span><span class="chevron">›</span></button></div><h2 class="native-section-label">交通</h2><div class="native-list">{0}{1}{2}{3}{4}</div><h2 class="native-section-label">アプリ</h2><div class="native-list">{5}{6}{7}{8}{9}{10}</div><h2 class="native-section-label">状態</h2><div class="native-list">{11}</div>',
+    '<h2 class="native-section-label">保存</h2><div class="native-list">{12}{13}</div><h2 class="native-section-label">交通</h2><div class="native-list">{0}{1}{2}{3}{4}</div><h2 class="native-section-label">アプリ</h2><div class="native-list">{5}{6}{7}{8}{9}{10}</div><h2 class="native-section-label">状態</h2><div class="native-list">{11}</div>',
   vnext_network_view_087:
     '<div class="settings-card"><div class="setting-row"><span>位置情報</span><span data-permission="geolocation">{0}</span></div><div class="setting-row"><span>マイク</span><span data-permission="microphone">確認中</span></div><div class="setting-row"><span>通知</span><span>{1}</span></div><label class="setting-row"><span>許可済みマイクのアナウンス補助</span><input type="checkbox" data-setting="audioAssist" {2}></label><div class="setting-row"><span>音声認識</span><span>{3}</span></div><div class="setting-row"><span>Version</span><span>{4}</span></div></div><p class="source-note">権限の変更は端末・ブラウザー設定で行えます。ここから権限を自動要求しません。Privacyで通信・保存の詳細を確認できます。</p>',
   vnext_network_view_088:
@@ -893,7 +926,7 @@ export default {
   route_search_view_053:
     '<div class="journey-ride" data-operator="{0}"><div class="planner-leg ride journey-point">{1}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">発</span>{2}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><b>{3}{4}</b><small>{5}{6}{7}</small></div>{8}<small class="journey-leg-source">{9}</small>{10}{11}{12}</div></div>{13}{14}</div>',
   route_search_view_054:
-    '<article class="planner-result {0}" data-operator="{1}">{2}<div class="planner-result-head">{3}</div><div class="planner-times"><strong>{4}</strong><span>→</span><strong>{5}</strong><small>({6}分)</small></div><div class="planner-metrics"><span class="route-price"><b>{7}</b>{8}</span><span>乗換{9}回</span><span>徒歩{10}分</span>{11}{12}</div>{13}{14}{15}<div class="planner-result-actions">{16}</div></article>{17}',
+    '<article class="planner-result {0}" data-operator="{1}">{2}<div class="planner-result-head">{3}</div><div class="planner-times"><strong>{4}</strong><span>→</span><strong>{5}</strong><small>({6})</small></div><div class="planner-metrics"><span class="route-price"><b>{7}</b>{8}</span><span>乗換{9}回</span><span>徒歩{10}分</span>{11}{12}</div>{13}{14}{15}<div class="planner-result-actions">{16}</div></article>{17}',
   route_trip_screen_026:
     '<button type="button" class="trip-choice-row {0}" data-trip-choice="{1}" aria-pressed="{2}" {3}><span class="trip-choice-times"><b>{4}</b><small>{5}</small></span><span class="trip-choice-description"><b>{6}{7}</b><small>{8}{9}{10}</small><small>{11}運行{12}{13}</small>{14}</span><span class="trip-choice-check" aria-hidden="true">{15}</span></button>',
   route_trip_screen_027:

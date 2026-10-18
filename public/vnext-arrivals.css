@@ -79,7 +79,6 @@
   outline: 2px solid var(--color-accent);
   outline-offset: -3px;
 }
-.arrival-line:not(.expanded) .arrival-approach,
 .arrival-line:not(.expanded) .arrival-second {
   display: none;
 }
@@ -94,7 +93,22 @@
 .arrival-line.expanded {
   background: var(--surface-secondary);
 }
-.arrival-line.imminent .arrival-minutes {
+.arrival-line.imminent .arrival-dest > small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.station-service {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.station-service > small {
+  font-size: var(--type-caption);
+  color: var(--muted);
+}
+.arrival-minutes {
   color: var(--blue);
 }
 .arrival-line.imminent .arrival-minutes span:first-child {
@@ -250,11 +264,12 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   background: var(--muted);
 }
 .arrival-approach {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   padding: 4px 0 2px;
 }
 .arrival-track-labels {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
   color: var(--muted);
@@ -309,8 +324,8 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   width: 26px;
   height: 26px;
   border-radius: var(--radius-compact);
-  background: var(--color-citybus);
-  color: white;
+  background: var(--transport-color, var(--color-citybus));
+  color: var(--color-on-transport);
   box-shadow: var(--shadow-arrival-marker);
 }
 .arrival-track-vehicle svg {
@@ -391,16 +406,25 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   display: grid;
   gap: 8px;
 }
-.arrival-compact > div {
+.arrival-compact > div,
+.arrival-compact > button {
   display: grid;
   grid-template-columns: 3rem minmax(0, 1fr) auto;
   gap: 10px;
   align-items: start;
   font-size: 0.8125rem;
   padding: 12px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  width: 100%;
+  min-height: 52px;
   border-bottom: 1px solid var(--separator);
 }
-.arrival-compact > div:last-child {
+.arrival-compact > div:last-child,
+.arrival-compact > button:last-child {
   border-bottom: 0;
 }
 .arrival-compact .arrival-route-badge {
@@ -463,7 +487,8 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   min-height: 44px;
 }
 @container (max-width: 18rem) {
-  .arrival-compact > div {
+  .arrival-compact > div,
+  .arrival-compact > button {
     grid-template-columns: 3rem minmax(0, 1fr);
   }
   .arrival-compact strong {
@@ -562,9 +587,6 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   }
   .arrival-rail-badge {
     color: var(--color-kintetsu);
-  }
-  .arrival-track-vehicle {
-    background: var(--color-citybus);
   }
 }
 @media (prefers-reduced-motion: reduce) {

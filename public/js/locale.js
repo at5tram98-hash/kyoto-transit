@@ -107,3 +107,14 @@ export function liveClock(date, { locale = "ja", hour12 = false } = {}) {
     period: parts.find((p) => p.type === "dayPeriod")?.value ?? "24h",
   };
 }
+
+// Durations are elapsed minutes, independent of service-date clock formatting.
+export function durationLabel(value) {
+  if (!Number.isFinite(value) || value < 0) return "—";
+  const minutes = Math.round(value),
+    hours = Math.floor(minutes / 60),
+    rest = minutes % 60;
+  if (activeLocale === "en")
+    return hours ? `${hours} hr ${rest} min` : `${minutes} min`;
+  return hours ? `${hours}時間${rest}分` : `${minutes}分`;
+}

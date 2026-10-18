@@ -21,10 +21,9 @@
 .live-navigation-capsule {
   display: flex;
   gap: 8px;
-  padding: 5px;
-  border: 1px solid var(--separator);
-  border-radius: var(--radius-capsule);
-  background: var(--glass-toolbar);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 .live-navigation-capsule button {
   padding: 10px;
@@ -80,32 +79,28 @@
 }
 .live-quick-strip {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 8px;
-  margin: 16px 0;
-}
-.live-quick-strip[data-selecting] {
-  background: var(--glass-toolbar);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow);
+  margin: 12px 0;
 }
 .live-quick-strip button {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 8px 12px;
+  min-height: 44px;
+  padding: 6px 10px;
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--surface-primary);
+  background: var(--surface-secondary);
   color: var(--blue);
 }
-.live-quick-trigger {
+.live-quick-strip .live-quick-trigger {
   flex-direction: column;
   min-width: 60px;
   font-size: var(--type-caption);
   touch-action: none;
+  background: transparent;
 }
 .live-quick-destinations {
   display: flex;
@@ -127,6 +122,45 @@
   color: var(--surface-primary);
   background: var(--blue);
   transform: scale(0.97);
+}
+.live-quick-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 6px;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  max-height: min(60dvh, 400px);
+  overflow-y: auto;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-group);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow);
+}
+.live-quick-popover button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--blue);
+  text-align: left;
+}
+.live-quick-popover svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  flex: none;
+}
+.live-quick-popover button.quick-tracking {
+  background: var(--blue-soft);
 }
 .live-location-header {
   display: flex;
@@ -267,7 +301,36 @@
   margin: 0;
 }
 .idle-status .idle-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
+}
+.idle-state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: var(--radius-round);
+  background: currentColor;
+}
+.idle-status[data-detecting="true"] .idle-state::before {
+  animation: live-state-breathe 2.4s ease-in-out infinite;
+}
+@keyframes live-state-breathe {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .idle-status[data-detecting="true"] .idle-state::before {
+    animation: none;
+  }
+}
+html[data-reduce-motion="true"] .idle-status .idle-state::before,
+html[data-app-hidden="true"] .idle-status .idle-state::before {
+  animation: none;
 }
 .nearby-guide .nearby-row {
   grid-template-columns: 48px minmax(0, 1fr) auto;

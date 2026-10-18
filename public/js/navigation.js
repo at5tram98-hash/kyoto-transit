@@ -293,7 +293,11 @@ export function initializeNavigation({
   function historyWrite(kind = "replace", snapshot = state, modal = sheet) {
     const route = currentRoute(snapshot),
       params = route.params.stopId ?? route.params.id ?? "";
-    const path = `#/${snapshot.tab}${route.type === "root" ? "" : `/${route.type}${params ? `/${encodeURIComponent(params)}` : ""}`}`;
+    const suffix =
+      route.type === "arrival-detail" && route.params.serviceKey
+        ? `?service=${encodeURIComponent(route.params.serviceKey)}`
+        : "";
+    const path = `#/${snapshot.tab}${route.type === "root" ? "" : `/${route.type}${params ? `/${encodeURIComponent(params)}` : ""}`}${suffix}`;
     const parentKey =
       snapshot.stacks[snapshot.tab].at(-2)?.key ?? `root:${snapshot.tab}`;
     history[kind === "push" ? "pushState" : "replaceState"](
@@ -663,20 +667,19 @@ export function initializeNavigation({
     !saved.state &&
     location.hash.startsWith("#/")
   ) {
-    const [, tab, type, id] = location.hash.split("/");
+    const [hashPath, query = ""] = location.hash.split("?");
+    const [, tab, type, id] = hashPath.split("/");
+    const params = { stopId: "" };
+    try { params.stopId = decodeURIComponent(id ?? ""); } catch { /* Invalid links stay at the tab root. */ }
+    if (type === "arrival-detail")
+      params.serviceKey = new URLSearchParams(query).get("service") ?? "";
     if (NAV_TABS.includes(tab)) {
       state.tab = tab;
-      if (
-        registry.has(type) &&
-        validate(
-          { type, params: { stopId: decodeURIComponent(id ?? "") } },
-          tab,
-        )
-      )
+      if (registry.has(type) && validate({ type, params }, tab))
         state = navigationTransition(state, {
           type: "push",
           screen: type,
-          params: { stopId: decodeURIComponent(id ?? "") },
+          params,
         });
     }
   }

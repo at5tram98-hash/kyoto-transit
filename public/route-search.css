@@ -56,6 +56,9 @@
   padding: 12px 0;
   margin: 0 0 8px;
 }
+.sheet-body.planner-form {
+  padding-inline: 16px;
+}
 [data-screen="results"] {
   container-type: inline-size;
 }
@@ -175,7 +178,7 @@
   display: grid;
   gap: 18px;
 }
-.planner-filter-fields label {
+.planner-filter-fields label:not(.setting-row) {
   display: grid;
   gap: 8px;
 }
@@ -233,8 +236,12 @@
   padding: 8px 6px;
 }
 .result-search-condition [data-result-date] {
-  font-size: var(--type-caption);
+  font-size: var(--type-secondary);
   color: var(--muted);
+}
+.result-search-condition time {
+  font-size: 1.25rem;
+  font-weight: 650;
 }
 
 .result-order {
@@ -273,7 +280,7 @@
   color: var(--muted);
   font-size: var(--type-caption);
 }
-.planner-form input,
+.planner-form input:not([type="checkbox"]),
 .planner-form select {
   min-width: 0;
   width: 100%;
@@ -686,33 +693,37 @@
 }
 .planner-line {
   position: relative;
-  width: 10px;
+  width: 12px;
+  align-self: stretch;
 }
 .planner-line::before {
   content: "";
   position: absolute;
-  left: 4px;
-  top: 0.55em;
-  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
   width: 4px;
   background: var(--journey-line-color, var(--separator));
 }
 .planner-line::after {
   content: "";
   position: absolute;
-  left: 1px;
-  top: 0.55em;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  top: 50%;
   width: 10px;
   height: 10px;
   border-radius: var(--radius-round);
   background: var(--panel);
   border: 2px solid var(--journey-line-color, var(--blue));
 }
-.planner-leg:last-child .planner-line::before {
-  bottom: -8px;
+.journey-point:first-child .planner-line::before {
+  top: 50%;
 }
 .journey-final .planner-line::before {
-  display: none;
+  top: 0;
+  bottom: 50%;
 }
 .journey-point {
   background: var(--surface-station-row);
@@ -723,9 +734,6 @@
   align-self: stretch;
 }
 .journey-point .planner-line::after {
-  top: calc(50% - 5px);
-}
-.journey-point .planner-line::before {
   top: 50%;
 }
 .journey-station-band {
@@ -792,25 +800,25 @@
   position: relative;
   --journey-line-color: var(--transport-color);
 }
-.planner-clock,
+.planner-leg .planner-clock,
 .journey-departure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   align-self: stretch;
+  gap: 2px;
   width: 100%;
   min-height: 58px;
+  padding: 6px 2px;
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--color-link);
+  color: var(--text-primary);
   text-align: center;
 }
 .journey-departure {
-  align-self: start;
-  width: 100%;
-  min-height: 44px;
-  border: 0;
-  border-radius: var(--radius-compact);
-  background: transparent;
-  color: var(--blue);
+  color: var(--color-link);
 }
 .planner-clock > b,
 .journey-departure > b {
@@ -820,21 +828,12 @@
 .journey-departure > small,
 .planner-clock > small {
   font-size: var(--type-caption);
-  margin-top: 2px;
+  margin: 0;
+  color: var(--text-secondary);
 }
-.journey-departure::before {
-  content: "▴";
-  display: block;
-  font-size: 12px;
-  line-height: 10px;
-}
-.journey-departure::after {
-  content: "▾";
-  display: block;
-  font-size: 12px;
-  line-height: 10px;
-}
-.journey-departure > small {
+.journey-departure > small::after {
+  content: "⌄";
+  margin-inline-start: 4px;
   color: var(--color-link);
 }
 .planner-leg .journey-stop-name {
@@ -1106,28 +1105,35 @@
   font-size: 0.75rem;
 }
 .planner-leg-stops summary {
-  position: absolute;
-  left: 0;
-  top: 18px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
   align-items: center;
-  width: 3.5rem;
-  min-height: 3.5rem;
-  border: 1px solid var(--separator);
-  border-radius: var(--radius-round);
+  justify-content: flex-start;
+  gap: 8px;
+  width: fit-content;
+  min-width: 44px;
+  min-height: 44px;
+  margin-block: 8px;
+  padding: 8px 0;
   color: var(--color-link);
-  font-size: var(--type-body);
+  font-size: var(--type-secondary);
   cursor: pointer;
-  text-align: center;
-  padding: 4px;
+  list-style: none;
+}
+.planner-leg-stops summary::-webkit-details-marker {
+  display: none;
+}
+.planner-leg-stops summary > span:first-child {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
 }
 .planner-leg-stops summary small {
-  display: block;
   margin: 0;
-  font-size: var(--type-caption);
+  font: inherit;
   color: inherit;
+}
+.planner-leg-stops[open] summary > span:last-child {
+  transform: rotate(180deg);
 }
 .planner-leg-stops ol {
   padding: 0;
@@ -1205,9 +1211,15 @@
     grid-column: 2;
     grid-row: 2;
   }
-  .journey-point .planner-line::before,
   .journey-point .planner-line::after {
-    top: 0.55em;
+    top: 1.8rem;
+  }
+  .journey-point:first-child .planner-line::before {
+    top: 1.8rem;
+  }
+  .journey-final .planner-line::before {
+    top: 0;
+    bottom: calc(100% - 1.8rem);
   }
   .journey-station-band {
     flex-wrap: wrap;
@@ -1255,6 +1267,11 @@
   border: 0;
   padding: 0;
   margin: 0;
+}
+.search-operator-options .setting-row {
+  font-size: var(--type-body);
+  color: var(--text-primary);
+  min-height: 60px;
 }
 .search-operator-options legend {
   font-weight: 650;

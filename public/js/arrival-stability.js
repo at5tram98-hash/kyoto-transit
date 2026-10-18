@@ -81,10 +81,12 @@ export function normalizeCongestion(value) {
   if (/空席|すいて|空いて|通常|普通/.test(text)) return "空席あり";
   return "";
 }
+export const busServiceKey = (row) =>
+  `${row.route}|${String(row.dest ?? "").normalize("NFKC")}|${String(row.boarding ?? "").normalize("NFKC")}`;
 export function groupCityBusRows(rows = []) {
   const groups = new Map();
   for (const row of rows) {
-    const key = `${row.route}|${String(row.dest ?? "").normalize("NFKC")}|${String(row.boarding ?? "").normalize("NFKC")}`;
+    const key = busServiceKey(row);
     if (!groups.has(key))
       groups.set(key, {
         ...row,

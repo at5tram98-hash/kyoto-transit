@@ -105,8 +105,7 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
         now - fix.timestamp <= 45000 &&
         fix.timestamp <= now + 5000 &&
         fix.accuracy <= 80 &&
-        station.meters <=
-          Math.min(150, Math.max(90, fix.accuracy * 1.5))
+        station.meters <= Math.min(150, Math.max(90, fix.accuracy * 1.5))
       )
         lastStation = { station, fix: { ...fix }, at: fix.timestamp };
     },
@@ -141,6 +140,15 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       );
       return {
         sources: rows.map((e) => e.type),
+        routeProgress: rows.some(
+          (e) =>
+            e.type === "gps" &&
+            e.confidence >= 0.45 &&
+            !e.metadata?.walkingLikely &&
+            e.metadata?.directionVerified === true &&
+            (e.metadata?.routeTrajectory === true ||
+              Number(e.metadata?.orderedStops ?? 0) >= 2),
+        ),
         confidence: Math.min(1, quality.reduce((a, b) => a + b, 0) / 2),
       };
     },
@@ -200,7 +208,8 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
           (e) => e.type === "audio" && e.metadata?.directionVerified === true,
         ),
         realtimeDirection = matching.some(
-          (e) => e.type === "realtime" && e.metadata?.directionVerified === true,
+          (e) =>
+            e.type === "realtime" && e.metadata?.directionVerified === true,
         ),
         directionVerified =
           routeProgressGps || audioDirection || realtimeDirection;
@@ -257,3 +266,14 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
 }
 
 export const transitEvidenceEngine = createTransitEvidenceEngine();
+// Nearby vehicles and timetable proximity alone are not an invitation to board.
+// This controls unsolicited confirmation UI, not manual boarding or consensus.
+export function shouldOfferRideConfirmation(candidate, support = {}) {
+  if (!candidate || candidate.directionRejected) return false;
+  return Boolean(
+    candidate.armedMatch ||
+      support.routeProgress ||
+      (support.sources?.includes("audio") &&
+        support.sources?.includes("motion")),
+  );
+}
