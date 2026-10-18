@@ -672,6 +672,10 @@ export default {
     '<p class="source-note">推移を表示するための観測データがまだ不足しています。</p>',
   now_navigation_027: "遅延分析",
   now_navigation_028: "地図と現在地",
+  alighting_unselected: "未設定",
+  alighting_choose: "降車地点を選択してください",
+  alighting_select_prompt: "降車地点を選ぶと到着見込みと降車案内を表示します",
+  alighting_select_action: "選択する ›",
   context_sheet_001: "降車停留所と通知",
   context_sheet_002: "降車駅と通知",
   context_sheet_003:
