@@ -678,6 +678,10 @@ export default {
     '<p class="source-note">Not enough observations to show a trend yet.</p>',
   now_navigation_027: "Delay analysis",
   now_navigation_028: "Map and location",
+  alighting_unselected: "Not selected",
+  alighting_choose: "Choose your alighting stop",
+  alighting_select_prompt: "Choose your alighting stop for an arrival estimate and reminders",
+  alighting_select_action: "Choose ›",
   context_sheet_001: "Alighting stop and reminders",
   context_sheet_002: "Alighting station and reminders",
   context_sheet_003:
