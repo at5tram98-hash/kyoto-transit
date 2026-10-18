@@ -1,6 +1,6 @@
 # 注釈改修の比較画像・検証原本
 
-Before: main `7897360` / runtime `39364e6da0fc`。After: runtime `7b1bed25c515`。390×844、Light、文字100%の同一公式便fixtureで比較。地図タイルを含むfixtureの画像は本番の実走画像ではない。地理タイルの実接続は別のreal-map検査、公式運行情報は実HTMLで確認する。
+Before: main `7897360` / runtime `39364e6da0fc`。Afterの最終対象: runtime `48f36473118b`。390×844、Light、文字100%の同一公式便fixtureで比較。地図タイルを含むfixtureの画像は本番の実走画像ではない。地理タイルの実接続は別のreal-map検査、公式運行情報は実HTMLで確認する。
 
 |画面|Before|After|
 |---|---|---|

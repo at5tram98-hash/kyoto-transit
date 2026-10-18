@@ -271,8 +271,7 @@ export const transitEvidenceEngine = createTransitEvidenceEngine();
 export function shouldOfferRideConfirmation(candidate, support = {}) {
   if (!candidate || candidate.directionRejected) return false;
   return Boolean(
-    candidate.armedMatch ||
-      support.routeProgress ||
+    support.routeProgress ||
       (support.sources?.includes("audio") &&
         support.sources?.includes("motion")),
   );

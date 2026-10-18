@@ -1,0 +1,10 @@
+{
+  "browser": "chromium",
+  "layouts": 29,
+  "errors": [],
+  "checks": [
+    "Live interactions: dedicated nearby map zoom/pan and quick tracking preserve viewport; denied location never fabricates a current-position marker; microphone prompt never auto-starts, granted sessions stop at the 60-second limit, cooldown applies, disabling audio assist aborts immediately, and auto-detect off prevents restart",
+    "Annotation audit: borderless navigation; tap versus long-press Quick dropdown; switch geometry; readable result date; centered station dots/rails/clocks; selected-direction animated approach, reload and Back; scheduled subway estimates; settings symbols; 390px Light/Dark 100/150/200%, 661px Light/Dark; real observed-count updates preserve DOM"
+  ],
+  "performance": []
+}

@@ -41,6 +41,14 @@ test("standing near an arriving bus does not solicit a boarding confirmation", (
     false,
   );
   assert.equal(
+    shouldOfferRideConfirmation(
+      { ...candidate, armedMatch: true },
+      { sources: ["gps", "realtime"] },
+    ),
+    false,
+    "planning a route is not evidence of boarding",
+  );
+  assert.equal(
     shouldOfferRideConfirmation(candidate, { routeProgress: true }),
     true,
   );

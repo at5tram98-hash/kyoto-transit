@@ -670,7 +670,11 @@ export function initializeNavigation({
     const [hashPath, query = ""] = location.hash.split("?");
     const [, tab, type, id] = hashPath.split("/");
     const params = { stopId: "" };
-    try { params.stopId = decodeURIComponent(id ?? ""); } catch { /* Invalid links stay at the tab root. */ }
+    try {
+      params.stopId = decodeURIComponent(id ?? "");
+    } catch {
+      /* Invalid links stay at the tab root. */
+    }
     if (type === "arrival-detail")
       params.serviceKey = new URLSearchParams(query).get("service") ?? "";
     if (NAV_TABS.includes(tab)) {
