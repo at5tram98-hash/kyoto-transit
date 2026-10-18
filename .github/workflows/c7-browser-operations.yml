@@ -1,0 +1,29 @@
+name: C-7 focused interaction validation (no deploy)
+on:
+  push:
+    branches:
+      - chat/c7-browser-operations-20261019
+permissions:
+  contents: read
+jobs:
+  browser:
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: C7 real dialog and recovery operations
+        run: npm run test:browser
+        env:
+          BROWSER_C7_ONLY: '1'
+          BROWSER_ENGINE: ${{ matrix.engine }}
+          BROWSER_ARTIFACT_DIR: browser-artifacts/c7-${{ matrix.engine }}
