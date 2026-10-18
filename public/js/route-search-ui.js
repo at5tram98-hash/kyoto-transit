@@ -38,6 +38,7 @@ import {
   updateItineraryRoute,
 } from "./journey-plan.js";
 import { mergeTimetableFeeds } from "./search-core.js";
+import { searchRecoveryOptions, recoveryAction } from "./search-recovery-c6.js";
 import { routeComparison, transferRisk, routeFacts } from "./route-comparison-c2-c5.js";
 import { getCached, putCached } from "./realtime.js";
 import { relevantMissingOperators } from "./arrival-stability.js";
@@ -1159,6 +1160,16 @@ export function mountRouteSearch({
             form.requestSubmit();
           }
         }
+        const recovery = e.target.closest("[data-c6-recovery]");
+        if (recovery) {
+          const kind = recoveryAction(recovery.dataset.c6Recovery);
+          if (!kind) return;
+          if (data?.input) applyInput(data.input);
+          if (kind === "date") openDate(data?.input);
+          else if (kind === "filters") openFilter();
+          else navigation.root("search");
+          return;
+        }
         if (e.target.closest("[data-retry-search]")) {
           applyInput(data?.input);
           form.requestSubmit();
@@ -1606,16 +1617,17 @@ export function mountRouteSearch({
         to.id,
       );
       if (!planned.length) {
+        const missingNote = relevantMissing.length
+          ? ui("route_search_ui_073", [
+              esc(relevantMissing.map(x =>
+                operatorLabel[x.operator] ?? x.operator).join("・")),
+            ])
+          : "";
+        const actions = searchRecoveryOptions(requestInput)
+          .map(option => `<button type="button" class="secondary-action" data-c6-recovery="${esc(option.id)}">${esc(ui(`c6_recovery_${option.id}`))}</button>`)
+          .join("");
         status.innerHTML = ui("route_search_ui_086", [
-          relevantMissing.length
-            ? ui("route_search_ui_073", [
-                esc(
-                  relevantMissing
-                    .map((x) => operatorLabel[x.operator] ?? x.operator)
-                    .join("・"),
-                ),
-              ])
-            : "",
+          missingNote + `<div class="c6-search-recovery" role="group" aria-label="${esc(ui("c6_recovery_title"))}">${actions}</div>`,
         ]);
         return;
       }
