@@ -317,7 +317,9 @@ export function mountRouteSearch({
   shortcuts.innerHTML = `<p class="section-label">${esc(ui("c1_quick_stops"))}</p><div class="planner-quick-buttons">${quickStops.map(stop =>
     `<button type="button" data-c1-quick-stop="${esc(stop.id)}">${esc(stop.name)}</button>`
   ).join("")}</div><p class="source-caption">${esc(ui("c1_quick_note"))}</p>`;
-  form.querySelector(".planner-place-pair").after(shortcuts);
+  // Keep the search action visible above the keyboard. Shortcuts are
+  // supplemental and must never push submit below the first viewport.
+  form.after(shortcuts);
   let activePlaceField = "from";
   form.elements.from.addEventListener("focus", () => activePlaceField = "from");
   form.elements.to.addEventListener("focus", () => activePlaceField = "to");
