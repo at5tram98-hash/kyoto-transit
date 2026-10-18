@@ -128,6 +128,7 @@ export default {
   b7_clear: "手動指定を解除",
   c1_quick_stops: "よく使う駅をワンタップで入力",
   c1_quick_note: "出発地か到着地を選択してから駅をタップ · 経由地・日時もそのまま指定できます",
+  c5_sort_walking: "徒歩順",
   c2_overview: "経路の比較情報",
   c2_fastest: "所要時間が短い",
   c2_fewest: "乗換が少ない",
