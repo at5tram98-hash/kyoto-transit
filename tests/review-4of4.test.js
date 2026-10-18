@@ -18,10 +18,10 @@ test("detected ride candidate requires an explicit second confirmation", () => {
 });
 
 test("ride confirmation is keyed to the selected service, not a stale array index", () => {
-  assert.match(app, /const key = rideKey\(candidate\.ride\)/);
+  assert.match(app, /const key = transitCandidateKey\(candidate\.ride\)/);
   assert.match(
     app,
-    /rideKey\(candidate\.ride\) === b\.dataset\.confirmRideCandidate/,
+    /transitCandidateKey\(candidate\.ride\) === b\.dataset\.confirmRideCandidate/,
   );
 });
 

@@ -1,0 +1,26 @@
+name: B-2–B-5 verification (no deploy)
+on:
+  push:
+    branches:
+      - chat/b5-nearby-grouping-20261019
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser layout and interactions
+        run: npm run test:browser
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/b2-b5

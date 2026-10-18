@@ -1,3 +1,4 @@
+import { motionPolicy, navigationTravel } from "./motion-policy-d3.js";
 // One vocabulary for hierarchy, presentation and meaningful data changes.
 export const motionTokens = Object.freeze({
   fast: 160,
@@ -11,14 +12,29 @@ export const reducedMotion = () =>
   globalThis.document?.documentElement.dataset.reduceMotion === "true" ||
   (globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
     false);
+const activeMotions = new WeakMap();
 async function run(element, frames, duration, easing = motionTokens.easing) {
-  if (!element || document.hidden) return;
-  const animation = element.animate(frames, { duration, easing, fill: "both" });
+  if (!element) return;
+  const prior = activeMotions.get(element);
+  if (prior) prior.cancel();
+  const policy = motionPolicy({
+    reduced: reducedMotion(), hidden: Boolean(globalThis.document?.hidden), duration,
+  });
+  if (!policy.animate || typeof element.animate !== "function") {
+    activeMotions.delete(element);
+    return;
+  }
+  const animation = element.animate(frames, {
+    duration: policy.duration, easing, fill: "both",
+  });
+  activeMotions.set(element, animation);
   try {
     await animation.finished;
   } catch {
+    // A newer state or a navigation interruption owns the updated surface.
   } finally {
     animation.cancel();
+    if (activeMotions.get(element) === animation) activeMotions.delete(element);
   }
 }
 export async function transition(outgoing, incoming, kind, width) {
@@ -37,6 +53,7 @@ export async function transition(outgoing, incoming, kind, width) {
     return;
   }
   const push = kind === "push";
+  width = navigationTravel(width);
   incoming.style.zIndex = push ? "3" : "1";
   outgoing.style.zIndex = push ? "1" : "3";
   const shadow = "-6px 0 20px rgba(0,0,0,.12)";

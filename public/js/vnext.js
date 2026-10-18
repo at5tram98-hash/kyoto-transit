@@ -1,6 +1,10 @@
 import { clearFalseRide } from "./vnext-detect.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
 import { ui } from "./locale.js";
+import { rideConfirmationFacts } from "./ride-confirmation-facts.js";
+import { nextSidebarTabIndex } from "./desktop-tabs-d4.js";
+import { transitEvidenceEngine, transitCandidateKey } from "./transit-evidence.js";
+import { formatMinute } from "./vnext-core.js";
 import { mountLiveHome } from "./live-home.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { createNetwork } from "./network.js";
@@ -139,18 +143,58 @@ function setTab(tab) {
 function openRideCandidateConfirmation(index) {
   const candidate = state.rideCandidates[Number(index)];
   if (!candidate) return;
-  const key = rideKey(candidate.ride);
+  const key = transitCandidateKey(candidate.ride);
+  const fact = rideConfirmationFacts(
+    candidate, transitEvidenceEngine.support(candidate.ride)
+  );
+  const stage = ui({
+    "route-verified": "b2_confirm_route",
+    motion: "b2_confirm_motion",
+    "not-verified": "b2_confirm_unverified",
+  }[fact.stage]);
+  const row = (label, value) =>
+    `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`;
+  const details = [
+    row(ui("b2_confirm_from"), fact.boarding ?? ui("b2_confirm_unset")),
+    row(ui("b2_confirm_departure"), Number.isFinite(fact.departure)
+      ? formatMinute(fact.departure) : "—"),
+    row(ui("b2_confirm_alight"), fact.alighting ?? ui("b2_confirm_unset")),
+  ].join("");
   openContextSheet(
-    ui("navigation_005"),
-    `<section class="section-block ride-confirmation"><span class="section-label">${esc(serviceName(candidate.ride))}</span><h2>${esc(candidate.ride.destination ?? "")}</h2><p class="source-note">${esc(candidate.source ?? "")}</p><div class="screen-action-group"><button type="button" class="primary-action" data-confirm-ride-candidate="${esc(key)}">${ui("route_search_ui_036")}</button><button type="button" class="secondary-action" data-context-close>${ui("static_close")}</button></div></section>`,
+    ui("b2_confirm_board"),
+    `<section class="section-block ride-confirmation" data-confirmation-stage="${esc(fact.stage)}"><span class="section-label">${esc(serviceName(candidate.ride))}</span><h2>${esc(fact.destination ?? ui("vnext_view_049"))}</h2><p class="source-note" role="status">${esc(stage)}</p><dl class="context-facts">${details}</dl><details class="confidence"><summary>${esc(ui("b2_confirm_source"))}</summary><p>${esc(fact.source)}</p>${fact.score === null ? "" : `<p>${esc(ui("b2_confirm_score"))}: ${fact.score}/100</p>`}</details><p class="source-caption">${esc(ui("b2_confirm_explain"))}</p><div class="screen-action-group"><button type="button" class="primary-action" data-confirm-ride-candidate="${esc(key)}">${esc(ui("b2_confirm_start"))}</button><button type="button" class="secondary-action" data-context-close>${ui("static_close")}</button></div></section>`,
   );
 }
 function setupEvents() {
   setupNowInteractions();
   setupContextSheet(renderNow, openFoldback);
-  $(".tabbar").addEventListener("click", (e) => {
+  const tabbar = $(".tabbar");
+  tabbar.addEventListener("click", (e) => {
     const b = e.target.closest("[data-tab]");
     if (b) setTab(b.dataset.tab);
+  });
+  tabbar.addEventListener("keydown", (e) => {
+    if (!matchMedia("(min-width: 1024px) and (pointer: fine)").matches ||
+        e.altKey || e.ctrlKey || e.metaKey || e.shiftKey ||
+        !(e.target instanceof Element)) return;
+    const focused = e.target.closest(".tab-button[data-tab]");
+    if (!focused) return;
+    const tabs = [...tabbar.querySelectorAll(".tab-button[data-tab]")];
+    const next = nextSidebarTabIndex(e.key, tabs.indexOf(focused), tabs.length);
+    if (next === null) return;
+    e.preventDefault();
+    const destination = tabs[next];
+    // Navigation intentionally focuses new screen content. Keyboard
+    // navigation from the desktop rail instead keeps the rail as the
+    // interaction context, including after the asynchronous transition.
+    document.addEventListener("mymap-navigation-change", () => {
+      if (destination.isConnected &&
+          navigation.tab === destination.dataset.tab &&
+          matchMedia("(min-width: 1024px) and (pointer: fine)").matches)
+        destination.focus({ preventScroll: true });
+    }, { once: true });
+    destination.focus({ preventScroll: true });
+    destination.click();
   });
   document.addEventListener("click", async (e) => {
     const b = e.target.closest("button");
@@ -227,7 +271,7 @@ function setupEvents() {
       renderNow();
     } else if (b.dataset.confirmRideCandidate !== undefined) {
       const index = state.rideCandidates.findIndex(
-        (candidate) => rideKey(candidate.ride) === b.dataset.confirmRideCandidate,
+        (candidate) => transitCandidateKey(candidate.ride) === b.dataset.confirmRideCandidate,
       );
       if (index >= 0 && confirmRideCandidate(index)) {
         $("#context-sheet")?.close();

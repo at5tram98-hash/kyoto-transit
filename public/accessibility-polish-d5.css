@@ -1,0 +1,64 @@
+/* D-5: Accessible finish of the existing interface.
+   These styles enhance the established design system rather than replace it. */
+.settings-home-group {
+  margin-block-end: 20px;
+}
+.settings-home-group .native-section-label {
+  margin-block: 18px 8px;
+  letter-spacing: 0.015em;
+  line-height: 1.5;
+}
+.settings-home-group .native-row {
+  min-height: 52px;
+  height: auto;
+  padding-block: 10px;
+}
+.settings-home-group .native-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.navigation-app :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+html[data-high-contrast="true"] .settings-home-group .native-list {
+  outline: 1px solid var(--text);
+}
+html[data-high-contrast="true"] .settings-home-group .native-row + .native-row {
+  border-top-color: var(--text);
+}
+html[data-high-contrast="true"] .navigation-app
+  :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
+@media (prefers-contrast: more) {
+  .navigation-app :is(button, a, input, select, textarea, summary):focus-visible {
+    outline: 3px solid var(--text);
+    outline-offset: 3px;
+  }
+}
+html[data-large-text="true"] .settings-home-group .native-row {
+  min-height: 56px;
+  line-height: 1.5;
+}
+html[data-large-text="true"] .tabbar .tab-button span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+@media (min-width: 1024px) and (pointer: fine) {
+  html[data-large-text="true"] .tabbar .tab-button {
+    min-height: 56px;
+    height: auto;
+    padding-block: 8px;
+  }
+  html[data-large-text="true"] .tabbar .tab-button span {
+    text-align: start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-home-group, .settings-home-group *, .tabbar .tab-button {
+    scroll-behavior: auto;
+  }
+}

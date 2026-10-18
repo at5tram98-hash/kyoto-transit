@@ -3,11 +3,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      defer_extended_checks:
-        description: 'Publish immediately using prior verification; defer extended checks'
-        type: boolean
-        default: false
 permissions:
   contents: read
   pages: read
@@ -16,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.release.outputs.version }}
@@ -26,18 +22,18 @@ jobs:
           node-version: '22'
       - run: npm ci --ignore-scripts
       - run: npm run check
-        if: ${{ !inputs.defer_extended_checks }}
+
       - run: npm test
-        if: ${{ !inputs.defer_extended_checks }}
+
       - run: npm run build
       - name: Record release version
         id: release
         run: node --input-type=module -e 'import {readFileSync,appendFileSync} from "node:fs"; const version=readFileSync("dist/sw.js","utf8").match(/const VERSION = "([a-f0-9]{12})"/)[1]; appendFileSync(process.env.GITHUB_OUTPUT,`version=${version}\n`);'
       - name: Install browsers for UI regression checks
-        if: ${{ !inputs.defer_extended_checks }}
+
         run: npx playwright install --with-deps chromium webkit
       - name: Check responsive UI and journeys in WebKit
-        if: ${{ !inputs.defer_extended_checks }}
+
         run: |
           npm run test:browser
           npm run test:pwa
@@ -45,14 +41,14 @@ jobs:
           BROWSER_ENGINE: webkit
           BROWSER_ARTIFACT_DIR: browser-artifacts/webkit
       - name: Check responsive UI and journeys in Chromium
-        if: ${{ !inputs.defer_extended_checks }}
+
         run: |
           npm run test:browser
           npm run test:pwa
         env:
           BROWSER_ARTIFACT_DIR: browser-artifacts/chromium
       - name: Check real geographical basemap
-        if: ${{ !inputs.defer_extended_checks }}
+
         run: npm run test:browser
         env:
           BROWSER_SPEC_ONLY: '1'
@@ -66,14 +62,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - name: Worker dry-run bundle
-        if: ${{ !inputs.defer_extended_checks }}
+
         run: |
           mkdir -p worker-dist
           npx wrangler deploy --dry-run --outfile worker-dist/worker.js --config worker/wrangler.jsonc
           test -s worker-dist/worker.js
           test $(wc -c < worker-dist/worker.js) -gt 100000
       - uses: actions/upload-artifact@v4
-        if: ${{ !inputs.defer_extended_checks }}
+
         with:
           name: worker-bundle
           path: worker-dist/worker.js
@@ -98,7 +94,6 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
   verify-production:
-    if: ${{ !inputs.defer_extended_checks }}
     name: 公開済みサイト・実運行APIの接続確認
     needs: [build, deploy]
     runs-on: ubuntu-latest

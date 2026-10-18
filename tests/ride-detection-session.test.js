@@ -196,6 +196,7 @@ test("a rejected current ride remains in the pool but cannot hide a strongly sup
     metadata: {
       directionVerified: true,
       routeTrajectory: true,
+      vehicleMoving: true,
       walkingLikely: false,
     },
   });

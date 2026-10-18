@@ -109,3 +109,46 @@ test("motion-less repeated station audio never triggers unsolicited ride confirm
     shouldOfferRideConfirmation({ride,score:90},engine.support(ride,now)),true,
   );
 });
+
+test("a single GPS teleport or unstable zigzag is not validated train movement", () => {
+  const teleport = [
+    locations[0],
+    { ...locations[1], lat: 35.025 },
+    locations[2],
+  ];
+  const result = assessBoardingMovement(teleport, evidence, now);
+  assert.equal(result.moving, false);
+  assert.equal(result.routeTrajectory, false);
+});
+
+test("GPS drift against zero device speed is not boarding", () => {
+  const drifting = locations.map((point) => ({ ...point, speed: 0 }));
+  assert.equal(assessBoardingMovement(drifting, evidence, now).moving, false);
+});
+
+test("matching platform announcement and stationary direction cannot auto-board", () => {
+  const engine = createTransitEvidenceEngine();
+  add(engine, "timetable");
+  add(engine, "audio", { directionVerified: true });
+  add(engine, "gps", {
+    directionVerified: true,
+    routeTrajectory: true,
+    vehicleMoving: false,
+    walkingLikely: false,
+  });
+  assert.equal(engine.support(ride, now).routeProgress, false);
+  assert.equal(engine.evaluate([{ ride, score: 90 }], now).confirmed, null);
+});
+
+test("walking GPS along the line plus audio does not count as rail travel", () => {
+  const engine = createTransitEvidenceEngine();
+  add(engine, "timetable");
+  add(engine, "audio", { directionVerified: true });
+  add(engine, "gps", {
+    directionVerified: true,
+    routeTrajectory: true,
+    vehicleMoving: true,
+    walkingLikely: true,
+  });
+  assert.equal(engine.evaluate([{ ride, score: 90 }], now).confirmed, null);
+});

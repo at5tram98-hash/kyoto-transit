@@ -1,0 +1,26 @@
+name: B-6 B-7 C-1 verification (no deploy)
+on:
+  push:
+    branches:
+      - chat/c1-search-input-20261019
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser journey and route search checks
+        run: npm run test:browser
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/b6-b7-c1

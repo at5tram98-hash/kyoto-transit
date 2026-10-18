@@ -4,6 +4,9 @@ import { completionChecks } from "./completion-browser-checks.mjs";
 import { liveInteractionChecks } from "./live-browser-checks.mjs";
 import { yahooScreenChecks } from "./yahoo-browser-checks.mjs";
 import { v3RedesignChecks } from "./v3-browser-checks.mjs";
+import { c7BrowserChecks } from "./c7-browser-checks.mjs";
+import { d3BrowserChecks } from "./d1-d3-browser-checks.mjs";
+import { dQualityChecks } from "./d-quality-browser-checks.mjs";
 // Real browser checks with deterministic upstream fixtures. These do not
 // certify the availability or accuracy of production transport providers.
 import assert from "node:assert/strict";
@@ -1559,6 +1562,16 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 }
 
 try {
+  if (process.env.BROWSER_C7_ONLY === "1") {
+    await c7BrowserChecks({open, searchScreen, submitSearch, settleNavigation, summary});
+  }
+  if (process.env.BROWSER_D3_ONLY === "1") {
+    await d3BrowserChecks({open, settleNavigation, summary});
+  }
+  if (process.env.BROWSER_D_QUALITY_ONLY === "1") {
+    await dQualityChecks({open, settleNavigation, summary});
+  }
+  if (process.env.BROWSER_C7_ONLY !== "1" && process.env.BROWSER_D3_ONLY !== "1" && process.env.BROWSER_D_QUALITY_ONLY !== "1") {
   if (
     process.env.BROWSER_SMARTLIVE_ONLY === "1" ||
     !Object.keys(process.env).some(
@@ -3300,6 +3313,7 @@ try {
         "PDF v1.1 LCD hero, both Takeda directions, both North 3 directions, 100–200% text sizing, station/delay sheets, 44px touch targets",
       );
     }
+  }
   }
   summary.performance = report;
   await writeFile(

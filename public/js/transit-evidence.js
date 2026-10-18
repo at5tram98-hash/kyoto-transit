@@ -157,8 +157,6 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
             e.confidence >= 0.45 &&
             !e.metadata?.walkingLikely &&
             e.metadata?.vehicleMoving === true &&
-            e.metadata?.vehicleMoving === true &&
-            !e.metadata?.walkingLikely &&
             e.metadata?.directionVerified === true &&
             (e.metadata?.routeTrajectory === true ||
               Number(e.metadata?.orderedStops ?? 0) >= 2),
@@ -214,6 +212,9 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       const routeProgressGps = matching.some(
           (e) =>
             e.type === "gps" &&
+            e.metadata?.rejected !== true &&
+            e.metadata?.walkingLikely !== true &&
+            e.metadata?.vehicleMoving === true &&
             e.metadata?.directionVerified === true &&
             (e.metadata?.routeTrajectory === true ||
               Number(e.metadata?.orderedStops ?? 0) >= 2),

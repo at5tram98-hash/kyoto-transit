@@ -3,7 +3,11 @@ import {
   shouldOfferRideConfirmation,
 } from "./transit-evidence.js";
 import { groupNearbyPlaces } from "./transit-places.js";
+import { orderNearbyPlaces } from "./nearby-sort-b6.js";
+import { manualNearbyRows, manualReferenceOptions } from "./manual-nearby-b7.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
+import { detectionDisplayState } from "./detection-status-b3.js";
+import { createAlightingNotifier } from "./alighting-notifier-b4.js";
 import { ui } from "./locale.js";
 import {
   groupCityBusRows,
@@ -28,6 +32,7 @@ import {
   rideKey,
   ensureSubwayFeed,
   toast,
+  haptic,
 } from "./vnext-state.js";
 import { updateRideAnchor } from "./vnext-detect.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
@@ -58,6 +63,7 @@ import {
 } from "./journey-core.js";
 
 const stopSources = new WeakMap();
+const alightingNotifier = createAlightingNotifier();
 let context = null,
   nearbyRequest = null,
   nearbyAttempt = 0;
@@ -425,9 +431,18 @@ export function renderNow() {
   $("#now-search").hidden = Boolean(state.armedJourney || state.itinerary);
   updateHTML($("#ride-actions"), "");
   $("#now-search").dispatchEvent(new Event("mymap-now-context"));
+  const detectionPhase = detectionDisplayState({
+    phase: session.phase,
+    locationStatus: state.locationStatus,
+    autoDetect: settings.autoDetect !== false,
+    hidden: document.hidden,
+    candidates: state.rideCandidates.length,
+    moving: Number.isFinite(motion.speed) && motion.speed >= 2.8,
+  });
+  const detectionStatus = `<p class="source-note detection-stage" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
   updateHTML(
     vehicle,
-    `${state.rideCandidates.length ? `<p class="source-note" data-detection-status role="status">${ui(rideDetectionSession.snapshot().phase === "confirming" ? "smartlive_confirming" : "smartlive_searching")}</p>` : ""}${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    `${detectionStatus}${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
@@ -455,21 +470,60 @@ export function renderNow() {
         state.locationStatus === "active" &&
         !document.hidden,
     );
-  const nearby = near.all
-    .filter(
-      (s) =>
-        s.meters <=
-        (s.stop.type.includes("bus") ? 500 : settings.railGuideDistance),
-    )
-    .filter((s, i, a) => a.findIndex((x) => x.id === s.id) === i)
+  const manualId = navigation.recalled("manual-nearby") ?? "";
+  const manualRows = manualId && state.locationStatus !== "active"
+    ? manualNearbyRows(manualId, state.network, state.geo)
+    : [];
+  const nearbySource = manualRows.length ? manualRows : near.all;
+  const nearbyRows = nearbySource.filter(
+    (s) =>
+      s.meters <=
+      (s.stop.type.includes("bus") ? 500 : settings.railGuideDistance),
+  ).slice(0, 80);
+  // Four *places*, not four operator/stop rows. Keep subway, Kintetsu,
+  // and bus entry points together instead of hiding the fourth operator.
+  const places = groupNearbyPlaces(nearbyRows, state.geo);
+  const sortMode = navigation.recalled("nearby-sort") ?? "distance";
+  const nextDeparture = (row) => {
+    const feeds = [state.subwayFeed, nearbyRailFeed];
+    const dates = tokyoNow();
+    let earliest = Infinity;
+    for (const feed of feeds) for (const service of feed?.services ?? []) {
+      const index = service.stops?.indexOf(row.id) ?? -1;
+      if (index < 0) continue;
+      for (const trip of service.trips ?? []) {
+        if (trip.date && trip.date !== dates.date) continue;
+        const time = trip.departures?.[index] ?? trip.arrivals?.[index];
+        if (Number.isFinite(time) && time >= dates.minute)
+          earliest = Math.min(earliest, time);
+      }
+    }
+    return earliest;
+  };
+  const nearbyPlaces = orderNearbyPlaces(places, sortMode, {nextDeparture})
     .slice(0, 4);
-  if (nearby.some((s) => s.stop.type === "subway")) requestNearbyFeed();
+  if (nearbyPlaces.some((place) =>
+    place.rows.some((s) => s.stop.type === "subway")
+  )) requestNearbyFeed();
+  const sortOptions = [
+    ["distance", ui("b6_sort_distance")],
+    ["departure", ui("b6_sort_departure")],
+    ["operator", ui("b6_sort_operator")],
+  ].map(([value, label]) =>
+    `<button type="button" data-nearby-sort="${value}" aria-pressed="${sortMode === value}">${esc(label)}</button>`
+  ).join("");
+  const sortControl = `<div class="nearby-sort" role="group" aria-label="${esc(ui("b6_sort_label"))}">${sortOptions}</div>`;
+  const manualOptions = state.network && state.geo ?
+    manualReferenceOptions(state.network, state.geo,
+      navigation.recalled("manual-nearby-query") ?? "", 12) : [];
+  const manualPicker = state.locationStatus === "active" ? "" :
+    `<section class="manual-nearby-picker"><label for="manual-nearby-search">${esc(ui("b7_reference"))}</label><input id="manual-nearby-search" type="search" value="${esc(navigation.recalled("manual-nearby-query") ?? "")}" placeholder="${esc(ui("b7_search_placeholder"))}" autocomplete="off"/><div class="manual-nearby-options">${manualOptions.map(x=>`<button type="button" data-manual-nearby-stop="${esc(x.id)}">${esc(x.name)} · ${esc(x.type)}</button>`).join("")}</div>${manualRows.length ? `<p role="status">${esc(ui("b7_selected", [state.network.stops.get(manualId).name]))}</p><button type="button" data-manual-nearby-clear>${esc(ui("b7_clear"))}</button>` : ""}</section>`;
   const arrivalsEntry = ui("vnext_view_057");
   updateNearbyPanel(
     nearPanel,
-    (nearby.length
+    manualPicker + (nearbyPlaces.length
       ? ui("vnext_view_109", [
-          groupNearbyPlaces(nearby, state.geo)
+          sortControl + nearbyPlaces
             .map(
               (place) =>
                 `<section data-nearby-place="${esc(
@@ -496,7 +550,16 @@ export function renderNow() {
                         citybus: ui("vnext_view_060"),
                         kyotobus: ui("vnext_view_061"),
                       }[s.stop.type] ?? ui("vnext_view_062"),
-                      esc(s.stop.name),
+                      esc(
+                        place.rows.length > 1
+                          ? ({
+                              subway: ui("vnext_view_058"),
+                              kintetsu: ui("vnext_view_059"),
+                              citybus: ui("vnext_view_060"),
+                              kyotobus: ui("vnext_view_061"),
+                            }[s.stop.type] ?? s.stop.name)
+                          : s.stop.name,
+                      ),
                       esc(s.stop.lines?.join("・") ?? ""),
                       Math.max(1, Math.ceil(s.meters / 70)),
                       Math.round(s.meters),
@@ -599,26 +662,35 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
       progress.currentIndex < 0 ? -1 : progress.currentIndex + offset,
   };
   const analysis = delayAnalysis(model, state.delayHistory);
-  if (settings.alightAssist !== false && model.userDestination && model.nextIsDestination && (bus || model.locationConfidence === "available")) {
-    const key = `${rideKey(ride)}|${model.userDestination?.id}`;
-    if (key !== lastAlertKey) {
-      lastAlertKey = key;
-      const message =
-        model.phase === "STOPPED"
-          ? ui("vnext_view_066", [model.userDestination?.name])
-          : ui("vnext_view_067", [model.userDestination?.name]);
-      toast(message);
-      if (
-        settings.notifications &&
-        globalThis.Notification?.permission === "granted"
-      ) {
-        try {
-          new Notification(ui("vnext_view_068"), {
-            body: message,
-            tag: "mymap-alight",
-          });
-        } catch {}
-      }
+  const alightingStage = alightingNotifier.evaluate({
+    key: `${rideKey(ride)}|${model.userDestination?.id ?? ""}`,
+    selectedStop: model.userDestination?.id,
+    displayedStop: model.nextStation?.id,
+    nextIsDestination: model.nextIsDestination,
+    stopped: model.phase === "STOPPED" &&
+      progress.source === "location" &&
+      stops[progress.currentIndex]?.id === model.userDestination?.id,
+    locationConfirmed: model.locationConfidence === "available" &&
+      progress.source === "location" &&
+      (model.phase === "STOPPED" ||
+        (Number.isFinite(model.minutes) && model.minutes <= 5)),
+    enabled: settings.alightAssist !== false,
+  });
+  if (alightingStage) {
+    const message = ui(
+      alightingStage === "arrived" ? "vnext_view_066" : "vnext_view_067",
+      [model.userDestination.name],
+    );
+    haptic();
+    toast(message);
+    if (settings.notifications &&
+        globalThis.Notification?.permission === "granted") {
+      try {
+        new Notification(ui("vnext_view_068"), {
+          body: message,
+          tag: `mymap-alight-${alightingStage}`,
+        });
+      } catch {}
     }
   }
 
@@ -725,11 +797,28 @@ function timeline(stops, progress, minute, shift, bus, ride) {
   return `<ol class="stop-list journey-stop-list">${stops.map((s, i) => timelineRow(s, { index: i, progress, minute, shift, bus, ride })).join("")}</ol>`;
 }
 let lastTrackIndex = null,
-  manualScrollUntil = 0,
-  lastAlertKey = null;
+  manualScrollUntil = 0;
 export function setupNowInteractions() {
   setupRouteMaps();
   $("#nearby-panel").addEventListener("click", (event) => {
+    const manualStop = event.target.closest("[data-manual-nearby-stop]");
+    if (manualStop) {
+      navigation.remember("manual-nearby", manualStop.dataset.manualNearbyStop);
+      renderNow();
+      return;
+    }
+    if (event.target.closest("[data-manual-nearby-clear]")) {
+      navigation.remember("manual-nearby", "");
+      navigation.remember("manual-nearby-query", "");
+      renderNow();
+      return;
+    }
+    const sort = event.target.closest("[data-nearby-sort]");
+    if (sort) {
+      navigation.remember("nearby-sort", sort.dataset.nearbySort);
+      renderNow();
+      return;
+    }
     const button = event.target.closest("[data-live-direction]");
     if (!button) return;
     const values = navigation.recalled("live-directions") ?? {};
@@ -743,6 +832,15 @@ export function setupNowInteractions() {
       ]),
     );
     renderNow();
+  });
+  $("#nearby-panel").addEventListener("input", (event) => {
+    if (event.target.id !== "manual-nearby-search") return;
+    const input = event.target, value = input.value, cursor = input.selectionStart;
+    navigation.remember("manual-nearby-query", value);
+    renderNow();
+    const restored = $("#manual-nearby-search");
+    restored?.focus();
+    if (Number.isInteger(cursor)) restored?.setSelectionRange(cursor, cursor);
   });
   document.addEventListener("mymap-arrivals-updated", () => {
     if (!state.ride) renderNow();
@@ -806,7 +904,7 @@ function renderHero(root, html, model) {
   if (compact && !current.classList.contains("compact"))
     current.querySelector(".station-overview")?.removeAttribute("open");
   current.className = next.className;
-  for (const key of ["operator", "trainState", "phase", "line"])
+  for (const key of ["operator", "trainState", "phase", "line", "railPhase"])
     current.dataset[key] = next.dataset[key];
   for (const selector of [
     ".route-header",

@@ -1,0 +1,35 @@
+name: A-5 through-service verification (no deploy)
+on:
+  push:
+    branches:
+      - chat/a5-through-continuity-20261019
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Chromium responsive and journey checks
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/a5-chromium
+      - name: WebKit responsive and journey checks
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ENGINE: webkit
+          BROWSER_ARTIFACT_DIR: browser-artifacts/a5-webkit

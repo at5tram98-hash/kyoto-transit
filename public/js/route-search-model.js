@@ -100,7 +100,9 @@ export function sortedRouteIndexes(routes, order = "arrival") {
       const x = routes[a],
         y = routes[b];
       return (
-        (order === "fare"
+        (order === "walking"
+          ? x.legs.filter(l=>l.kind==="walk").reduce((s,l)=>s+(l.minutes??0),0) - y.legs.filter(l=>l.kind==="walk").reduce((s,l)=>s+(l.minutes??0),0) || x.time - y.time
+          : order === "fare"
           ? fare(x) - fare(y) || x.time - y.time
           : order === "transfers"
             ? x.transfers - y.transfers || x.time - y.time

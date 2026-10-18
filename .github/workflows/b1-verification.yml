@@ -1,0 +1,31 @@
+name: B-1 rail hero validation (no deployment)
+on:
+  push:
+    branches:
+      - chat/b1-rail-next-display-20261019
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Chromium journey and layout
+        run: npm run test:browser
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/b1-chromium
+      - name: WebKit journey and layout
+        run: npm run test:browser
+        env:
+          BROWSER_ENGINE: webkit
+          BROWSER_ARTIFACT_DIR: browser-artifacts/b1-webkit

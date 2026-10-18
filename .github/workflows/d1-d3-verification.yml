@@ -1,0 +1,29 @@
+name: D-1 to D-3 quality gate (no deploy)
+on:
+  push:
+    branches:
+      - chat/d3-motion-quality-20261019
+permissions:
+  contents: read
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: Desktop Settings and reduced-motion interactions
+        run: npm run test:browser
+        env:
+          BROWSER_D3_ONLY: '1'
+          BROWSER_ENGINE: ${{ matrix.engine }}
+          BROWSER_ARTIFACT_DIR: browser-artifacts/d3-${{ matrix.engine }}

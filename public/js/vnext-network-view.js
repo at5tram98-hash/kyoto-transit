@@ -8,6 +8,7 @@ import {
 } from "./saved-places.js";
 import { readSearchPairs, removeSearchPair } from "./search-history.js";
 import { navigation } from "./navigation.js";
+import { groupSettingsRows } from "./settings-hierarchy-d1.js";
 import { journeyProgress } from "./journey-core.js";
 import { subwayIds, kintetsuIds } from "./network.js";
 import {
@@ -242,23 +243,26 @@ export function renderSettings(
     };
     const row = (id, title, saved = false) =>
       `<button class="native-row settings-menu-row" ${saved ? "data-saved-page" : "data-setting-page"}="${id}"><span class="settings-menu-symbol">${icon(saved && id === "routes" ? "map" : (symbols[id] ?? "map"))}</span><span>${title}</span><span class="chevron">›</span></button>`;
-    root.innerHTML = ui("vnext_network_view_086", [
-      row("pass", ui("vnext_network_view_029")),
-      row("distance", ui("vnext_network_view_030")),
-      row("notifications", ui("vnext_network_view_031")),
-      row("auto", ui("vnext_network_view_032")),
-      row("location", ui("vnext_network_view_033")),
-      row("display", ui("vnext_network_view_034")) +
-        row("accessibility", ui("setting_accessibility")),
-      row("routes", ui("vnext_network_view_035")),
-      row("info", ui("vnext_network_view_036")),
-      row("privacy", ui("vnext_network_view_037")),
-      row("terms", ui("vnext_network_view_038")),
-      row("advanced", ui("vnext_network_view_039")),
-      row("permissions", ui("vnext_network_view_040")),
-      row("places", ui("settings_saved_places"), true),
-      row("routes", ui("settings_saved_routes"), true),
-    ]);
+    const entries = [
+      ["pass", row("pass", ui("vnext_network_view_029"))],
+      ["distance", row("distance", ui("vnext_network_view_030"))],
+      ["notifications", row("notifications", ui("vnext_network_view_031"))],
+      ["auto", row("auto", ui("vnext_network_view_032"))],
+      ["location", row("location", ui("vnext_network_view_033"))],
+      ["display", row("display", ui("vnext_network_view_034")) +
+        row("accessibility", ui("setting_accessibility"))],
+      ["routes", row("routes", ui("vnext_network_view_035"))],
+      ["info", row("info", ui("vnext_network_view_036"))],
+      ["privacy", row("privacy", ui("vnext_network_view_037"))],
+      ["terms", row("terms", ui("vnext_network_view_038"))],
+      ["advanced", row("advanced", ui("vnext_network_view_039"))],
+      ["permissions", row("permissions", ui("vnext_network_view_040"))],
+      ["saved-places", row("places", ui("settings_saved_places"), true)],
+      ["saved-routes", row("routes", ui("settings_saved_routes"), true)],
+    ];
+    root.innerHTML = groupSettingsRows(entries).map((group) =>
+      `<section class="settings-home-group" data-settings-group="${group.id}"><h2 class="native-section-label">${esc(ui(`d1_group_${group.id}`))}</h2><div class="native-list">${group.rows.map(r=>r.html).join("")}</div></section>`
+    ).join("");
     return;
   }
   if (category === "privacy") {

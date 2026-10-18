@@ -1,0 +1,29 @@
+name: D-4 D-5 accessibility and visual verification (no deploy)
+on:
+  push:
+    branches:
+      - chat/d5-accessibility-polish-20261019
+permissions:
+  contents: read
+jobs:
+  responsive:
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: D4/D5 keyboard and accessibility browser verification
+        run: npm run test:browser
+        env:
+          BROWSER_ENGINE: ${{ matrix.engine }}
+          BROWSER_D_QUALITY_ONLY: '1'
+          BROWSER_ARTIFACT_DIR: browser-artifacts/d5-${{ matrix.engine }}

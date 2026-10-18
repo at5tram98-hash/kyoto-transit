@@ -14,6 +14,7 @@ import {
   removeSearchPair,
 } from "./search-history.js";
 import { mountStopAutocomplete } from "./stop-autocomplete.js";
+import { quickSearchStops, chooseQuickSearchStop } from "./search-shortcuts-c1.js";
 import {
   resolveStop,
   sortedRouteIndexes,
@@ -37,6 +38,8 @@ import {
   updateItineraryRoute,
 } from "./journey-plan.js";
 import { mergeTimetableFeeds } from "./search-core.js";
+import { searchRecoveryOptions, recoveryAction } from "./search-recovery-c6.js";
+import { routeComparison, transferRisk, routeFacts } from "./route-comparison-c2-c5.js";
 import { getCached, putCached } from "./realtime.js";
 import { relevantMissingOperators } from "./arrival-stability.js";
 import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
@@ -308,6 +311,30 @@ export function mountRouteSearch({
   ]);
   const inlineStatus = root.querySelector("#search-inline-status"),
     form = root.querySelector("#planner-form");
+  const quickStops = quickSearchStops(network);
+  const shortcuts = document.createElement("section");
+  shortcuts.className = "planner-quick-stops";
+  shortcuts.setAttribute("aria-label", ui("c1_quick_stops"));
+  shortcuts.innerHTML = `<p class="section-label">${esc(ui("c1_quick_stops"))}</p><div class="planner-quick-buttons">${quickStops.map(stop =>
+    `<button type="button" data-c1-quick-stop="${esc(stop.id)}">${esc(stop.name)}</button>`
+  ).join("")}</div><p class="source-caption">${esc(ui("c1_quick_note"))}</p>`;
+  // Keep the search action visible above the keyboard. Shortcuts are
+  // supplemental and must never push submit below the first viewport.
+  form.after(shortcuts);
+  let activePlaceField = "from";
+  form.elements.from.addEventListener("focus", () => activePlaceField = "from");
+  form.elements.to.addEventListener("focus", () => activePlaceField = "to");
+  shortcuts.addEventListener("click", e => {
+    const button = e.target.closest("[data-c1-quick-stop]");
+    if (!button) return;
+    const stop = network.stops.get(button.dataset.c1QuickStop);
+    if (!stop) return;
+    chooseQuickSearchStop(form,
+      {id:stop.id,name:displayStopName(stop)},activePlaceField);
+    navigation.remember("search-input", captureInput());
+    const next = activePlaceField === "from" ? "to" : "from";
+    if (!form.elements[next].value) form.elements[next].focus();
+  });
   function makeSearchSheet(id, title, body) {
     const dialog = document.createElement("dialog");
     dialog.id = id;
@@ -634,6 +661,15 @@ export function mountRouteSearch({
       resultFrame.querySelector("[data-planner-status]"),
       data?.status ?? ui("route_search_ui_018"),
     );
+    const orderRoot = resultFrame.querySelector(".result-order");
+    if (orderRoot && !orderRoot.querySelector('[data-result-order="walking"]')) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.resultOrder = "walking";
+      button.setAttribute("aria-pressed", "false");
+      button.textContent = ui("c5_sort_walking");
+      orderRoot.append(button);
+    }
     resultFrame.querySelectorAll("[data-result-order]").forEach((button) => {
       const selected =
         button.dataset.resultOrder === (data?.order ?? "arrival");
@@ -663,41 +699,36 @@ export function mountRouteSearch({
         document.activeElement.closest(".planner-result"))
     )
       return;
-    updateHTML(
-      resultFrame.querySelector("[data-planner-results]"),
-      sortedRouteIndexes(data?.routes ?? [], data?.order)
-        .map((i, position) =>
-          routeHTML(
-            data.routes[i],
-            network,
-            data.boarding[i],
-            i,
-            tokyoNow(),
-            false,
-            {
-              position: position + 1,
-              recommendations: ["arrival", "transfers", "fare"].filter(
-                (key) => {
-                  const value = (r) =>
-                    key === "arrival"
-                      ? r.time
-                      : key === "transfers"
-                        ? r.transfers
-                        : r.fare.additional;
-                  return (
-                    Number.isFinite(value(data.routes[i])) &&
-                    value(data.routes[i]) ===
-                      Math.min(
-                        ...data.routes.map(value).filter(Number.isFinite),
-                      )
-                  );
-                },
-              ),
-            },
-          ),
-        )
-        .join(""),
-    );
+    const routes = data?.routes ?? [];
+    const comparisons = routeComparison(routes);
+    const buffer = Number(data?.input?.buffer ?? 3);
+    const results = sortedRouteIndexes(routes, data?.order).map((i, position) => {
+      const facts = comparisons[i];
+      const risk = transferRisk(routes[i], buffer);
+      const compareTags = [
+        facts.fastest ? ui("c2_fastest") : "",
+        facts.fewestTransfers ? ui("c2_fewest") : "",
+        facts.leastWalking ? ui("c2_least_walk") : "",
+        facts.cheapest ? ui("c4_cheapest") : "",
+      ].filter(Boolean);
+      const margin = risk.hasTransfer
+        ? `<span class="route-margin" data-transfer-risk="${risk.critical ? "critical" : risk.tight ? "tight" : "normal"}">${esc(ui(risk.critical ? "c3_critical" : risk.tight ? "c3_tight" : "c3_margin", [risk.shortest]))}</span>`
+        : `<span class="route-margin">${esc(ui("c3_direct"))}</span>`;
+      const cost = facts.fare === null
+        ? ui("c4_unknown")
+        : ui("c4_additional", [facts.fare.toLocaleString("ja-JP")]);
+      const overview = `<div class="route-compare-strip" aria-label="${esc(ui("c2_overview"))}"><span>${esc(ui("c2_walk", [facts.walking]))}</span><span>${esc(ui("c2_transfers", [facts.transfers]))}</span><span>${esc(cost)}</span>${margin}</div><p class="route-compare-tags">${compareTags.map(t => `<span>${esc(t)}</span>`).join("")}</p>`;
+      return `<div class="route-compared-result" data-route-compare-index="${i}">${routeHTML(
+        routes[i], network, data.boarding?.[i], i, tokyoNow(), false,
+        { position: position + 1, recommendations: [
+          routes[i].time === Math.min(...routes.map(r => r.time).filter(Number.isFinite))
+            ? "arrival" : "",
+          facts.fewestTransfers ? "transfers" : "",
+          facts.cheapest ? "fare" : "",
+        ].filter(Boolean) },
+      )}${overview}</div>`;
+    }).join("");
+    updateHTML(resultFrame.querySelector("[data-planner-results]"), results);
   }
   function handleRouteAction(e) {
     const b = e.target.closest("button");
@@ -1128,6 +1159,16 @@ export function mountRouteSearch({
             previousSearch = previous;
             form.requestSubmit();
           }
+        }
+        const recovery = e.target.closest("[data-c6-recovery]");
+        if (recovery) {
+          const kind = recoveryAction(recovery.dataset.c6Recovery);
+          if (!kind) return;
+          if (data?.input) applyInput(data.input);
+          if (kind === "date") openDate(data?.input);
+          else if (kind === "filters") openFilter();
+          else navigation.root("search");
+          return;
         }
         if (e.target.closest("[data-retry-search]")) {
           applyInput(data?.input);
@@ -1576,16 +1617,17 @@ export function mountRouteSearch({
         to.id,
       );
       if (!planned.length) {
+        const missingNote = relevantMissing.length
+          ? ui("route_search_ui_073", [
+              esc(relevantMissing.map(x =>
+                operatorLabel[x.operator] ?? x.operator).join("・")),
+            ])
+          : "";
+        const actions = searchRecoveryOptions(requestInput)
+          .map(option => `<button type="button" class="secondary-action" data-c6-recovery="${esc(option.id)}">${esc(ui(`c6_recovery_${option.id}`))}</button>`)
+          .join("");
         status.innerHTML = ui("route_search_ui_086", [
-          relevantMissing.length
-            ? ui("route_search_ui_073", [
-                esc(
-                  relevantMissing
-                    .map((x) => operatorLabel[x.operator] ?? x.operator)
-                    .join("・"),
-                ),
-              ])
-            : "",
+          missingNote + `<div class="c6-search-recovery" role="group" aria-label="${esc(ui("c6_recovery_title"))}">${actions}</div>`,
         ]);
         return;
       }

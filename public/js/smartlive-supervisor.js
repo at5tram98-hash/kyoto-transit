@@ -19,6 +19,7 @@ import {
   orderedStopEvidence,
 } from "./transit-evidence.js";
 import { freshFix } from "./riding.js";
+import { assessBoardingMovement } from "./auto-boarding-evidence.js";
 import { boardingAvailable } from "./journey-session.js";
 import { state, settings, tokyoNow, nearest } from "./vnext-state.js";
 import {
@@ -344,8 +345,10 @@ function candidateDirectionEvidence() {
       next = geoStop(stops[1].id),
       trajectory = routeTrajectoryEvidence(state.samples, next, previous),
       simple = movementAgainstStops(movement, next, previous),
-      result = trajectory.status !== "neutral" ? trajectory : simple;
-    if (result.status === "neutral") continue;
+      result = trajectory.status !== "neutral" ? trajectory : simple,
+      boarding = assessBoardingMovement(state.samples, candidate.evidence ?? [], Date.now());
+    // Direction inferred from GPS drift or walking must never identify a ride.
+    if (result.status === "neutral" || !boarding.moving) continue;
     changed =
       transitEvidenceEngine.ingest({
         type: "gps",
@@ -356,7 +359,8 @@ function candidateDirectionEvidence() {
         metadata: {
           directionVerified: result.status === "supportive",
           rejected: result.status === "contradictory",
-          routeTrajectory: trajectory.status !== "neutral",
+          routeTrajectory: trajectory.status === "supportive",
+          vehicleMoving: boarding.moving,
           trajectoryConsistency: trajectory.consistency,
           tenSecondDirection: simple.status !== "neutral",
           meters: result.meters ?? movement.meters,

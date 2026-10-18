@@ -18,6 +18,7 @@ import {
 } from "./riding.js";
 import { currentMotionEvidence } from "./motion-assist.js";
 import { assessBoardingMovement } from "./auto-boarding-evidence.js";
+import { findThroughContinuation, spansTakeda } from "./through-continuity.js";
 import { getBusChoices, getBusData, getKyotoBusRT } from "./live.js";
 import { officialTripLeg } from "./vehicle.js";
 import {
@@ -211,7 +212,7 @@ async function detectKyotoBus(stopId) {
     .slice(0, 3);
 }
 
-async function detectSubway(stopId) {
+async function detectSubway(stopId, { throughOnly = false } = {}) {
   const now = tokyoNow(),
     feed = await ensureSubwayFeed();
   if (!feed?.services?.length) return [];
@@ -223,7 +224,9 @@ async function detectSubway(stopId) {
       network: state.network,
       windowBefore: 4,
       windowAfter: 1,
-    });
+    }).filter((ride) =>
+      !throughOnly || (ride.operator === "through" && spansTakeda(ride.officialStops))
+    );
   if (!legs.length) return [];
   const ranked = rankRides(legs, {
     network: state.network,
@@ -561,6 +564,17 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
           detectSubway("K15").catch(() => []),
         ]);
         candidates = mergeCandidates(k, s);
+      } else if (
+        near.rail.stop.type === "kintetsu" &&
+        ["B06", "B07", "B08"].includes(near.rail.id)
+      ) {
+        // A through service may enter the subway from Kintetsu. Probe
+        // both feeds near Takeda without treating a nearby train as proof.
+        const [nearbyKintetsu, enteringSubway] = await Promise.all([
+          detectKintetsu(near.rail.id).catch(() => []),
+          detectSubway(near.rail.id, { throughOnly: true }).catch(() => []),
+        ]);
+        candidates = mergeCandidates(nearbyKintetsu, enteringSubway);
       } else
         candidates =
           near.rail.stop.type === "kintetsu"
@@ -751,10 +765,27 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
 }
 
 export function updateRideAnchor() {
-  const ride = state.ride;
+  let ride = state.ride;
   if (!ride) return;
-  const now = journeyClock(ride, tokyoNow()),
-    observation = observeJourney(state.rideObservation, ride, {
+  const now = journeyClock(ride, tokyoNow());
+  const extended = findThroughContinuation(
+    ride,
+    [state.subwayFeed, state.network],
+    { minute: now.minute, network: state.network },
+  );
+  if (extended) {
+    // Same train, same Ride: do not trigger boarding, erase the itinerary,
+    // or infer the next station as the rider's alighting stop.
+    ride = extended;
+    state.ride = extended;
+    state.rideObservation = null;
+    state.heroObservation = null;
+    state.audioProgress = null;
+    consensus.unlock();
+    consensus.lock(extended);
+    persistJourney(true);
+  }
+  const observation = observeJourney(state.rideObservation, ride, {
       minute: now.minute,
       shift: state.rideShift,
       fix: state.fix,
