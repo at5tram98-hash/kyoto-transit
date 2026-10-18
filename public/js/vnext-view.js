@@ -3,6 +3,7 @@ import {
   shouldOfferRideConfirmation,
 } from "./transit-evidence.js";
 import { groupNearbyPlaces } from "./transit-places.js";
+import { orderNearbyPlaces } from "./nearby-sort-b6.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
 import { createAlightingNotifier } from "./alighting-notifier-b4.js";
@@ -475,18 +476,43 @@ export function renderNow() {
   ).slice(0, 80);
   // Four *places*, not four operator/stop rows. Keep subway, Kintetsu,
   // and bus entry points together instead of hiding the fourth operator.
-  const nearbyPlaces = groupNearbyPlaces(
-    nearbyRows, state.geo, { maxPlaces: 4 },
-  );
+  const places = groupNearbyPlaces(nearbyRows, state.geo);
+  const sortMode = navigation.recalled("nearby-sort") ?? "distance";
+  const nextDeparture = (row) => {
+    const feeds = [state.subwayFeed, nearbyRailFeed];
+    const dates = tokyoNow();
+    let earliest = Infinity;
+    for (const feed of feeds) for (const service of feed?.services ?? []) {
+      const index = service.stops?.indexOf(row.id) ?? -1;
+      if (index < 0) continue;
+      for (const trip of service.trips ?? []) {
+        if (trip.date && trip.date !== dates.date) continue;
+        const time = trip.departures?.[index] ?? trip.arrivals?.[index];
+        if (Number.isFinite(time) && time >= dates.minute)
+          earliest = Math.min(earliest, time);
+      }
+    }
+    return earliest;
+  };
+  const nearbyPlaces = orderNearbyPlaces(places, sortMode, {nextDeparture})
+    .slice(0, 4);
   if (nearbyPlaces.some((place) =>
     place.rows.some((s) => s.stop.type === "subway")
   )) requestNearbyFeed();
+  const sortOptions = [
+    ["distance", ui("b6_sort_distance")],
+    ["departure", ui("b6_sort_departure")],
+    ["operator", ui("b6_sort_operator")],
+  ].map(([value, label]) =>
+    `<button type="button" data-nearby-sort="${value}" aria-pressed="${sortMode === value}">${esc(label)}</button>`
+  ).join("");
+  const sortControl = `<div class="nearby-sort" role="group" aria-label="${esc(ui("b6_sort_label"))}">${sortOptions}</div>`;
   const arrivalsEntry = ui("vnext_view_057");
   updateNearbyPanel(
     nearPanel,
     (nearbyPlaces.length
       ? ui("vnext_view_109", [
-          nearbyPlaces
+          sortControl + nearbyPlaces
             .map(
               (place) =>
                 `<section data-nearby-place="${esc(
@@ -764,6 +790,12 @@ let lastTrackIndex = null,
 export function setupNowInteractions() {
   setupRouteMaps();
   $("#nearby-panel").addEventListener("click", (event) => {
+    const sort = event.target.closest("[data-nearby-sort]");
+    if (sort) {
+      navigation.remember("nearby-sort", sort.dataset.nearbySort);
+      renderNow();
+      return;
+    }
     const button = event.target.closest("[data-live-direction]");
     if (!button) return;
     const values = navigation.recalled("live-directions") ?? {};
