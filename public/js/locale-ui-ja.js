@@ -126,6 +126,8 @@ export default {
   b7_search_placeholder: "例：京都、四条、国際会館",
   b7_selected: "「{0}」を基準に表示中 · 現在地ではありません",
   b7_clear: "手動指定を解除",
+  c1_quick_stops: "よく使う駅をワンタップで入力",
+  c1_quick_note: "出発地か到着地を選択してから駅をタップ · 経由地・日時もそのまま指定できます",
   vnext_view_047: "この電車・バスに乗りましたか？",
   vnext_view_048: "どの便に乗っていますか？",
   vnext_view_049: "終点",
