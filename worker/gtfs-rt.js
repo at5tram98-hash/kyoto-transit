@@ -15,7 +15,32 @@ function stopTimeEvent(bytes){for(const f of fieldIterator(bytes))if(f.no===1&&f
 function stopTimeUpdate(bytes){let seq=null,delay=null;for(const f of fieldIterator(bytes)){if(f.no===1&&f.wire===0)seq=Number(f.value);else if((f.no===2||f.no===3)&&f.wire===2){const d=stopTimeEvent(f.value);if(Number.isFinite(d))delay=d;}}return {seq,delay};}
 function tripUpdate(bytes){const out={trip:null,route:null,direction:null,timestamp:null,delay:null,stops:[]};for(const f of fieldIterator(bytes)){if(f.no===1&&f.wire===2)Object.assign(out,tripDescriptor(f.value));else if(f.no===2&&f.wire===2)out.stops.push(stopTimeUpdate(f.value));else if(f.no===4&&f.wire===0)out.timestamp=Number(f.value);else if(f.no===5&&f.wire===0)out.delay=signed32(f.value);}return out;}
 function entity(bytes){let vehicle=null,update=null;for(const f of fieldIterator(bytes)){if(f.no===3&&f.wire===2)update=tripUpdate(f.value);else if(f.no===4&&f.wire===2)vehicle=vehiclePosition(f.value);}return {vehicle,update};}
-export function decodeGtfsRealtime(input){const bytes=input instanceof Uint8Array?input:new Uint8Array(input),vehicles=[],tripUpdates=[];for(const f of fieldIterator(bytes)){if(f.no!==2||f.wire!==2)continue;const e=entity(f.value);if(e.vehicle)vehicles.push(e.vehicle);if(e.update)tripUpdates.push(e.update);}return {vehicles,tripUpdates};}
+// FeedHeader.timestamp supplies freshness when a TripUpdate has no own timestamp.
+// Never invent a timestamp for a VehiclePosition: precise location needs its own.
+function feedHeaderTimestamp(bytes) {
+  for (const f of fieldIterator(bytes))
+    if (f.no === 3 && f.wire === 0) return Number(f.value);
+  return null;
+}
+export function decodeGtfsRealtime(input){
+  const bytes=input instanceof Uint8Array?input:new Uint8Array(input),vehicles=[],tripUpdates=[];
+  let headerTimestamp=null;
+  for(const f of fieldIterator(bytes)){
+    if(f.no===1&&f.wire===2){headerTimestamp=feedHeaderTimestamp(f.value);continue;}
+    if(f.no!==2||f.wire!==2)continue;
+    const e=entity(f.value);
+    if(e.vehicle)vehicles.push(e.vehicle);
+    if(e.update)tripUpdates.push(e.update);
+  }
+  return {
+    vehicles,
+    tripUpdates:tripUpdates.map(u=>({
+      ...u,
+      timestamp:Number.isFinite(u.timestamp)?u.timestamp:headerTimestamp,
+    })),
+    headerTimestamp,
+  };
+}
 export function routeLabel(routeId){const s=String(routeId??'').normalize('NFKC').replace(/\s+/g,'');if(!s)return null;for(const label of ['直行40','特40','臨時','40','北3']){const escaped=label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');if(new RegExp(`(?:^|[._:/-])${escaped}(?:$|[._:/-])`).test(s)||s===label)return label;}return null;}
 export function filterKyotoBusVehicles(vehicles, updates = [], nowSec = Math.floor(Date.now() / 1000)) {
   const identity = v => JSON.stringify([v.trip, v.serviceDate ?? null, v.startTime ?? null]);
