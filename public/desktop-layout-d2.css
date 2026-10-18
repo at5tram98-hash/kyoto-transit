@@ -1,0 +1,110 @@
+/* D-2: Genuine desktop two-column shell. Mobile and iPad keep the
+   established edge-to-edge iOS navigation and bottom tab bar. */
+@media (min-width: 1024px) and (pointer: fine) {
+  body:has(.navigation-app) {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .navigation-app {
+    --d2-rail-width: 248px;
+    display: grid;
+    grid-template-columns: var(--d2-rail-width) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: var(--app-height, 100dvh);
+    width: 100%;
+    overflow: hidden;
+    padding: 0;
+  }
+  .navigation-app .topbar {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: none;
+    margin: 0;
+    min-height: 76px;
+    padding-inline: max(24px, calc((100% - 760px) / 2));
+    border-bottom: 1px solid var(--separator);
+  }
+  .navigation-app main {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .navigation-app main > .view,
+  .navigation-app main > .navigation-screen {
+    padding-inline: max(24px, calc((100% - 760px) / 2));
+    padding-bottom: 24px;
+  }
+  .navigation-app .tabbar {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: stretch;
+    justify-self: stretch;
+    position: relative;
+    inset: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    transform: none;
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    border: 0;
+    border-right: 1px solid var(--separator);
+    border-radius: 0;
+    background: var(--surface-secondary);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 74px 12px 16px;
+  }
+  .navigation-app .tabbar .tab-selection {
+    display: none;
+  }
+  .navigation-app .tab-button {
+    flex: none;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 14px;
+    min-height: 52px;
+    width: 100%;
+    padding: 0 16px;
+    border-radius: var(--radius-row);
+    font-size: var(--type-body);
+    text-align: start;
+  }
+  .navigation-app .tab-button.active {
+    background: var(--blue-soft) !important;
+  }
+  .navigation-app .tab-button span {
+    white-space: normal;
+  }
+  .navigation-app .network-status,
+  .navigation-app #app-update {
+    grid-column: 2;
+    position: absolute;
+    top: 76px;
+    left: var(--d2-rail-width);
+    right: 0;
+    z-index: 25;
+  }
+  .navigation-fullscreen .tabbar,
+  .navigation-app[data-keyboard="true"] .tabbar {
+    display: flex;
+  }
+}
+@media (min-width: 1024px) and (max-width: 1150px) and (pointer: fine) {
+  .navigation-app {
+    --d2-rail-width: 212px;
+  }
+}
