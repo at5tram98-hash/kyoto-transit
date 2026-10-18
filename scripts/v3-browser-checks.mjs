@@ -121,6 +121,11 @@ export async function v3RedesignChecks({
         // Canonical Search tab and Home share the same input model.
         await searchScreen(page);
         await settleNavigation(page);
+        const quickFrom = page.locator('[data-c1-quick-stop="K07"]');
+        assert.equal(await quickFrom.count(), 1, "C-1 shortcut is available");
+        await quickFrom.click();
+        assert.equal(await page.locator('#planner-form [name="from"]').inputValue(), "丸太町");
+        assert.equal(await page.locator('#planner-form [name="fromId"]').inputValue(), "K07");
         await page.locator("[name=to]").click();
         await page.locator("[data-suggestion-input]").fill("国際会館");
         await record("suggestions");
