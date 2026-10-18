@@ -125,7 +125,17 @@ export async function smartLiveChecks({
             ],
           };
           state.fix = null;
-          state.samples = [];
+          // GPS is currently unavailable underground, but several recent,
+          // distinct, accurate fixes already established actual rail travel.
+          // Do not simulate correction from platform audio/shaking alone.
+          const movementAt = Date.now();
+          state.samples = [25000, 13000, 0].map((ago, i) => ({
+            lat: 35.0 + i * 0.00044,
+            lng: 135.75,
+            accuracy: 9,
+            speed: 7,
+            timestamp: movementAt - ago,
+          }));
           state.armedJourney = null;
           state.rideCandidates = [
             { ride: previous, score: 55, source: "fixture" },
@@ -139,14 +149,18 @@ export async function smartLiveChecks({
             observedAt: at,
             metadata: { rejected: true },
           });
-          for (const type of ["audio", "motion", "realtime", "timetable"])
+          for (const type of ["audio", "motion", "realtime", "timetable", "gps"])
             window.__evidence.ingest({
               candidate: window.__correctedRide,
               type,
               confidence: 0.95,
-              observedAt: at,
+              observedAt: type === "gps" ? at - 1000 : at,
               metadata: {
-                directionVerified: ["audio", "realtime"].includes(type),
+                directionVerified: ["audio", "realtime", "gps"].includes(type),
+                sequenceValidated: type === "audio",
+                vehicleMoving: ["gps", "motion"].includes(type),
+                routeTrajectory: type === "gps",
+                walkingLikely: false,
               },
             });
           settings.autoDetect = true;
@@ -203,6 +217,6 @@ export async function smartLiveChecks({
       }
     }
   summary.checks.push(
-    "SmartLive rechecking shell and correction: 390/430px, 100/150/200%, dark and reduced motion, PWA-equivalent reload keeps an unconfirmed shell, GPS-free audio+motion+realtime correction changes only Ride, retains Journey, and announces completion",
+    "SmartLive rechecking shell and correction: 390/430px, 100/150/200%, dark and reduced motion, PWA-equivalent reload keeps an unconfirmed shell, current GPS dropout with recent validated travel+audio+realtime evidence changes only Ride, retains Journey, and announces completion",
   );
 }
