@@ -1,6 +1,6 @@
 // Single source of truth for route-search shortcuts; these are user actions,
 // not implicit defaults. Existing autocomplete and validated planner own IDs.
-export function quickSearchStops(network, ids = ["K01","K08","K09","K11","K15","B24"]) {
+export function quickSearchStops(network, ids = ["K01","K07","K08","K09","K11","K15","B24"]) {
   return ids.filter((id)=>network?.stops?.has(id))
     .map(id=>({id,name:network.stops.get(id).name}));
 }
