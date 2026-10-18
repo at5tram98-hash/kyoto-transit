@@ -19,7 +19,7 @@ export function railGuidePhase({
   if (
     trainState === "APPROACHING" &&
     Number.isFinite(motionSpeed) &&
-    motionSpeed >= 1.2
+    motionSpeed >= 2.8
   ) return "approaching";
   return "departed";
 }
