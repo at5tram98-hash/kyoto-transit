@@ -82,7 +82,7 @@ test("route progress support expires and repeated station GPS fixes do not becom
     candidate: ride,
     confidence: 0.9,
     observedAt: now + 20,
-    metadata: { directionVerified: true, routeTrajectory: true },
+    metadata: { directionVerified: true, routeTrajectory: true, vehicleMoving: true },
   });
   assert.equal(engine.support(ride, now + 21).routeProgress, true);
   assert.equal(engine.support(ride, now + 50000).routeProgress, false);

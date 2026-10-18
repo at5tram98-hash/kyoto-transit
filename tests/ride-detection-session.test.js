@@ -340,7 +340,10 @@ test("same departure and headsign do not collapse distinct trips or service date
         type,
         confidence: 0.9,
         observedAt: at,
-        metadata: { directionVerified: type === "audio" },
+        metadata: {
+          directionVerified: type === "audio",
+          sequenceValidated: type === "audio",
+        },
       });
   assert.equal(
     e.evaluate(
@@ -364,7 +367,7 @@ test("same departure and headsign do not collapse distinct trips or service date
     type: "motion",
     confidence: 0.8,
     observedAt: at,
-    metadata: {},
+    metadata: { vehicleMoving: true },
   });
   assert.equal(
     e.evaluate(
