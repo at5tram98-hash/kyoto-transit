@@ -41,10 +41,21 @@ jobs:
         run: npm run verify:production
         env:
           PRODUCTION_REPORT_DIR: e-live-artifacts
+      - name: Strict all-provider diagnosis (known optional ODPT blocker)
+        id: strict
+        continue-on-error: true
+        run: npm run verify:all-providers
+        env:
+          PRODUCTION_REPORT_DIR: e-live-strict-artifacts
+      - name: Surface strict provider blocker without misreporting candidate build
+        if: steps.strict.outcome == 'failure'
+        run: echo "::warning title=Provider acceptance pending::Strict all-provider verification did not pass. Check the strict report before declaring full release readiness."
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: e-existing-production-health
-          path: e-live-artifacts/
+          path: |
+            e-live-artifacts/
+            e-live-strict-artifacts/
           if-no-files-found: ignore
           retention-days: 7
