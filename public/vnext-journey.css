@@ -531,6 +531,19 @@
   font-weight: 700;
   min-height: 1.4em;
 }
+.journey-display[data-rail-phase="stopped"] .next-state-label {
+  color: var(--journey-accent);
+}
+.journey-display[data-rail-phase="estimated"] .next-state-label,
+.journey-display[data-rail-phase="unavailable"] .next-state-label {
+  color: var(--muted);
+}
+.journey-display[data-rail-phase]:not([data-rail-phase=""]) .next-countdown {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  min-height: 1.5em;
+}
 .next-station-title {
   flex-wrap: wrap;
   min-height: 50px;
