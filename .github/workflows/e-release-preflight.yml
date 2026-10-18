@@ -4,6 +4,11 @@ on:
     branches: [chat/e-prepublication-audit-20261019]
 permissions:
   contents: read
+# Avoid overlapping live provider probes when the candidate branch is updated.
+# They may be slow/rate-limited; concurrent runs obscure real service health.
+concurrency:
+  group: e-candidate-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   candidate:
     name: Candidate packaging and Worker dry-run
