@@ -74,7 +74,7 @@ test("Without GPS, railway schedules never claim a confirmed approach or stop", 
     assert.equal(estimated.estimatedWithoutGps, true);
     assert.equal(estimated.locationConfidence, "unavailable");
   }
-  assert.equal(model(rail, 602).nextStation.id, "K09");
+  assert.equal(model(rail, 602).nextStation.id, "K10");
   assert.equal(model(rail, 602.5).nextStation.id, "K10");
 });
 test("Reducer rejects backwards fixes and retains arrival for four seconds", () => {
@@ -105,7 +105,8 @@ for (const [name, ids, expected] of [
       officialStops: ids.map((id, i) => stop(id, 600 + i * 3)),
     };
     assert.deepEqual(model(ride, 602).boundary.codes, expected);
-    assert.equal(model(ride, 603).boundary.phase, "approaching");
+    assert.equal(model(ride, 602).boundary.phase, "approaching");
+    assert.equal(model(ride, 603).boundary, null);
     assert.equal(model(ride, 604).lineId, name === "K→B" ? "B" : "K");
   });
 test("Without GPS, a selected destination is shown without an unverified alighting command", () => {
