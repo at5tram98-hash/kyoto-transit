@@ -129,6 +129,8 @@ export default {
   b7_search_placeholder: "e.g. Kyoto, Shijo",
   b7_selected: "Showing around {0} · Not your live location",
   b7_clear: "Clear manual reference",
+  c1_quick_stops: "Quick station entry",
+  c1_quick_note: "Select the From or To field before choosing a station · Via stops and timing stay editable",
   vnext_view_047: "Have you boarded this service?",
   vnext_view_048: "Which service are you on?",
   vnext_view_049: "Terminus",
