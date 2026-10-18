@@ -1,4 +1,5 @@
 import { displayStopName, ui } from "./locale.js";
+import { selectedAlightingStop } from "./ride-destination.js";
 import { esc } from "./vnext-state.js";
 import { formatMinute } from "./vnext-core.js";
 import { stationModel } from "./now-model.js";
@@ -112,7 +113,7 @@ export function nextStationHero(model, ride, progress) {
   const next = model.nextStation,
     destination = model.userDestination,
     nextName = displayStopName(next) || ui("now_components_054"),
-    destinationName = displayStopName(destination) || ui("now_components_065");
+    destinationName = displayStopName(destination) || ui("alighting_unselected");
   const duration = model.routeUnavailable
     ? ui("now_components_030")
     : model.phase === "STOPPED"
@@ -136,7 +137,7 @@ export function nextStationHero(model, ride, progress) {
     displayStopName(next) || ui("now_components_037"),
     next?.code ?? "",
     duration,
-    displayStopName(destination) || ui("now_components_038"),
+    displayStopName(destination) || ui("alighting_unselected"),
     model.remainingStops,
     model.bus ? ui("now_components_039") : ui("now_components_040"),
   ]);
@@ -152,10 +153,10 @@ export function nextStationHero(model, ride, progress) {
     <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
       <div class="next-state-label">${esc(model.label === ui("now_model_010") ? ui("now_components_053") : model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(nextName)}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(next.code)}</span>` : ""}</div>
       <p class="next-countdown">${esc(duration)}</p>
-      <p class="destination-progress">${model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
+      <p class="destination-progress">${!destination ? ui("alighting_select_prompt") : model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
       <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? ui("now_components_061") : ui("now_components_062")}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(displayStopName(s))}</b></span>`).join("")}</div></details>
     </div>
-    <button class="personal-destination" data-context-action="destination"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destinationName)} ${model.bus ? "" : esc(destination?.code)}</b></span><strong>${estimateTime(model.destinationArrival, model.confidence)}</strong></button>
+    <button class="personal-destination" data-context-action="destination" aria-label="${!destination ? ui("alighting_choose") : esc(destinationName)}"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destinationName)} ${model.bus || !destination ? "" : esc(destination.code ?? "")}</b></span><strong>${destination ? estimateTime(model.destinationArrival, model.confidence) : ui("alighting_select_action")}</strong></button>
     ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? ui("now_components_092", [model.boundary.phase === "stopped" ? ui("now_components_066") : ui("now_components_067"), model.boundary.nextLine === "B" ? ui("now_components_068") : ui("now_components_069"), esc(model.serviceType), esc(model.destination)]) : ""}
     ${model.delayMinutes > 0 ? ui("now_components_070", [model.delayMinutes]) : ""}
     ${model.confidence === "stale" ? ui("now_components_071", [statusPill("stale", null, model.lastUpdated)]) : ""}
@@ -180,8 +181,7 @@ export function timelineRow(
   const current = index === progress.currentIndex,
     next = index === progress.nextIndex,
     destination =
-      stop.id ===
-      (ride.userDestination?.id ?? ride.userDestinationId ?? ride.to),
+      stop.id === selectedAlightingStop(ride, progress.stops)?.id,
     boarding = stop.id === ride.from;
   return ui("now_components_094", [
     passed ? "passed" : "",
