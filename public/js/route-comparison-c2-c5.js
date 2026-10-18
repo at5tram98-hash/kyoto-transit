@@ -6,7 +6,12 @@ export function routeFacts(route) {
   const transfers=Number.isFinite(route?.transfers)?route.transfers:Math.max(0,rideLegs.length-1);
   const fare=Number.isFinite(route?.fare?.additional)?route.fare.additional:null;
   const arrival=Number.isFinite(route?.time)?route.time:null;
-  const departure=Number.isFinite(route?.start)?route.start:null;
+  // Use the same displayed departure as the route card. If the first leg
+  // is a train, the card starts at the actual departure, not an earlier
+  // planner-ready time; walking routes retain their start time.
+  const initial = route?.legs?.[0];
+  const displayed = initial?.kind==="ride" ? initial.depart : route?.start;
+  const departure=Number.isFinite(displayed)?displayed:null;
   const duration=departure!==null&&arrival!==null?Math.max(0,arrival-departure):null;
   return {walking,waits,transfers,fare,arrival,departure,duration,rideLegs:rideLegs.length};
 }
