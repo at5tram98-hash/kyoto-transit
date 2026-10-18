@@ -14,6 +14,7 @@ import {
   removeSearchPair,
 } from "./search-history.js";
 import { mountStopAutocomplete } from "./stop-autocomplete.js";
+import { quickSearchStops, chooseQuickSearchStop } from "./search-shortcuts-c1.js";
 import {
   resolveStop,
   sortedRouteIndexes,
@@ -308,6 +309,28 @@ export function mountRouteSearch({
   ]);
   const inlineStatus = root.querySelector("#search-inline-status"),
     form = root.querySelector("#planner-form");
+  const quickStops = quickSearchStops(network);
+  const shortcuts = document.createElement("section");
+  shortcuts.className = "planner-quick-stops";
+  shortcuts.setAttribute("aria-label", ui("c1_quick_stops"));
+  shortcuts.innerHTML = `<p class="section-label">${esc(ui("c1_quick_stops"))}</p><div class="planner-quick-buttons">${quickStops.map(stop =>
+    `<button type="button" data-c1-quick-stop="${esc(stop.id)}">${esc(stop.name)}</button>`
+  ).join("")}</div><p class="source-caption">${esc(ui("c1_quick_note"))}</p>`;
+  form.querySelector(".planner-place-pair").after(shortcuts);
+  let activePlaceField = "to";
+  form.elements.from.addEventListener("focus", () => activePlaceField = "from");
+  form.elements.to.addEventListener("focus", () => activePlaceField = "to");
+  shortcuts.addEventListener("click", e => {
+    const button = e.target.closest("[data-c1-quick-stop]");
+    if (!button) return;
+    const stop = network.stops.get(button.dataset.c1QuickStop);
+    if (!stop) return;
+    chooseQuickSearchStop(form,
+      {id:stop.id,name:displayStopName(stop)},activePlaceField);
+    navigation.remember("search-input", captureInput());
+    const next = activePlaceField === "from" ? "to" : "from";
+    if (!form.elements[next].value) form.elements[next].focus();
+  });
   function makeSearchSheet(id, title, body) {
     const dialog = document.createElement("dialog");
     dialog.id = id;
