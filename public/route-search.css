@@ -1310,7 +1310,7 @@
 .planner-quick-stops { padding: 12px 4px 14px; }
 .planner-quick-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .planner-quick-buttons button {
-  min-height: 44px; padding: 9px 14px; border-radius: 999px;
+  min-height: 44px; padding: 9px 14px; border-radius: var(--radius-round);
   border: 1px solid var(--separator);
   background: var(--surface-secondary); color: var(--text);
   font: inherit; font-weight: 600;
