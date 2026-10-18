@@ -1,0 +1,31 @@
+name: C-1 to C-5 quality gate (no deployment)
+on:
+  push:
+    branches:
+      - chat/c1-c5-quality-audit-20261019
+permissions:
+  contents: read
+jobs:
+  quality:
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Install browser
+        run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: Route search and responsive smoke
+        run: npm run test:browser
+        env:
+          BROWSER_ENGINE: ${{ matrix.engine }}
+          BROWSER_ARTIFACT_DIR: browser-artifacts/quality-${{ matrix.engine }}
