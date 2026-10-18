@@ -183,8 +183,18 @@ function setupEvents() {
     const next = nextSidebarTabIndex(e.key, tabs.indexOf(focused), tabs.length);
     if (next === null) return;
     e.preventDefault();
-    tabs[next].focus();
-    tabs[next].click();
+    const destination = tabs[next];
+    // Navigation intentionally focuses new screen content. Keyboard
+    // navigation from the desktop rail instead keeps the rail as the
+    // interaction context, including after the asynchronous transition.
+    document.addEventListener("mymap-navigation-change", () => {
+      if (destination.isConnected &&
+          navigation.tab === destination.dataset.tab &&
+          matchMedia("(min-width: 1024px) and (pointer: fine)").matches)
+        destination.focus({ preventScroll: true });
+    }, { once: true });
+    destination.focus({ preventScroll: true });
+    destination.click();
   });
   document.addEventListener("click", async (e) => {
     const b = e.target.closest("button");
