@@ -105,6 +105,7 @@ test("音声・路線進行GPS・Motionが一致すると乗車を確定でき�
   add(e, "gps", now, {
     directionVerified: true,
     routeTrajectory: true,
+    vehicleMoving: true,
     walkingLikely: false,
   });
   assert.equal(e.evaluate([row], now).confirmed, ride);
