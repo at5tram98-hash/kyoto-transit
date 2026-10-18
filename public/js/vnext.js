@@ -2,7 +2,7 @@ import { clearFalseRide } from "./vnext-detect.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
 import { ui } from "./locale.js";
 import { rideConfirmationFacts } from "./ride-confirmation-facts.js";
-import { transitEvidenceEngine } from "./transit-evidence.js";
+import { transitEvidenceEngine, transitCandidateKey } from "./transit-evidence.js";
 import { formatMinute } from "./vnext-core.js";
 import { mountLiveHome } from "./live-home.js";
 import { readSavedPlaces } from "./saved-places.js";
@@ -142,7 +142,7 @@ function setTab(tab) {
 function openRideCandidateConfirmation(index) {
   const candidate = state.rideCandidates[Number(index)];
   if (!candidate) return;
-  const key = rideKey(candidate.ride);
+  const key = transitCandidateKey(candidate.ride);
   const fact = rideConfirmationFacts(
     candidate, transitEvidenceEngine.support(candidate.ride)
   );
@@ -246,7 +246,7 @@ function setupEvents() {
       renderNow();
     } else if (b.dataset.confirmRideCandidate !== undefined) {
       const index = state.rideCandidates.findIndex(
-        (candidate) => rideKey(candidate.ride) === b.dataset.confirmRideCandidate,
+        (candidate) => transitCandidateKey(candidate.ride) === b.dataset.confirmRideCandidate,
       );
       if (index >= 0 && confirmRideCandidate(index)) {
         $("#context-sheet")?.close();
