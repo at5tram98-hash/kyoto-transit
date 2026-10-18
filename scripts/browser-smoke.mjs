@@ -3142,8 +3142,14 @@ try {
                 "LINE_BOUNDARY",
               );
               assert.match(
-                await page.locator(".station-code").textContent(),
-                /K15.*B05|B05.*K15/,
+                (await page.locator(".station-code").textContent()).trim(),
+                /^(K15|B05)$/,
+                "the through-service boundary shows one valid station code",
+              );
+              assert.match(
+                await page.locator(".journey-next-name").textContent(),
+                /竹田/,
+                "Takeda remains the primary station name",
               );
               await layout(
                 page,
