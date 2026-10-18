@@ -109,12 +109,43 @@ export function estimateTime(value, confidence) {
     ? `${formatMinute(Math.round(value))}<small>${confidence === "confirmed" ? ui("now_components_027") : ui("now_components_028")}</small>`
     : ui("now_components_029");
 }
+// Kept separate from ride status: the LCD must never treat a timetable ETA
+// as confirmed stopping or approaching when tunnel GPS has disappeared.
+export function railHeroCopy(model) {
+  if (model.bus) return null;
+  const phase = model.railGuide?.phase ?? "estimated";
+  const label = ui({
+    stopped: "rail_hero_stopped",
+    departed: "rail_hero_departed",
+    approaching: "rail_hero_approaching",
+    estimated: "rail_hero_estimated",
+    unavailable: "rail_hero_unavailable",
+  }[phase] ?? "rail_hero_estimated");
+  let duration;
+  if (phase === "unavailable") duration = ui("now_components_030");
+  else if (phase === "stopped")
+    duration = model.nextNext
+      ? ui("rail_hero_after", [displayStopName(model.nextNext)])
+      : ui("rail_hero_terminal");
+  else if (model.locationRecovering ||
+    model.observed?.positionSource === "gps_dropout_hold")
+    duration = ui("rail_hero_location_hold");
+  else if (!model.railGuide?.showEstimate)
+    duration = ui("rail_hero_time_unknown");
+  else if (model.minutes === 0)
+    duration = ui(phase === "approaching"
+      ? "rail_hero_eta_soon" : "rail_hero_eta_now");
+  else duration = ui("rail_hero_time", [model.minutes]);
+  return { phase, label, duration };
+}
+
 export function nextStationHero(model, ride, progress) {
   const next = model.nextStation,
     destination = model.userDestination,
     nextName = displayStopName(next) || ui("now_components_054"),
-    destinationName = displayStopName(destination) || ui("alighting_unselected");
-  const duration = model.routeUnavailable
+    destinationName = displayStopName(destination) || ui("alighting_unselected"),
+    railCopy = railHeroCopy(model);
+  const duration = railCopy?.duration ?? (model.routeUnavailable
     ? ui("now_components_030")
     : model.phase === "STOPPED"
       ? ui("now_components_088", [
@@ -131,9 +162,11 @@ export function nextStationHero(model, ride, progress) {
               model.confidence === "confirmed"
                 ? ui("now_components_035")
                 : ui("now_components_036"),
-            ]);
+            ]));
+  const heading = railCopy?.label ??
+    (model.label === ui("now_model_010") ? ui("now_components_053") : model.label);
   const spoken = ui("now_components_090", [
-    model.label,
+    heading,
     displayStopName(next) || ui("now_components_037"),
     next?.code ?? "",
     duration,
@@ -147,11 +180,12 @@ export function nextStationHero(model, ride, progress) {
       Math.max(start + 4, Math.min(progress.stops.length, start + 4)),
     );
   const strip = progress.stops.slice(start, end).map((s) => stationModel(s));
-  return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-operator="${esc(model.bus ? (ride.operatingCompany ?? ride.operator) : ride.operator)}" data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}">
+  return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-operator="${esc(model.bus ? (ride.operatingCompany ?? ride.operator) : ride.operator)}" data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}" data-rail-phase="${railCopy?.phase ?? ""}">
     ${model.routeUnavailable || (model.delayMinutes ?? 0) >= 10 ? `<p class="journey-warning" role="status">${model.routeUnavailable ? ui("now_components_041") : ui("now_components_042", [model.delayMinutes])}</p>` : ""}
     <div class="route-header">${routeBadge({ ...model, route: ride.route })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : ui("now_components_043")}` : model.lineId === "K" ? ui("now_components_044") : ui("now_components_045"))} <span>${esc(model.destination ?? ui("now_components_046"))}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? ui("now_components_047") : ride.operatingCompany === "citybus" ? ui("now_components_048") : (ride.operatingCompany ?? (ride.route === "北3" ? ui("now_components_049") : ride.operator === "kyotobus" ? ui("now_components_050") : ui("now_components_051")))) : model.serviceType)}${model.boundary ? ui("now_components_052") : ""}</p></div></div>
     <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
-      <div class="next-state-label">${esc(model.label === ui("now_model_010") ? ui("now_components_053") : model.label)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(nextName)}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(next.code)}</span>` : ""}</div>
+      <div class="next-state-label">${esc(heading)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(nextName)}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(next.code)}</span>` : ""}</div>
+      ${!model.bus && next?.en ? `<p class="station-en" lang="en">${esc(next.en)}</p>` : ""}
       <p class="next-countdown">${esc(duration)}</p>
       <p class="destination-progress">${!destination ? ui("alighting_select_prompt") : model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
       <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? ui("now_components_061") : ui("now_components_062")}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(displayStopName(s))}</b></span>`).join("")}</div></details>
