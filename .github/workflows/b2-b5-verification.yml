@@ -18,3 +18,9 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser layout and interactions
+        run: npm run test:browser
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/b2-b5
