@@ -1,0 +1,56 @@
+name: D-6 final browser and PWA regression (no deploy)
+on:
+  push:
+    branches:
+      - chat/d6-final-regression-20261019
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+  browsers:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: Full route, ride, tabs and settings regression
+        run: npm run test:browser
+        env:
+          BROWSER_ENGINE: ${{ matrix.engine }}
+          BROWSER_ARTIFACT_DIR: browser-artifacts/d6-full-${{ matrix.engine }}
+  pwa:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, webkit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: Offline cache and update preservation
+        run: npm run test:pwa
+        env:
+          BROWSER_ENGINE: ${{ matrix.engine }}
+          BROWSER_ARTIFACT_DIR: browser-artifacts/d6-pwa-${{ matrix.engine }}
