@@ -5,6 +5,7 @@ import {
 import { groupNearbyPlaces } from "./transit-places.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
+import { createAlightingNotifier } from "./alighting-notifier-b4.js";
 import { ui } from "./locale.js";
 import {
   groupCityBusRows,
@@ -29,6 +30,7 @@ import {
   rideKey,
   ensureSubwayFeed,
   toast,
+  haptic,
 } from "./vnext-state.js";
 import { updateRideAnchor } from "./vnext-detect.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
@@ -59,6 +61,7 @@ import {
 } from "./journey-core.js";
 
 const stopSources = new WeakMap();
+const alightingNotifier = createAlightingNotifier();
 let context = null,
   nearbyRequest = null,
   nearbyAttempt = 0;
@@ -609,26 +612,30 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
       progress.currentIndex < 0 ? -1 : progress.currentIndex + offset,
   };
   const analysis = delayAnalysis(model, state.delayHistory);
-  if (settings.alightAssist !== false && model.userDestination && model.nextIsDestination && (bus || model.locationConfidence === "available")) {
-    const key = `${rideKey(ride)}|${model.userDestination?.id}`;
-    if (key !== lastAlertKey) {
-      lastAlertKey = key;
-      const message =
-        model.phase === "STOPPED"
-          ? ui("vnext_view_066", [model.userDestination?.name])
-          : ui("vnext_view_067", [model.userDestination?.name]);
-      toast(message);
-      if (
-        settings.notifications &&
-        globalThis.Notification?.permission === "granted"
-      ) {
-        try {
-          new Notification(ui("vnext_view_068"), {
-            body: message,
-            tag: "mymap-alight",
-          });
-        } catch {}
-      }
+  const alightingStage = alightingNotifier.evaluate({
+    key: `${rideKey(ride)}|${model.userDestination?.id ?? ""}`,
+    selectedStop: model.userDestination?.id,
+    displayedStop: model.nextStation?.id,
+    nextIsDestination: model.nextIsDestination,
+    stopped: model.phase === "STOPPED",
+    locationConfirmed: model.locationConfidence === "available",
+    enabled: settings.alightAssist !== false,
+  });
+  if (alightingStage) {
+    const message = ui(
+      alightingStage === "arrived" ? "vnext_view_066" : "vnext_view_067",
+      [model.userDestination.name],
+    );
+    haptic();
+    toast(message);
+    if (settings.notifications &&
+        globalThis.Notification?.permission === "granted") {
+      try {
+        new Notification(ui("vnext_view_068"), {
+          body: message,
+          tag: `mymap-alight-${alightingStage}`,
+        });
+      } catch {}
     }
   }
 
@@ -735,8 +742,7 @@ function timeline(stops, progress, minute, shift, bus, ride) {
   return `<ol class="stop-list journey-stop-list">${stops.map((s, i) => timelineRow(s, { index: i, progress, minute, shift, bus, ride })).join("")}</ol>`;
 }
 let lastTrackIndex = null,
-  manualScrollUntil = 0,
-  lastAlertKey = null;
+  manualScrollUntil = 0;
 export function setupNowInteractions() {
   setupRouteMaps();
   $("#nearby-panel").addEventListener("click", (event) => {
