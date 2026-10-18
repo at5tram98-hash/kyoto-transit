@@ -599,7 +599,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
       progress.currentIndex < 0 ? -1 : progress.currentIndex + offset,
   };
   const analysis = delayAnalysis(model, state.delayHistory);
-  if (settings.alightAssist !== false && model.userDestination && model.nextIsDestination) {
+  if (settings.alightAssist !== false && model.userDestination && model.nextIsDestination && (bus || model.locationConfidence === "available")) {
     const key = `${rideKey(ride)}|${model.userDestination?.id}`;
     if (key !== lastAlertKey) {
       lastAlertKey = key;

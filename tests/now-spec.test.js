@@ -67,24 +67,15 @@ test("LCD hero separates user's destination from train terminus and exposes Engl
   assert.equal(m.destination, "竹田");
   assert.equal(m.confidence, "estimated");
 });
-test("Hero moves through departed, approaching, stopped, and next station without GPS", () => {
-  assert.equal(model(rail, 600.5).trainState, "DEPARTED");
-  assert.equal(model(rail, 601.3).trainState, "APPROACHING");
-  const stopped = model(rail, 602);
-  assert.equal(stopped.phase, "STOPPED");
-  assert.equal(stopped.nextStation.id, "K09");
-  assert.equal(stopped.nextNext.id, "K10");
-  const held = model(rail, 602.5, {
-    previous: stopped.observed,
-    at: at + 1500,
-  });
-  assert.equal(held.phase, "STOPPED");
-  const departed = model(rail, 602.5, {
-    previous: stopped.observed,
-    at: at + 4500,
-  });
-  assert.equal(departed.phase, "DEPARTED");
-  assert.equal(departed.nextStation.id, "K10");
+test("Without GPS, railway schedules never claim a confirmed approach or stop", () => {
+  for (const minute of [600.5, 601.3, 602, 602.5]) {
+    const estimated = model(rail, minute);
+    assert.equal(estimated.phase, "DEPARTED");
+    assert.equal(estimated.estimatedWithoutGps, true);
+    assert.equal(estimated.locationConfidence, "unavailable");
+  }
+  assert.equal(model(rail, 602).nextStation.id, "K09");
+  assert.equal(model(rail, 602.5).nextStation.id, "K10");
 });
 test("Reducer rejects backwards fixes and retains arrival for four seconds", () => {
   const p = { key: "x", index: 2, state: "STOPPED", since: at };
@@ -114,14 +105,13 @@ for (const [name, ids, expected] of [
       officialStops: ids.map((id, i) => stop(id, 600 + i * 3)),
     };
     assert.deepEqual(model(ride, 602).boundary.codes, expected);
-    assert.equal(model(ride, 603).boundary.phase, "stopped");
+    assert.equal(model(ride, 603).boundary.phase, "approaching");
     assert.equal(model(ride, 604).lineId, name === "K→B" ? "B" : "K");
   });
-test("Destination next station takes priority over approach text", () => {
-  assert.equal(
-    model({ ...rail, userDestination: { id: "K09" } }, 601).label,
-    "次で降ります",
-  );
+test("Without GPS, a selected destination is shown without an unverified alighting command", () => {
+  const m = model({ ...rail, userDestination: { id: "K09" } }, 601);
+  assert.equal(m.nextIsDestination, true);
+  assert.equal(m.label, "次は");
 });
 test("Stale rail observations clear stale delay and fall back to scheduled time", () => {
   const m = model(rail, 600.5, {

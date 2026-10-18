@@ -1017,6 +1017,7 @@ export default {
   static_drag_close: "Drag down to close",
   static_close: "Close",
   static_navigation: "Main navigation",
+  rail_location_estimate: "Location is unavailable. The next station is estimated from the timetable; arrival is not confirmed.",
   now_model_001: "N",
   now_model_002: "NE",
   now_model_003: "E",

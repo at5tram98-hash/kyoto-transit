@@ -1,4 +1,5 @@
 import { ui } from "./locale.js";
+import { stabilizeRailObservation } from "./rail-location-continuity.js";
 import { selectedAlightingStop } from "./ride-destination.js";
 import { stationEnglish } from "./station-names.js";
 import { stopTime } from "./journey-core.js";
@@ -54,6 +55,7 @@ export function reduceTrainState(previous, observation, at) {
   if (
     previous.state === TRAIN_STATES.STOPPED &&
     observation.state !== TRAIN_STATES.STOPPED &&
+    observation.positionSource !== "schedule" &&
     at - previous.since < 4000
   )
     return previous;
@@ -117,13 +119,15 @@ export function heroModel(
     current &&
     ((stationary &&
       (!hasStopTime || Math.abs(scheduled + shift - minute) <= 4)) ||
-      (!validFix &&
+      (bus &&
+        !validFix &&
         hasStopTime &&
         minute >= scheduled + shift &&
         minute < departure + shift + 0.35));
   let trainState = stopped
     ? TRAIN_STATES.STOPPED
-    : Number.isFinite(progress.arrival) &&
+    : (bus || validFix) &&
+      Number.isFinite(progress.arrival) &&
         progress.arrival - minute <= 1.2 &&
         progress.arrival - minute >= -0.5
       ? TRAIN_STATES.APPROACHING
@@ -138,23 +142,27 @@ export function heroModel(
     (previous?.index ?? currentIndex) <= currentIndex &&
     previous?.state !== TRAIN_STATES.STOPPED;
   if (approachingCurrent) trainState = TRAIN_STATES.APPROACHING;
-  const observed = reduceTrainState(
-    previous,
-    {
-      key: JSON.stringify([
-        ride.operator,
-        ride.from,
-        ride.route,
-        ride.to,
-        ride.tripId,
-        ride.depart,
-        ride.serviceId,
-      ]),
-      state: trainState,
-      index: stopped || approachingCurrent ? currentIndex : progress.nextIndex,
-    },
-    at,
-  );
+  const observation = {
+    key: JSON.stringify([
+      ride.operator,
+      ride.from,
+      ride.route,
+      ride.to,
+      ride.tripId,
+      ride.depart,
+      ride.serviceId,
+    ]),
+    state: trainState,
+    index: stopped || approachingCurrent ? currentIndex : progress.nextIndex,
+  };
+  const safeObservation = bus
+    ? observation
+    : stabilizeRailObservation(previous, observation, {
+        at,
+        hasFreshFix: validFix,
+        fixTimestamp: validFix ? fix.timestamp : null,
+      });
+  const observed = reduceTrainState(previous, safeObservation, at);
   trainState = observed.state;
   const displayIndex = observed.index,
     display = stops[displayIndex] ?? progress.next;
@@ -221,7 +229,7 @@ export function heroModel(
     ? ui("now_model_009")
     : trainState === TRAIN_STATES.STOPPED
       ? ui("now_model_010")
-      : nextIsDestination
+      : nextIsDestination && (bus || validFix)
         ? ui("now_model_011")
         : trainState === TRAIN_STATES.APPROACHING
           ? ui("now_model_012")
@@ -274,6 +282,7 @@ export function heroModel(
     label,
     nextIsDestination,
     locationConfidence: validFix ? "available" : "unavailable",
+    estimatedWithoutGps: !bus && !validFix,
     routeUnavailable,
     lastUpdated: stale
       ? (feed?.asOf ??
