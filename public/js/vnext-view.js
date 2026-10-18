@@ -4,6 +4,7 @@ import {
 } from "./transit-evidence.js";
 import { groupNearbyPlaces } from "./transit-places.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
+import { detectionDisplayState } from "./detection-status-b3.js";
 import { ui } from "./locale.js";
 import {
   groupCityBusRows,
@@ -425,9 +426,18 @@ export function renderNow() {
   $("#now-search").hidden = Boolean(state.armedJourney || state.itinerary);
   updateHTML($("#ride-actions"), "");
   $("#now-search").dispatchEvent(new Event("mymap-now-context"));
+  const detectionPhase = detectionDisplayState({
+    phase: session.phase,
+    locationStatus: state.locationStatus,
+    autoDetect: settings.autoDetect !== false,
+    hidden: document.hidden,
+    candidates: state.rideCandidates.length,
+    moving: Number.isFinite(motion.speed) && motion.speed >= 2.8,
+  });
+  const detectionStatus = `<p class="source-note detection-stage" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
   updateHTML(
     vehicle,
-    `${state.rideCandidates.length ? `<p class="source-note" data-detection-status role="status">${ui(rideDetectionSession.snapshot().phase === "confirming" ? "smartlive_confirming" : "smartlive_searching")}</p>` : ""}${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    `${detectionStatus}${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
