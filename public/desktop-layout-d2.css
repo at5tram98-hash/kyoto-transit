@@ -98,8 +98,11 @@
     right: 0;
     z-index: 25;
   }
-  .navigation-fullscreen .tabbar,
-  .navigation-app[data-keyboard="true"] .tabbar {
+  /* Fullscreen map views keep their pre-existing immersive navigation. */
+  .navigation-fullscreen .tabbar {
+    display: none;
+  }
+  .navigation-app[data-keyboard="true"]:not(.navigation-fullscreen) .tabbar {
     display: flex;
   }
 }
