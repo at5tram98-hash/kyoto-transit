@@ -25,9 +25,17 @@ export function transferRisk(route,bufferMinutes=3){
   const legs=route?.legs??[];
   const gaps=[];
   for(let i=1;i<legs.length;i++){
-    const previous=legs[i-1],next=legs[i];
-    if(previous.kind!=="ride"||next.kind!=="ride")continue;
-    const gap=next.depart-previous.arrive;
+    const next=legs[i];
+    if(next.kind!=="ride")continue;
+    let j=i-1;
+    while(j>=0 && legs[j].kind!=="ride")j--;
+    if(j<0)continue;
+    const previous=legs[j];
+    // The time between two rides already includes walking and dwell; count
+    // actual usable margin after required intermediate movements.
+    const required=legs.slice(j+1,i)
+      .reduce((sum,leg)=>sum+(Number.isFinite(leg.minutes)?leg.minutes:0),0);
+    const gap=next.depart-previous.arrive-required;
     if(Number.isFinite(gap))gaps.push(gap);
   }
   const shortest=gaps.length?Math.min(...gaps):null;
