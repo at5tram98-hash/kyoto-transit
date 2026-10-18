@@ -109,7 +109,7 @@ export async function v3RedesignChecks({
         );
         assert.deepEqual(
           await page.locator(".tab-button span").allTextContents(),
-          ["Live", "検索", "時刻表", "運行", "その他"],
+          ["今", "検索", "時刻表", "運行情報", "設定"],
         );
         assert.equal(
           await page
