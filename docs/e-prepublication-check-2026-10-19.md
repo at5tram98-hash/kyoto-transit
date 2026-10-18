@@ -32,6 +32,9 @@ Cloudflare Workerは `wrangler deploy --dry-run` のみ実施し、本番反映�
 - 近鉄列車位置の実測
 - 地図タイル、CORS
 
+**現行本番のAPIには断続的な502タイムアウトも発生。**
+E最初の読取検査では市バス・北3とも成功したが、後続検査では北3または一般市バスの接近APIで502「The operation was aborted due to timeout」が発生した。静的データ/候補ビルドの合格を現行ライブの恒常的な安定性へ読み替えず、現地受入前に監視・再試験を要する。重複するEワークフローの同時API検査を避けるため、E CIのconcurrencyも追加した。
+
 **京都バスODPTリアルタイムは任意未設定で、実測接続成功ではない。**
 Cloudflare Workerの読み取り専用設定確認でも、BROWSER・LIVE_KV・LIMIT・APP_ORIGIN・STOP_NAMESのBindingと毎時15分のCronは存在するが、ODPT_CONSUMER_KEY secretは存在しない。
 `verify:all-providers` の厳格受入では `blocked_external` とする。
