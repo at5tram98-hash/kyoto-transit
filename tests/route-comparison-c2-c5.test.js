@@ -25,6 +25,9 @@ test("C-2/C-4: fastest and cheapest comparisons respect independent metrics",()=
 test("C-3: transfer margin uses real schedule and flags tight connections",()=>{
  const r=route(600,640,1,300,[ride(600,615),ride(616,640)]);
  assert.equal(transferRisk(r,3).critical,true);
+ const walking=route(600,640,1,300,[ride(600,615),walk(4),ride(621,640)]);
+ assert.equal(transferRisk(walking,3).critical,true);
+ assert.equal(transferRisk(walking,3).shortest,2);
  assert.equal(transferRisk(r,1).critical,false);
  assert.equal(transferRisk(route(600,620,0,200,[ride(600,620)])).hasTransfer,false);
 });
