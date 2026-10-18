@@ -49,6 +49,10 @@ export async function dQualityChecks({ open, settleNavigation, summary }) {
           `D settings reachable: ${id}`);
       }
       assert.equal(await page.locator("[data-saved-page]").count(), 2);
+      const rowHeights = await page.locator("[data-settings-group] .native-row").evaluateAll(
+        rows => rows.map(row => row.getBoundingClientRect().height));
+      assert.ok(rowHeights.length >= 10 && rowHeights.every(height => height >= 44),
+        "D-5 Settings rows must remain readable and touchable");
       await page.locator('[data-setting-page="accessibility"]').click();
       await settleNavigation(page);
       const textSize = page.locator('[data-setting-value="fontScale"]');
@@ -64,6 +68,28 @@ export async function dQualityChecks({ open, settleNavigation, summary }) {
       );
       await page.locator('[data-navigation-back]').click();
       await settleNavigation(page);
+      if (desktop) {
+        const active = async () =>
+          page.locator(".tab-button.active").getAttribute("data-tab");
+        await page.locator('[data-tab="settings"]').focus();
+        await page.keyboard.press("ArrowUp");
+        await settleNavigation(page);
+        assert.equal(await active(), "operations", "D-4 ArrowUp opens the preceding tab");
+        await page.keyboard.press("ArrowDown");
+        await settleNavigation(page);
+        assert.equal(await active(), "settings");
+        await page.keyboard.press("Home");
+        await settleNavigation(page);
+        assert.equal(await active(), "now");
+        await page.keyboard.press("End");
+        await settleNavigation(page);
+        assert.equal(await active(), "settings");
+      } else {
+        await page.locator('[data-tab="settings"]').focus();
+        await page.keyboard.press("ArrowUp");
+        assert.equal(await page.locator(".tab-button.active").getAttribute("data-tab"),
+          "settings", "D-4 must not replace mobile keyboard behavior");
+      }
       const homeGeometry = await geometry();
       assert.equal(homeGeometry.display, desktop ? "grid" : "flex");
       assert.ok(homeGeometry.overflow <= 1,
