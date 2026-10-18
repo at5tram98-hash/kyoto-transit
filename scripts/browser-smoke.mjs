@@ -2986,7 +2986,7 @@ try {
             });
             assert.equal(
               await page.locator(".journey-display").getAttribute("data-phase"),
-              "APPROACHING",
+              "DEPARTED",
             );
             assert.match(
               await page.locator(".journey-next-name").textContent(),
@@ -2994,7 +2994,12 @@ try {
             );
             assert.match(
               await page.locator(".next-state-label").textContent(),
-              /まもなく/,
+              /次は/,
+            );
+            assert.match(
+              await page.locator(".rail-estimate-note").textContent(),
+              /時刻表による推定/,
+              "GPS-denied ride must disclose that next-station timing is estimated",
             );
             assert.match(
               await page
@@ -3046,7 +3051,11 @@ try {
             await page.locator('[data-choose-destination="K09"]').click();
             assert.match(
               await page.locator(".next-state-label").textContent(),
-              /次で降ります/,
+              /次は/,
+            );
+            assert.match(
+              await page.locator(".rail-estimate-note").textContent(),
+              /停車・到着は未確認/,
             );
             await page.evaluate(() => {
               window.__state.state.ride.userDestination = { id: "K11" };
