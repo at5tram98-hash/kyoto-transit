@@ -56,7 +56,11 @@ export function matchArmedJourney(candidates, armed, minute, at = Date.now()) {
             ...c,
             ride: bus
               ? { ...ride }
-              : { ...c.ride, userDestination: ride.userDestination },
+              : {
+                  ...c.ride,
+                  userDestination: ride.userDestination,
+                  userDestinationId: ride.userDestinationId,
+                },
             score: measuredBus ? Math.min(100, c.score + 12) : c.score,
             armedMatch: true,
             source: `${c.source}＋選択した旅程`,
