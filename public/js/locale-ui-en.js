@@ -131,6 +131,7 @@ export default {
   b7_clear: "Clear manual reference",
   c1_quick_stops: "Quick station entry",
   c1_quick_note: "Select the From or To field before choosing a station · Via stops and timing stay editable",
+  c5_sort_walking: "Least walking",
   c2_overview: "Route comparison details",
   c2_fastest: "Shortest duration",
   c2_fewest: "Fewest transfers",
