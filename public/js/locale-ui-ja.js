@@ -169,7 +169,7 @@ export default {
   vnext_network_view_039: "詳細設定",
   vnext_network_view_040: "位置情報・マイク・通知",
   vnext_network_view_041:
-    '<div class="settings-card source-list"><div><b>位置情報</b><small>表示中に取得し、交通機関の判定・次駅・付近の交通に端末上で利用します。GPS履歴をサーバーへ保存しません。接近検索では選んだ停留所名を交通情報APIへ送ります。</small></div><div><b>アナウンス補助</b><small>許可済みのマイクだけを、乗車候補があるときに最長6秒使います。常時録音せず、音声・文字起こしをMyMapのサーバーや保存領域へ保存しません。端末・ブラウザーの音声認識サービスが音声を処理する場合があります。補助をOFFにしても手動乗車・時刻表は使えます。</small></div><div><b>保存する情報</b><small>検索履歴・保存地点・定期券・表示設定はこの端末のLocal Storage、画面状態はSession Storageに保存します。案内中の旅程は再起動復元のため最大4時間保持します。</small></div><div><b>ネットワーク</b><small>公式時刻表・接近・運行をMyMapの交通APIから取得します。背景地図はOpenStreetMapにタイル座標を送って取得します。ブラウザーや各提供者の通信には通常のIP情報が含まれます。</small></div><div><b>オフライン</b><small>保存した時刻表・地点・設定を利用します。更新できない接近を最新の実測として表示しません。</small></div></div>',
+    '<div class="settings-card source-list"><div><b>位置情報</b><small>表示中に取得し、交通機関の判定・次駅・付近の交通に端末上で利用します。GPS履歴をサーバーへ保存しません。接近検索では選んだ停留所名を交通情報APIへ送ります。</small></div><div><b>アナウンス補助</b><small>許可済みのマイクだけを、乗車候補があるときに1回最長60秒使います。常時録音せず、音声・文字起こしをMyMapのサーバーや保存領域へ保存しません。端末・ブラウザーの音声認識サービスが音声を処理する場合があります。補助をOFFにしても手動乗車・時刻表は使えます。</small></div><div><b>保存する情報</b><small>検索履歴・保存地点・定期券・表示設定はこの端末のLocal Storage、画面状態はSession Storageに保存します。案内中の旅程は再起動復元のため最大4時間保持します。</small></div><div><b>ネットワーク</b><small>公式時刻表・接近・運行をMyMapの交通APIから取得します。背景地図はOpenStreetMapにタイル座標を送って取得します。ブラウザーや各提供者の通信には通常のIP情報が含まれます。</small></div><div><b>オフライン</b><small>保存した時刻表・地点・設定を利用します。更新できない接近を最新の実測として表示しません。</small></div></div>',
   vnext_network_view_042:
     '<div class="settings-card source-list"><div><b>対応範囲</b><small>京都の対応路線に特化した案内です。運行・ダイヤ・運賃は交通機関の公式案内と現地表示を優先してください。</small></div><div><b>実測・予測・予定</b><small>取得元と更新状態を区別します。未取得の到着・番線・運賃は確定情報として表示しません。</small></div></div>',
   vnext_network_view_043: "未対応",
