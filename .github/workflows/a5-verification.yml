@@ -18,3 +18,18 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Chromium responsive and journey checks
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ARTIFACT_DIR: browser-artifacts/a5-chromium
+      - name: WebKit responsive and journey checks
+        run: |
+          npm run test:browser
+          npm run test:pwa
+        env:
+          BROWSER_ENGINE: webkit
+          BROWSER_ARTIFACT_DIR: browser-artifacts/a5-webkit
