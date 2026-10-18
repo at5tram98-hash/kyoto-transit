@@ -718,6 +718,8 @@ export function mountRouteSearch({
       return `<div class="route-compared-result" data-route-compare-index="${i}">${routeHTML(
         routes[i], network, data.boarding?.[i], i, tokyoNow(), false,
         { position: position + 1, recommendations: [
+          routes[i].time === Math.min(...routes.map(r => r.time).filter(Number.isFinite))
+            ? "arrival" : "",
           facts.fewestTransfers ? "transfers" : "",
           facts.cheapest ? "fare" : "",
         ].filter(Boolean) },
