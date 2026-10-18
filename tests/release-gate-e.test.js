@@ -8,12 +8,14 @@ test("E: Pages publication cannot skip required pre-deploy validation",()=>{
  for(const action of ["npm run check","npm test","npm run build",
  "npm run test:browser","npm run test:pwa","wrangler deploy --dry-run"])
   assert.ok(pages.includes(action),`Pages gate missing ${action}`);
+ assert.match(pages,/  build:\n    if: github.ref == 'refs\/heads\/main'/);
  assert.match(pages,/  deploy:\n    needs: build/);
  assert.match(pages,/  verify-production:\n/);
 });
 test("E: production-only deploy workflows cannot trigger from feature branch",()=>{
  assert.match(pages,/branches: \[main\]/);
  assert.match(worker,/branches: \[main\]/);
+ assert.match(worker,/  deploy:\n    if: github.ref == 'refs\/heads\/main'/);
  assert.match(worker,/CLOUDFLARE_API_TOKEN/);
  assert.match(worker,/keep_vars|wrangler deploy --config/);
 });
