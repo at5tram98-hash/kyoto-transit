@@ -1567,6 +1567,7 @@ try {
   if (process.env.BROWSER_D3_ONLY === "1") {
     await d3BrowserChecks({open, settleNavigation, summary});
   }
+  if (process.env.BROWSER_C7_ONLY !== "1" && process.env.BROWSER_D3_ONLY !== "1") {
   if (
     process.env.BROWSER_SMARTLIVE_ONLY === "1" ||
     !Object.keys(process.env).some(
@@ -3308,6 +3309,7 @@ try {
         "PDF v1.1 LCD hero, both Takeda directions, both North 3 directions, 100–200% text sizing, station/delay sheets, 44px touch targets",
       );
     }
+  }
   }
   summary.performance = report;
   await writeFile(
