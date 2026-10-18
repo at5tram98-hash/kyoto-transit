@@ -197,7 +197,17 @@ export async function v3RedesignChecks({
           .waitFor();
         await settleNavigation(page);
         await record("results");
-        assert.equal(await page.locator(".result-order button").count(), 3);
+        assert.equal(await page.locator(".result-order button").count(), 4);
+        await page.locator(".navigation-current [data-result-order=walking]").click();
+        assert.equal(
+          await page.locator(".navigation-current [data-result-order=walking]").getAttribute("aria-pressed"),
+          "true",
+          "least-walking sort is interactive and visibly selected",
+        );
+        assert.ok(
+          await page.locator(".navigation-current .route-compared-result").count() > 0,
+          "route comparison summaries render without deleting existing route actions",
+        );
         // B: one tap performs a real following-departure search.
         await page.locator(".navigation-current [data-next-departure]").click();
         await page
