@@ -2,6 +2,7 @@ import { clearFalseRide } from "./vnext-detect.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
 import { ui } from "./locale.js";
 import { rideConfirmationFacts } from "./ride-confirmation-facts.js";
+import { nextSidebarTabIndex } from "./desktop-tabs-d4.js";
 import { transitEvidenceEngine, transitCandidateKey } from "./transit-evidence.js";
 import { formatMinute } from "./vnext-core.js";
 import { mountLiveHome } from "./live-home.js";
@@ -167,9 +168,23 @@ function openRideCandidateConfirmation(index) {
 function setupEvents() {
   setupNowInteractions();
   setupContextSheet(renderNow, openFoldback);
-  $(".tabbar").addEventListener("click", (e) => {
+  const tabbar = $(".tabbar");
+  tabbar.addEventListener("click", (e) => {
     const b = e.target.closest("[data-tab]");
     if (b) setTab(b.dataset.tab);
+  });
+  tabbar.addEventListener("keydown", (e) => {
+    if (!matchMedia("(min-width: 1024px) and (pointer: fine)").matches ||
+        e.altKey || e.ctrlKey || e.metaKey || e.shiftKey ||
+        !(e.target instanceof Element)) return;
+    const focused = e.target.closest(".tab-button[data-tab]");
+    if (!focused) return;
+    const tabs = [...tabbar.querySelectorAll(".tab-button[data-tab]")];
+    const next = nextSidebarTabIndex(e.key, tabs.indexOf(focused), tabs.length);
+    if (next === null) return;
+    e.preventDefault();
+    tabs[next].focus();
+    tabs[next].click();
   });
   document.addEventListener("click", async (e) => {
     const b = e.target.closest("button");
