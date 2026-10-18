@@ -38,6 +38,7 @@ import {
   updateItineraryRoute,
 } from "./journey-plan.js";
 import { mergeTimetableFeeds } from "./search-core.js";
+import { routeComparison, transferRisk, routeFacts } from "./route-comparison-c2-c5.js";
 import { getCached, putCached } from "./realtime.js";
 import { relevantMissingOperators } from "./arrival-stability.js";
 import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
@@ -686,41 +687,34 @@ export function mountRouteSearch({
         document.activeElement.closest(".planner-result"))
     )
       return;
-    updateHTML(
-      resultFrame.querySelector("[data-planner-results]"),
-      sortedRouteIndexes(data?.routes ?? [], data?.order)
-        .map((i, position) =>
-          routeHTML(
-            data.routes[i],
-            network,
-            data.boarding[i],
-            i,
-            tokyoNow(),
-            false,
-            {
-              position: position + 1,
-              recommendations: ["arrival", "transfers", "fare"].filter(
-                (key) => {
-                  const value = (r) =>
-                    key === "arrival"
-                      ? r.time
-                      : key === "transfers"
-                        ? r.transfers
-                        : r.fare.additional;
-                  return (
-                    Number.isFinite(value(data.routes[i])) &&
-                    value(data.routes[i]) ===
-                      Math.min(
-                        ...data.routes.map(value).filter(Number.isFinite),
-                      )
-                  );
-                },
-              ),
-            },
-          ),
-        )
-        .join(""),
-    );
+    const routes = data?.routes ?? [];
+    const comparisons = routeComparison(routes);
+    const buffer = Number(data?.input?.buffer ?? 3);
+    const results = sortedRouteIndexes(routes, data?.order).map((i, position) => {
+      const facts = comparisons[i];
+      const risk = transferRisk(routes[i], buffer);
+      const compareTags = [
+        facts.fastest ? ui("c2_fastest") : "",
+        facts.fewestTransfers ? ui("c2_fewest") : "",
+        facts.leastWalking ? ui("c2_least_walk") : "",
+        facts.cheapest ? ui("c4_cheapest") : "",
+      ].filter(Boolean);
+      const margin = risk.hasTransfer
+        ? `<span class="route-margin" data-transfer-risk="${risk.critical ? "critical" : risk.tight ? "tight" : "normal"}">${esc(ui(risk.critical ? "c3_critical" : risk.tight ? "c3_tight" : "c3_margin", [risk.shortest]))}</span>`
+        : `<span class="route-margin">${esc(ui("c3_direct"))}</span>`;
+      const cost = facts.fare === null
+        ? ui("c4_unknown")
+        : ui("c4_additional", [facts.fare.toLocaleString("ja-JP")]);
+      const overview = `<div class="route-compare-strip" aria-label="${esc(ui("c2_overview"))}"><span>${esc(ui("c2_walk", [facts.walking]))}</span><span>${esc(ui("c2_transfers", [facts.transfers]))}</span><span>${esc(cost)}</span>${margin}</div><p class="route-compare-tags">${compareTags.map(t => `<span>${esc(t)}</span>`).join("")}</p>`;
+      return `<div class="route-compared-result" data-route-compare-index="${i}">${routeHTML(
+        routes[i], network, data.boarding?.[i], i, tokyoNow(), false,
+        { position: position + 1, recommendations: [
+          facts.fewestTransfers ? "transfers" : "",
+          facts.cheapest ? "fare" : "",
+        ].filter(Boolean) },
+      )}${overview}</div>`;
+    }).join("");
+    updateHTML(resultFrame.querySelector("[data-planner-results]"), results);
   }
   function handleRouteAction(e) {
     const b = e.target.closest("button");
