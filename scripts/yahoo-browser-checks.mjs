@@ -35,7 +35,7 @@ export async function yahooScreenChecks({
           1,
           "one canonical search form",
         );
-        assert.equal(await page.locator("#view-title").textContent(), "Live");
+        assert.equal(await page.locator("#view-title").textContent(), "今");
         await layout(page, `Live ${colorScheme} ${scale}`);
         await page.screenshot({
           path: resolve(artifacts, `live-home-${colorScheme}-${scale}.png`),
