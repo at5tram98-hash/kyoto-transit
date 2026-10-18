@@ -4,6 +4,7 @@ import { completionChecks } from "./completion-browser-checks.mjs";
 import { liveInteractionChecks } from "./live-browser-checks.mjs";
 import { yahooScreenChecks } from "./yahoo-browser-checks.mjs";
 import { v3RedesignChecks } from "./v3-browser-checks.mjs";
+import { c7BrowserChecks } from "./c7-browser-checks.mjs";
 // Real browser checks with deterministic upstream fixtures. These do not
 // certify the availability or accuracy of production transport providers.
 import assert from "node:assert/strict";
@@ -1559,6 +1560,9 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 }
 
 try {
+  if (process.env.BROWSER_C7_ONLY === "1") {
+    await c7BrowserChecks({open, searchScreen, submitSearch, settleNavigation, summary});
+  }
   if (
     process.env.BROWSER_SMARTLIVE_ONLY === "1" ||
     !Object.keys(process.env).some(
