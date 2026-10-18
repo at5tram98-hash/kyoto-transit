@@ -10,6 +10,7 @@ import {
 } from "./vnext-state.js";
 import { formatMinute } from "./vnext-core.js";
 import { stopTime } from "./journey-core.js";
+import { selectedAlightingStop } from "./ride-destination.js";
 
 let opener = null;
 export function openContextSheet(title, body) {
@@ -26,19 +27,23 @@ export function openContextSheet(title, body) {
 }
 export function destinationSheet(bus = false) {
   const stops = state.ride?.officialStops ?? [];
+  const selected = selectedAlightingStop(state.ride, stops)?.id ?? "";
   openContextSheet(
     bus ? ui("context_sheet_001") : ui("context_sheet_002"),
     ui("context_sheet_003", [
-      stops
-        .map(
-          (s) =>
-            `<option value="${esc(s.id)}" ${s.id === (state.ride?.userDestination?.id ?? state.ride?.to) ? "selected" : ""}>${esc(s.name)}</option>`,
-        )
-        .join(""),
+      `<option value="" disabled ${selected ? "" : "selected"}>${ui("alighting_choose")}</option>` +
+        stops
+          .map(
+            (s) =>
+              `<option value="${esc(s.id)}" ${s.id === selected ? "selected" : ""}>${esc(s.name)}</option>`,
+          )
+          .join(""),
       settings.alightAssist !== false ? "checked" : "",
       settings.notifications ? "checked" : "",
     ]),
   );
+  const save = $("#context-sheet [data-save-destination]");
+  if (save) save.disabled = !selected;
 }
 export function stationDetailHTML(id) {
   const stop = (
@@ -108,6 +113,10 @@ export function setupContextSheet(onChange, onFoldback) {
     } else if (b.dataset.openTimetable) dialog.close();
   });
   dialog.addEventListener("change", (e) => {
+    if (e.target.id === "personal-stop") {
+      const save = dialog.querySelector("[data-save-destination]");
+      if (save) save.disabled = !e.target.value;
+    }
     if (e.target.hasAttribute("data-alight-setting")) {
       settings.alightAssist = e.target.checked;
       saveSettings();
