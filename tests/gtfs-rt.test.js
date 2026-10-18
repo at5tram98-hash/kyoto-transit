@@ -46,3 +46,29 @@ test('同じtrip IDでも別営業日・別発車時刻のTripUpdate遅延を混
   const v=filterKyotoBusVehicles(d.vehicles,updates,ts+1).vehicles[0];
   assert.equal(v.delay,1);assert.equal(v.direction,0);assert.equal(v.serviceDate,'2026-10-17');
 });
+
+test('未来の車両時刻は実測と見なさず、位置がない便も実測にしない',()=>{
+  const ts=1_700_000_000,d=decodeGtfsRealtime(feed(ts));
+  const future=filterKyotoBusVehicles([{...d.vehicles[0],timestamp:ts+30}],d.tripUpdates,ts);
+  assert.equal(future.vehicles[0].fresh,false);
+  const noCoords=filterKyotoBusVehicles([{...d.vehicles[0],lat:null}],d.tripUpdates,ts);
+  assert.equal(noCoords.vehicles[0].fresh,false);
+  assert.equal(noCoords.vehicles[0].lat,null);
+  assert.equal(noCoords.vehicles[0].lon,null);
+});
+
+test('有効期限切れTripUpdatesの遅延を現在の車両に結合しない',()=>{
+  const ts=1_700_000_000,d=decodeGtfsRealtime(feed(ts));
+  const freshVehicle={...d.vehicles[0],timestamp:ts+180};
+  const r=filterKyotoBusVehicles([freshVehicle],d.tripUpdates,ts+180);
+  assert.equal(r.vehicles[0].fresh,true);
+  assert.equal(r.vehicles[0].delay,null);
+});
+
+test('未来時刻・明示的に古い車両は測定便の照合証拠として採用しない',()=>{
+  // Realtime consumers must honor the server-side fresh flag even when
+  // another vehicle in the same feed makes the overall source live.
+  const ts=1_700_000_000,d=decodeGtfsRealtime(feed(ts));
+  const r=filterKyotoBusVehicles([{...d.vehicles[0],timestamp:ts+30}],d.tripUpdates,ts);
+  assert.equal(r.vehicles[0].fresh,false);
+});
