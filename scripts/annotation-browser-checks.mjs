@@ -376,6 +376,7 @@ export async function annotationChecks({
       await settleNavigation(page);
       const root = page.locator(".navigation-current .station-arrivals");
       await root.locator(".source-dot.live").waitFor();
+      assert.equal(await root.locator(".arrival-toggle").count(), 0, "informational rail rows do not advertise an empty disclosure");
       assert.equal(
         (await root.locator(".arrival-lines").innerText()).includes("確認中"),
         false,

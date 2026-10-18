@@ -82,7 +82,8 @@ export function updateArrivalRows(root, rows, present) {
     el.classList.toggle("delayed", Boolean(view.delayed));
     el.dataset.operator = view.operator ?? "citybus";
     const toggle = el.querySelector(".arrival-toggle");
-    if (toggle)
+    if (toggle && view.expandable === false) toggle.remove();
+    if (toggle && view.expandable !== false)
       toggle.setAttribute(
         "aria-label",
         ui("view_rendering_004", [

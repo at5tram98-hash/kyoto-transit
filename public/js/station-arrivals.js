@@ -50,6 +50,7 @@ export function mountStationArrivals(host, stop) {
       .slice(0, 8);
     updateArrivalRows(root, rows, (row) => ({
       operator: stop.type,
+      expandable: false,
       service: `<span class="station-service"><span class="transport-icon" data-operator="${stop.type}">${icon("train")}</span><small>${esc(row.label ?? (row.category === "express" ? ui("timetable_ui_001") : row.category === "local" ? ui("timetable_ui_002") : ui("timetable_ui_004")))}</small></span>`,
       destination: `<b>${esc(row.dest || ui("vnext_arrivals_021"))}</b><small>${ui(row.direction === "north" ? "station_north" : "station_south", [stop.type === "subway" ? ui(row.direction === "north" ? "station_kokusai" : "station_takeda") : ui(row.direction === "north" ? "station_kyoto" : "station_nara")])}</small>`,
       minutes: Number.isFinite(row.minutes)
