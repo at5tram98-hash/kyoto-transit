@@ -31,6 +31,7 @@ import { CAPTURE_API } from "./live.js";
 import { buildRailArrivalRows } from "./rail-arrivals-core.js";
 import {
   groupCityBusRows,
+  busServiceKey,
   busServiceLabel,
   busArrivalText,
   busCongestionText,
@@ -104,7 +105,7 @@ function arrivalValue(r) {
     ]);
   return `<span class="arrival-unconfirmed">${esc(r.status === "時刻未確定" || !r.status ? ui("vnext_arrivals_011") : r.status)}</span>`;
 }
-function busRow(r) {
+export function busRow(r) {
   const arrivals = (r.arrivals ?? [r]).slice(0, 2),
     primary = arrivals[0],
     congestion = busCongestionText(r),
@@ -204,10 +205,10 @@ function normalizeRail(data, timetable = null, nowMinute = null) {
   return { ...predicted, target, results };
 }
 
-export function compactBusHTML(data) {
+export function compactBusHTML(data, { stopId } = {}) {
   const rows = busPreviewRows(data);
   if (!rows.length) return "";
-  return `<div class="arrival-compact">${rows.map((r) => `<div><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</small></span><strong>${esc(busArrivalText(r))}</strong></div>`).join("")}</div>`;
+  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</small></span><strong>${esc(busArrivalText(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div>`;
 }
 
 export function mountArrivals({ network }) {
@@ -552,7 +553,6 @@ export function mountArrivals({ network }) {
         root.querySelector("#arrival-stop-search").focus();
       }
     } else if (b.dataset.arrivalStop) selectStop(b.dataset.arrivalStop, true);
-    else if (b.hasAttribute("data-arrival-nearest")) chooseNearest();
     else if (b.hasAttribute("data-rail-refresh")) {
       railScheduleAt = 0;
       railLoop.poke();

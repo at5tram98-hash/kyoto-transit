@@ -1,0 +1,56 @@
+{
+  "note": "Downloaded actual official HTML; local parser verification, not Worker deployment.",
+  "verifiedAt": "2026-10-18T03:09:38.088Z",
+  "lines": [
+    {
+      "id": "kintetsu",
+      "url": "https://www.kintetsu.jp/unkou/unkou.html",
+      "status": "normal",
+      "summary": "公式発表: 15分以上の列車の遅れはありません（15分未満は対象外）",
+      "notices": []
+    },
+    {
+      "id": "citybus",
+      "url": "https://www.city.kyoto.lg.jp/kotsu/category/165-2-0-0-0-0-0-0-0-0.html",
+      "status": "unconfirmed",
+      "summary": "公式の迂回・運休・臨時経路変更のお知らせ",
+      "notices": [
+        {
+          "title": "時代祭に伴う臨時経路変更について",
+          "url": "https://www.city.kyoto.lg.jp/kotsu/page/0000355936.html"
+        },
+        {
+          "title": "城南祭に伴う臨時経路変更について",
+          "url": "https://www.city.kyoto.lg.jp/kotsu/page/0000355934.html"
+        },
+        {
+          "title": "みそのばしフェスティバル2026に伴う臨時経路変更について",
+          "url": "https://www.city.kyoto.lg.jp/kotsu/page/0000355935.html"
+        },
+        {
+          "title": "1月10日(土曜日)～1月12日(月曜日・祝日)上賀茂神社周辺における臨時経路変更",
+          "url": "https://www.city.kyoto.lg.jp/kotsu/page/0000349023.html"
+        },
+        {
+          "title": "実施日追加のお知らせ 上賀茂神社周辺の道路混雑に伴う臨時経路変更",
+          "url": "https://www.city.kyoto.lg.jp/kotsu/page/0000348957.html"
+        },
+        {
+          "title": "お知らせ 上賀茂神社周辺の道路混雑に伴う臨時経路変更",
+          "url": "https://www.city.kyoto.lg.jp/kotsu/page/0000348956.html"
+        },
+        {
+          "title": "年末年始における市バス・地下鉄の運行ダイヤ",
+          "url": "https://www.city.kyoto.lg.jp/kotsu/page/0000347827.html"
+        }
+      ]
+    },
+    {
+      "id": "subway",
+      "url": "https://www.city.kyoto.lg.jp/kotsu/category/166-2-0-0-0-0-0-0-0-0.html",
+      "status": "unconfirmed",
+      "summary": "交通局の公式運行お知らせ（便別の遅れは未確認）",
+      "notices": []
+    }
+  ]
+}

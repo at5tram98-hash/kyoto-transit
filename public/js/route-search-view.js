@@ -1,4 +1,4 @@
-import { ui, displayStopName } from "./locale.js";
+import { ui, displayStopName, durationLabel } from "./locale.js";
 import { esc, icon } from "./vnext-state.js";
 import { formatTime } from "./router.js";
 import { boardingAvailable } from "./journey-session.js";
@@ -221,7 +221,7 @@ export function routeHTML(
     route.changedLeg != null ? ui("route_search_view_043") : "",
     formatTime(startTime),
     formatTime(route.time),
-    shownDuration,
+    durationLabel(shownDuration),
     yen(route.fare.additional),
     route.fare.additional !== route.fare.normal
       ? ui("route_search_view_044", [yen(route.fare.normal)])

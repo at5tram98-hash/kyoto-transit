@@ -449,6 +449,9 @@
   box-shadow: var(--shadow);
   overflow: hidden;
 }
+#operations-root > .native-list + .native-list {
+  margin-top: 16px;
+}
 .operation-card [data-operation-save] svg {
   width: 21px;
   height: 21px;
@@ -597,6 +600,7 @@
 
 /* Native interaction states without animating layout or painting shadows. */
 button,
+a,
 input,
 select,
 summary {
@@ -604,6 +608,15 @@ summary {
 }
 button {
   touch-action: manipulation;
+}
+html[data-input-modality="pointer"]
+  :is(button, a, input, select, summary):focus {
+  outline: none;
+}
+button:focus:not(:focus-visible),
+summary:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
 }
 button:focus-visible,
 input:focus-visible,

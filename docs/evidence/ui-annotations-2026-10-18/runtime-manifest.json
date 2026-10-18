@@ -1,0 +1,389 @@
+{
+  "build": "48f36473118b",
+  "files": [
+    {
+      "path": "data/bus-catalog.json",
+      "sha256": "9d4fab352258a99576f3b0a426828892774db10f31beb528f5062617a44e728b"
+    },
+    {
+      "path": "data/locations.json",
+      "sha256": "a0a467248c2f661aa0c05c51bb94b9453950759c1296d095e340c5b61c76a5e4"
+    },
+    {
+      "path": "data/north3-timetables.json",
+      "sha256": "9a4984cb1a5733edf7d7df30b3161597df1b558bab11f966194343f147a21f28"
+    },
+    {
+      "path": "icon.svg",
+      "sha256": "61c3647e2d0b6e54b5f2e94917a89c062e140d19a24cff6926b5e7bd5f013dfb"
+    },
+    {
+      "path": "idle-experience.css",
+      "sha256": "41514b02871217b3a02ac7d05396aeebf2f08790887183dfa3017f1577db5493"
+    },
+    {
+      "path": "index.html",
+      "sha256": "38fe5aeaba291c98bb83a12c799201e85a4524448b5f89db14110bb13da79536"
+    },
+    {
+      "path": "interaction-guard.css",
+      "sha256": "700404ed188dec863e8557dbee15b43fb3a8eb06a8ddb191b2b3f1d17812e2df"
+    },
+    {
+      "path": "js/announcement-parser.js",
+      "sha256": "5a1c18600826101195aa14971be15a156d2122b7702874516da3352389fbffb7"
+    },
+    {
+      "path": "js/app-enhancements.js",
+      "sha256": "42db824b9cef76a34d28201d09123b418baf9feba748160f556b95ccc8db8341"
+    },
+    {
+      "path": "js/arrival-schedule.js",
+      "sha256": "207bdd7ee5250a38ad2634234a3a32b2ad1aac5f0f7a4f00c081230fb5efa4dd"
+    },
+    {
+      "path": "js/arrival-stability.js",
+      "sha256": "f56997e501d2a9367a490fe5967b12e19d87ea863f646622cf11baa6a0404a0c"
+    },
+    {
+      "path": "js/audio-sequence.js",
+      "sha256": "0bca4cd960b6489c6e71a7a18d75891e36080f36ea521e93beba75b2b88632d2"
+    },
+    {
+      "path": "js/audio-window.js",
+      "sha256": "44d68e3cfd9f01261beb7b0b896b751178a566faba3f797e1418caef1be3b9c1"
+    },
+    {
+      "path": "js/boarding.js",
+      "sha256": "d9f60a79750db28981049868c4fbe2a0877116bfe45e7004a77d314fd0fe49d3"
+    },
+    {
+      "path": "js/bootstrap.js",
+      "sha256": "da51c5eac0dda6c5b0a1e46b8b27a24d2249be48d4c7a057c9e397bdad561f93"
+    },
+    {
+      "path": "js/bus-routes.js",
+      "sha256": "67ad02fba99ef875783a5dd8d2253ad22bc493791365a4fcfd4186d8774297ff"
+    },
+    {
+      "path": "js/bus-stop-preview.js",
+      "sha256": "a3b6ea944724e787b6a8bbd47aa8fce692eadcefd208e313944f7e41ff84bd20"
+    },
+    {
+      "path": "js/context-sheet.js",
+      "sha256": "e2fe1f04a72ac595d410887a082063dd8328c1252c3d5fc752d185cd5ccbdc6f"
+    },
+    {
+      "path": "js/fares.js",
+      "sha256": "17d010a708ed5973d44f0d20127f1425b7277655b38ccd62c168e1b19b84547a"
+    },
+    {
+      "path": "js/fast-data.js",
+      "sha256": "02d850902c5e9cd52cdf2f509847189c3db91bd11d1d8ec476cf35df106abfac"
+    },
+    {
+      "path": "js/foldback-meetings.js",
+      "sha256": "cc8085651346d0772a26f6910d61124f0c0e7818d23554a8a713083a66620397"
+    },
+    {
+      "path": "js/interaction-guard.js",
+      "sha256": "2be19c54ecaf9c9c0721739cb8bc88f419f4852011a29c30bbc6029ae8fcc0bd"
+    },
+    {
+      "path": "js/journey-core.js",
+      "sha256": "9d57fb887c4001c8e793c0814c9315f8efcf0966e5f2ea2462097a4023dac01e"
+    },
+    {
+      "path": "js/journey-observation.js",
+      "sha256": "f7b2b330e8b2d74ff48f5eaf84d6e5a72c53e3435dffebb9f1b9ba952c5ba8ca"
+    },
+    {
+      "path": "js/journey-plan.js",
+      "sha256": "52dbe541ffd0dc3fe16a9c8252bbcc294cdcdbc817cad8b9b01b77988a3421ec"
+    },
+    {
+      "path": "js/journey-recovery.js",
+      "sha256": "50d151082c95ee9be838227c44a8fcca18bb97f60b4b7de10e2622ba48549e8b"
+    },
+    {
+      "path": "js/journey-session.js",
+      "sha256": "44102cd7140f94e6e6b9930791f8694975e3be974d89040187123c0abd13427d"
+    },
+    {
+      "path": "js/journey.js",
+      "sha256": "a93f1dd3722d728ca7ec6a5ec8b6f5a6957940b9d7094a862bdc00c43a273fe6"
+    },
+    {
+      "path": "js/live-home.js",
+      "sha256": "1fa239ff9ab3ef33501cd5b5f697c94e465753242f2efa0872e188b7797de5e6"
+    },
+    {
+      "path": "js/live.js",
+      "sha256": "c295329c6e8fa4c311aa8dd4183b1c231cb2642111bcfaf68cddf82f4e3970d4"
+    },
+    {
+      "path": "js/locale-ui-en.js",
+      "sha256": "bdd030bad6921797198d60d1f9ee3e22970b21ce60fa330de047a9d167c3e2c8"
+    },
+    {
+      "path": "js/locale-ui-ja.js",
+      "sha256": "89940ae56c4565ed9b8161de322599f6c687bec6419fe57b5005f228e4ef3c18"
+    },
+    {
+      "path": "js/locale.js",
+      "sha256": "27c6510005dbb2e0dcae1d4c79fc0e3ed12675aa30c932a7037c6e0030422ec2"
+    },
+    {
+      "path": "js/location-session.js",
+      "sha256": "0f27b87a29e42efecf431eecf46e748ef169df024a72419b6fb687b22fcf06c3"
+    },
+    {
+      "path": "js/mobility.js",
+      "sha256": "4dc27ab7b99bef07750a4a0b0e7dfe0b911480129382e7ce011bfa820687f019"
+    },
+    {
+      "path": "js/motion-assist.js",
+      "sha256": "210af7059393b3fcaf87254a6370376707607caf05d86413ee2bc3c25f1fc67b"
+    },
+    {
+      "path": "js/navigation-core.js",
+      "sha256": "78131f268e849a514292199c7fa5da7f1acaf58d45f197eaa5a0fdc2dab2bcc1"
+    },
+    {
+      "path": "js/navigation-motion.js",
+      "sha256": "485d08bb0849ae38b3fb7fa76deaf2fb480eae4493211db08c0ba52b479c9aeb"
+    },
+    {
+      "path": "js/navigation.js",
+      "sha256": "c4783f55286da5aca3d799cdb39de0f38a18144b0042c166b2a08395b05f144a"
+    },
+    {
+      "path": "js/nearby-departures.js",
+      "sha256": "831a409784f8f73bf71b306165de5b7503fc37e2f8bb221a01677385c5912972"
+    },
+    {
+      "path": "js/network.js",
+      "sha256": "190f6d964090893293ad22b826c2f85304ddb64616e47fd80e2e4ac1e595e318"
+    },
+    {
+      "path": "js/north3-feed.js",
+      "sha256": "71a582dd9463d67e1df2a0680d2d3df5101a4b19b1c681f2107464bc704299a1"
+    },
+    {
+      "path": "js/north3-live.js",
+      "sha256": "ae1652ea3e194c778a90fe56ac0d39fd70394baa6f0a882191f36d47f9913c4d"
+    },
+    {
+      "path": "js/now-components.js",
+      "sha256": "b744ef643944bb4b0eaff9b0a0edc83a5518f7d0bbe4a2665a2231695a2388ae"
+    },
+    {
+      "path": "js/now-model.js",
+      "sha256": "e4fec2c5bc215d9513c061e6b5859f4ba323999b26457cf3af6ad116e3aeb49f"
+    },
+    {
+      "path": "js/now-navigation.js",
+      "sha256": "3825d748026ccdb82fd69827881afffd8849903d2e1cf303ef0f8889850fcdb1"
+    },
+    {
+      "path": "js/operation-status.js",
+      "sha256": "1a5d6607c73b278bf3592786a5076dcd44a6acbeadaeb37b29b707d3333d415a"
+    },
+    {
+      "path": "js/planner-worker.js",
+      "sha256": "eff33210d300b88c0b198210cd3ed79d354746020b500162d925b7e7a73a950e"
+    },
+    {
+      "path": "js/providers.js",
+      "sha256": "cacea60417ec6ea9c0d984b95b71b4e0931a1d437e0429d44b359d00cf29ef6f"
+    },
+    {
+      "path": "js/rail-arrivals-core.js",
+      "sha256": "20ad83a205ab24bd1abdecffc0f616a195bb0a8b8e00b357776fefda2e137d2f"
+    },
+    {
+      "path": "js/realtime-evidence.js",
+      "sha256": "53df0e653b69a61f297db9683924bd0afee1810bcc86e1ca5ce30a5509930980"
+    },
+    {
+      "path": "js/realtime.js",
+      "sha256": "dff9802c26ef329665fdff78d3978575f37ffd4f7c96282ccfc21bddfd7776e1"
+    },
+    {
+      "path": "js/refresh.js",
+      "sha256": "7fed603a85f528612934e8a098b449a91ac7159b107c33fbc2af0bc8e65ffa7a"
+    },
+    {
+      "path": "js/ride-detection-session.js",
+      "sha256": "7caa0661cc6f6a267fe38e837c783d409ae35c163438c1a06e86bb9859145c04"
+    },
+    {
+      "path": "js/ride-rechecking.js",
+      "sha256": "ff630632147f3430f78d6605dde465d2c031c503fb8322c91e826cf9bd79effa"
+    },
+    {
+      "path": "js/ride-state-resolver.js",
+      "sha256": "a75dd0d0792cea425242611a10a9feb7f4f228c670b521393d193bb659c03d22"
+    },
+    {
+      "path": "js/riding.js",
+      "sha256": "9779711260e3258ade1b40a0bce279723b2951f6f8968348ffb4c96dab701eda"
+    },
+    {
+      "path": "js/route-image.js",
+      "sha256": "8122184d76b1a147eb74a4f726f138e94691cb6bcb1c9238696dd4efd6ff2073"
+    },
+    {
+      "path": "js/route-map.js",
+      "sha256": "1462c82165c250edde979b128b8485c5e8ab8c9261dc7dc28de920603103e28a"
+    },
+    {
+      "path": "js/route-search-model.js",
+      "sha256": "a7d4e284c393e6d9a03561321759b3aafa5274364945a84bdce337b6cc045b50"
+    },
+    {
+      "path": "js/route-search-ui.js",
+      "sha256": "a7e0dc291c462177f6c6b8bd86ded75c7e96c631d0c20c537a32eb3948a66a3b"
+    },
+    {
+      "path": "js/route-search-view.js",
+      "sha256": "4de736163041eb98f22698400c40d2cc9addd2c0730c929a821e61686b15aeab"
+    },
+    {
+      "path": "js/route-trip-screen.js",
+      "sha256": "1556f11422b05cf2d59c211ee3eb02a0057a1835fb2ba997f55665686de8424e"
+    },
+    {
+      "path": "js/router.js",
+      "sha256": "8c0d059badc2924749054413381febb8ac9eaf79de2f452dbd359babe47abbee"
+    },
+    {
+      "path": "js/saved-places.js",
+      "sha256": "db2c3cfbd0e18c9b62326d2ad6b155250773ea26b70af12ff1448448c8d7ec53"
+    },
+    {
+      "path": "js/search-core.js",
+      "sha256": "61199ef43be810767a05c3e64585fc79323df46ff933c8e83c9415bda5b09493"
+    },
+    {
+      "path": "js/search-history.js",
+      "sha256": "9b4fb7831aaaadfffb579d00c865dba8bf0565fd4298e91a7f81bfb556d3665f"
+    },
+    {
+      "path": "js/smartlive-evidence.js",
+      "sha256": "57081f11ad1136c62d6fe31a840ec52fa73adc840f0aa9ab65b4c4ace2430671"
+    },
+    {
+      "path": "js/smartlive-supervisor.js",
+      "sha256": "22da3d3a0ebeb325a03bf51f1afc11d0c17656e8ee2a76cdba8e2895672e4e08"
+    },
+    {
+      "path": "js/station-arrivals.js",
+      "sha256": "26badc822c173ebe1d7a2905aa147bdfa51ae0c19bee93175240993a75ca8452"
+    },
+    {
+      "path": "js/station-names.js",
+      "sha256": "851396da47df7d8a894eae6d16c0ebc22a857cc8b99a32361f3c4d6de56d5b4a"
+    },
+    {
+      "path": "js/stop-autocomplete.js",
+      "sha256": "0168b7d47ce96495824acffe520fc8ba2d810c81d7cfaf362bf266c620b955d1"
+    },
+    {
+      "path": "js/timetable-ui.js",
+      "sha256": "7041f1098800020696c0de16dd721de41abfde3167035f27960eca467e91af7d"
+    },
+    {
+      "path": "js/transit-evidence.js",
+      "sha256": "e18a0b68a2103a69a718a18a0adb5f2fd53e882706e8648f3cfe0ce08854f3e4"
+    },
+    {
+      "path": "js/transit-places.js",
+      "sha256": "d928db532520a0a48350f14e625defb74b29aa186d8ff86e75194747b3d3a8cb"
+    },
+    {
+      "path": "js/vehicle.js",
+      "sha256": "735706622343b1d6e958a8ba074aa702bbb05284e701e377cb2c19b3fa65392f"
+    },
+    {
+      "path": "js/view-rendering.js",
+      "sha256": "96bdf2cc8023d4ba9e84eb0ddae50dc8e46264087c7fdff1c1fc056c518e9bc1"
+    },
+    {
+      "path": "js/vnext-arrivals.js",
+      "sha256": "df6c38a8e19223fb104347366e077b10d4f1ceaab9cd3f22ba5c5263b5f97997"
+    },
+    {
+      "path": "js/vnext-core.js",
+      "sha256": "cfeb7f7e107a6ee9607b0fafd4946d7159502fa5b06b5811ecc15e86729dd53f"
+    },
+    {
+      "path": "js/vnext-detect.js",
+      "sha256": "359034dd0a5755f93a59953723f2021dcf51fb784a30bf2b7cf621f54fe59c48"
+    },
+    {
+      "path": "js/vnext-foldback.js",
+      "sha256": "02b100f2f9bcbc023e919eb429797b1d66c1115963d7a8eeb05d66eea3c52124"
+    },
+    {
+      "path": "js/vnext-network-view.js",
+      "sha256": "4699aec9b5d41a11e1d3123780dca107e7b9c37eb77345ebd33525123ace1efb"
+    },
+    {
+      "path": "js/vnext-state.js",
+      "sha256": "8fa90c0f01a7790d87f90ee8ab35b8924cf0faad63500688c5b7637d5352a1de"
+    },
+    {
+      "path": "js/vnext-view.js",
+      "sha256": "2d0ce6c275704d658a55451241930f11dc8cb250e029d0a72d70673b12cf3d14"
+    },
+    {
+      "path": "js/vnext.js",
+      "sha256": "8f81b1f513f07faa8a832039856412f958411bd46049f2dda4cb1034ea962fd1"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "sha256": "14ca3ebae2bbf145ba12d536b7f115e51c1b7ebb74d0c251cab4096dde3c264c"
+    },
+    {
+      "path": "route-search.css",
+      "sha256": "b7b13bdbdfb0e0e3933c28b20c2885971a4be0d35d6e403ef967511d7f4e5931"
+    },
+    {
+      "path": "stability.css",
+      "sha256": "26d172e86d2f463216b4fdccb5154c198ca15378a20a5ad970e0836d29dd6008"
+    },
+    {
+      "path": "sw.js",
+      "sha256": "580a4f021d26975df6a391e32576f63f174e8f1cded6af1faa94fadbe1f6f45a"
+    },
+    {
+      "path": "vnext-arrivals.css",
+      "sha256": "d521b7149723a02eb185721e1f2e62b4346295697bb7a0b39833875d6cbf43a1"
+    },
+    {
+      "path": "vnext-journey.css",
+      "sha256": "859ab025a34c9180d0cb4a6ef9c2231e3a20f0142a470a84bf50ead4057f57eb"
+    },
+    {
+      "path": "vnext-navigation.css",
+      "sha256": "8463913bf2ffdaac4d8fc95adb73c3e1d20c7022c436d898a18261612f31e0c7"
+    },
+    {
+      "path": "vnext-sheets.css",
+      "sha256": "84690d86e472673396288bd76f33bf865dfa21e949ecc0fc0e1da52507a0faad"
+    },
+    {
+      "path": "vnext-tabbar.css",
+      "sha256": "b49d0ced0b2bcb25b2567a721d17e969e37be2729b3290f0f46cf5d58cf4d494"
+    },
+    {
+      "path": "vnext-ui.css",
+      "sha256": "b0904dfe4b104498e12ecbeefdb51226ffe307d9ae981efe5c32ef7ce8085051"
+    },
+    {
+      "path": "vnext.css",
+      "sha256": "5b3037b13cf1264752bdd1c738108096005ac6b1ed05db86602b06dd5c9c0df8"
+    }
+  ]
+}

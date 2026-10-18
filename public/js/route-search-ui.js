@@ -371,7 +371,7 @@ export function mountRouteSearch({
       ]
         .map(
           ([id, label]) =>
-            `<label class="setting-row"><span>${label}</span><input type="checkbox" data-search-operator="${id}" checked></label>`,
+            `<label class="setting-row"><span>${label}</span><input type="checkbox" role="switch" data-search-operator="${id}" checked></label>`,
         )
         .join(""),
     ]),

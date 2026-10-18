@@ -336,7 +336,9 @@ export async function v3RedesignChecks({
           )
           .first();
         await row.waitFor();
-        assert.equal(await row.locator(".arrival-approach").isVisible(), false);
+        // The overview now shows an observed approach immediately (NOW-07).
+        // Expansion still reveals secondary arrivals through the same control.
+        assert.equal(await row.locator(".arrival-approach").isVisible(), true);
         await row.locator(".arrival-toggle").click();
         assert.equal(await row.locator(".arrival-approach").isVisible(), true);
         assert.equal(

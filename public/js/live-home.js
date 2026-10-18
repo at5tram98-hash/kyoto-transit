@@ -276,6 +276,83 @@ export function mountLiveHome(host, search) {
   });
   sheet.addEventListener("click", handle);
   const trigger = host.querySelector("[data-quick-open]");
+  const menu = document.createElement("div");
+  menu.className = "live-quick-popover";
+  menu.id = "live-quick-popover";
+  menu.setAttribute("popover", "manual");
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-label", text("quick"));
+  document.body.append(menu);
+  trigger.setAttribute("aria-controls", menu.id);
+  const closeMenu = () => {
+    if (menu.matches(":popover-open")) menu.hidePopover();
+    trigger.setAttribute("aria-expanded", "false");
+  };
+  function showMenu({ focus = false } = {}) {
+    stopQuickScroll();
+    menu.innerHTML = quickPlaces()
+      .map(
+        (s) =>
+          `<button type="button" role="menuitem" data-quick-destination="${esc(s.id)}">${icon(quickPlaceSymbol(settings, s.id, s.type))}<span>${esc(s.name)}</span></button>`,
+      )
+      .join("");
+    menu.showPopover();
+    const anchor = trigger.getBoundingClientRect(),
+      viewport = visualViewport;
+    const left = viewport?.offsetLeft ?? 0,
+      top = viewport?.offsetTop ?? 0;
+    const width = viewport?.width ?? innerWidth,
+      height = viewport?.height ?? innerHeight;
+    menu.style.left = `${Math.max(left + 8, Math.min(anchor.left, left + width - menu.offsetWidth - 8))}px`;
+    menu.style.top = `${Math.max(top + 8, Math.min(anchor.bottom + 8, top + height - menu.offsetHeight - 8))}px`;
+    trigger.setAttribute("aria-expanded", "true");
+    if (focus) menu.querySelector("button")?.focus();
+  }
+  menu.addEventListener("click", (e) => {
+    const button = e.target.closest("[data-quick-destination]");
+    if (button) {
+      closeMenu();
+      choose(state.network.stops.get(button.dataset.quickDestination));
+    }
+  });
+  menu.addEventListener("keydown", (e) => {
+    const items = [...menu.querySelectorAll("button")],
+      index = items.indexOf(document.activeElement);
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+      e.preventDefault();
+      items[
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? items.length - 1
+            : (index + (e.key === "ArrowDown" ? 1 : -1) + items.length) %
+              items.length
+      ]?.focus();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closeMenu();
+      trigger.focus();
+    } else if (e.key === "Tab") closeMenu();
+  });
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      showMenu({ focus: true });
+    }
+  });
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!menu.contains(e.target) && !trigger.contains(e.target)) closeMenu();
+    },
+    { passive: true },
+  );
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && menu.matches(":popover-open")) {
+      closeMenu();
+      trigger.focus();
+    }
+  });
   function cancelPress() {
     clearTimeout(pressTimer);
     pressing = false;
@@ -294,9 +371,7 @@ export function mountLiveHome(host, search) {
     pressTimer = setTimeout(() => {
       pressing = true;
       suppressClick = true;
-      host
-        .querySelector(".live-quick-strip")
-        .setAttribute("data-selecting", "true");
+      showMenu();
       haptic();
       trigger.setAttribute("aria-expanded", "true");
     }, 420);
@@ -314,24 +389,32 @@ export function mountLiveHome(host, search) {
     const target = document
       .elementFromPoint(e.clientX, e.clientY)
       ?.closest("[data-quick-destination]");
-    host
+    menu
       .querySelectorAll("[data-quick-destination]")
       .forEach((b) => b.classList.toggle("quick-tracking", b === target));
   });
   trigger.addEventListener("pointerup", (event) => {
-    const selected = host.querySelector(".quick-tracking");
+    const selected = menu.querySelector(".quick-tracking");
     const wasPressing = pressing;
     cancelPress();
     trigger.setAttribute("aria-expanded", "false");
-    if (selected)
+    if (selected) {
+      closeMenu();
       choose(state.network.stops.get(selected.dataset.quickDestination));
-    else if (
-      wasPressing &&
-      trigger.contains(document.elementFromPoint(event.clientX, event.clientY))
-    )
-      openQuick();
+    } else if (wasPressing) {
+      if (
+        trigger.contains(
+          document.elementFromPoint(event.clientX, event.clientY),
+        )
+      )
+        trigger.setAttribute("aria-expanded", "true");
+      else closeMenu();
+    }
   });
-  trigger.addEventListener("pointercancel", cancelPress);
+  trigger.addEventListener("pointercancel", () => {
+    cancelPress();
+    closeMenu();
+  });
   function tick() {
     if (
       document.hidden ||
@@ -367,7 +450,7 @@ export function mountLiveHome(host, search) {
         quickDestinations.scrollWidth - 1
     ) {
       lastQuickMove = Date.now();
-      quickDestinations.scrollBy({ left: 2, behavior: "smooth" });
+      quickDestinations.scrollBy({ left: 18, behavior: "smooth" });
     }
   }
   function syncClock() {
@@ -443,13 +526,18 @@ export function mountLiveHome(host, search) {
   }
   host.addEventListener("mymap-now-context", render);
   document.addEventListener("mymap-saved-places-change", render);
-  document.addEventListener("mymap-navigation-change", syncClock);
+  document.addEventListener("mymap-navigation-change", () => {
+    closeMenu();
+    syncClock();
+  });
   document.addEventListener("visibilitychange", () => {
     cancelPress();
+    closeMenu();
     syncClock();
   });
   window.addEventListener("pagehide", () => {
     cancelPress();
+    closeMenu();
     clearInterval(timer);
   });
   window.addEventListener("pageshow", syncClock);

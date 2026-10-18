@@ -70,6 +70,14 @@ const icons = {
     '<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.2 7.7A8 8 0 0 1 19 9m-1.2 7.3A8 8 0 0 1 5 15"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/>',
   fold: '<path d="M5 17V9a5 5 0 0 1 10 0v10m-4-4 4 4 4-4"/>',
+  bell: '<path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5ZM10 21h4"/>',
+  display:
+    '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8m-4-4v4"/>',
+  accessibility:
+    '<circle cx="12" cy="4" r="2"/><path d="M4 9h16m-8 0v5m0 0-5 7m5-7 5 7"/>',
+  shield:
+    '<path d="m12 2 8 3v6c0 6-8 11-8 11S4 17 4 11V5Z"/><path d="m8 12 3 3 5-6"/>',
+  document: '<path d="M5 3h10l4 4v14H5Zm10 0v5h4M8 12h8m-8 4h6"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
 };
 export const icon = (name) =>

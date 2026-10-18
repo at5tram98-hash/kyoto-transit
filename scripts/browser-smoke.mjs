@@ -1,3 +1,4 @@
+import { annotationChecks } from "./annotation-browser-checks.mjs";
 import { smartLiveChecks } from "./smartlive-browser-checks.mjs";
 import { completionChecks } from "./completion-browser-checks.mjs";
 import { liveInteractionChecks } from "./live-browser-checks.mjs";
@@ -1596,7 +1597,7 @@ try {
         /ONLY|AUDIT|BASELINE/.test(key) &&
         process.env[key] === "1",
     )
-  )
+  ) {
     await liveInteractionChecks({
       open,
       setRide,
@@ -1606,6 +1607,17 @@ try {
       summary,
       layout,
     });
+    await annotationChecks({
+      open,
+      layout,
+      artifacts,
+      summary,
+      searchScreen,
+      submitSearch,
+      settleNavigation,
+      backScreen,
+    });
+  }
   if (
     process.env.BROWSER_YAHOO_ONLY === "1" ||
     !Object.keys(process.env).some(

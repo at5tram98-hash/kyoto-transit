@@ -413,9 +413,10 @@ export async function journeyUpgradeChecks({
         await settleNavigation(page);
         const preview = page.locator(".navigation-current .bus-stop-preview");
         await preview.locator(".arrival-compact strong").first().waitFor();
-        assert.ok(
-          (await preview.locator(".arrival-compact > div").count()) <= 3,
-        );
+        const compactCount = await preview
+          .locator(".arrival-compact > button, .arrival-compact > div")
+          .count();
+        assert.ok(compactCount > 0 && compactCount <= 3);
         await preview.locator('[data-preview-route="204"]').click();
         assert.ok(
           (

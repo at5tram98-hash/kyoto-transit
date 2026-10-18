@@ -1,3 +1,7 @@
+import {
+  transitEvidenceEngine,
+  shouldOfferRideConfirmation,
+} from "./transit-evidence.js";
 import { groupNearbyPlaces } from "./transit-places.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { ui } from "./locale.js";
@@ -321,14 +325,20 @@ function renderStatusPill() {
     label.textContent = labels[state.locationStatus] ?? ui("vnext_view_046");
 }
 function candidateHTML() {
-  if (!state.rideCandidates?.length) return "";
+  const candidates = (state.rideCandidates ?? [])
+    .map((candidate, index) => ({ candidate, index }))
+    .filter(({ candidate }) =>
+      shouldOfferRideConfirmation(
+        candidate,
+        transitEvidenceEngine.support(candidate.ride),
+      ),
+    );
+  if (!candidates.length) return "";
   return ui("vnext_view_108", [
-    state.rideCandidates.length === 1
-      ? ui("vnext_view_047")
-      : ui("vnext_view_048"),
-    state.rideCandidates
+    candidates.length === 1 ? ui("vnext_view_047") : ui("vnext_view_048"),
+    candidates
       .slice(0, 3)
-      .map((c, i) =>
+      .map(({ candidate: c, index: i }) =>
         ui("vnext_view_100", [
           i,
           modeClass(c.ride),
@@ -438,6 +448,13 @@ export function renderNow() {
             : ui("vnext_view_056")),
     ]),
   );
+  const idleStatus = root.querySelector(".idle-status");
+  if (idleStatus)
+    idleStatus.dataset.detecting = String(
+      settings.autoDetect !== false &&
+        state.locationStatus === "active" &&
+        !document.hidden,
+    );
   const nearby = near.all
     .filter(
       (s) =>
@@ -502,9 +519,9 @@ export function nearbyDetailHTML(id) {
   const stop = state.network.stops.get(id);
   if (!stop) return ui("vnext_view_063");
   return ui("vnext_view_064", [
-    stop.type === "subway"
-      ? departureHTML(id, true)
-      : `${stop.type.includes("bus") ? '<section class="bus-stop-preview" data-bus-stop-preview></section>' : ""}${stop.type === "kintetsu" ? kintetsuDepartureHTML(stop) : ""}`,
+    stop.type.includes("bus")
+      ? '<section class="bus-stop-preview" data-bus-stop-preview></section>'
+      : '<section class="station-arrivals" data-station-arrivals></section>',
     esc(id),
     esc(id),
   ]);

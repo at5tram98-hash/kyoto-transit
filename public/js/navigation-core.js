@@ -19,6 +19,7 @@ export const NAV_SCREENS = [
   "delay",
   "trains",
   "arrivals",
+  "arrival-detail",
   "board",
   "trip",
   "operation",

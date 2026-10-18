@@ -1,0 +1,53 @@
+{
+  "finalBuild": "48f36473118b",
+  "models": {
+    "passed": 431,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checks": {
+    "before": {
+      "build": "39364e6da0fc",
+      "layouts": 272,
+      "errors": [],
+      "checks": 1
+    },
+    "layout": {
+      "build": "48f36473118b",
+      "layouts": 272,
+      "errors": [],
+      "checks": 1
+    },
+    "interactions": {
+      "build": "48f36473118b",
+      "layouts": 29,
+      "errors": [],
+      "checks": 2
+    },
+    "full16_chromium": {
+      "build": "16e89977a823",
+      "layouts": 686,
+      "errors": [],
+      "checks": 21
+    },
+    "full16_webkit": {
+      "build": "16e89977a823",
+      "layouts": 686,
+      "errors": [],
+      "checks": 21
+    },
+    "pwa16_chromium": {
+      "build": "16e89977a823",
+      "layouts": null,
+      "errors": [],
+      "checks": 9
+    },
+    "pwa16_webkit": {
+      "build": "16e89977a823",
+      "layouts": null,
+      "errors": [],
+      "checks": 9
+    }
+  },
+  "note": "Full16 regression verified UI; final48 exact-source full regression is required by publication CI. Intermediate cancelled/failed attempts are not counted as passed."
+}
