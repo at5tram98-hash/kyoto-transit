@@ -38,7 +38,7 @@ export function stabilizeRailObservation(
       at - lastGpsAt < RAIL_GPS_GRACE_MS &&
       observation.index > prev.index
     )
-      result.index = prev.index;
+      { result.index = prev.index; result.positionSource = "gps_dropout_hold"; }
     return result;
   }
   if (observation.index > prev.index + 1) {

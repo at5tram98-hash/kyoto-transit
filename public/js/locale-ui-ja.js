@@ -1010,6 +1010,7 @@ export default {
   static_close: "閉じる",
   static_navigation: "メインナビゲーション",
   rail_location_estimate: "位置情報を確認できないため、次駅は時刻表による推定です。停車・到着は未確認です。",
+  rail_location_rechecking: "位置情報の復帰を確認中です。駅の表示は照合が完了するまで暫定です。",
   now_model_001: "北",
   now_model_002: "北東",
   now_model_003: "東",

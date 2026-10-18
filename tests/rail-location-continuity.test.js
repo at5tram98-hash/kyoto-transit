@@ -41,10 +41,11 @@ test("a brief GPS dropout holds the previous station instead of skipping immedia
   const during=stabilizeRailObservation(original,next,{at:at+25000});
   assert.equal(during.index,1);
   assert.equal(during.state,"DEPARTED");
-  assert.equal(during.positionSource,"schedule");
+  assert.equal(during.positionSource,"gps_dropout_hold");
   const beyond=stabilizeRailObservation(original,next,{at:at+RAIL_GPS_GRACE_MS+1});
   assert.equal(beyond.index,3);
   assert.equal(beyond.state,"DEPARTED");
+  assert.equal(beyond.positionSource,"schedule");
 });
 test("repeating the same fix never confirms a sudden two-stop GPS leap",()=>{
   const old={key:"ride",index:1,state:"DEPARTED",since:at,lastGpsAt:at,lastFixTimestamp:at};
@@ -65,6 +66,17 @@ test("a single errant fix during recovery does not permanently poison progress",
   const resumed=stabilizeRailObservation(first,{key:"ride",index:3,state:"DEPARTED"},{at:at+4200,hasFreshFix:true,fixTimestamp:at+4200});
   assert.equal(resumed.index,3);
   assert.equal(resumed.pendingIndex,null);
+});
+test("held station does not show a fictitious zero-minute countdown",()=>{
+  const previous = {
+    key: JSON.stringify([ride.operator,ride.from,ride.route,ride.to,ride.tripId,ride.depart,ride.serviceId]),
+    index:1, state:"DEPARTED",since:at,lastGpsAt:at,lastFixTimestamp:at,
+  };
+  const result = model(604,{previous,at:at+20000});
+  assert.equal(result.index,1);
+  assert.equal(result.estimatedWithoutGps,true);
+  assert.equal(result.arrivalEstimate,null);
+  assert.equal(result.minutes,null);
 });
 test("ride change resets continuity rather than borrowing previous rail station",()=>{
   const old={key:"old",index:4,state:"STOPPED",since:at,lastGpsAt:at,lastFixTimestamp:at};

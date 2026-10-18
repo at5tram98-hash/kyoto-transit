@@ -208,8 +208,11 @@ export function heroModel(
       : stationary && trainState === TRAIN_STATES.STOPPED && !display?.estimated
         ? "confirmed"
         : "estimated";
+  const heldLocation =
+    observed.positionSource === "gps_dropout_hold" ||
+    observed.positionSource === "recovering";
   const arrivalEstimate =
-    !routeUnavailable && Number.isFinite(stopTime(display))
+    !routeUnavailable && !heldLocation && Number.isFinite(stopTime(display))
       ? stopTime(display) + (stale ? 0 : shift)
       : null;
   const destinationArrival =
@@ -229,7 +232,7 @@ export function heroModel(
     ? ui("now_model_009")
     : trainState === TRAIN_STATES.STOPPED
       ? ui("now_model_010")
-      : nextIsDestination && (bus || validFix)
+      : nextIsDestination && (bus || (validFix && !heldLocation))
         ? ui("now_model_011")
         : trainState === TRAIN_STATES.APPROACHING
           ? ui("now_model_012")
@@ -281,8 +284,9 @@ export function heroModel(
     minutes,
     label,
     nextIsDestination,
-    locationConfidence: validFix ? "available" : "unavailable",
-    estimatedWithoutGps: !bus && !validFix,
+    locationConfidence: validFix && !heldLocation ? "available" : "unavailable",
+    estimatedWithoutGps: !bus && (!validFix || heldLocation),
+    locationRecovering: !bus && observed.positionSource === "recovering",
     routeUnavailable,
     lastUpdated: stale
       ? (feed?.asOf ??

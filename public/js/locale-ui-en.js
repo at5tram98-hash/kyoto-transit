@@ -1018,6 +1018,7 @@ export default {
   static_close: "Close",
   static_navigation: "Main navigation",
   rail_location_estimate: "Location is unavailable. The next station is estimated from the timetable; arrival is not confirmed.",
+  rail_location_rechecking: "Rechecking restored location. Station position is provisional until confirmed.",
   now_model_001: "N",
   now_model_002: "NE",
   now_model_003: "E",

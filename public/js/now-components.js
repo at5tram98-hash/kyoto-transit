@@ -158,7 +158,7 @@ export function nextStationHero(model, ride, progress) {
     </div>
     <button class="personal-destination" data-context-action="destination" aria-label="${!destination ? ui("alighting_choose") : esc(destinationName)}"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destinationName)} ${model.bus || !destination ? "" : esc(destination.code ?? "")}</b></span><strong>${destination ? estimateTime(model.destinationArrival, model.confidence) : ui("alighting_select_action")}</strong></button>
     ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? ui("now_components_092", [model.boundary.phase === "stopped" ? ui("now_components_066") : ui("now_components_067"), model.boundary.nextLine === "B" ? ui("now_components_068") : ui("now_components_069"), esc(model.serviceType), esc(model.destination)]) : ""}
-    ${model.estimatedWithoutGps && !model.routeUnavailable ? `<p class="source-note rail-estimate-note" role="status">${ui("rail_location_estimate")}</p>` : ""}
+    ${model.estimatedWithoutGps && !model.routeUnavailable ? `<p class="source-note rail-estimate-note" role="status">${ui(model.locationRecovering ? "rail_location_rechecking" : "rail_location_estimate")}</p>` : ""}
     ${model.delayMinutes > 0 ? ui("now_components_070", [model.delayMinutes]) : ""}
     ${model.confidence === "stale" ? ui("now_components_071", [statusPill("stale", null, model.lastUpdated)]) : ""}
 
