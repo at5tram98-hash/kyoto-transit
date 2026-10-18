@@ -140,6 +140,17 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       );
       return {
         sources: rows.map((e) => e.type),
+        vehicleMoving: rows.some(
+          (e) =>
+            (e.type === "gps" || e.type === "motion") &&
+            e.metadata?.vehicleMoving === true,
+        ),
+        audioSequence: rows.some(
+          (e) =>
+            e.type === "audio" &&
+            e.metadata?.sequenceValidated === true &&
+            e.metadata?.directionVerified === true,
+        ),
         routeProgress: rows.some(
           (e) =>
             e.type === "gps" &&
@@ -287,7 +298,8 @@ export function shouldOfferRideConfirmation(candidate, support = {}) {
   if (!candidate || candidate.directionRejected) return false;
   return Boolean(
     support.routeProgress ||
-      (support.sources?.includes("audio") &&
-        support.sources?.includes("motion")),
+      (support.vehicleMoving &&
+        support.audioSequence &&
+        support.sources?.includes("realtime")),
   );
 }

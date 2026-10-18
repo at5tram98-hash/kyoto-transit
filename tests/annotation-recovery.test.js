@@ -54,6 +54,15 @@ test("standing near an arriving bus does not solicit a boarding confirmation", (
   );
   assert.equal(
     shouldOfferRideConfirmation(candidate, { sources: ["audio", "motion"] }),
+    false,
+    "station announcements and device shaking do not imply boarding",
+  );
+  assert.equal(
+    shouldOfferRideConfirmation(candidate, {
+      sources: ["audio", "motion", "realtime"],
+      vehicleMoving: true,
+      audioSequence: true,
+    }),
     true,
   );
   assert.equal(

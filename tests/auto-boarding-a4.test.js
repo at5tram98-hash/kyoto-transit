@@ -93,3 +93,19 @@ test("sequence of independent announcements with live bus identity and moving mo
   add(engine,"motion",{vehicleMoving:true});
   assert.equal(engine.evaluate([{ride,score:90}],now).confirmed,ride);
 });
+
+test("motion-less repeated station audio never triggers unsolicited ride confirmation", async () => {
+  const { shouldOfferRideConfirmation } = await import("../public/js/transit-evidence.js");
+  const engine = createTransitEvidenceEngine();
+  add(engine, "timetable");
+  add(engine, "audio", {directionVerified:true,sequenceValidated:true});
+  add(engine, "realtime", {directionVerified:true});
+  add(engine, "motion", {vehicleMoving:false});
+  assert.equal(
+    shouldOfferRideConfirmation({ride,score:90},engine.support(ride,now)),false,
+  );
+  add(engine, "motion", {vehicleMoving:true});
+  assert.equal(
+    shouldOfferRideConfirmation({ride,score:90},engine.support(ride,now)),true,
+  );
+});
