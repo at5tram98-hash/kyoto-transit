@@ -630,8 +630,13 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
     selectedStop: model.userDestination?.id,
     displayedStop: model.nextStation?.id,
     nextIsDestination: model.nextIsDestination,
-    stopped: model.phase === "STOPPED",
-    locationConfirmed: model.locationConfidence === "available",
+    stopped: model.phase === "STOPPED" &&
+      progress.source === "location" &&
+      stops[progress.currentIndex]?.id === model.userDestination?.id,
+    locationConfirmed: model.locationConfidence === "available" &&
+      progress.source === "location" &&
+      (model.phase === "STOPPED" ||
+        (Number.isFinite(model.minutes) && model.minutes <= 5)),
     enabled: settings.alightAssist !== false,
   });
   if (alightingStage) {
