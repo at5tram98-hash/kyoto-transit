@@ -1339,3 +1339,7 @@
 #manual-nearby-search { min-height:44px; width:100%; max-width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--separator); border-radius:var(--radius-row); background:var(--surface-primary); color:var(--text); font:inherit; }
 .manual-nearby-options { display:flex; gap:8px; flex-wrap:wrap; }
 @media(max-width:370px) { .route-compare-strip { gap:6px 8px; } }
+
+/* C-6: recovery choices fit narrow screens and keep safe tap targets. */
+.c6-search-recovery { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.c6-search-recovery button { min-height:44px; flex:1 1 150px; white-space:normal; text-align:center; }
