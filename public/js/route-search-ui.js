@@ -317,7 +317,7 @@ export function mountRouteSearch({
     `<button type="button" data-c1-quick-stop="${esc(stop.id)}">${esc(stop.name)}</button>`
   ).join("")}</div><p class="source-caption">${esc(ui("c1_quick_note"))}</p>`;
   form.querySelector(".planner-place-pair").after(shortcuts);
-  let activePlaceField = "to";
+  let activePlaceField = "from";
   form.elements.from.addEventListener("focus", () => activePlaceField = "from");
   form.elements.to.addEventListener("focus", () => activePlaceField = "to");
   shortcuts.addEventListener("click", e => {
