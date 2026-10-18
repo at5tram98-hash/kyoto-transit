@@ -28,6 +28,23 @@ export function assessBoardingMovement(
     .map((p) => p.speed)
     .filter((n) => Number.isFinite(n) && n >= 0 && n <= 50)
     .sort((a, b) => a - b);
+  const hops = fixes.slice(1).map((point, index) => {
+    const previous = fixes[index];
+    const seconds = (point.timestamp - previous.timestamp) / 1000;
+    const meters = distance(previous, point);
+    return { seconds, meters, speed: seconds > 0 ? meters / seconds : Infinity };
+  });
+  const pathMeters = hops.reduce((sum, hop) => sum + hop.meters, 0);
+  // A sudden location jump can imitate departure even when the phone is
+  // stationary. Require plausible steps AND a coherent net trajectory.
+  const plausibleTrail =
+    hops.length >= 2 &&
+    hops.every((hop) =>
+      hop.seconds > 0 &&
+      Number.isFinite(hop.speed) &&
+      hop.speed <= 45,
+    ) &&
+    pathMeters <= Math.max(150, travel * 2.6);
   const speed = speeds.length
     ? speeds[Math.floor(speeds.length / 2)]
     : span > 0
@@ -35,6 +52,7 @@ export function assessBoardingMovement(
       : null;
   const moving =
     fixes.length >= 3 &&
+    plausibleTrail &&
     span >= 15 &&
     span <= 45 &&
     travel >= Math.max(60, first.accuracy + last.accuracy) &&
