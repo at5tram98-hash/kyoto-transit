@@ -806,7 +806,7 @@ function renderHero(root, html, model) {
   if (compact && !current.classList.contains("compact"))
     current.querySelector(".station-overview")?.removeAttribute("open");
   current.className = next.className;
-  for (const key of ["operator", "trainState", "phase", "line"])
+  for (const key of ["operator", "trainState", "phase", "line", "railPhase"])
     current.dataset[key] = next.dataset[key];
   for (const selector of [
     ".route-header",
