@@ -4,6 +4,7 @@ import {
 } from "./transit-evidence.js";
 import { groupNearbyPlaces } from "./transit-places.js";
 import { orderNearbyPlaces } from "./nearby-sort-b6.js";
+import { manualNearbyRows, manualReferenceOptions } from "./manual-nearby-b7.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
 import { createAlightingNotifier } from "./alighting-notifier-b4.js";
@@ -469,7 +470,12 @@ export function renderNow() {
         state.locationStatus === "active" &&
         !document.hidden,
     );
-  const nearbyRows = near.all.filter(
+  const manualId = navigation.recalled("manual-nearby") ?? "";
+  const manualRows = manualId && state.locationStatus !== "active"
+    ? manualNearbyRows(manualId, state.network, state.geo)
+    : [];
+  const nearbySource = manualRows.length ? manualRows : near.all;
+  const nearbyRows = nearbySource.filter(
     (s) =>
       s.meters <=
       (s.stop.type.includes("bus") ? 500 : settings.railGuideDistance),
@@ -507,10 +513,15 @@ export function renderNow() {
     `<button type="button" data-nearby-sort="${value}" aria-pressed="${sortMode === value}">${esc(label)}</button>`
   ).join("");
   const sortControl = `<div class="nearby-sort" role="group" aria-label="${esc(ui("b6_sort_label"))}">${sortOptions}</div>`;
+  const manualOptions = state.network && state.geo ?
+    manualReferenceOptions(state.network, state.geo,
+      navigation.recalled("manual-nearby-query") ?? "", 12) : [];
+  const manualPicker = state.locationStatus === "active" ? "" :
+    `<section class="manual-nearby-picker"><label for="manual-nearby-search">${esc(ui("b7_reference"))}</label><input id="manual-nearby-search" type="search" value="${esc(navigation.recalled("manual-nearby-query") ?? "")}" placeholder="${esc(ui("b7_search_placeholder"))}" autocomplete="off"/><div class="manual-nearby-options">${manualOptions.map(x=>`<button type="button" data-manual-nearby-stop="${esc(x.id)}">${esc(x.name)} · ${esc(x.type)}</button>`).join("")}</div>${manualRows.length ? `<p role="status">${esc(ui("b7_selected", [state.network.stops.get(manualId).name]))}</p><button type="button" data-manual-nearby-clear>${esc(ui("b7_clear"))}</button>` : ""}</section>`;
   const arrivalsEntry = ui("vnext_view_057");
   updateNearbyPanel(
     nearPanel,
-    (nearbyPlaces.length
+    manualPicker + (nearbyPlaces.length
       ? ui("vnext_view_109", [
           sortControl + nearbyPlaces
             .map(
@@ -790,6 +801,18 @@ let lastTrackIndex = null,
 export function setupNowInteractions() {
   setupRouteMaps();
   $("#nearby-panel").addEventListener("click", (event) => {
+    const manualStop = event.target.closest("[data-manual-nearby-stop]");
+    if (manualStop) {
+      navigation.remember("manual-nearby", manualStop.dataset.manualNearbyStop);
+      renderNow();
+      return;
+    }
+    if (event.target.closest("[data-manual-nearby-clear]")) {
+      navigation.remember("manual-nearby", "");
+      navigation.remember("manual-nearby-query", "");
+      renderNow();
+      return;
+    }
     const sort = event.target.closest("[data-nearby-sort]");
     if (sort) {
       navigation.remember("nearby-sort", sort.dataset.nearbySort);
@@ -809,6 +832,15 @@ export function setupNowInteractions() {
       ]),
     );
     renderNow();
+  });
+  $("#nearby-panel").addEventListener("input", (event) => {
+    if (event.target.id !== "manual-nearby-search") return;
+    const input = event.target, value = input.value, cursor = input.selectionStart;
+    navigation.remember("manual-nearby-query", value);
+    renderNow();
+    const restored = $("#manual-nearby-search");
+    restored?.focus();
+    if (Number.isInteger(cursor)) restored?.setSelectionRange(cursor, cursor);
   });
   document.addEventListener("mymap-arrivals-updated", () => {
     if (!state.ride) renderNow();
