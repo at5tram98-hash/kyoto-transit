@@ -100,6 +100,7 @@ test("B-1: approaching requires both a verified fix and moving vehicle", () => {
   };
   assert.equal(railGuidePhase({ ...base, motionSpeed: 5 }), "approaching");
   assert.equal(railGuidePhase({ ...base, motionSpeed: 0 }), "departed");
+  assert.equal(railGuidePhase({ ...base, motionSpeed: 1.8 }), "departed");
   assert.equal(railGuidePhase({ ...base, motionSpeed: null }), "departed");
   assert.equal(railGuidePhase({ ...base, hasFreshGps: false, motionSpeed: 5 }), "estimated");
 });
