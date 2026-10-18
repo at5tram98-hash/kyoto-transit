@@ -943,7 +943,7 @@ export default {
   rail_hero_stopped: "ただいま停車中",
   rail_hero_departed: "発車後 · 次は",
   rail_hero_approaching: "まもなく到着予定",
-  rail_hero_estimated: "次駅（時刻表による推定）",
+  rail_hero_estimated: "次は · 時刻表による推定",
   rail_hero_unavailable: "運行状況を確認中",
   rail_hero_after: "次は {0} · 発車を確認中",
   rail_hero_terminal: "終点に停車中",
