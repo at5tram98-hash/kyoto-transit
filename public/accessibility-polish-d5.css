@@ -21,11 +21,6 @@
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
-html[data-high-contrast="true"]
-  .navigation-app :is(button, a, input, select, textarea, summary):focus-visible,
-@media (prefers-contrast: more) {
-  /* Kept separate below: don't depend on a bright accent in high contrast. */
-}
 html[data-high-contrast="true"] .settings-home-group .native-list {
   outline: 1px solid var(--text);
 }
