@@ -468,21 +468,25 @@ export function renderNow() {
         state.locationStatus === "active" &&
         !document.hidden,
     );
-  const nearby = near.all
-    .filter(
-      (s) =>
-        s.meters <=
-        (s.stop.type.includes("bus") ? 500 : settings.railGuideDistance),
-    )
-    .filter((s, i, a) => a.findIndex((x) => x.id === s.id) === i)
-    .slice(0, 4);
-  if (nearby.some((s) => s.stop.type === "subway")) requestNearbyFeed();
+  const nearbyRows = near.all.filter(
+    (s) =>
+      s.meters <=
+      (s.stop.type.includes("bus") ? 500 : settings.railGuideDistance),
+  ).slice(0, 80);
+  // Four *places*, not four operator/stop rows. Keep subway, Kintetsu,
+  // and bus entry points together instead of hiding the fourth operator.
+  const nearbyPlaces = groupNearbyPlaces(
+    nearbyRows, state.geo, { maxPlaces: 4 },
+  );
+  if (nearbyPlaces.some((place) =>
+    place.rows.some((s) => s.stop.type === "subway")
+  )) requestNearbyFeed();
   const arrivalsEntry = ui("vnext_view_057");
   updateNearbyPanel(
     nearPanel,
-    (nearby.length
+    (nearbyPlaces.length
       ? ui("vnext_view_109", [
-          groupNearbyPlaces(nearby, state.geo)
+          nearbyPlaces
             .map(
               (place) =>
                 `<section data-nearby-place="${esc(
@@ -509,7 +513,16 @@ export function renderNow() {
                         citybus: ui("vnext_view_060"),
                         kyotobus: ui("vnext_view_061"),
                       }[s.stop.type] ?? ui("vnext_view_062"),
-                      esc(s.stop.name),
+                      esc(
+                        place.rows.length > 1
+                          ? ({
+                              subway: ui("vnext_view_058"),
+                              kintetsu: ui("vnext_view_059"),
+                              citybus: ui("vnext_view_060"),
+                              kyotobus: ui("vnext_view_061"),
+                            }[s.stop.type] ?? s.stop.name)
+                          : s.stop.name,
+                      ),
                       esc(s.stop.lines?.join("・") ?? ""),
                       Math.max(1, Math.ceil(s.meters / 70)),
                       Math.round(s.meters),
