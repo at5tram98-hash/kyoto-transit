@@ -138,6 +138,8 @@ export const state = {
   subwayFeedAt: 0,
   kyotoBusFeed: null,
   kyotoBusFeedAt: 0,
+  kyotoBusNextFetchAt: 0,
+  kyotoBusAvailability: "unconfirmed",
   busLive: null,
   busLiveAt: 0,
   busTrail: [],
