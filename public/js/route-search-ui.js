@@ -658,6 +658,15 @@ export function mountRouteSearch({
       resultFrame.querySelector("[data-planner-status]"),
       data?.status ?? ui("route_search_ui_018"),
     );
+    const orderRoot = resultFrame.querySelector(".result-order");
+    if (orderRoot && !orderRoot.querySelector('[data-result-order="walking"]')) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.resultOrder = "walking";
+      button.setAttribute("aria-pressed", "false");
+      button.textContent = ui("c5_sort_walking");
+      orderRoot.append(button);
+    }
     resultFrame.querySelectorAll("[data-result-order]").forEach((button) => {
       const selected =
         button.dataset.resultOrder === (data?.order ?? "arrival");
