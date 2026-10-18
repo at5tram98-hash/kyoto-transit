@@ -1,4 +1,5 @@
 import { ui } from "./locale.js";
+import { selectedAlightingStop } from "./ride-destination.js";
 import { stationEnglish } from "./station-names.js";
 import { stopTime } from "./journey-core.js";
 import { freshFix } from "./riding.js";
@@ -183,12 +184,7 @@ export function heroModel(
         : ride.operator === "kintetsu"
           ? "B"
           : lineOf(display);
-  const userDestination = stationModel(
-    stops.find(
-      (s) =>
-        s.id === ride.userDestination?.id || s.id === ride.userDestinationId,
-    ) ?? stops.at(-1),
-  );
+  const userDestination = stationModel(selectedAlightingStop(ride, stops));
   const destinationIndex = stops.findIndex((s) => s.id === userDestination?.id);
   const remainingStops = Math.max(0, destinationIndex - displayIndex);
   const stale =
@@ -218,7 +214,9 @@ export function heroModel(
     nextStation.code = "B05";
   if (userDestination?.id === "K15" && ride.operator === "kintetsu")
     userDestination.code = "B05";
-  const nextIsDestination = nextStation?.id === userDestination?.id;
+  const nextIsDestination = Boolean(
+    nextStation && userDestination && nextStation.id === userDestination.id,
+  );
   const label = routeUnavailable
     ? ui("now_model_009")
     : trainState === TRAIN_STATES.STOPPED
