@@ -43,7 +43,7 @@ test("B-1: an underground GPS loss says timetable estimate, not approaching", ()
   assert.equal(result.railGuide.phase, "estimated");
   const html = nextStationHero(result, ride, { stops });
   assert.match(html, /data-rail-phase="estimated"/);
-  assert.match(html, /次駅（時刻表による推定）/);
+  assert.match(html, /次は · 時刻表による推定/);
   assert.match(html, /時刻表推定/);
   assert.doesNotMatch(html, /next-state-label">まもなく到着/);
 });
