@@ -16,7 +16,7 @@ export function nearbyStops(f,geo,network,limit=3,now=Date.now()){
   return geo.stops.filter(s=>['citybus','kyotobus','subway'].includes(network.stops.get(s.id)?.type)).map(s=>({...s,meters:distance(f,s)})).filter(s=>s.meters<=5000&&(network.stops.get(s.id)?.type!=='subway'||s.meters<=150)).sort((a,b)=>a.meters-b.meters).slice(0,limit);
 }
 const simple=s=>normalize(String(s??'').replace(/行き?$|方面$/g,'').replace(/\([^)]*\)|（[^）]*）|駅前$/g,'').replaceAll('近鉄奈良','奈良').replaceAll('大和西大寺','西大寺'));
-function onRailShape(fix,geo,operator){return (geo?.lines??[]).filter(l=>operator==='subway'?l.line==='烏丸線':['京都線','奈良線'].includes(l.line)).some(l=>l.points.some((p,i)=>i&&segmentDistance(fix,{lng:l.points[i-1][0],lat:l.points[i-1][1]},{lng:p[0],lat:p[1]})<=Math.max(100,fix.accuracy*2)));}
+function onRailShape(fix,geo,operator){return (geo?.lines??[]).filter(l=>operator==='subway'?l.line==='烏丸線':operator==='through'?['烏丸線','京都線','奈良線'].includes(l.line):['京都線','奈良線'].includes(l.line)).some(l=>l.points.some((p,i)=>i&&segmentDistance(fix,{lng:l.points[i-1][0],lat:l.points[i-1][1]},{lng:p[0],lat:p[1]})<=Math.max(100,fix.accuracy*2)));}
 export function matchRail(leg,feed,network,minute,fix,geo,now=Date.now()){
   if(!['kintetsu','through'].includes(leg.operator)||!feed||now-Date.parse(feed.sourceUpdatedAt)>120000||now-Date.parse(feed.capturedAt)>120000||Date.parse(feed.sourceUpdatedAt)>now+60000)return [];
   const stops=timedStops(leg,network),railStops=stops.filter(s=>kintetsuIds.includes(s.id)),start=kintetsuIds.indexOf(railStops[0]?.id),end=kintetsuIds.indexOf(railStops.at(-1)?.id);if(start<0||end<0||start===end)return [];
