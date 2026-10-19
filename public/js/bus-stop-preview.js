@@ -1,5 +1,6 @@
 import { ui } from "./locale.js";
-import { esc } from "./vnext-state.js";
+import { officialData } from "./timetable-ui.js";
+import { esc, tokyoNow } from "./vnext-state.js";
 import { compactBusHTML, busRow } from "./vnext-arrivals.js";
 import {
   getCached,
@@ -22,10 +23,72 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
     disposed = false,
     controller = null,
     data = null,
-    route = null;
+    route = null,
+    schedule = null,
+    scheduleDate = null,
+    scheduleAt = 0,
+    scheduleIncomplete = false;
   const city = stop.type === "citybus",
     name = stop.fullName ?? stop.name,
     key = `citybus:${name}`;
+  function scheduleHTML({ updating, failed }) {
+    const now = tokyoNow();
+    const entries =
+      scheduleDate === now.date
+        ? (schedule ?? [])
+            .filter(
+              (e) =>
+                (!route || String(e.route) === route) &&
+                Number.isFinite(e.depart) &&
+                e.depart >= now.minute &&
+                e.depart <= now.minute + 120,
+            )
+            .sort((a, b) => a.depart - b.depart)
+            .slice(0, 8)
+        : [];
+    const clock = (m) =>
+      `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    return entries.length
+      ? `<div class="arrival-compact scheduled-stop-departures">${entries.map((e) => `<div><b class="arrival-route-badge">${esc(e.route ?? "")}</b><span><b>${esc(e.destination ?? e.boardLabel ?? "")}</b><small>${esc(ui("audit_schedule_countdown", [clock(e.depart), Math.max(0, Math.ceil(e.depart - now.minute))]))}</small></span></div>`).join("")}</div><p class="source-caption">${ui("audit_schedule_note")}</p>${scheduleIncomplete ? `<p class="source-caption">${ui("audit_schedule_missing")}</p>` : ""}`
+      : `<p class="source-note">${ui(updating ? "audit_schedule_loading" : failed || scheduleIncomplete || scheduleDate !== now.date ? "audit_schedule_missing" : "audit_schedule_empty")}</p>`;
+  }
+  async function loadSchedule(signal) {
+    const now = tokyoNow();
+    if (
+      scheduleDate === now.date &&
+      Date.now() - scheduleAt < (scheduleIncomplete ? 20000 : 300000)
+    )
+      return;
+    const options = await officialData(
+      "/timetable/options",
+      { stop: stop.id },
+      signal,
+    );
+    const results = await Promise.allSettled(
+      options.boards.map((b) =>
+        officialData(
+          "/timetable",
+          { stop: stop.id, direction: b.key, day: "auto", date: now.date },
+          signal,
+        ).then((board) =>
+          (board.entries ?? [])
+            .filter(
+              (e) =>
+                !e.operatingConditions?.schoolDayRequired ||
+                e.operatingConditions.status === "verified",
+            )
+            .map((e) => ({ ...e, boardLabel: b.label })),
+        ),
+      ),
+    );
+    if (signal.aborted) return;
+    const boards = results.filter((r) => r.status === "fulfilled");
+    if (!boards.length) throw Error("Timetable unavailable");
+    scheduleIncomplete = boards.length !== results.length;
+    schedule = boards.flatMap((r) => r.value);
+    scheduleDate = now.date;
+    scheduleAt = Date.now();
+  }
   function render({ updating = false, failed = false } = {}) {
     if (serviceKey) {
       if (!host.querySelector(".arrival-lines"))
@@ -75,8 +138,7 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
               `<button type="button" class="${route === String(r) ? "active" : ""}" data-preview-route="${esc(r)}" aria-pressed="${route === String(r)}">${esc(r)}</button>`,
           )
           .join(""),
-        rows ||
-          `<p class="source-note">${city ? (data ? ui("bus_stop_preview_001") : updating ? ui("bus_stop_preview_002") : ui("bus_stop_preview_003")) : ui("bus_stop_preview_004")}</p>`,
+        rows || scheduleHTML({ updating, failed }),
         updating && rows ? ui("bus_stop_preview_005") : "",
         data && !fresh ? ui("bus_stop_preview_006") : "",
         failed && city ? ui("bus_stop_preview_007") : "",
@@ -99,6 +161,11 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
     const current = controller;
     render({ updating: true });
     try {
+      if (!city) {
+        await loadSchedule(current.signal);
+        if (shown && !disposed && !current.signal.aborted) render();
+        return;
+      }
       const result = await fetchRealtime(
         key,
         "/api/citybus/arrivals",
@@ -107,6 +174,9 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
       );
       if (!shown || disposed || current.signal.aborted) return;
       data = result;
+      if (!compactBusHTML(data))
+        await loadSchedule(current.signal).catch(() => {});
+      if (!shown || disposed || current.signal.aborted) return;
       render();
     } catch (error) {
       if (current.signal.aborted || !shown || disposed) return;
@@ -141,8 +211,8 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
         if (shown && !disposed && cached?.data) data = cached.data;
       }
       if (!shown || disposed) return;
-      render({ updating: city && !data });
-      if (city) loop.start();
+      render({ updating: city ? !data : !schedule });
+      loop.start();
     },
     pause() {
       shown = false;

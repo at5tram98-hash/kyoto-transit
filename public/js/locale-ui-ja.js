@@ -1,5 +1,38 @@
 // Presentation messages; official place names retain their source spelling.
 export default {
+  audit_timetable: "予定 · 公式時刻表",
+  audit_freshness: "更新時刻・情報の鮮度",
+  audit_refresh: "更新",
+  audit_refreshing: "更新中",
+  audit_refreshed: "更新完了",
+  audit_location_loading: "現在地を取得中",
+  audit_location_loading_detail: "位置情報を確認しています。",
+  audit_location_denied: "位置情報が許可されていません",
+  audit_location_denied_detail:
+    "端末の設定で許可するか、駅・停留所を検索してください。",
+  audit_location_missing: "現在地を取得できません",
+  audit_location_missing_detail: "再取得するか、駅・停留所を検索してください。",
+  audit_location_low: "現在地の精度が低くなっています",
+  audit_location_low_detail: "誤差 約{0}m。地図と周辺候補は参考表示です。",
+  audit_location_ok_detail: "位置情報を取得済み · 誤差 約{0}m",
+  audit_map_default: "京都中心部 · 現在地は未取得",
+  audit_map_current: "現在地周辺",
+  audit_rail_south: "近鉄奈良・橿原神宮前方面",
+  audit_rail_north: "京都・国際会館方面",
+  audit_subway: "烏丸線",
+  audit_kintetsu: "近鉄京都線",
+  audit_schedule_countdown: "予定 {0} · あと{1}分",
+  audit_schedule_note:
+    "公式時刻表の予定です。遅延・接近実測は反映していません。",
+  audit_schedule_missing:
+    "公式時刻表を取得できませんでした。公式サイトでご確認ください。",
+  audit_schedule_empty: "この時間帯の予定便はありません。",
+  audit_schedule_loading: "公式時刻表を取得中…",
+  audit_arrival_at: "{0}到着見込み",
+  audit_position_schedule: "時刻表上の推定位置",
+  audit_position_live: "実測位置",
+  audit_direction_unknown: "方面未確認",
+
   station_retry: "更新・再試行",
   station_north: "{0}方面",
   station_south: "{0}方面",
@@ -108,7 +141,8 @@ export default {
   b2_confirm_unset: "未設定 · 勝手に設定しません",
   b2_confirm_score: "照合スコア（乗車確率ではありません）",
   b2_confirm_source: "照合に使った情報",
-  b2_confirm_explain: "候補はGPS・移動・時刻表などの照合結果です。実際の乗車便を確認してください。",
+  b2_confirm_explain:
+    "候補はGPS・移動・時刻表などの照合結果です。実際の乗車便を確認してください。",
   b3_status_disabled: "自動検知はオフです",
   b3_status_paused: "画面が非表示のため検知を一時停止中",
   b3_status_permission: "位置情報の許可が必要です · 自動検知はできません",
@@ -127,7 +161,8 @@ export default {
   b7_selected: "「{0}」を基準に表示中 · 現在地ではありません",
   b7_clear: "手動指定を解除",
   c1_quick_stops: "よく使う駅をワンタップで入力",
-  c1_quick_note: "出発地か到着地を選択してから駅をタップ · 経由地・日時もそのまま指定できます",
+  c1_quick_note:
+    "出発地か到着地を選択してから駅をタップ · 経由地・日時もそのまま指定できます",
   c5_sort_walking: "徒歩順",
   c6_recovery_title: "経路が見つからないとき",
   c6_recovery_date: "日時を変更",
@@ -856,7 +891,7 @@ export default {
   timetable_ui_072: "その他の路線",
   timetable_ui_073: "すべての路線",
   live_home_001:
-    '<div class="live-clock-bar"><span data-live-day></span><time data-live-clock aria-label="現在時刻" aria-live="off"></time><button type="button" data-clock-format aria-label="12時間・24時間表示を切り替える"></button></div><div class="live-quick-strip" aria-label="Quick Select"><button type="button" class="live-quick-trigger" data-quick-open aria-haspopup="dialog">{0}<span>Quick</span></button><div class="live-quick-destinations"></div></div><div class="live-location-header">{1}<span class="source-dot" data-location-dot></span><span data-live-location></span></div><button type="button" class="live-stop-search" data-live-stop-search>{2}<span>{3}</span></button><div class="live-map-host"></div><div class="live-map-actions"><button class="plain-action" type="button" data-live-full-map>{4}<span>{5}</span></button><button type="button" class="plain-action" data-live-plan>{6}<span>経路を検索</span></button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
+    '<div class="live-clock-bar"><span data-live-day></span><time data-live-clock aria-label="現在時刻" aria-live="off"></time></div><div class="live-quick-strip" aria-label="Quick Select"><button type="button" class="live-quick-trigger" data-quick-open aria-haspopup="dialog">{0}<span>Quick</span></button><div class="live-quick-destinations"></div></div><div class="live-location-header">{1}<span class="source-dot" data-location-dot></span><span class="live-location-copy"><b data-live-location></b><small data-live-location-detail></small></span></div><button type="button" class="live-stop-search" data-live-stop-search>{2}<span>{3}</span></button><div class="live-map-host"></div><div class="live-map-actions"><button class="plain-action" type="button" data-live-full-map>{4}<span>{5}</span></button><button type="button" class="plain-action" data-live-plan>{6}<span>経路を検索</span></button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
   live_home_002: "京都",
   live_home_003: "京都産大前",
   live_home_004: "国際会館",
@@ -1074,8 +1109,10 @@ export default {
   static_drag_close: "下へドラッグして閉じる",
   static_close: "閉じる",
   static_navigation: "メインナビゲーション",
-  rail_location_estimate: "位置情報を確認できないため、次駅は時刻表による推定です。停車・到着は未確認です。",
-  rail_location_rechecking: "位置情報の復帰を確認中です。駅の表示は照合が完了するまで暫定です。",
+  rail_location_estimate:
+    "位置情報を確認できないため、次駅は時刻表による推定です。停車・到着は未確認です。",
+  rail_location_rechecking:
+    "位置情報の復帰を確認中です。駅の表示は照合が完了するまで暫定です。",
   now_model_001: "北",
   now_model_002: "北東",
   now_model_003: "東",

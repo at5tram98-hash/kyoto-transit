@@ -108,38 +108,48 @@ export function updateArrivalRows(root, rows, present) {
       cached[field] = view[field];
     }
     const approach = el.querySelector('[data-field="approach"]');
-    approach.hidden = !Number.isFinite(view.stopsAway);
-    if (!approach.hidden) {
-      if (!approach.firstElementChild) {
-        approach.innerHTML =
-          (view.approachStart
-            ? `<div class="arrival-track-labels"><span>${view.approachStart}</span><span>${view.approachEnd}</span></div>`
-            : ui("view_rendering_007")) +
-          '<div class="arrival-track" aria-hidden="true">' +
-          '<div class="arrival-track-stops">' +
-          "<i></i>".repeat(7) +
-          "</div>" +
-          '<div class="arrival-track-position"><span class="arrival-track-vehicle">' +
-          '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="15" rx="4"/><path d="M4 11h16M8 19v2m8-2v2M8 15h.01M16 15h.01"/></svg>' +
-          "</span></div></div>";
+    if (view.compactPosition) {
+      approach.hidden = false;
+      approach.classList.add("arrival-position-compact");
+      updateHTML(
+        approach,
+        `<small>${view.compactPositionSource}</small><span>${view.compactPosition}</span>`,
+      );
+    } else {
+      approach.classList.remove("arrival-position-compact");
+      approach.hidden = !Number.isFinite(view.stopsAway);
+      if (!approach.hidden) {
+        if (!approach.firstElementChild) {
+          approach.innerHTML =
+            (view.approachStart
+              ? `<div class="arrival-track-labels"><span>${view.approachStart}</span><span>${view.approachEnd}</span></div>`
+              : ui("view_rendering_007")) +
+            '<div class="arrival-track" aria-hidden="true">' +
+            '<div class="arrival-track-stops">' +
+            "<i></i>".repeat(7) +
+            "</div>" +
+            '<div class="arrival-track-position"><span class="arrival-track-vehicle">' +
+            '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="15" rx="4"/><path d="M4 11h16M8 19v2m8-2v2M8 15h.01M16 15h.01"/></svg>' +
+            "</span></div></div>";
+        }
+        if (view.vehicleSymbol && cached.vehicleSymbol !== view.vehicleSymbol) {
+          approach.querySelector(".arrival-track-vehicle").innerHTML =
+            view.vehicleSymbol;
+          cached.vehicleSymbol = view.vehicleSymbol;
+        }
+        const position = `${(1 - Math.min(6, Math.max(0, view.stopsAway)) / 6) * 100}%`;
+        if (cached.position !== position)
+          approach.style.setProperty("--approach-position", position);
+        cached.position = position;
+        const label =
+          view.positionDescription ||
+          ui("view_rendering_005", [
+            view.approachLabel ?? ui("view_rendering_003"),
+            Math.max(0, Math.round(view.stopsAway)),
+          ]);
+        if (approach.getAttribute("aria-label") !== label)
+          approach.setAttribute("aria-label", label);
       }
-      if (view.vehicleSymbol && cached.vehicleSymbol !== view.vehicleSymbol) {
-        approach.querySelector(".arrival-track-vehicle").innerHTML =
-          view.vehicleSymbol;
-        cached.vehicleSymbol = view.vehicleSymbol;
-      }
-      const position = `${(1 - Math.min(6, Math.max(0, view.stopsAway)) / 6) * 100}%`;
-      if (cached.position !== position)
-        approach.style.setProperty("--approach-position", position);
-      cached.position = position;
-      const label =
-        view.positionDescription ||
-        ui("view_rendering_005", [
-          view.approachLabel ?? ui("view_rendering_003"),
-          Math.max(0, Math.round(view.stopsAway)),
-        ]);
-      if (approach.getAttribute("aria-label") !== label)
-        approach.setAttribute("aria-label", label);
     }
     if (el !== before) root.insertBefore(el, before);
     before = el.nextElementSibling;

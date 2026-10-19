@@ -41,16 +41,11 @@ export async function yahooScreenChecks({
           path: resolve(artifacts, `live-home-${colorScheme}-${scale}.png`),
           animations: "disabled",
         });
-        await page.locator("[data-clock-format]").click();
-        assert.match(
-          await page.locator("[data-clock-format]").textContent(),
-          /AM|午前/,
-        );
-        await page.locator("[data-clock-format]").click();
-        assert.equal(
-          await page.locator("[data-clock-format]").textContent(),
-          "24h",
-        );
+        assert.equal(await page.locator("[data-clock-format]").count(), 0, "clock format control was removed from Now");
+        await page.evaluate(() => {window.__state.settings.hour12 = true; window.__view.renderNow();});
+        assert.match(await page.locator("[data-live-clock]").textContent(), /AM|PM|午前|午後/);
+        await page.evaluate(() => {window.__state.settings.hour12 = false; window.__view.renderNow();});
+
         assert.equal(
           await page.locator(".live-map-host .map-controls").count(),
           0,
@@ -66,7 +61,8 @@ export async function yahooScreenChecks({
         );
         await page.locator("[data-navigation-back]").click();
         await settleNavigation(page);
-        await page.locator("#now-search [data-quick-destination=K01]").click();
+        await page.locator(".live-quick-destinations").dispatchEvent("pointerdown");
+        await page.locator('.live-quick-group:not([aria-hidden]) [data-quick-destination=K01]').click();
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-view"),

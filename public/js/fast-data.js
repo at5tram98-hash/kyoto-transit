@@ -36,13 +36,14 @@ async function fetchJSON(path, params = {}, timeout = 6500) {
 export function getStaticFeed(
   operator,
   date = tokyoNow().date,
-  { signal } = {},
+  { signal, force = false } = {},
 ) {
   const key = `${operator}:${date}`;
+  if (force && feedJobs.get(key)?.pending === false) feedJobs.delete(key);
   if (feedJobs.has(key) && Date.now() - feedJobs.get(key).started > FEED_TTL)
     feedJobs.delete(key);
   if (!feedJobs.has(key)) {
-    const entry = { started: Date.now(), promise: null };
+    const entry = { started: Date.now(), promise: null, pending: true };
     entry.promise = fetchJSON(
       "/api/static/feed",
       { operator, date },
@@ -50,7 +51,7 @@ export function getStaticFeed(
     ).catch((error) => {
       if (feedJobs.get(key) === entry) feedJobs.delete(key);
       throw error;
-    });
+    }).finally(() => { entry.pending = false; });
     feedJobs.set(key, entry);
   }
   const job = feedJobs.get(key).promise;

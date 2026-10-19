@@ -136,14 +136,12 @@ export async function completionChecks({
         );
         if (colorScheme === "light" && scale === 1) {
           const quick = page.locator(".live-quick-destinations");
-          const before = await quick.evaluate((el) => el.scrollLeft);
-          await page.clock.fastForward(2000);
-          await page.waitForFunction(
-            (value) =>
-              document.querySelector(".live-quick-destinations").scrollLeft >
-              value,
-            before,
-          );
+          const track = quick.locator(".live-quick-track");
+          const running = await track.evaluate(el => el.getAnimations()[0]?.playState);
+          assert.equal(running, "running", "Quick uses a continuous compositor animation");
+          const before = await track.evaluate(el => getComputedStyle(el).transform);
+          await track.evaluate(el => { el.getAnimations()[0].currentTime = 2000; });
+          assert.notEqual(await track.evaluate(el => getComputedStyle(el).transform), before);
           // A wheel with deltaX scrolls natively in WebKit after dispatch;
           // pointerdown tests cancellation without requesting a manual scroll.
           await quick.dispatchEvent("pointerdown", { pointerType: "touch" });
@@ -153,7 +151,7 @@ export async function completionChecks({
           assert.equal(
             await quick.evaluate((el) => el.scrollLeft),
             stopped,
-            "interaction stops the optional native auto-scroll",
+            "interaction converts the marquee position into native horizontal scrolling",
           );
         }
         if (colorScheme === "dark" && scale === 2) {

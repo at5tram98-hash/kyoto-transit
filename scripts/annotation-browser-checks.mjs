@@ -383,8 +383,8 @@ export async function annotationChecks({
         "loading text clears once rows arrive",
       );
       assert.match(
-        await root.locator(".arrival-dest").first().innerText(),
-        /奈良方面/,
+        await root.locator(".station-direction-heading").first().innerText(),
+        /奈良.*方面/,
       );
       assert.match(
         await root.locator(".station-service").first().innerText(),
@@ -398,7 +398,7 @@ export async function annotationChecks({
         await root.innerText(),
         /位置は実測.*到着は公式時刻と照合した予測/,
       );
-      await root.locator(".arrival-track-vehicle").waitFor();
+      await root.locator(".arrival-position-compact").waitFor();
       await layout(page, `annotation Kintetsu ${colorScheme}`);
       await page.screenshot({
         path: resolve(artifacts, `annotation-kintetsu-390-${colorScheme}.png`),

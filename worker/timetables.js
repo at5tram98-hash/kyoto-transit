@@ -1,3 +1,4 @@
+import {railDestinationName} from "../public/js/rail-names.js";
 import {load} from 'cheerio/slim';
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import {createNetwork,normalize,kintetsuIds} from '../public/js/network.js';
@@ -9,22 +10,43 @@ const KINTETSU='https://eki.kintetsu.co.jp/norikae/';
 const KYOTO='https://www.kyotobus.jp';
 const clean=s=>String(s??'').replace(/\s+/g,' ').trim();
 export const timeNumber=s=>{const m=String(s??'').normalize('NFKC').match(/^(\d{1,2}):(\d{2})$/);return m&&+m[1]<48&&+m[2]<60?+m[1]*60+(+m[2]):null;};
-export function officialFetcher(env){return async(url,init)=>{
-  const u=new URL(url),render=u.origin===KYOTO;
-  if(!render)return fetch(url,init);
-  const r=await env.BROWSER.quickAction('content',{url:u.href,gotoOptions:{waitUntil:'domcontentloaded',timeout:30000},waitForSelector:{selector:'body',visible:true,timeout:20000},actionTimeout:30000});
+const MAX_OFFICIAL_BYTES=6*1024*1024;
+async function boundedText(response){
+  const reader=response.body?.getReader();if(!reader)return '';
+  const chunks=[];let size=0;
+  try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.length;if(size>MAX_OFFICIAL_BYTES){await reader.cancel();throw Error('公式画面のデータが大きすぎます。');}chunks.push(value);}}
+  finally{reader.releaseLock();}
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+  return new TextDecoder().decode(bytes);
+}
+function validKyotoPage(html,url){
+  if(url.pathname.endsWith('.json')){JSON.parse(html);return true;}
+  if(url.pathname.endsWith('/schedule.html'))return Boolean(parseKyotoSchedules(html).boot);
+  if(url.pathname.endsWith('/stop.html'))return parseKyotoPlatforms(html,url.searchParams.get('stop_id')).length>0 || load(html)('a.busStop_platform_towards_list_item[href*="schedule.html?"]').length>0;
+  return false;
+}
+export function officialFetcher(env,{direct=fetch}={}){return async(url,init)=>{
+  const u=new URL(url);if(u.origin!==KYOTO)return direct(url,init);
+  // The official pages already embed their complete timetable. A browser is
+  // only needed if the origin refuses HTTP or returns an interstitial.
+  try{
+    const response=await direct(url,{...init,redirect:'manual',signal:init?.signal?AbortSignal.any([init.signal,AbortSignal.timeout(7000)]):AbortSignal.timeout(7000)});
+    if(response.ok){const html=await boundedText(response);if(validKyotoPage(html,u))return new Response(html,{headers:{'Content-Type':u.pathname.endsWith('.json')?'application/json;charset=utf-8':'text/html;charset=utf-8'}});}
+    else await response.body?.cancel();
+  }catch(error){if(init?.signal?.aborted)throw error;}
+  const r=await env.BROWSER.quickAction('content',{url:u.href,gotoOptions:{waitUntil:'domcontentloaded',timeout:15000},waitForSelector:{selector:u.pathname.endsWith('.json')?'pre':u.pathname.endsWith('/stop.html')?'a[href*="schedule.html?stop_id="]':'script',timeout:8000},actionTimeout:18000});
   if(!r.ok){await r.body?.cancel();throw Error('公式時刻表の画面を取得できませんでした。');}
-  let html=await r.text();if(html.length>6*1024*1024)throw Error('公式画面のデータが大きすぎます。');
+  let html=await boundedText(r);
   if(r.headers.get('content-type')?.includes('json')){const d=JSON.parse(html);html=typeof d.result==='string'?d.result:typeof d.content==='string'?d.content:'';}
-  if(!html)throw Error('公式の画面データがありません。');
-  if(u.pathname.endsWith('.json')){const raw=load(html)('pre').first().text();JSON.parse(raw);return new Response(raw,{headers:{'Content-Type':'application/json;charset=utf-8'}});}
-  return new Response(html,{headers:{'Content-Type':'text/html;charset=utf-8'}});
+  if(u.pathname.endsWith('.json'))html=load(html)('pre').first().text();
+  if(!html||!validKyotoPage(html,u))throw Error('京都バスの公式時刻データを確認できませんでした。');
+  return new Response(html,{headers:{'Content-Type':u.pathname.endsWith('.json')?'application/json;charset=utf-8':'text/html;charset=utf-8'}});
 };}
 export function jsonConstant(html,key){
   const start=html.indexOf(`const ${key} =`);if(start<0)return null;
-  let i=html.indexOf('{',start),depth=0,string=false,escaped=false;
+  let i=html.indexOf('=',start)+1,depth=0,string=false,escaped=false;while(/\s/.test(html[i]??'')&&i<html.length)i++;if(!['{','['].includes(html[i]))return null;
   if(i<0)return null;const begin=i;
-  for(;i<html.length;i++){const c=html[i];if(string){if(escaped)escaped=false;else if(c==='\\')escaped=true;else if(c==='"')string=false;}else if(c==='"')string=true;else if(c==='{')depth++;else if(c==='}'&&!--depth)return JSON.parse(html.slice(begin,i+1));}
+  for(;i<html.length;i++){const c=html[i];if(string){if(escaped)escaped=false;else if(c==='\\')escaped=true;else if(c==='"')string=false;}else if(c==='"')string=true;else if(c==='{'||c==='[')depth++;else if((c==='}'||c===']')&&!--depth)return JSON.parse(html.slice(begin,i+1));}
   throw Error('公式の時刻データを読み取れませんでした。');
 }
 export async function officialText(url,fetcher=fetch,ttl=900){
@@ -75,7 +97,7 @@ export function parseKintetsuBoard(html,sourceURL){
     cells.eq(1).find('a[href*="T7?"]').each((_,a)=>{
       const node=$(a),min=clean(node.find('.min').text())||clean(node.text()).match(/(?:^|\s)(\d{1,2})(?:\s|$)/)?.[1];if(!/^\d{1,2}$/.test(min)||+min>59)return;
       const classes=node.find('[class^="K_"]').first().attr('class')??'',raw=clean(node.clone().find('.min').remove().end().text()),dest=raw.replace(new RegExp(`(?:^|\\s)${min}(?:\\s|$)`),' '),tripURL=new URL(node.attr('href'),sourceURL).href;
-      const destination=dest.replace(/^京/,'京都').replace(/^国/,'国際会館').replace(/^田/,'新田辺');
+      const destination=railDestinationName(dest);
       const category=classes.includes('1903')?'express':classes.includes('1901')?'local':/急行/.test(raw)?'express':/普通/.test(raw)?'local':'other';
       entries.push({depart:(+hour||24)*60+(+min),category,destination,tripURL,tripId:new URL(tripURL).searchParams.get('tx')});
     });
@@ -94,6 +116,19 @@ export function parseKintetsuTrip(html,sourceURL){
   return {title,tripId:new URL(sourceURL).searchParams.get('tx'),destination:title.match(/\s+(.+?)行き（/)?.[1]??stops.at(-1).name,category:/^急行/.test(title)?'express':/^普通/.test(title)?'local':'other',stops,sourceURL};
 }
 function safeKyotoAsset(path,stopId,file){const u=new URL(path,KYOTO);if(u.origin!==KYOTO||!new RegExp(`^/assets/json/${stopId}/[a-z_]+/\\d{8}/${file}\\.json$`).test(u.pathname)||u.search)throw Error('公式データの取得先が変わりました。');return u.href;}
+export function parseKyotoPlatforms(html,sid){
+  const rows=jsonConstant(html,'STOP_ROUTE');if(!Array.isArray(rows))return [];
+  const seed=rows.find(row=>String(row.stop_id)===String(sid));if(!seed?.stop_name)return [];
+  const boards=[];
+  for(const row of rows){
+    if(row.stop_name!==seed.stop_name||!/^\d+_\d+$/.test(String(row.stop_id)))continue;
+    const routes=(row.routes??[]).filter(r=>/^(?:特|直行)?40$|^臨時/.test(String(r.route_short_name??'').normalize('NFKC')));
+    if(!routes.length)continue;
+    const key=String(row.stop_id);
+    boards.push({key,sourceURL:`${KYOTO}/route/timetable/schedule.html?stop_id=${key}`,label:routes.map(r=>`${String(r.route_short_name).normalize('NFKC')} ${r.stop_headsign??''} ${r.via??''}`.trim()).join(' / '),routes:[...new Set(routes.map(r=>String(r.route_short_name).normalize('NFKC')))]});
+  }
+  return boards;
+}
 export function parseKyotoSchedules(html){const boot=jsonConstant(html,'SCHEDULE_BOOT'),urls=jsonConstant(html,'FARE_URLS');if(!boot)throw Error('京都バスの公式時刻表を読み取れませんでした。');return {boot,urls};}
 export function kyotoEntries(schedule){const days={};for(const [day,data]of Object.entries(schedule.timetable??{})){days[day]=Object.values(data.hour??{}).flat().filter(e=>/^(?:特|直行)?40$|^臨時/.test(String(e.route_short_name).normalize('NFKC'))).map(e=>({depart:timeNumber(e.departure_time),route:String(e.route_short_name).normalize('NFKC'),tripId:e.trip_id,routeId:e.route_id,destination:e.stop_headsign})).filter(e=>e.depart!==null).sort((a,b)=>a.depart-b.depart);}return days;}
 export function parseCityCatalog(html,sourceURL){const $=load(html);return $('h2[id^="bs"]').map((_,e)=>({name:clean($(e).text()),officialId:$(e).attr('id').slice(2),boards:$(e).closest('.panel').find('a[href*="hyperdia/"]').map((_,a)=>({label:clean($(a).text()),sourceURL:new URL($(a).attr('href'),sourceURL).href})).get()})).get();}
@@ -111,7 +146,9 @@ export async function timetableOptions(id,fetcher=fetch){
     if(!boards.length)throw Error('公式の停留所時刻表が見つかりませんでした。');return {stop:id,name:stop.name,operator:'citybus',boards};
   }
   const sid=stop.officialId;if(!sid)throw Error('京都バスの公式停留所IDは未取得です。');
-  const sourceURL=`${KYOTO}/route/timetable/stop.html?stop_id=${sid}`,$=load(await officialText(sourceURL,fetcher));
+  const sourceURL=`${KYOTO}/route/timetable/stop.html?stop_id=${sid}`,html=await officialText(sourceURL,fetcher),embedded=parseKyotoPlatforms(html,sid);
+  if(embedded.length)return {stop:id,name:stop.name,operator:'kyotobus',boards:embedded};
+  const $=load(html);
   const boards=[];$('a.busStop_platform_towards_list_item[href*="schedule.html?"]').each((_,a)=>{const node=$(a),route=clean(node.find('.busStop_platform_towards_list_item_route_label').text()).normalize('NFKC');if(!/^(?:特|直行)?40$|^臨時/.test(route))return;const u=new URL(node.attr('href'),KYOTO);if(!boards.some(b=>b.sourceURL===u.href)&&u.origin===KYOTO)boards.push({key:u.searchParams.get('stop_id'),sourceURL:u.href,label:clean(node.text()),routes:[route]});});
   if(!boards.length)throw Error('京都バスの乗り場を読み取れませんでした。');return {stop:id,name:stop.name,operator:'kyotobus',boards};
 }

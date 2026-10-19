@@ -148,6 +148,16 @@ function arrivalLabel(row) {
     return `次の予定 ${String(Math.floor(row.scheduledDeparture / 60) % 24).padStart(2, "0")}:${String(row.scheduledDeparture % 60).padStart(2, "0")}`;
   return row?.status ?? "";
 }
+// Absolute ETA must stay anchored to the observation, even if a cached row
+// is rendered again later. A stop count is never a time estimate.
+export function busArrivalEpoch(row) {
+  const epoch = value => typeof value === "number" ? value : Date.parse(value);
+  const eta = epoch(row?.eta);
+  if (Number.isFinite(eta)) return eta;
+  const observed = epoch(row?.asOf);
+  return Number.isFinite(row?.minutes) && Number.isFinite(observed)
+    ? observed + Math.max(0, row.minutes) * 60000 : null;
+}
 export function busArrivalText(row) {
   const labels = (row.arrivals ?? [row])
     .map(arrivalLabel)

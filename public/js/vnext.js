@@ -529,8 +529,9 @@ async function init() {
       permissions: navigator.permissions,
       loadData: async () => state.geo,
       onStatus: (s) => {
+        const changed = state.locationStatus !== s;
         state.locationStatus = s;
-        renderNow();
+        if (changed && s !== "active") renderNow();
       },
       onPosition: (p, g) => {
         state.geo = g;
@@ -563,8 +564,9 @@ async function init() {
       renderNow();
       void autoDetectRide(true, renderNow);
     });
-    document.addEventListener("mymap-live-refresh", () => {
-      arrivals.show();
+    document.addEventListener("mymap-live-refresh", (event) => {
+      void arrivals.show();
+      event.detail?.waitUntil?.(Promise.all([arrivals.refreshBus(), arrivals.refreshRail()]));
       renderNow();
     });
     window.addEventListener("online", () => {

@@ -391,6 +391,10 @@
   background: var(--material-navigation);
   border-bottom: 1px solid var(--separator);
 }
+.sheet-header [data-save-place] {
+  flex: none;
+  white-space: nowrap;
+}
 .sheet-header h2 {
   min-width: 0;
   overflow-wrap: anywhere;

@@ -1,5 +1,39 @@
 // Presentation messages; official place names retain their source spelling.
 export default {
+  audit_timetable: "Scheduled · official timetable",
+  audit_freshness: "Update time and freshness",
+  audit_refresh: "Refresh",
+  audit_refreshing: "Updating",
+  audit_refreshed: "Updated",
+  audit_location_loading: "Locating…",
+  audit_location_loading_detail: "Checking location information.",
+  audit_location_denied: "Location permission is off",
+  audit_location_denied_detail:
+    "Allow location in device settings, or search for a stop.",
+  audit_location_missing: "Location unavailable",
+  audit_location_missing_detail: "Try again or search for a station or stop.",
+  audit_location_low: "Low location accuracy",
+  audit_location_low_detail:
+    "Accuracy about {0} m. Map and nearby places are approximate.",
+  audit_location_ok_detail: "Location acquired · accuracy about {0} m",
+  audit_map_default: "Central Kyoto · location unavailable",
+  audit_map_current: "Around your location",
+  audit_rail_south: "For Kintetsu-Nara / Kashiharajingu-mae",
+  audit_rail_north: "For Kyoto / Kokusaikaikan",
+  audit_subway: "Karasuma Line",
+  audit_kintetsu: "Kintetsu Kyoto Line",
+  audit_schedule_countdown: "Scheduled {0} · in {1} min",
+  audit_schedule_note:
+    "Official timetable. Delays and live arrivals are not reflected.",
+  audit_schedule_missing:
+    "Official timetable unavailable. Please check the official site.",
+  audit_schedule_empty: "No scheduled departures in this time period.",
+  audit_schedule_loading: "Loading official timetable…",
+  audit_arrival_at: "Expected arrival {0}",
+  audit_position_schedule: "Estimated position from timetable",
+  audit_position_live: "Observed position",
+  audit_direction_unknown: "Direction unconfirmed",
+
   station_retry: "Refresh / Retry",
   station_north: "Toward {0}",
   station_south: "Toward {0}",
@@ -111,7 +145,8 @@ export default {
   b2_confirm_unset: "Not selected · Won't be inferred",
   b2_confirm_score: "Match score (not a boarding probability)",
   b2_confirm_source: "Evidence used",
-  b2_confirm_explain: "This is a candidate from location, motion and schedule evidence. Confirm the actual service before starting guidance.",
+  b2_confirm_explain:
+    "This is a candidate from location, motion and schedule evidence. Confirm the actual service before starting guidance.",
   b3_status_disabled: "Automatic detection is off",
   b3_status_paused: "Detection paused while the app is hidden",
   b3_status_permission: "Location permission required · Boarding unavailable",
@@ -130,7 +165,8 @@ export default {
   b7_selected: "Showing around {0} · Not your live location",
   b7_clear: "Clear manual reference",
   c1_quick_stops: "Quick station entry",
-  c1_quick_note: "Select the From or To field before choosing a station · Via stops and timing stay editable",
+  c1_quick_note:
+    "Select the From or To field before choosing a station · Via stops and timing stay editable",
   c5_sort_walking: "Least walking",
   c6_recovery_title: "When no route is found",
   c6_recovery_date: "Change date or time",
@@ -733,7 +769,8 @@ export default {
   now_navigation_028: "Map and location",
   alighting_unselected: "Not selected",
   alighting_choose: "Choose your alighting stop",
-  alighting_select_prompt: "Choose your alighting stop for an arrival estimate and reminders",
+  alighting_select_prompt:
+    "Choose your alighting stop for an arrival estimate and reminders",
   alighting_select_action: "Choose ›",
   context_sheet_001: "Alighting stop and reminders",
   context_sheet_002: "Alighting station and reminders",
@@ -864,7 +901,7 @@ export default {
   timetable_ui_072: "Other routes",
   timetable_ui_073: "All routes",
   live_home_001:
-    '<div class="live-clock-bar"><span data-live-day></span><time data-live-clock aria-label="Current time" aria-live="off"></time><button type="button" data-clock-format aria-label="Switch between 12-hour and 24-hour time"></button></div><div class="live-quick-strip" aria-label="Quick Select"><button type="button" class="live-quick-trigger" data-quick-open aria-haspopup="dialog">{0}<span>Quick</span></button><div class="live-quick-destinations"></div></div><div class="live-location-header">{1}<span class="source-dot" data-location-dot></span><span data-live-location></span></div><button type="button" class="live-stop-search" data-live-stop-search>{2}<span>{3}</span></button><div class="live-map-host"></div><div class="live-map-actions"><button class="plain-action" type="button" data-live-full-map>{4}<span>{5}</span></button><button type="button" class="plain-action" data-live-plan>{6}<span>Plan a journey</span></button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
+    '<div class="live-clock-bar"><span data-live-day></span><time data-live-clock aria-label="Current time" aria-live="off"></time></div><div class="live-quick-strip" aria-label="Quick Select"><button type="button" class="live-quick-trigger" data-quick-open aria-haspopup="dialog">{0}<span>Quick</span></button><div class="live-quick-destinations"></div></div><div class="live-location-header">{1}<span class="source-dot" data-location-dot></span><span class="live-location-copy"><b data-live-location></b><small data-live-location-detail></small></span></div><button type="button" class="live-stop-search" data-live-stop-search>{2}<span>{3}</span></button><div class="live-map-host"></div><div class="live-map-actions"><button class="plain-action" type="button" data-live-full-map>{4}<span>{5}</span></button><button type="button" class="plain-action" data-live-plan>{6}<span>Plan a journey</span></button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
   live_home_002: "京都",
   live_home_003: "京都産大前",
   live_home_004: "国際会館",
@@ -1082,8 +1119,10 @@ export default {
   static_drag_close: "Drag down to close",
   static_close: "Close",
   static_navigation: "Main navigation",
-  rail_location_estimate: "Location is unavailable. The next station is estimated from the timetable; arrival is not confirmed.",
-  rail_location_rechecking: "Rechecking restored location. Station position is provisional until confirmed.",
+  rail_location_estimate:
+    "Location is unavailable. The next station is estimated from the timetable; arrival is not confirmed.",
+  rail_location_rechecking:
+    "Rechecking restored location. Station position is provisional until confirmed.",
   now_model_001: "N",
   now_model_002: "NE",
   now_model_003: "E",

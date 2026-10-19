@@ -1,3 +1,4 @@
+import { audit2Checks } from "./audit2-browser-checks.mjs";
 import { annotationChecks } from "./annotation-browser-checks.mjs";
 import { smartLiveChecks } from "./smartlive-browser-checks.mjs";
 import { completionChecks } from "./completion-browser-checks.mjs";
@@ -376,7 +377,7 @@ async function fixture(page, scenario = {}) {
         notice: "Browser test fixture",
       };
     else if (url.pathname === "/timetable/options")
-      data = {
+      data = scenario.timetableOptions ?? {
         name: "丸太町",
         stop: url.searchParams.get("stop"),
         operator: "subway",
@@ -1562,6 +1563,8 @@ async function searchComparisonChecks({ baseline = false } = {}) {
 }
 
 try {
+  if (process.env.BROWSER_AUDIT2_ONLY === "1" || !Object.keys(process.env).some(key => key.startsWith("BROWSER_") && /ONLY|AUDIT|BASELINE/.test(key) && process.env[key] === "1"))
+    await audit2Checks({open,layout,settleNavigation,artifacts,summary});
   if (process.env.BROWSER_C7_ONLY === "1") {
     await c7BrowserChecks({open, searchScreen, submitSearch, settleNavigation, summary});
   }
@@ -1571,7 +1574,7 @@ try {
   if (process.env.BROWSER_D_QUALITY_ONLY === "1") {
     await dQualityChecks({open, settleNavigation, summary});
   }
-  if (process.env.BROWSER_C7_ONLY !== "1" && process.env.BROWSER_D3_ONLY !== "1" && process.env.BROWSER_D_QUALITY_ONLY !== "1") {
+  if (process.env.BROWSER_AUDIT2_ONLY !== "1" && process.env.BROWSER_C7_ONLY !== "1" && process.env.BROWSER_D3_ONLY !== "1" && process.env.BROWSER_D_QUALITY_ONLY !== "1") {
   if (
     process.env.BROWSER_SMARTLIVE_ONLY === "1" ||
     !Object.keys(process.env).some(

@@ -5,7 +5,6 @@ import {
   icon,
   state,
   settings,
-  saveSettings,
   nearest,
   haptic,
   tokyoNow,
@@ -23,7 +22,6 @@ import { routeMapHTML, renderRouteMap, nearbyMapModel } from "./route-map.js";
 import { updateHTML } from "./view-rendering.js";
 import { liveClock, appLocale, message } from "./locale.js";
 import { north3Day } from "./north3-feed.js";
-import { reducedMotion } from "./navigation-motion.js";
 
 // Live owns its screen, not a copy of the journey planner form or input store.
 export function mountLiveHome(host, search) {
@@ -37,7 +35,7 @@ export function mountLiveHome(host, search) {
     text("map"),
     icon("search"),
   ]);
-  const toolbar = `<div class="live-navigation-capsule"><button type="button" class="plain-action" data-live-refresh aria-label="${text("refresh")}">${icon("refresh")}</button><button type="button" class="plain-action" data-live-saved aria-label="${text("saved")}">${icon("bookmark")}</button><button type="button" class="plain-action" data-live-more aria-label="${text("more")}" aria-haspopup="dialog">${icon("more")}</button></div>`;
+  const toolbar = `<div class="live-navigation-capsule"><button type="button" class="plain-action" data-live-refresh aria-label="${text("refresh")}">${icon("refresh")}<span data-refresh-label>${ui("audit_refresh")}</span></button><button type="button" class="plain-action" data-live-saved aria-label="${text("saved")}">${icon("bookmark")}</button><button type="button" class="plain-action" data-live-more aria-label="${text("more")}" aria-haspopup="dialog">${icon("more")}</button></div>`;
   navigation.register("root:now", {
     toolbar,
     onToolbar: ({ event }) => handle(event),
@@ -52,14 +50,15 @@ export function mountLiveHome(host, search) {
     refreshing = false;
   const quickStrip = host.querySelector(".live-quick-strip"),
     quickDestinations = host.querySelector(".live-quick-destinations");
-  let quickTouched = false,
-    lastQuickMove = 0;
+  let quickSignature = "";
   const stopQuickScroll = () => {
-    quickTouched = true;
-    quickDestinations.scrollTo({
-      left: quickDestinations.scrollLeft,
-      behavior: "instant",
-    });
+    if (quickStrip.dataset.paused) return;
+    const track = quickDestinations.querySelector(".live-quick-track");
+    const offset = track
+      ? -new DOMMatrixReadOnly(getComputedStyle(track).transform).m41
+      : 0;
+    quickStrip.dataset.paused = "true";
+    quickDestinations.scrollLeft = offset;
   };
   for (const event of ["pointerdown", "wheel", "keydown", "focusin"])
     quickStrip.addEventListener(event, stopQuickScroll, { passive: true });
@@ -182,22 +181,47 @@ export function mountLiveHome(host, search) {
   async function refresh() {
     if (refreshing) return;
     refreshing = true;
+    const button = document.querySelector("[data-live-refresh]");
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.querySelector("[data-refresh-label]").textContent =
+        ui("audit_refreshing");
+    }
     const prior = state.subwayFeed,
       status = host.querySelector("[data-live-update]");
     status.textContent = ui("live_home_013");
+    let succeeded = false;
     try {
       const feed = await ensureSubwayFeed(true);
-      document.dispatchEvent(new CustomEvent("mymap-live-refresh"));
+      const jobs = [];
+      document.dispatchEvent(
+        new CustomEvent("mymap-live-refresh", {
+          detail: { waitUntil: (job) => jobs.push(job) },
+        }),
+      );
+      const results = await Promise.allSettled(jobs);
+      succeeded =
+        navigator.onLine !== false &&
+        Boolean(feed && !feed.cached) &&
+        results.every((result) => result.status === "fulfilled");
       status.innerHTML =
         navigator.onLine === false
           ? ui("live_home_014")
-          : feed && feed !== prior && !feed.cached
+          : succeeded && feed !== prior
             ? ui("live_home_015")
             : ui("live_home_024", [
                 feed ? ui("live_home_016") : ui("live_home_017"),
               ]);
     } finally {
       refreshing = false;
+      if (button) {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        button.querySelector("[data-refresh-label]").textContent = ui(
+          succeeded ? "audit_refreshed" : "audit_refresh",
+        );
+      }
     }
   }
   function handle(event) {
@@ -227,11 +251,7 @@ export function mountLiveHome(host, search) {
       toggleSavedPlace(b.dataset.liveSavePlace);
       sheet.close();
     } else if (b.dataset.openTimetable) sheet.close();
-    else if (b.hasAttribute("data-clock-format")) {
-      settings.hour12 = !settings.hour12;
-      saveSettings();
-      tick();
-    } else if (b.hasAttribute("data-quick-open")) {
+    else if (b.hasAttribute("data-quick-open")) {
       if (!suppressClick) openQuick();
       suppressClick = false;
     } else if (b.dataset.quickDestination)
@@ -427,8 +447,9 @@ export function mountLiveHome(host, search) {
       locale: appLocale(settings),
       hour12: settings.hour12 === true,
     });
-    host.querySelector("[data-live-clock]").textContent = clock.time;
-    host.querySelector("[data-clock-format]").textContent = clock.period;
+    const clockNode = host.querySelector("[data-live-clock]");
+    const time = settings.hour12 ? `${clock.time} ${clock.period}` : clock.time;
+    if (clockNode.textContent !== time) clockNode.textContent = time;
     const day = north3Day(tokyoNow().date);
     host.querySelector("[data-live-day]").textContent = text(
       day === "saturday"
@@ -439,23 +460,17 @@ export function mountLiveHome(host, search) {
             ? "weekdays"
             : "unknownDay",
     );
-    // Optional quiet marquee uses the browser's native smooth scroll. User
-    // interaction cancels it for the session; it never changes scroll physics.
-    if (
-      !quickTouched &&
-      !reducedMotion() &&
-      !document.querySelector("dialog[open]") &&
-      Date.now() - lastQuickMove >= 1000 &&
-      quickDestinations.scrollLeft + quickDestinations.clientWidth <
-        quickDestinations.scrollWidth - 1
-    ) {
-      lastQuickMove = Date.now();
-      quickDestinations.scrollBy({ left: 18, behavior: "smooth" });
-    }
   }
   function syncClock() {
     clearInterval(timer);
     tick();
+    quickStrip.dataset.active = String(
+      !document.hidden &&
+        navigation.tab === "now" &&
+        navigation.route.type === "root" &&
+        !host.hidden &&
+        !document.querySelector("dialog[open]"),
+    );
     if (
       !document.hidden &&
       navigation.tab === "now" &&
@@ -465,6 +480,13 @@ export function mountLiveHome(host, search) {
       timer = setInterval(tick, 1000);
   }
   function render() {
+    if (
+      document.hidden ||
+      navigation.tab !== "now" ||
+      navigation.route.type !== "root" ||
+      host.hidden
+    )
+      return;
     const near = nearest(),
       closest = near.all[0],
       fix = state.fix;
@@ -481,20 +503,46 @@ export function mountLiveHome(host, search) {
     const dot = host.querySelector("[data-location-dot]");
     dot.dataset.quality = active ? (low ? "low" : "available") : "missing";
     const copy = active
-      ? `${closest && closest.meters <= 1000 ? closest.stop.name + ui("live_home_026") : ui("live_home_022")}${low ? ui("live_home_023", [Math.round(fix.accuracy)]) : ""}`
-      : text(
+      ? low
+        ? ui("audit_location_low")
+        : closest && closest.meters <= 1000
+          ? closest.stop.name + ui("live_home_026")
+          : ui("live_home_022")
+      : ui(
           state.locationStatus === "loading"
-            ? "locationLoading"
-            : "locationMissing",
+            ? "audit_location_loading"
+            : state.locationStatus === "denied"
+              ? "audit_location_denied"
+              : "audit_location_missing",
         );
-    host.querySelector("[data-live-location]").textContent = copy;
+    const detail = active
+      ? ui(low ? "audit_location_low_detail" : "audit_location_ok_detail", [
+          Math.round(fix.accuracy),
+        ])
+      : ui(
+          state.locationStatus === "loading"
+            ? "audit_location_loading_detail"
+            : state.locationStatus === "denied"
+              ? "audit_location_denied_detail"
+              : "audit_location_missing_detail",
+        );
+    const setText = (selector, value) => {
+      const node = host.querySelector(selector);
+      if (node.textContent !== value) node.textContent = value;
+    };
+    setText("[data-live-location]", copy);
+    setText("[data-live-location-detail]", detail);
     const quick = quickPlaces()
       .map(
         (s) =>
           `<button type="button" data-quick-destination="${esc(s.id)}" data-quick-symbol="${quickPlaceSymbol(settings, s.id, s.type)}">${icon(quickPlaceSymbol(settings, s.id, s.type))}<span>${esc(s.name)}</span></button>`,
       )
       .join("");
-    updateHTML(host.querySelector(".live-quick-destinations"), quick);
+    if (quickSignature !== quick) {
+      quickSignature = quick;
+      quickDestinations.innerHTML = `<div class="live-quick-track"><div class="live-quick-group">${quick}</div><div class="live-quick-group" aria-hidden="true">${quick.replaceAll('<button type="button"', '<button type="button" tabindex="-1"')}</div></div>`;
+      delete quickStrip.dataset.paused;
+    }
     const map = nearbyMapModel(
       state.geo,
       near,
@@ -520,6 +568,8 @@ export function mountLiveHome(host, search) {
         mapHost,
         `<p class="empty-state">${text("nearbyUnknown")}</p>`,
       );
+    const caption = mapHost.querySelector(".route-map > p");
+    if (caption) caption.dataset.liveMapCaption = "";
     if (!refreshing && !navigator.onLine)
       host.querySelector("[data-live-update]").textContent = text("offline");
     syncClock();
@@ -528,11 +578,13 @@ export function mountLiveHome(host, search) {
   document.addEventListener("mymap-saved-places-change", render);
   document.addEventListener("mymap-navigation-change", () => {
     closeMenu();
+    render();
     syncClock();
   });
   document.addEventListener("visibilitychange", () => {
     cancelPress();
     closeMenu();
+    if (!document.hidden) render();
     syncClock();
   });
   window.addEventListener("pagehide", () => {

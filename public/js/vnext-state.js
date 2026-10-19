@@ -1,3 +1,4 @@
+import { getStaticFeed } from "./fast-data.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { subwayIds, kintetsuIds } from "./network.js";
 import { setAppLocale, ui } from "./locale.js";
@@ -333,10 +334,7 @@ export function ensureSubwayFeed(force = false) {
         cached = false;
       const key = `static:subway:${now.date}`;
       try {
-        raw = await official("/api/static/feed", {
-          operator: "subway",
-          date: now.date,
-        });
+        raw = await getStaticFeed("subway", now.date, { force });
         await putCached(key, { data: raw, savedAt: Date.now() });
       } catch (error) {
         raw = (await getCached(key))?.data;

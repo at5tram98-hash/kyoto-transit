@@ -34,6 +34,7 @@ export async function liveInteractionChecks({
   async function firstStopPositions(page) {
     return page.evaluate(() =>
       [...document.querySelectorAll(".navigation-current .route-map .map-stop")]
+        .sort((a,b) => a.closest("[data-map-stop]").dataset.mapStop.localeCompare(b.closest("[data-map-stop]").dataset.mapStop))
         .slice(0, 2)
         .map((node) => ({
           x: Number(node.getAttribute("cx")),

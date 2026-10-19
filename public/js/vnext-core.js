@@ -1,3 +1,4 @@
+import { railDestinationName } from "./rail-names.js";
 import { orderedStopEvidence } from "./transit-evidence.js";
 import { subwayIds, kintetsuIds, normalize } from "./network.js";
 
@@ -222,7 +223,7 @@ export function projectSubwayTrains({ feed, nowMinute, network }) {
 
 const simpleDestination = (value) =>
   normalize(
-    String(value ?? "")
+    railDestinationName(value)
       .replace(/行き?$|方面|駅$/g, "")
       .replaceAll("大和西大寺", "西大寺")
       .replaceAll("近鉄奈良", "奈良"),

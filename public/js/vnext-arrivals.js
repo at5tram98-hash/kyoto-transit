@@ -34,6 +34,7 @@ import {
   busServiceKey,
   busServiceLabel,
   busArrivalText,
+  busArrivalEpoch,
   busCongestionText,
   shouldShowKintetsuArrival,
   normalizedBusSources,
@@ -208,7 +209,17 @@ function normalizeRail(data, timetable = null, nowMinute = null) {
 export function compactBusHTML(data, { stopId } = {}) {
   const rows = busPreviewRows(data);
   if (!rows.length) return "";
-  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</small></span><strong>${esc(busArrivalText(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div>`;
+  const clock = (minute) => `${String(Math.floor(minute / 60) % 24).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+  const arrival = r => {
+    const eta = busArrivalEpoch(r);
+    if (Number.isFinite(eta))
+      return eta >= Date.now() - 60000
+        ? ui("audit_arrival_at", [updateTime.format(eta)])
+        : Number.isFinite(r.stopsAway) ? busArrivalText({...r, minutes: null}) : ui("station_eta_unknown");
+    return Number.isFinite(r.scheduledDeparture)
+      ? ui("station_scheduled_at", [clock(r.scheduledDeparture)]) : busArrivalText(r);
+  };
+  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}</small></span><strong>${esc(arrival(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div><details class="source-caption"><summary>${ui("audit_freshness")}</summary>${rows.map((r) => `<p>${esc(r.route)} · ${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</p>`).join("")}</details>`;
 }
 
 export function mountArrivals({ network }) {
@@ -470,7 +481,13 @@ export function mountArrivals({ network }) {
       railScheduleJob = null;
     }
   }
-  async function refreshBus() {
+  let busJob = null,
+    railJob = null;
+  function refreshBus() {
+    if (busBusy) return busJob;
+    return (busJob = runRefreshBus());
+  }
+  async function runRefreshBus() {
     if (busBusy || !currentStop() || disposed) return;
     busBusy = true;
     const version = stopVersion,
@@ -499,7 +516,11 @@ export function mountArrivals({ network }) {
       }
     }
   }
-  async function refreshRail() {
+  function refreshRail() {
+    if (railBusy) return railJob;
+    return (railJob = runRefreshRail());
+  }
+  async function runRefreshRail() {
     if (railBusy || !updateRailVisibility() || disposed) return;
     railBusy = true;
     railRoot().setAttribute("aria-busy", "true");

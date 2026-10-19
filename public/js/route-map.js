@@ -146,7 +146,7 @@ export function nearbyMapModel(geo, near, fix, network) {
     .sort((a, b) => a.meters - b.meters)
     .slice(0, 28);
   const stops = rows.map((s) => ({ ...s, ...s.stop, operator: s.stop.type }));
-  const anchor = rows[0] ?? origin;
+  const anchor = origin;
   const center = [anchor.lng, anchor.lat];
   return {
     place: true,
@@ -232,7 +232,9 @@ export function routeMapHTML(
   { expanded = false, interactive = expanded, controls = true } = {},
 ) {
   if (map.points.length < (map.place ? 1 : 2)) return ui("route_map_010");
-  const key = JSON.stringify([map.points, map.stops.map((s) => s.id)]);
+  const key = map.nearby
+    ? "nearby"
+    : JSON.stringify([map.points, map.stops.map((s) => s.id)]);
   mapData.set(key, { ...map, nextId: model.nextStation?.id, model });
   // Only keep current journey contexts, not a growing history of GPS updates.
   if (mapData.size > 6) mapData.delete(mapData.keys().next().value);
@@ -287,7 +289,9 @@ export function restoreMapViewport(host, key, saved = null) {
   if (view && map) draw(element, map, view);
 }
 export function renderRouteMap(element, map, model, options = {}) {
-  const key = JSON.stringify([map.points, map.stops.map((s) => s.id)]);
+  const key = map.nearby
+    ? "nearby"
+    : JSON.stringify([map.points, map.stops.map((s) => s.id)]);
   const current = element.querySelector(".route-map");
   if (!current || current.dataset.mapKey !== key) {
     const previousView = current && viewports.get(current);
@@ -303,7 +307,20 @@ export function renderRouteMap(element, map, model, options = {}) {
     return;
   }
   const next = { ...map, nextId: model.nextStation?.id, model };
+  const previous = mapData.get(key);
   mapData.set(key, next);
+  if (map.nearby) {
+    const hasFix = Boolean(map.position),
+      hadFix = Boolean(previous?.position);
+    const view = viewports.get(current);
+    const nextView =
+      hasFix && !hadFix
+        ? mapViewport(map.points, view?.height)
+        : (view ?? mapViewport(map.points));
+    draw(current, next, nextView);
+    updateHTML(current.querySelector("p"), mapNote(map));
+    return;
+  }
   // Preserve loaded background tiles and user pan/zoom on position refresh.
   for (const target of [
     current,
