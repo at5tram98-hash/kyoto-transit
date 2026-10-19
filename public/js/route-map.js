@@ -266,6 +266,7 @@ function draw(element, map, view) {
   const svg = element.querySelector("svg");
   svg.setAttribute("viewBox", `0 0 ${WIDTH} ${view.height ?? HEIGHT}`);
   const drawing = mapDrawing(map, view);
+  if (map.nearby) svg.setAttribute("aria-label", mapNote(map));
   updateHTML(element.querySelector(".map-tiles"), drawing.tiles);
   updateHTML(svg, drawing.overlay);
   viewports.set(element, view);

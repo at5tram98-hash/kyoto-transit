@@ -1,3 +1,4 @@
+# Publish the verified map accessibility follow-up without waiting for CI.
 name: 優先公開（検証は通常ジョブで継続）
 on:
   push:
