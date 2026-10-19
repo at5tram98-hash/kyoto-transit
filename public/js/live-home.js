@@ -480,11 +480,12 @@ export function mountLiveHome(host, search) {
       timer = setInterval(tick, 1000);
   }
   function render() {
+    const fullNearbyMap =
+      navigation.route.type === "map" && navigation.route.params.nearby;
     if (
       document.hidden ||
       navigation.tab !== "now" ||
-      navigation.route.type !== "root" ||
-      host.hidden
+      (!fullNearbyMap && (navigation.route.type !== "root" || host.hidden))
     )
       return;
     const near = nearest(),
@@ -499,6 +500,17 @@ export function mountLiveHome(host, search) {
       fix.accuracy >= 0 &&
       Date.now() - fix.timestamp <= 45000 &&
       fix.timestamp <= Date.now() + 5000;
+    if (fullNearbyMap) {
+      // Only the visible map consumes this model. Do not redraw its hidden
+      // home preview, and keep the visible map's own user-controlled viewport.
+      state.nearbyMap = nearbyMapModel(
+        state.geo,
+        near,
+        active ? fix : null,
+        state.network,
+      );
+      return;
+    }
     const low = active && fix.accuracy > 50;
     const dot = host.querySelector("[data-location-dot]");
     dot.dataset.quality = active ? (low ? "low" : "available") : "missing";

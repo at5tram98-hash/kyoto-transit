@@ -101,7 +101,8 @@ export function mapProject([lng, lat], zoom) {
   ];
 }
 const mapData = new Map(),
-  viewports = new WeakMap();
+  viewports = new WeakMap(),
+  positionedMaps = new WeakSet();
 const WIDTH = 420,
   HEIGHT = 240;
 export function mapViewport(points, height = HEIGHT) {
@@ -258,6 +259,10 @@ export function routeMapHTML(
   ]);
 }
 function draw(element, map, view) {
+  if (map.nearby && map.position && !positionedMaps.has(element)) {
+    view = mapViewport(map.points, view.height ?? HEIGHT);
+    positionedMaps.add(element);
+  }
   const svg = element.querySelector("svg");
   svg.setAttribute("viewBox", `0 0 ${WIDTH} ${view.height ?? HEIGHT}`);
   const drawing = mapDrawing(map, view);
@@ -286,7 +291,10 @@ export function restoreMapViewport(host, key, saved = null) {
   const element = host.querySelector(".route-map"),
     view = savedViewports.get(key) ?? (valid ? saved : null),
     map = element && mapData.get(element.dataset.mapKey);
-  if (view && map) draw(element, map, view);
+  if (view && map) {
+    if (map.nearby) positionedMaps.add(element);
+    draw(element, map, view);
+  }
 }
 export function renderRouteMap(element, map, model, options = {}) {
   const key = map.nearby
@@ -307,17 +315,9 @@ export function renderRouteMap(element, map, model, options = {}) {
     return;
   }
   const next = { ...map, nextId: model.nextStation?.id, model };
-  const previous = mapData.get(key);
   mapData.set(key, next);
   if (map.nearby) {
-    const hasFix = Boolean(map.position),
-      hadFix = Boolean(previous?.position);
-    const view = viewports.get(current);
-    const nextView =
-      hasFix && !hadFix
-        ? mapViewport(map.points, view?.height)
-        : (view ?? mapViewport(map.points));
-    draw(current, next, nextView);
+    draw(current, next, viewports.get(current) ?? mapViewport(map.points));
     updateHTML(current.querySelector("p"), mapNote(map));
     return;
   }

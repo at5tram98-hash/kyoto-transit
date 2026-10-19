@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 export async function liveInteractionChecks({
   open,
   layout,
+  settleNavigation,
   artifacts,
   summary,
 }) {
@@ -29,16 +30,24 @@ export async function liveInteractionChecks({
       ".navigation-current .route-map.map-interactive .map-canvas",
     );
     await map.waitFor();
+    await settleNavigation(page);
     return map;
   }
   async function firstStopPositions(page) {
     return page.evaluate(() =>
       [...document.querySelectorAll(".navigation-current .route-map .map-stop")]
-        .sort((a,b) => a.closest("[data-map-stop]").dataset.mapStop.localeCompare(b.closest("[data-map-stop]").dataset.mapStop))
+        .sort((a, b) =>
+          a
+            .closest("[data-map-stop]")
+            .dataset.mapStop.localeCompare(
+              b.closest("[data-map-stop]").dataset.mapStop,
+            ),
+        )
         .slice(0, 2)
         .map((node) => ({
-          x: Number(node.getAttribute("cx")),
-          y: Number(node.getAttribute("cy")),
+          id: node.closest("[data-map-stop]").dataset.mapStop,
+          x: Number(node.getAttribute("cx")) - node.closest("svg").viewBox.baseVal.width / 2,
+          y: Number(node.getAttribute("cy")) - node.closest("svg").viewBox.baseVal.height / 2,
         })),
     );
   }
@@ -73,6 +82,48 @@ export async function liveInteractionChecks({
       },
       { dx, dy },
     );
+  }
+  // A first fix obtained on the full map must also center the home preview
+  // when returning. The two maps share data, but own independent viewports.
+  {
+    const lateFix = await open({
+      scenario: { gps: "denied", initialSettings: { autoDetect: false } },
+    });
+    try {
+      const { page } = lateFix;
+      await page.locator("[data-live-full-map]").click();
+      await page.locator(".navigation-current .map-canvas").waitFor();
+      await page.evaluate(() => {
+        window.__state.state.locationStatus = "active";
+        window.__state.state.fix = {
+          lat: 35.0697,
+          lng: 135.7572,
+          accuracy: 15,
+          timestamp: Date.now(),
+          speed: 0,
+        };
+        window.__view.renderNow();
+      });
+      await page.locator(".navigation-current .map-position").waitFor();
+      await page.evaluate(() => window.__navigation.navigation.pop());
+      await settleNavigation(page);
+      await page.locator(".live-map-host .map-position").waitFor();
+      const marker = await page
+        .locator(".live-map-host .map-position")
+        .evaluate((el) => ({
+          x: +el.getAttribute("cx"),
+          y: +el.getAttribute("cy"),
+          height: el.closest("svg").viewBox.baseVal.height,
+        }));
+      if (!(Math.abs(marker.x - 210) < 1 && Math.abs(marker.y - marker.height / 2) < 1)) console.log("First location map geometry", marker);
+      assert.ok(
+        Math.abs(marker.x - 210) < 1 &&
+          Math.abs(marker.y - marker.height / 2) < 1,
+        "first GPS fix centers each map independently",
+      );
+    } finally {
+      await lateFix.context.close();
+    }
   }
   const distance = ([a, b]) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -137,40 +188,40 @@ export async function liveInteractionChecks({
       await openFullNearbyMap(page);
       await panMap(page, 55, 30);
       const before = await firstStopPositions(page);
-      await page.evaluate(async () => {
-        const query = new URL(
-          document.querySelector("script[type=module]").src,
-        ).search;
-        const routeMap = await import(
-          new URL(`js/route-map.js${query}`, location.href).href
+      const markerBefore = await page
+        .locator(".navigation-current .map-position")
+        .evaluate((el) => ({
+          x: +el.getAttribute("cx"),
+          y: +el.getAttribute("cy"),
+        }));
+      await page.evaluate(() => window.__emitPosition(35.012, 135.7685));
+      await page.waitForFunction(
+        () => window.__state.state.nearbyMap?.position?.lat === 35.012,
+      );
+      await page.waitForFunction((before) => {
+        const marker = document.querySelector(
+          ".navigation-current .map-position",
         );
-        const { state, nearest } = window.__state;
-        state.fix = {
-          ...state.fix,
-          lat: 35.012,
-          lng: 135.7685,
-          timestamp: Date.now(),
-        };
-        state.nearbyMap = routeMap.nearbyMapModel(
-          state.geo,
-          nearest(),
-          state.fix,
-          state.network,
+        return (
+          marker &&
+          Math.hypot(
+            +marker.getAttribute("cx") - before.x,
+            +marker.getAttribute("cy") - before.y,
+          ) > 0.1
         );
-        routeMap.renderRouteMap(
-          document.querySelector(".navigation-current"),
-          state.nearbyMap,
-          { bus: false, lineId: "nearby" },
-        );
-      });
+      }, markerBefore);
+
       const after = await firstStopPositions(page);
+      if (Math.abs(after[0].x-before[0].x) >= .01 || Math.abs(after[0].y-before[0].y) >= .01) console.log("Map viewport after GPS",{before,after});
       assert.ok(
         Math.abs(after[0].x - before[0].x) < 0.01 &&
           Math.abs(after[0].y - before[0].y) < 0.01,
         "quick location update preserves the manually panned viewport",
       );
       assert.equal(
-        await page.locator(".navigation-current .route-map .map-position").count(),
+        await page
+          .locator(".navigation-current .route-map .map-position")
+          .count(),
         1,
         "location refresh keeps the current-position marker",
       );
