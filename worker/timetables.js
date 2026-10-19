@@ -35,7 +35,17 @@ export function officialFetcher(env,{direct=fetch}={}){return async(url,init)=>{
     else await response.body?.cancel();
   }catch(error){if(init?.signal?.aborted)throw error;}
   const r=await env.BROWSER.quickAction('content',{url:u.href,gotoOptions:{waitUntil:'domcontentloaded',timeout:15000},waitForSelector:{selector:u.pathname.endsWith('.json')?'pre':u.pathname.endsWith('/stop.html')?'a[href*="schedule.html?stop_id="]':'script',timeout:8000},actionTimeout:18000});
-  if(!r.ok){await r.body?.cancel();throw Error('公式時刻表の画面を取得できませんでした。');}
+  if(!r.ok){
+    const status=r.status;await r.body?.cancel();
+    // A transient Browser Run failure must not mask a recovered official origin.
+    // Retry HTTP once, with the same bounded validation; never synthesize data.
+    try{
+      const retry=await direct(url,{...init,redirect:'manual',signal:init?.signal?AbortSignal.any([init.signal,AbortSignal.timeout(7000)]):AbortSignal.timeout(7000)});
+      if(retry.ok){const html=await boundedText(retry);if(validKyotoPage(html,u))return new Response(html,{headers:{'Content-Type':u.pathname.endsWith('.json')?'application/json;charset=utf-8':'text/html;charset=utf-8'}});}
+      else await retry.body?.cancel();
+    }catch(error){if(init?.signal?.aborted)throw error;}
+    throw Error(`公式時刻表の画面を取得できませんでした（取得サービス HTTP ${status}）。時間をおいて再取得してください。`);
+  }
   let html=await boundedText(r);
   if(r.headers.get('content-type')?.includes('json')){const d=JSON.parse(html);html=typeof d.result==='string'?d.result:typeof d.content==='string'?d.content:'';}
   if(u.pathname.endsWith('.json'))html=load(html)('pre').first().text();

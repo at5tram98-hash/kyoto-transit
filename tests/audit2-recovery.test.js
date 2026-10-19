@@ -200,3 +200,29 @@ test('bus absolute arrival time remains anchored to observed time and never conv
  assert.equal(busArrivalEpoch({stopsAway:2,asOf:at}),null);
  assert.equal(busArrivalEpoch({minutes:5}),null);
 });
+
+test("Kyoto Bus retries the official origin once after a transient browser failure", async () => {
+  let calls = 0;
+  const fetcher = officialFetcher(
+    {
+      BROWSER: {
+        quickAction: async () => new Response("busy", { status: 429 }),
+      },
+    },
+    {
+      direct: async () =>
+        ++calls === 1
+          ? new Response("busy", { status: 503 })
+          : new Response(boot),
+    },
+  );
+  assert.match(
+    await (
+      await fetcher(
+        "https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=7475_1",
+      )
+    ).text(),
+    /SCHEDULE_BOOT/,
+  );
+  assert.equal(calls, 2);
+});
