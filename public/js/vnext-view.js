@@ -1001,8 +1001,18 @@ function renderHero(root, html, model) {
     !current?.classList.contains("journey-display") ||
     current.dataset.rideKey !== model.observed.key
   ) {
+    const entering = !current?.classList.contains("journey-display");
     updateHTML(root, next.outerHTML);
     root.firstElementChild.dataset.rideKey = model.observed.key;
+    // Boarding: the onboard display rises into place.
+    if (entering && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+      root.firstElementChild.animate(
+        [
+          { opacity: 0, transform: "translateY(36px) scale(0.96)" },
+          { opacity: 1, transform: "none" },
+        ],
+        { duration: 560, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" },
+      );
     return;
   }
   if (compact && !current.classList.contains("compact"))
@@ -1018,12 +1028,36 @@ function renderHero(root, html, model) {
     ".next-countdown",
     ".destination-progress",
     ".station-strip",
+    ".lcd-head",
+    ".ride-line",
     ".personal-destination",
     ".journey-metrics",
   ]) {
     const target = current.querySelector(selector),
       source = next.querySelector(selector);
-    if (selector === ".route-header" && target && source) {
+    if (selector === ".ride-line" && target && source) {
+      // Same stations: let the marker glide; new window: slide the line.
+      target.style.cssText = source.style.cssText;
+      if (target.dataset.signature !== source.dataset.signature) {
+        target.dataset.signature = source.dataset.signature;
+        updateHTML(target, source.innerHTML);
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+          target
+            .querySelector("ol")
+            ?.animate(
+              [
+                { opacity: 0.2, transform: target.dataset.kind === "bus" ? "translateY(18px)" : "translateX(18px)" },
+                { opacity: 1, transform: "none" },
+              ],
+              { duration: 420, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" },
+            );
+      } else
+        for (const [i, li] of [...source.querySelectorAll("li")].entries()) {
+          const old = target.querySelectorAll("li")[i];
+          if (old && old.className !== li.className) old.className = li.className;
+          if (old && old.innerHTML !== li.innerHTML) old.innerHTML = li.innerHTML;
+        }
+    } else if (selector === ".route-header" && target && source) {
       const oldTokens = target.querySelector(".route-tokens"),
         newTokens = source.querySelector(".route-tokens");
       oldTokens.className = newTokens.className;
@@ -1048,6 +1082,7 @@ function renderHero(root, html, model) {
       if (code && newCode) updateMeaning(code, newCode.innerHTML);
       else if (newCode) target.append(newCode.cloneNode(true));
       else code?.remove();
+
     } else if (
       selector === ".destination-progress" &&
       target &&

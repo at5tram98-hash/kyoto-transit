@@ -1237,4 +1237,7 @@ export default {
   boarding_evidence_timetable: "Official timetable",
   boarding_departure: "Dep. {0}",
   boarding_destination: "To {0}",
+  lcd_bound: "For {0}",
+  ride_line_alight: "Get off",
+  ride_line_more: "{0} more stops",
 };

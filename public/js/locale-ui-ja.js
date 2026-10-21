@@ -1224,4 +1224,7 @@ export default {
   boarding_evidence_timetable: "公式時刻表",
   boarding_departure: "{0}発",
   boarding_destination: "{0}行き",
+  lcd_bound: "{0} ゆき",
+  ride_line_alight: "降車",
+  ride_line_more: "この先 {0} 停留所",
 };

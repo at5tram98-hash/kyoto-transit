@@ -510,6 +510,242 @@
   background: var(--route-tint);
   transition: background-color 280ms ease;
 }
+/* Rail: an onboard LCD (dark in both appearances, like the real display). */
+.next-station-hero.lcd {
+  padding: 0 0 16px;
+  overflow: hidden;
+  background: var(--lcd-background);
+  color: var(--lcd-text);
+}
+.lcd-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--lcd-panel);
+  border-bottom: 3px solid var(--journey-accent);
+  font-weight: 700;
+  text-align: left;
+}
+.lcd-type {
+  padding: 2px 10px;
+  border-radius: var(--radius-tiny);
+  background: var(--journey-accent);
+  color: var(--color-on-transport);
+  font-size: var(--type-caption);
+}
+.lcd-dest {
+  font-size: var(--type-secondary);
+  overflow-wrap: anywhere;
+}
+.next-station-hero.lcd .next-state-label {
+  margin-top: 14px;
+  color: var(--lcd-next);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+}
+.journey-display[data-rail-phase] .next-station-hero.lcd .next-state-label {
+  color: var(--lcd-next);
+}
+.journey-display[data-rail-phase="estimated"] .next-station-hero.lcd .next-state-label,
+.journey-display[data-rail-phase="unavailable"] .next-station-hero.lcd .next-state-label {
+  color: var(--lcd-dim);
+}
+.next-station-hero.lcd .journey-next-name {
+  color: var(--lcd-text);
+  font-size: 2.5rem;
+  letter-spacing: 0.02em;
+}
+.next-station-hero.lcd .station-code {
+  background: transparent;
+  color: var(--lcd-text);
+}
+.next-station-hero.lcd .next-countdown {
+  color: var(--lcd-text);
+}
+.next-station-hero.lcd .destination-progress,
+.next-station-hero.lcd .terminal-arrival {
+  color: var(--lcd-dim);
+}
+/* Rail line: the next stations with a gliding train marker. */
+.ride-line[data-kind="rail"] {
+  position: relative;
+  height: 74px;
+  margin: 18px 34px 0;
+}
+.ride-line[data-kind="rail"] ol {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ride-line[data-kind="rail"] ol::before {
+  content: "";
+  position: absolute;
+  inset: 9px 0 auto;
+  height: 4px;
+  border-radius: var(--radius-capsule);
+  background: linear-gradient(
+    to right,
+    var(--journey-accent) var(--progress, 0%),
+    var(--lcd-rule) var(--progress, 0%)
+  );
+  transition: background 1.2s ease;
+}
+.ride-line[data-kind="rail"] li {
+  position: absolute;
+  left: var(--at);
+  top: 0;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 76px;
+  transform: translateX(-50%);
+  color: var(--lcd-dim);
+  font-size: 0.72rem;
+}
+.ride-line[data-kind="rail"] li i {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--lcd-rule);
+  border-radius: var(--radius-round);
+  background: var(--lcd-background);
+}
+.ride-line[data-kind="rail"] li.passed i {
+  border-color: var(--journey-accent);
+  background: var(--journey-accent);
+}
+.ride-line[data-kind="rail"] li.next {
+  color: var(--lcd-text);
+  font-weight: 700;
+}
+.ride-line[data-kind="rail"] li.next i {
+  border-color: var(--lcd-next);
+  animation: ride-next-ring 1.8s ease-in-out infinite;
+}
+.ride-line[data-kind="rail"] li.destination span::after {
+  content: " ●";
+  color: var(--lcd-next);
+}
+.ride-line li span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ride-marker {
+  position: absolute;
+  top: 3px;
+  left: var(--progress, 0%);
+  width: 34px;
+  height: 16px;
+  transform: translateX(-50%);
+  border-radius: var(--radius-capsule);
+  background: var(--lcd-text);
+  box-shadow: var(--shadow-vehicle);
+  transition: left 1.2s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.ride-marker::after {
+  content: "";
+  position: absolute;
+  inset: 4px 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--journey-accent);
+}
+/* Bus: next stop and a vertical timeline of the stops ahead. */
+.ride-line[data-kind="bus"] {
+  margin: 18px 4px 0;
+  text-align: left;
+}
+.ride-line[data-kind="bus"] ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ride-line[data-kind="bus"] li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--muted);
+  font-size: var(--type-secondary);
+}
+.ride-line[data-kind="bus"] li::before {
+  content: "";
+  position: absolute;
+  left: 69px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: color-mix(in srgb, var(--journey-accent) 35%, transparent);
+}
+.ride-line[data-kind="bus"] li:first-child::before {
+  top: 50%;
+}
+.ride-line[data-kind="bus"] li:last-child::before {
+  bottom: 50%;
+}
+.ride-line[data-kind="bus"] li time {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.ride-line[data-kind="bus"] li i {
+  position: relative;
+  z-index: 1;
+  width: 14px;
+  height: 14px;
+  justify-self: center;
+  border: 3px solid var(--journey-accent);
+  border-radius: var(--radius-round);
+  background: var(--surface-primary);
+}
+.ride-line[data-kind="bus"] li.next {
+  min-height: 52px;
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.ride-line[data-kind="bus"] li.next i {
+  width: 20px;
+  height: 20px;
+  background: var(--journey-accent);
+  animation: ride-next-ring 1.8s ease-in-out infinite;
+}
+.ride-line[data-kind="bus"] li small {
+  padding: 2px 8px;
+  border-radius: var(--radius-capsule);
+  background: var(--fill-tertiary);
+  color: var(--text);
+  font-size: var(--type-caption);
+  font-weight: 700;
+}
+.ride-line[data-kind="bus"] li.destination small {
+  background: var(--journey-accent);
+  color: var(--color-on-transport);
+}
+.ride-line-more {
+  margin: 6px 0 0 82px;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+@keyframes ride-next-ring {
+  50% {
+    box-shadow: var(--shadow-station-ring);
+  }
+}
+html[data-reduce-motion="true"] :is(.ride-marker, .ride-line ol::before, .ride-line li i) {
+  animation: none;
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.ride-marker, .ride-line li i) {
+    animation: none;
+    transition: none;
+  }
+}
 [data-phase="APPROACHING"] .next-station-hero {
   background: color-mix(in srgb, var(--route-tint) 75%, var(--panel));
 }
