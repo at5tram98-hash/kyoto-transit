@@ -71,6 +71,10 @@
   --map-label: #1a1a1a;
   --map-control: rgba(255, 255, 255, 0.9);
   --material-navigation: rgba(250, 250, 252, 0.86);
+  /* iOS tertiarySystemFill / systemFill for search fields and segments. */
+  --fill-tertiary: rgba(118, 118, 128, 0.12);
+  --fill-secondary: rgba(118, 118, 128, 0.16);
+  --surface-segment-selected: #ffffff;
   --panel: var(--surface-primary);
   --panel-2: var(--surface-secondary);
   --blue: var(--color-link);
@@ -148,6 +152,9 @@
     --color-warning: #ffc169;
     --color-danger: #ff8585;
     --material-navigation: rgba(28, 28, 30, 0.88);
+    --fill-tertiary: rgba(118, 118, 128, 0.24);
+    --fill-secondary: rgba(118, 118, 128, 0.32);
+    --surface-segment-selected: #636366;
     --shadow: none;
   }
 }

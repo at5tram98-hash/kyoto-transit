@@ -140,6 +140,16 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       );
       return {
         sources: rows.map((e) => e.type),
+        // A scheduled trip or route pattern exists for this candidate.
+        contextual: [...events.values()].some(
+          (e) =>
+            e.candidate === key &&
+            ["timetable", "pattern"].includes(e.type) &&
+            !e.metadata?.rejected,
+        ),
+        walkingLikely: rows.some(
+          (e) => e.type === "gps" && e.metadata?.walkingLikely === true,
+        ),
         vehicleMoving: rows.some(
           (e) =>
             (e.type === "gps" || e.type === "motion") &&
@@ -301,6 +311,12 @@ export function shouldOfferRideConfirmation(candidate, support = {}) {
     support.routeProgress ||
       (support.vehicleMoving &&
         support.audioSequence &&
-        support.sources?.includes("realtime")),
+        support.sources?.includes("realtime")) ||
+      // Moving at vehicle speed with a scheduled or official live trip for
+      // this candidate. This only offers the question; boarding still needs
+      // the rider's explicit confirmation.
+      (support.vehicleMoving &&
+        !support.walkingLikely &&
+        (support.contextual || support.sources?.includes("realtime"))),
   );
 }

@@ -551,6 +551,31 @@ export function clearFalseRide() {
   persistJourney(true);
 }
 
+// Rider-initiated: list services departing from the nearest station or stop
+// now, without requiring movement evidence. Nothing is confirmed here; the
+// rider still opens and confirms one candidate explicitly.
+export async function chooseRideCandidates() {
+  if (!state.network || state.ride) return [];
+  const near = nearest(),
+    rail = near.rail && near.rail.meters <= 400 ? near.rail : null,
+    bus = near.bus && near.bus.meters <= 250 ? near.bus : null,
+    kyoto = near.kyotoBus && near.kyotoBus.meters <= 250 ? near.kyotoBus : null;
+  const jobs = [];
+  if (rail) {
+    if (rail.id === "K15")
+      jobs.push(detectKintetsu("K15"), detectSubway("K15"));
+    else if (rail.stop.type === "kintetsu") jobs.push(detectKintetsu(rail.id));
+    else jobs.push(detectSubway(rail.id));
+  }
+  if (bus?.stop.type === "citybus") jobs.push(detectCityBus(bus));
+  if (kyoto) jobs.push(detectKyotoBus(kyoto.id));
+  else if (bus?.stop.type === "kyotobus") jobs.push(detectKyotoBus(bus.id));
+  const groups = await Promise.all(jobs.map((job) => job.catch(() => [])));
+  const candidates = mergeCandidates(...groups).slice(0, 5);
+  if (!state.ride) state.rideCandidates = candidates;
+  return candidates;
+}
+
 export function confirmRideCandidate(index) {
   const candidate = state.rideCandidates[Number(index)];
   if (!candidate) return false;

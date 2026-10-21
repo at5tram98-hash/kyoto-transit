@@ -1,4 +1,5 @@
 import { clearFalseRide } from "./vnext-detect.js";
+import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
 import { ui } from "./locale.js";
 import { rideConfirmationFacts } from "./ride-confirmation-facts.js";
@@ -39,8 +40,9 @@ import {
   resetRideDetection,
   startManualRide,
   finishCurrentRide,
+  chooseRideCandidates,
 } from "./vnext-detect.js";
-import { renderNow, setupNowInteractions } from "./vnext-view.js";
+import { renderNow, setupNowInteractions, rideChoiceRowsHTML } from "./vnext-view.js";
 import {
   setupContextSheet,
   openContextSheet,
@@ -139,6 +141,21 @@ function syncTab(tab) {
 }
 function setTab(tab) {
   navigation.selectTab(tab);
+}
+async function openRideChooser() {
+  const sheet = $("#context-sheet");
+  sheet.dataset.detent = "medium";
+  openContextSheet(
+    ui("choose_ride_title"),
+    `<section class="section-block ride-chooser" aria-busy="true"><p class="source-note" role="status">${esc(ui("choose_ride_loading"))}</p></section>`,
+  );
+  const candidates = await chooseRideCandidates(),
+    section = sheet.querySelector(".ride-chooser");
+  if (!section?.isConnected || !sheet.open) return;
+  section.removeAttribute("aria-busy");
+  section.innerHTML = candidates.length
+    ? `<div class="ride-choice-list native-list">${rideChoiceRowsHTML(candidates)}</div><p class="source-caption">${esc(ui("choose_ride_note"))}</p>`
+    : `<p class="empty-state" role="status">${esc(ui("choose_ride_empty"))}</p>`;
 }
 function openRideCandidateConfirmation(index) {
   const candidate = state.rideCandidates[Number(index)];
@@ -266,6 +283,10 @@ function setupEvents() {
       beginRideRecheck("manual");
       renderNow();
       void autoDetectRide(true, renderNow);
+    } else if (b.hasAttribute("data-choose-ride")) {
+      openRideChooser();
+    } else if (b.hasAttribute("data-enable-motion")) {
+      void requestMotionPermission().then(() => renderNow());
     } else if (b.hasAttribute("data-not-riding")) {
       clearFalseRide();
       renderNow();
@@ -577,6 +598,7 @@ async function init() {
       if (state.tab === "operations") void operations.show();
       renderNow();
     });
+    restoreMotionPermission(document);
     state.locationSession.start();
     renderNow();
     arrivals.show();

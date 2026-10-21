@@ -220,6 +220,12 @@ export function heroModel(
     !routeUnavailable && Number.isFinite(stopTime(userDestination))
       ? stopTime(userDestination) + (stale ? 0 : shift)
       : null;
+  const terminal = stops.at(-1),
+    terminalArrival =
+      !routeUnavailable && Number.isFinite(stopTime(terminal))
+        ? stopTime(terminal) + (stale ? 0 : shift)
+        : null;
+  const timesPublished = stops.some((stop) => Number.isFinite(stopTime(stop)));
   const nextStation = routeUnavailable ? null : stationModel(display),
     nextNext = stationModel(stops[displayIndex + 1]);
   if (nextStation?.id === "K15" && lineId === "B" && !boundary)
@@ -292,6 +298,10 @@ export function heroModel(
     delayMinutes: shiftKnown && !stale ? Math.round(shift) : null,
     arrivalEstimate,
     destinationArrival,
+    terminal: terminal ? stationModel(terminal) : null,
+    terminalArrival,
+    terminalEstimated: Boolean(terminal?.estimated),
+    timesPublished,
     minutes,
     label,
     nextIsDestination,

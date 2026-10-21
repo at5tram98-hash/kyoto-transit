@@ -40,7 +40,6 @@ body:has(.navigation-app) {
   line-height: 1.3;
   letter-spacing: 0;
 }
-.navigation-app[data-now-home="true"] [data-view="now"],
 .navigation-app [data-view="search"],
 .navigation-screen[data-screen="results"],
 .navigation-screen[data-screen="route"] {
