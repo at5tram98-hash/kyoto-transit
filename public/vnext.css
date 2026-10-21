@@ -75,6 +75,16 @@
   --fill-tertiary: rgba(118, 118, 128, 0.12);
   --fill-secondary: rgba(118, 118, 128, 0.16);
   --surface-segment-selected: #ffffff;
+  /* Menus, action sheets and the onboard displays. */
+  --material-menu: rgba(248, 248, 250, 0.82);
+  --shadow-menu: 0 12px 40px rgba(0, 0, 0, 0.18);
+  --shadow-lift: 0 18px 50px rgba(0, 0, 0, 0.22);
+  --lcd-background: #0b0e13;
+  --lcd-panel: #151a21;
+  --lcd-text: #f6f7f9;
+  --lcd-dim: #8c939e;
+  --lcd-next: #ffb21f;
+  --lcd-rule: rgba(255, 255, 255, 0.12);
   --panel: var(--surface-primary);
   --panel-2: var(--surface-secondary);
   --blue: var(--color-link);
@@ -155,6 +165,9 @@
     --fill-tertiary: rgba(118, 118, 128, 0.24);
     --fill-secondary: rgba(118, 118, 128, 0.32);
     --surface-segment-selected: #636366;
+    --material-menu: rgba(40, 40, 44, 0.84);
+    --shadow-menu: 0 12px 40px rgba(0, 0, 0, 0.5);
+    --shadow-lift: 0 18px 50px rgba(0, 0, 0, 0.6);
     --shadow: none;
   }
 }

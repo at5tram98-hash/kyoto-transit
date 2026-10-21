@@ -1,5 +1,6 @@
 import { clearFalseRide } from "./vnext-detect.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
+import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
 import { ui } from "./locale.js";
 import { rideConfirmationFacts } from "./ride-confirmation-facts.js";
@@ -143,6 +144,14 @@ function setTab(tab) {
   navigation.selectTab(tab);
 }
 async function openRideChooser() {
+  startProgress("ride-chooser");
+  try {
+    await presentRideChooser();
+  } finally {
+    endProgress("ride-chooser");
+  }
+}
+async function presentRideChooser() {
   const sheet = $("#context-sheet");
   sheet.dataset.detent = "medium";
   openContextSheet(
@@ -305,10 +314,20 @@ function setupEvents() {
     else if (b.id === "ride-operations")
       navigation.push("operation", { id: state.ride?.operator });
     else if (b.id === "ride-end") {
-      finishCurrentRide();
-      navigation.root("now");
-      renderNow();
-      arrivals?.show();
+      // Ending guidance is destructive: confirm with an action sheet.
+      void actionSheet({
+        title: ui("ride_end_title"),
+        message: ui("ride_end_message"),
+        actions: [
+          { id: "end", label: ui("ride_end_confirm"), role: "destructive" },
+        ],
+      }).then((choice) => {
+        if (choice !== "end" || !state.ride) return;
+        finishCurrentRide();
+        navigation.root("now");
+        renderNow();
+        arrivals?.show();
+      });
     } else if (b.id === "network-refresh") refreshNetwork();
     else if (b.id === "location-indicator")
       state.locationSession?.start({ retry: true });
@@ -583,6 +602,7 @@ async function init() {
     });
     document.addEventListener("mymap-ride-prediction", () => renderNow());
     document.addEventListener("mymap-motion-permission", () => renderNow());
+    document.addEventListener("mymap-choose-ride", () => openRideChooser());
     document.addEventListener("mymap-transit-evidence", () => {
       renderNow();
       void autoDetectRide(true, renderNow);

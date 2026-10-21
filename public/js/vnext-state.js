@@ -80,6 +80,7 @@ const icons = {
     '<path d="m12 2 8 3v6c0 6-8 11-8 11S4 17 4 11V5Z"/><path d="m8 12 3 3 5-6"/>',
   document: '<path d="M5 3h10l4 4v14H5Zm10 0v5h4M8 12h8m-8 4h6"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
+  "chevron-up": '<path d="m6 15 6-6 6 6"/>',
 };
 export const icon = (name) =>
   `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name] ?? icons.info}</svg>`;

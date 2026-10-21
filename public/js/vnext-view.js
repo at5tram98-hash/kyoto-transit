@@ -34,8 +34,14 @@ import {
   toast,
   haptic,
 } from "./vnext-state.js";
-import { updateRideAnchor, kyotoBusPredictionFor } from "./vnext-detect.js";
+import {
+  updateRideAnchor,
+  kyotoBusPredictionFor,
+  confirmRideCandidate,
+  clearFalseRide,
+} from "./vnext-detect.js";
 import { motionPermissionState } from "./motion-permission.js";
+import { presentBoarding, closeBoarding } from "./boarding-sheet.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
 import { updateHTML, updateNearbyPanel } from "./view-rendering.js";
 import { getKintetsuFeed } from "./fast-data.js";
@@ -372,6 +378,53 @@ function chooseRideHTML() {
     ? ""
     : `<button type="button" class="choose-ride-action" data-choose-ride>${icon("bus")}<span>${esc(ui("choose_ride"))}</span><span class="chevron">›</span></button>`;
 }
+function describeCandidate(candidate) {
+  const ride = candidate.ride,
+    support = transitEvidenceEngine.support(ride),
+    evidence = [
+      ...new Set([
+        ...(support.contextual ? ["timetable"] : []),
+        ...support.sources,
+      ]),
+    ]
+      .filter((type) =>
+        ["timetable", "gps", "motion", "realtime", "audio"].includes(type),
+      )
+      .map((type) => ui(`boarding_evidence_${type}`));
+  return {
+    operator: ride.operator,
+    bus: ["citybus", "kyotobus"].includes(ride.operator),
+    service: serviceName(ride),
+    destination: ui("boarding_destination", [ride.destination ?? ui("vnext_view_049")]),
+    departure: Number.isFinite(ride.depart)
+      ? ui("boarding_departure", [formatMinute(ride.depart)])
+      : "",
+    evidence,
+  };
+}
+// Rise the boarding sheet for offered candidates while idle on Now.
+function syncBoardingSheet(offered) {
+  if (
+    !offered.length ||
+    state.ride ||
+    settings.autoDetect === false ||
+    state.tab !== "now" ||
+    document.hidden
+  )
+    return closeBoarding();
+  presentBoarding({
+    entries: offered,
+    key: offered.map(({ candidate }) => rideKey(candidate.ride)).join("|"),
+    describe: describeCandidate,
+    onConfirm: (index) => {
+      if (confirmRideCandidate(index)) renderNow();
+    },
+    onNotRiding: () => {
+      clearFalseRide();
+      renderNow();
+    },
+  });
+}
 function candidateHTML() {
   const candidates = offeredCandidates();
   if (!candidates.length) return "";
@@ -401,7 +454,7 @@ export function renderNow() {
     rideDetectionSession.confirm(state.ride);
   updateRideAnchor();
   renderStatusPill();
-  if (state.tab !== "now") return;
+  if (state.tab !== "now") return closeBoarding();
   const root = $("#now-hero"),
     vehicle = $("#vehicle-panel"),
     networkPanel = $("#network-panel"),
@@ -424,6 +477,7 @@ export function renderNow() {
         : "idle";
   // Keep the onboard display usable when GPS is temporarily lost underground.
   if (state.ride) {
+    closeBoarding();
     enterContext(resolveNowState(state.ride));
     renderRide(root, $("#ride-stops-source"), networkPanel, nearPanel, now);
     const status = rideDetectionSession.snapshot();
@@ -440,6 +494,7 @@ export function renderNow() {
   }
   const session = rideDetectionSession.snapshot();
   if (session.phase === "rechecking" && session.shell) {
+    closeBoarding();
     enterContext(resolveNowState(session.shell));
     document.querySelector(".app-shell").dataset.rideMode = session.mode;
     $('[data-view="now"]').dataset.contextIdentity = "rechecking";
@@ -466,6 +521,7 @@ export function renderNow() {
   $("#now-search").hidden = Boolean(state.armedJourney || state.itinerary);
   updateHTML($("#ride-actions"), "");
   $("#now-search").dispatchEvent(new Event("mymap-now-context"));
+  syncBoardingSheet(offeredCandidates());
   const detectionPhase = detectionDisplayState({
     phase: session.phase,
     locationStatus: state.locationStatus,

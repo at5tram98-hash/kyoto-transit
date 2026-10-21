@@ -324,6 +324,7 @@ export async function journeyUpgradeChecks({
         await settleNavigation(page);
         assert.equal((await readPlan()).current, "second-632");
         await page.locator(".navigation-current #ride-end").click();
+        await page.locator('[data-action-sheet-choice="end"]').click();
         await settleNavigation(page);
         await page.reload();
         await page.locator(".app-shell[data-navigation-depth]").waitFor();
