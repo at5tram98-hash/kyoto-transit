@@ -1,7 +1,7 @@
 import catalog from '../public/data/bus-catalog.json' with {type:'json'};
 import {createNetwork,normalize} from '../public/js/network.js';
 import {calendarDay} from './service-calendar.js';
-import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,parseKyotoSchedules,kyotoEntries} from './timetables.js';
+import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,parseKyotoSchedules,kyotoEntries,kyotoDayKey} from './timetables.js';
 import {north3Feed} from '../public/js/north3-feed.js';
 
 const network=createNetwork(catalog);
@@ -27,8 +27,10 @@ export function chooseCityBoard(boards=[],nextName='',reverse=false){
   const scored=boards.map((board,index)=>({board,index,score:target&&normalize(board.label??'').includes(target)?10:0})).sort((a,b)=>b.score-a.score||((reverse?b.index:a.index)-(reverse?a.index:b.index)));
   return scored[0]?.board??null;
 }
-export function offsetTrips(entries=[],service,date){
-  const base=service.offsets?.[0]??0;
+export function offsetTrips(entries=[],service,date,anchorIndex=0){
+  // Board departures are read at the anchor stop; earlier and later stops are
+  // completed from the route's segment minutes.
+  const base=service.offsets?.[anchorIndex]??service.offsets?.[0]??0;
   return entries.filter(e=>Number.isFinite(e.depart)).map((entry,index)=>{
     const times=(service.offsets??[]).map(offset=>Math.round(entry.depart+(offset-base)));
     return {id:`official:${service.id}:${date}:${entry.depart}:${index}`,date,arrivals:times,departures:times,headsign:entry.destination??''};
@@ -110,21 +112,22 @@ function chooseKyotoBoard(boards=[],route,targetName=''){
   const target=normalize(targetName),eligible=boards.filter(b=>(b.routes??[]).some(r=>kyotoRouteMatch(route,r)));if(!eligible.length)return null;
   return eligible.map((board,index)=>({board,index,score:target&&normalize(board.label??'').includes(target)?10:0})).sort((a,b)=>b.score-a.score||a.index-b.index)[0]?.board??null;
 }
+// The board read for each direction and the stop it stands at.
 const KYOTO_DIRECT_BOARDS={
-  'kyotobus-40-down':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=91_3',
-  'kyotobus-40-up':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=7475_1',
-  'kyotobus-marutamachi-temp-down':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=51_2',
-  'kyotobus-marutamachi-temp-up':'https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=152_1'
+  'kyotobus-40-down':['https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=91_3','kyotobus-kokusai'],
+  'kyotobus-40-up':['https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=7475_1','ksu'],
+  'kyotobus-marutamachi-temp-down':['https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=51_2','kyotobus-karasuma-marutamachi'],
+  'kyotobus-marutamachi-temp-up':['https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=152_1','kyotobus-senbon-marutamachi']
 };
-function kyotoDayEntries(days,day){const selected=day==='holiday'?'sunday':day==='weekday'?(days.weekday?'weekday':null):day;return selected?days[selected]??[]:[];}
+function kyotoDayEntries(days,day){const selected=kyotoDayKey(days,day);return selected?days[selected]??[]:[];}
 async function kyotoBoardDays(env,service,fetcher){
-  const sourceURL=KYOTO_DIRECT_BOARDS[service.id];if(!sourceURL)return null;
+  const sourceURL=KYOTO_DIRECT_BOARDS[service.id]?.[0];if(!sourceURL)return null;
   const key=`static:kyotobus-board:${service.id}`,raw=await env.LIVE_KV?.get(key);if(raw){try{return JSON.parse(raw);}catch{}}
   const html=await officialText(sourceURL,fetcher,3600),{boot}=parseKyotoSchedules(html),schedule=boot.master_current??Object.values(boot)[0];if(!schedule)return null;
   const value={sourceURL,days:kyotoEntries(schedule),effective:schedule.start_date??null,capturedAt:new Date().toISOString()};if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(value),{expirationTtl:604800});return value;
 }
 async function kyotoService(env,service,date,day,fetcher){
-  const board=await kyotoBoardDays(env,service,fetcher);if(!board)return null;const entries=kyotoDayEntries(board.days,day).filter(e=>kyotoRouteMatch(service.route,e.route)),trips=offsetTrips(entries,service,date);if(!trips.length)return null;
+  const board=await kyotoBoardDays(env,service,fetcher);if(!board)return null;const anchor=Math.max(0,service.stops.indexOf(KYOTO_DIRECT_BOARDS[service.id]?.[1])),entries=kyotoDayEntries(board.days,day).filter(e=>kyotoRouteMatch(service.route,e.route)),trips=offsetTrips(entries,service,date,anchor);if(!trips.length)return null;
   return {id:`official-${service.id}`,label:service.label,operator:'kyotobus',route:String(service.route),category:'local',stops:service.stops,trips,officialFallback:true,sourceURL:board.sourceURL};
 }
 export async function buildKyotoBusFallback(env,date,fetcher=officialFetcher(env)){

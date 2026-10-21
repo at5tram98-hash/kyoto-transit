@@ -237,30 +237,52 @@ export function createNetwork(catalog) {
     { route: "40" },
   );
 
-  // 京都バス「臨時」丸太町線。公式停留所IDを持たせ、Workerの公式時刻表・便詳細取得でも利用する。
-  stops.set("kyotobus-karasuma-marutamachi", {
-    id: "kyotobus-karasuma-marutamachi",
-    name: "烏丸丸太町",
-    fullName: "烏丸丸太町（地下鉄丸太町駅）",
-    type: "kyotobus",
-    officialId: "51_1",
-    lines: ["臨時"],
-    aliases: ["地下鉄丸太町駅", "烏丸丸太町（地下鉄丸太町駅）"],
-  });
-  stops.set("kyotobus-senbon-marutamachi", {
-    id: "kyotobus-senbon-marutamachi",
-    name: "千本丸太町",
-    type: "kyotobus",
-    officialId: "152_2",
-    lines: ["臨時"],
-    aliases: [],
-  });
+  // 京都バス「臨時」丸太町線（川端丸太町〜嵯峨瀬戸川町）。停留所順・公式停留所ID・
+  // 区間所要分は京都バス公式の便データ（運賃・停留所時刻JSON）から転記した。
+  const temporary = [
+    ["kyotobus-kawabata-marutamachi", "川端丸太町", "6070_3", 0, ["神宮丸太町駅"]],
+    ["kyotobus-kawaramachi-marutamachi", "河原町丸太町", "5_4", 3],
+    ["kyotobus-saibansho-mae", "裁判所前", "202_1", 5],
+    ["kyotobus-karasuma-marutamachi", "烏丸丸太町", "51_1", 6, ["地下鉄丸太町駅", "烏丸丸太町（地下鉄丸太町駅）"], "烏丸丸太町（地下鉄丸太町駅）"],
+    ["kyotobus-bunkacho-mae", "文化庁前・府庁前", "201_2", 8],
+    ["kyotobus-horikawa-marutamachi", "堀川丸太町", "184_2", 11],
+    ["kyotobus-marutamachi-chiekoin", "丸太町智恵光院", "200_2", 13],
+    ["kyotobus-senbon-marutamachi", "千本丸太町", "152_2", 16],
+    ["kyotobus-marutamachi-shichihonmatsu", "丸太町七本松", "251_2", 17],
+    ["kyotobus-marutamachi-onmaedori", "丸太町御前通", "250_2", 18],
+    ["kyotobus-nishinokyo-enmachi", "西ノ京円町", "249_2", 21, ["JR円町駅", "西ノ京円町（ＪＲ円町駅）"], "西ノ京円町（ＪＲ円町駅）"],
+    ["kyotobus-hakuraku-cho", "伯楽町", "606_2", 22],
+    ["kyotobus-nishinokyo-badaicho", "西ノ京馬代町", "607_2", 23],
+    ["kyotobus-kitsuji-minamimachi", "木辻南町", "608_2", 24],
+    ["kyotobus-myoshinji-mae", "妙心寺前", "609_2", 25],
+    ["kyotobus-hanazono-ekimae", "花園駅前", "610_2", 26],
+    ["kyotobus-hanazono-oginocho", "花園扇野町", "765_2", 28],
+    ["kyotobus-tokiwa-nakanocho", "常盤仲之町", "7717_2", 30],
+    ["kyotobus-tokiwa-saganokoko", "常盤・嵯峨野高校前", "718_2", 32],
+    ["kyotobus-tokiwano-shogakko", "常磐野小学校前", "719_2", 33],
+    ["kyotobus-uzumasa-kitarocho", "太秦北路町", "720_2", 34],
+    ["kyotobus-uzumasa-kaibicho", "太秦開日町", "721_2", 36],
+    ["kyotobus-hirosawa-goshonouchi", "広沢御所ノ内町", "722_2", 37],
+    ["kyotobus-saga-chugaku", "嵯峨中学前", "723_2", 38],
+    ["kyotobus-saga-arashiyama-ekimae", "嵯峨嵐山駅前", "727_2", 40, ["JR嵯峨嵐山駅"]],
+    ["kyotobus-saga-setogawacho", "嵯峨瀬戸川町", "724_2", 41],
+  ];
+  for (const [id, name, officialId, , aliases = [], fullName] of temporary)
+    stops.set(id, {
+      id,
+      name,
+      ...(fullName ? { fullName } : {}),
+      type: "kyotobus",
+      officialId,
+      lines: ["臨時"],
+      aliases,
+    });
   pairService(
     "kyotobus-marutamachi-temp",
     "京都バス臨時",
     "kyotobus",
-    ["kyotobus-karasuma-marutamachi", "kyotobus-senbon-marutamachi"],
-    [0, 7],
+    temporary.map(([id]) => id),
+    temporary.map(([, , , offset]) => offset),
     30,
     { route: "臨時" },
   );
