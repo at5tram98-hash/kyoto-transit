@@ -174,6 +174,8 @@ export function kyotoDayKey(days,day){
   if(!day)return null;
   if(day==='holiday')return has('sunday')?'sunday':has('holiday')?'holiday':null;
   if(has(day))return day;
+  // The university calendar's 平日A水曜 is published as weekday_wa (水曜A).
+  if(day==='wednesday_a'){if(has('weekday_wa'))return 'weekday_wa';if(has('weekday_w'))return 'weekday_w';}
   if(/^(?:weekday|wednesday)_/.test(day)&&has('weekday'))return 'weekday';
   return null;
 }

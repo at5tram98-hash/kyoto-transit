@@ -24,6 +24,7 @@ test('臨時の時刻表はweekday、40系統は大学カレンダーの曜日�
   assert.equal(kyotoDayKey(temporary,'weekday_a'),'weekday','40系統の暦でも臨時は平日ダイヤ');
   assert.equal(kyotoDayKey(temporary,'wednesday_a'),'weekday');
   assert.equal(kyotoDayKey(route40,'weekday_a'),'weekday_a');
+  assert.equal(kyotoDayKey(route40,'wednesday_a'),'weekday_wa','平日A水曜は公式の水曜Aダイヤ');
   assert.equal(kyotoDayKey(route40,'weekday'),null,'40系統の平日は種類の選択が必要');
   assert.equal(kyotoDayKey(temporary,'holiday'),'sunday');
   assert.equal(kyotoDayKey(temporary,'saturday'),'saturday');
