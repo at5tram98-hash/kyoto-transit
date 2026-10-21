@@ -1,18 +1,21 @@
 import {parseApproachAll} from './bus.js';
+import {officialBusStopName} from './bus-stops.js';
 
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
-const VALUE=/^\d{9};\d+:\d+:\d+(,\d+:\d+:\d+)*$/;
-const DEFAULT_ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208']);
+const VALUE=/^[0-9A-Z]{9};\d+:\d+:\d+(,\d+:\d+:\d+)*$/;
+const DEFAULT_ROUTES=new Set(['10','13','43','46','78','93','202','204','205','206','208','北3']);
+const routeOf=dest=>/^N030\d{5}$/.test(dest)?'北3':String(Number(dest.slice(0,3)));
 const blankKeys=['selectedLandmarkCatCd','fromlat','fromlng','tolat','tolng','fromSignpoleKey','routeLayoutCd','fromBusStopCd','toBusStopCd','routeKey','nextDiagramFlag','diaRevisedDate','timeTableDirevtionCd','searchDate','searchTime','fromBusStopKey','toBusStopKey','lineSelected','informationTextId','search_map_from','search_map_to','toDisplayPassNo','busCode','formerApproachLat','formerApproachLng','formerApproachGuidance','informationFromTextId','informationToTextId','informationRouteId','busstopCdnum','vehicleScrollPosition','routeSelectNo'];
 
 export function uniqueBusChoices(choices=[]){return [...new Map(choices.filter(c=>c?.value).map(c=>[c.value,c])).values()];}
 function parsedChoice(choice,allowedRoutes=DEFAULT_ROUTES){
   const value=String(choice?.value??'');if(!VALUE.test(value))throw Error('市バスの系統情報が変更されています。');
-  const [dest,raw]=value.split(';'),route=String(Number(dest.slice(0,3)));if(!allowedRoutes.has(route))throw Error(`対象外の市バス系統です（${route}）。`);
+  const [dest,raw]=value.split(';'),route=routeOf(dest);if(!allowedRoutes.has(route))throw Error(`対象外の市バス系統です（${route}）。`);
   const parts=raw.split(',').map(v=>v.split(':'));if(parts.some(v=>v.length!==3))throw Error('市バスの方面情報を解析できません。');
   return {dest,route,parts};
 }
 export function approachAllURL(stop,choices,{allowedRoutes=DEFAULT_ROUTES}={}){
+  stop=officialBusStopName(stop);
   const selected=uniqueBusChoices(choices);if(!selected.length)throw Error('接近情報の方面がありません。');if(selected.length>10)throw Error('市バス公式画面は一度に10方面までです。');
   const parsed=selected.map(choice=>parsedChoice(choice,allowedRoutes));
   const p=new URLSearchParams({
