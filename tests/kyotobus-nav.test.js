@@ -41,3 +41,15 @@ test('対象外の停留所では公式サイトへ問い合わせない',async(
   assert.equal(u.searchParams.get('from'),'京都産業大学前');
   assert.equal(u.searchParams.get('to'),'国際会館駅前');
 });
+
+test('京都バスナビの便は公式の予定発車時刻で同じ便に対応付け、到着予測との差を遅れにする',async()=>{
+  const {kyotoBusNavTrip}=await import('../public/js/vnext-detect.js');
+  const nav={capturedAt:'2026-10-21T13:00:00Z',...parseKyotoBusNav(live)};
+  const ride={route:'40',depart:22*60+1,from:'ksu',to:'kyotobus-kokusai'};
+  const trip=kyotoBusNavTrip(nav,ride);
+  assert.equal(trip.delay,2);
+  assert.equal(trip.asOf,'2026-10-21T13:00:00Z');
+  assert.equal(kyotoBusNavTrip(nav,{...ride,depart:22*60+16}),null,'別の便の予測を流用しない');
+  assert.equal(kyotoBusNavTrip(nav,{...ride,route:'臨時'}),null);
+  assert.equal(kyotoBusNavTrip({buses:[]},ride),null);
+});

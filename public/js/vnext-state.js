@@ -157,6 +157,7 @@ export const state = {
   armedJourney: null,
   itinerary: null,
   north3Snapshot: null,
+  kyotoBusPrediction: null,
 };
 export const haptic = () => {
   if (settings.haptics && navigator.vibrate) navigator.vibrate(8);

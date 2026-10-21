@@ -19,11 +19,14 @@ import {
 import { currentMotionEvidence } from "./motion-assist.js";
 import { assessBoardingMovement } from "./auto-boarding-evidence.js";
 import { findThroughContinuation, spansTakeda } from "./through-continuity.js";
-import { getBusChoices, getBusData, getKyotoBusRT } from "./live.js";
+import { getKyotoBusRT } from "./live.js";
+import { fetchRealtime } from "./realtime.js";
+import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
 import { officialTripLeg } from "./vehicle.js";
 import {
   subwayRideCandidates,
   cityBusRideCandidates,
+  north3RideCandidates,
   routeIntersection,
 } from "./vnext-core.js";
 import { journeyClock } from "./journey-core.js";
@@ -150,6 +153,41 @@ async function ensureKyotoBusFeed() {
   }
 }
 
+// 京都バスナビ: the official scheduled and predicted times for a served pair.
+async function kyotoBusNav(fromId, toId) {
+  const from = state.network.stops.get(fromId)?.name,
+    to = state.network.stops.get(toId)?.name;
+  if (!from || !to || from === to) return null;
+  try {
+    return await fetchRealtime(
+      `kyotobus:nav:${from}:${to}`,
+      "/api/kyotobus/approach",
+      { from, to },
+      { timeout: 8000 },
+    );
+  } catch {
+    return null;
+  }
+}
+// The same trip is the one whose official scheduled departure matches.
+export function kyotoBusNavTrip(nav, ride) {
+  if (!nav?.buses?.length || !Number.isFinite(ride?.depart)) return null;
+  const bus = nav.buses.find(
+    (b) =>
+      b.departure?.scheduled === ride.depart &&
+      (!ride.route || String(b.route) === String(ride.route).replace(/^(?:特|直行)/, "")),
+  );
+  if (!bus) return null;
+  const arrival = bus.arrival ?? {},
+    delay =
+      Number.isFinite(arrival.predicted) && Number.isFinite(arrival.scheduled)
+        ? arrival.predicted - arrival.scheduled
+        : Number.isFinite(bus.departure.predicted)
+          ? bus.departure.predicted - bus.departure.scheduled
+          : null;
+  return { ...bus, delay, asOf: nav.capturedAt ?? nav.asOf };
+}
+
 async function detectKyotoBus(stopId) {
   const now = tokyoNow(),
     data = await official("/rider/candidates", {
@@ -162,6 +200,11 @@ async function detectKyotoBus(stopId) {
       .filter(Boolean)
       .filter((l) => now.minute >= l.depart - 8 && now.minute <= l.arrive + 5);
   if (!legs.length) return [];
+  const navByPair = new Map();
+  for (const ride of legs) {
+    const key = `${ride.from}|${ride.to}`;
+    if (!navByPair.has(key)) navByPair.set(key, kyotoBusNav(ride.from, ride.to));
+  }
   const feed = await ensureKyotoBusFeed(),
     ranked = rankRides(legs, {
       network: state.network,
@@ -172,7 +215,7 @@ async function detectKyotoBus(stopId) {
       busFeed: null,
     }),
     rankMap = new Map(ranked.map((r) => [rideKey(r.leg), r]));
-  return legs
+  const scored = legs
     .map((ride) => {
       const base = rankMap.get(rideKey(ride)),
         measured = matchMeasuredVehicles(ride, feed?.vehicles ?? [], {
@@ -189,20 +232,43 @@ async function detectKyotoBus(stopId) {
           ? scoreClamp(scheduleScore * 0.62 + measured.score * 0.68)
           : scoreClamp(scheduleScore + 20),
         live = measured?.vehicle ?? null;
-      return asCandidate(
+      return { ride, base, measured, scheduleScore, score, live };
+    });
+  const rows = [];
+  for (const { ride, base, measured, score, live } of scored) {
+    const navTrip = kyotoBusNavTrip(await navByPair.get(`${ride.from}|${ride.to}`), ride),
+      navAt = Date.parse(navTrip?.asOf ?? ""),
+      // The official prediction says this trip is departing now.
+      navPresent =
+        Boolean(navTrip) &&
+        ((Number.isFinite(navTrip.minutesToDeparture) && navTrip.minutesToDeparture <= 1) ||
+          (Number.isFinite(navTrip.departure.predicted) &&
+            Math.abs(navTrip.departure.predicted - now.minute) <= 1));
+    rows.push(
+      asCandidate(
         ride,
-        score,
+        score + (navPresent ? 12 : navTrip ? 4 : 0),
         live
           ? "京都バス車両位置＋公式時刻表＋現在地"
-          : "京都バス公式時刻表＋現在地",
+          : navTrip
+            ? "京都バスナビ公式予測＋公式時刻表＋現在地"
+            : "京都バス公式時刻表＋現在地",
         {
-          live,
-          liveObservedAt: live ? Number(live.timestamp) * 1000 : null,
-          livePresence: measured?.score >= 55 && measured?.meters <= 140,
+          live: live ?? navTrip,
+          liveObservedAt: live
+            ? Number(live.timestamp) * 1000
+            : Number.isFinite(navAt)
+              ? navAt
+              : null,
+          livePresence:
+            (measured?.score >= 55 && measured?.meters <= 140) || navPresent,
+          liveDirectionVerified: navPresent,
           evidence: [...(base?.evidence ?? []), ...(measured?.evidence ?? [])],
         },
-      );
-    })
+      ),
+    );
+  }
+  return rows
     .sort(
       (a, b) =>
         b.score - a.score ||
@@ -261,6 +327,35 @@ export function updateBusTrail(id, meters) {
     .slice(-4);
 }
 
+// Official destination text such as 「北大路バスターミナル・金閣寺」 names
+// places served after this stop. A row supports a direction only when one of
+// those places is downstream on that direction's stop list.
+export function busRowServesDirection(row, ride) {
+  const downstream = (ride.officialStops ?? [])
+    .slice(1)
+    .map((stop) => normalizeStopText(stop.name));
+  return String(row?.dest ?? "")
+    .replace(/（[^）]*）|\([^)]*\)/g, "・")
+    .split(/[・、,\s]+/)
+    .map((part) => normalizeStopText(part.replace(/(?:まで|行き?)$/, "")))
+    .filter((part) => part.length >= 2)
+    .some((part) => downstream.some((name) => name.includes(part) || part.includes(name)));
+}
+const normalizeStopText = (value) =>
+  String(value ?? "").normalize("NFKC").replace(/[\s・･（）()]/g, "");
+
+let north3Cache = null;
+async function north3TimetableFeed(date) {
+  if (north3Cache?.date === date) return north3Cache.feed;
+  try {
+    const feed = north3Feed(await loadNorth3Snapshot(), state.network, date);
+    north3Cache = { date, feed };
+    return feed;
+  } catch {
+    return null;
+  }
+}
+
 async function detectCityBus(stopInfo) {
   const now = tokyoNow(),
     trail = state.busTrail.map((x) => x.id),
@@ -270,53 +365,70 @@ async function detectCityBus(stopInfo) {
     );
   if (!routes.length) return [];
   const stop = state.network.stops.get(stopInfo.id),
-    choices = (
-      await getBusChoices(stop.fullName ?? stop.name, AbortSignal.timeout(4000))
-    ).choices,
-    routeChoices = choices
-      .filter((c) => routes.includes(String(c.route)))
-      .slice(0, 4);
-  let bestLive = null;
-  for (const choice of routeChoices.slice(0, 3)) {
-    try {
-      const live = await getBusData(
-        stop.fullName ?? stop.name,
-        choice,
-        AbortSignal.timeout(4000),
-      );
-      if (
-        (live.buses ?? []).some(
-          (b) => Number.isFinite(b.stopsAway) && b.stopsAway <= 1,
-        )
-      ) {
-        bestLive = live;
-        break;
-      }
-    } catch {}
-    await sleep(40);
-  }
-  if (bestLive) {
-    state.busLive = bestLive;
-    state.busLiveAt = Date.now();
-  }
+    name = stop.fullName ?? stop.name;
+  // Share the arrivals panel's cached, coalesced request: one official page
+  // returns every direction at this stop.
+  let arrivals = null;
+  try {
+    arrivals = await fetchRealtime(
+      `citybus:${name}`,
+      "/api/citybus/arrivals",
+      { stop: name },
+      { timeout: 10000 },
+    );
+  } catch {}
+  const observedAt = Date.parse(arrivals?.asOf ?? ""),
+    observed =
+      arrivals?.source === "live" &&
+      !arrivals.stale &&
+      Number.isFinite(observedAt) &&
+      Date.now() - observedAt <= 90000;
   const rows = [];
   for (const route of routes.slice(0, 3)) {
-    const live =
-      bestLive && String(bestLive.route) === String(route) ? bestLive : null;
-    for (const ride of cityBusRideCandidates({
-      route,
-      currentStopId: stopInfo.id,
-      trail,
-      network: state.network,
-      minute: now.minute,
-    })) {
-      const score = (live ? 68 : 55) + (ride.orderedTrail ? 15 : 0);
+    const routeRows = observed
+      ? (arrivals.results ?? []).filter(
+          (row) => String(row.route) === String(route) && row.source === "live",
+        )
+      : [];
+    const timed =
+      route === "北3"
+        ? north3RideCandidates(await north3TimetableFeed(now.date), {
+            fromId: stopInfo.id,
+            minute: now.minute,
+            network: state.network,
+          }).slice(0, 4)
+        : [];
+    const rides = timed.length
+      ? timed
+      : cityBusRideCandidates({
+          route,
+          currentStopId: stopInfo.id,
+          trail,
+          network: state.network,
+          minute: now.minute,
+        });
+    for (const ride of rides) {
+      const directionRows = routeRows.filter((row) =>
+          busRowServesDirection(row, ride),
+        ),
+        // A bus at or one stop before this stop, in this direction.
+        present = directionRows.find(
+          (row) =>
+            (Number.isFinite(row.stopsAway) && row.stopsAway <= 1) ||
+            (Number.isFinite(row.minutes) && row.minutes <= 2),
+        );
+      const score = (present ? 68 : 55) + (ride.orderedTrail ? 15 : 0);
       rows.push(
         asCandidate(
           ride,
           score,
-          live ? "市バス接近情報＋停留所の通過順" : "路線の停留所列＋現在地",
-          { live },
+          present ? "市バス接近情報＋停留所の通過順" : "路線の停留所列＋現在地",
+          {
+            live: present ? { ...present, asOf: arrivals.asOf } : null,
+            liveObservedAt: present ? observedAt : null,
+            livePresence: Boolean(present),
+            liveDirectionVerified: Boolean(present),
+          },
         ),
       );
     }
@@ -764,6 +876,33 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
   }
 }
 
+// While riding a Kyoto Bus trip, refresh the official prediction for it.
+// Once the bus has left the boarding stop the navigation may no longer list
+// it; the last official delay is then kept (and labelled with its time).
+let kyotoPredictionAt = 0;
+function refreshKyotoBusPrediction(ride) {
+  if (ride?.operator !== "kyotobus" || Date.now() - kyotoPredictionAt < 20000)
+    return;
+  kyotoPredictionAt = Date.now();
+  void kyotoBusNav(ride.from, ride.to).then((nav) => {
+    const trip = kyotoBusNavTrip(nav, ride);
+    if (!trip || !Number.isFinite(trip.delay) || rideKey(state.ride) !== rideKey(ride))
+      return;
+    state.kyotoBusPrediction = {
+      key: rideKey(ride),
+      trip,
+      at: Date.parse(trip.asOf) || Date.now(),
+    };
+    document.dispatchEvent(new CustomEvent("mymap-ride-prediction"));
+  });
+}
+export function kyotoBusPredictionFor(ride, now = Date.now()) {
+  const value = state.kyotoBusPrediction;
+  return value && value.key === rideKey(ride) && now - value.at <= 20 * 60000
+    ? value
+    : null;
+}
+
 export function updateRideAnchor() {
   let ride = state.ride;
   if (!ride) return;
@@ -829,6 +968,12 @@ export function updateRideAnchor() {
   rideDetectionSession.motion(motion);
   state.rideShift = observation.shift;
   if (Number.isInteger(observation.anchorIndex)) state.rideShiftKnown = true;
+  refreshKyotoBusPrediction(ride);
+  const official = kyotoBusPredictionFor(ride);
+  if (official && !Number.isInteger(observation.anchorIndex)) {
+    state.rideShift = official.trip.delay;
+    state.rideShiftKnown = true;
+  }
   const next = observation.progress?.next,
     busMode = ["citybus", "kyotobus"].includes(ride.operator),
     nextGeo = next && state.geo?.stops.find((s) => s.id === next.id),

@@ -34,7 +34,7 @@ import {
   toast,
   haptic,
 } from "./vnext-state.js";
-import { updateRideAnchor } from "./vnext-detect.js";
+import { updateRideAnchor, kyotoBusPredictionFor } from "./vnext-detect.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
 import { updateHTML, updateNearbyPanel } from "./view-rendering.js";
 import { getKintetsuFeed } from "./fast-data.js";
@@ -589,6 +589,14 @@ export function nearbyDetailHTML(id) {
     esc(id),
   ]);
 }
+// The official Kyoto Bus prediction is current for four minutes; after that
+// the last official delay is still applied but not presented as live.
+function kyotoBusPredictionFeed(ride) {
+  const value = kyotoBusPredictionFor(ride);
+  return value && Date.now() - value.at <= 240000
+    ? { source: "live", stale: false, asOf: value.trip.asOf }
+    : null;
+}
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
     bus = ["citybus", "kyotobus"].includes(ride.operator),
@@ -612,7 +620,9 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
     geo: state.geo,
     locationStatus: state.locationStatus,
     feed: bus
-      ? state.busLive
+      ? ride.operator === "kyotobus"
+        ? kyotoBusPredictionFeed(ride)
+        : state.busLive
       : ride.operator === "subway"
         ? state.subwayFeed
         : state.railFeed,
