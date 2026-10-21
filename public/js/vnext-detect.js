@@ -20,7 +20,7 @@ import { currentMotionEvidence } from "./motion-assist.js";
 import { assessBoardingMovement } from "./auto-boarding-evidence.js";
 import { findThroughContinuation, spansTakeda } from "./through-continuity.js";
 import { getKyotoBusRT } from "./live.js";
-import { fetchRealtime } from "./realtime.js";
+import { fetchRealtime, getCached } from "./realtime.js";
 import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
 import { officialTripLeg } from "./vehicle.js";
 import {
@@ -356,6 +356,28 @@ async function north3TimetableFeed(date) {
   }
 }
 
+// Reuse what the arrivals panel already fetched for this stop (or the
+// device cache) so detection never adds a second request per refresh
+// interval; fetch only when nothing recent exists.
+async function cityArrivals(name) {
+  const recent = (data) =>
+    Date.now() - Date.parse(data?.asOf ?? "") <= 30000 ? data : null;
+  if (state.busLive?.stop === name && Date.now() - state.busLiveAt <= 30000)
+    return state.busLive;
+  try {
+    const cached = recent((await getCached(`citybus:${name}`))?.data);
+    if (cached) return cached;
+    return await fetchRealtime(
+      `citybus:${name}`,
+      "/api/citybus/arrivals",
+      { stop: name },
+      { timeout: 10000 },
+    );
+  } catch {
+    return null;
+  }
+}
+
 async function detectCityBus(stopInfo) {
   const now = tokyoNow(),
     trail = state.busTrail.map((x) => x.id),
@@ -366,17 +388,7 @@ async function detectCityBus(stopInfo) {
   if (!routes.length) return [];
   const stop = state.network.stops.get(stopInfo.id),
     name = stop.fullName ?? stop.name;
-  // Share the arrivals panel's cached, coalesced request: one official page
-  // returns every direction at this stop.
-  let arrivals = null;
-  try {
-    arrivals = await fetchRealtime(
-      `citybus:${name}`,
-      "/api/citybus/arrivals",
-      { stop: name },
-      { timeout: 10000 },
-    );
-  } catch {}
+  const arrivals = await cityArrivals(name);
   const observedAt = Date.parse(arrivals?.asOf ?? ""),
     observed =
       arrivals?.source === "live" &&
