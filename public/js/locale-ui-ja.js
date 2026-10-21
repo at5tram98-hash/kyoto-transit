@@ -1202,4 +1202,5 @@ export default {
   official_prediction: "公式予測",
   official_prediction_suffix: " · 公式予測",
   terminal_arrival: "終点「{0}」{1}着（{2}）",
+  motion_retry: "モーションセンサーをもう一度許可",
 };

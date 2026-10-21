@@ -12,11 +12,11 @@ test("モーション許可はNowの明示ボタンからだけ要求し、自�
     assert.doesNotMatch(executable(read(file)), /requestPermission\s*\(/, file);
 });
 
-test("一度許可した端末だけ、次のタップで許可を再有効化する", async () => {
+test("一度許可した端末だけ、次のタップで許可を再有効化し、失敗しても不許可に書き換えない", async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
-  let requests = 0;
-  globalThis.DeviceMotionEvent = { requestPermission: async () => { requests++; return "granted"; } };
+  let requests = 0, answer = "granted", throws = false;
+  globalThis.DeviceMotionEvent = { requestPermission: async () => { requests++; if (throws) throw Object.assign(Error("gesture"), { name: "NotAllowedError" }); return answer; } };
   const listeners = new Map();
   const target = {
     addEventListener: (type, fn) => listeners.set(type, fn),
@@ -28,11 +28,27 @@ test("一度許可した端末だけ、次のタップで許可を再有効化�
   assert.equal(listeners.size, 0, "未許可の端末ではタップを待ち受けない");
   assert.equal(await m.requestMotionPermission(), "granted");
   assert.equal(requests, 1);
-  assert.equal(m.motionPermissionState(), "granted");
-  m.restoreMotionPermission(target);
-  listeners.get("pointerup")();
-  assert.equal(requests, 2);
-  assert.equal(listeners.size, 0, "再有効化は1回だけ");
+  assert.equal(store.get("mymap-motion-permission"), "granted");
+  // New page session: the grant is not active yet.
+  const fresh = await import(`../public/js/motion-permission.js?case=${Date.now()}-2`);
+  assert.equal(fresh.motionPermissionState(), "restoring");
+  throws = true;
+  fresh.restoreMotionPermission(target);
+  assert.ok(listeners.has("click") && listeners.has("touchend"), "click/touchendで再有効化する（pointerupは使わない）");
+  listeners.get("click")();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(store.get("mymap-motion-permission"), "granted", "失敗した再有効化は不許可として保存しない");
+  assert.equal(fresh.motionPermissionState(), "restoring");
+  throws = false;
+  listeners.get("touchend")();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(fresh.motionPermissionState(), "granted");
+  assert.equal(listeners.has("click"), false, "許可後は待ち受けを外す");
+  // Only an explicit answer to the rider's tap records denial.
+  const third = await import(`../public/js/motion-permission.js?case=${Date.now()}-3`);
+  answer = "denied";
+  assert.equal(await third.requestMotionPermission(), "denied");
+  assert.equal(store.get("mymap-motion-permission"), "denied");
   delete globalThis.DeviceMotionEvent;
   delete globalThis.localStorage;
 });

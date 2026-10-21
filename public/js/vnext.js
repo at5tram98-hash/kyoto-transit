@@ -582,6 +582,7 @@ async function init() {
       },
     });
     document.addEventListener("mymap-ride-prediction", () => renderNow());
+    document.addEventListener("mymap-motion-permission", () => renderNow());
     document.addEventListener("mymap-transit-evidence", () => {
       renderNow();
       void autoDetectRide(true, renderNow);

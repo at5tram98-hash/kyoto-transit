@@ -347,7 +347,7 @@ function motionControlHTML() {
   if (permission === "prompt")
     return `<div class="motion-permission"><button type="button" class="plain-action" data-enable-motion>${icon("bolt")}<span>${esc(ui("motion_enable"))}</span></button><p class="source-note">${esc(ui("motion_enable_note"))}</p></div>`;
   if (permission === "denied")
-    return `<p class="source-note motion-permission">${esc(ui("motion_denied"))}</p>`;
+    return `<div class="motion-permission"><button type="button" class="plain-action" data-enable-motion>${icon("bolt")}<span>${esc(ui("motion_retry"))}</span></button><p class="source-note">${esc(ui("motion_denied"))}</p></div>`;
   return "";
 }
 export function rideChoiceRowsHTML(candidates) {

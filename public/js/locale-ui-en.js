@@ -1215,4 +1215,5 @@ export default {
   official_prediction: "Official forecast",
   official_prediction_suffix: " · Official forecast",
   terminal_arrival: "Terminus {0} at {1} ({2})",
+  motion_retry: "Allow motion sensors again",
 };
