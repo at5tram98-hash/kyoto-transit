@@ -34,8 +34,14 @@ import {
   toast,
   haptic,
 } from "./vnext-state.js";
-import { updateRideAnchor, kyotoBusPredictionFor } from "./vnext-detect.js";
+import {
+  updateRideAnchor,
+  kyotoBusPredictionFor,
+  confirmRideCandidate,
+  clearFalseRide,
+} from "./vnext-detect.js";
 import { motionPermissionState } from "./motion-permission.js";
+import { presentBoarding, closeBoarding } from "./boarding-sheet.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
 import { updateHTML, updateNearbyPanel } from "./view-rendering.js";
 import { getKintetsuFeed } from "./fast-data.js";
@@ -347,7 +353,7 @@ function motionControlHTML() {
   if (permission === "prompt")
     return `<div class="motion-permission"><button type="button" class="plain-action" data-enable-motion>${icon("bolt")}<span>${esc(ui("motion_enable"))}</span></button><p class="source-note">${esc(ui("motion_enable_note"))}</p></div>`;
   if (permission === "denied")
-    return `<p class="source-note motion-permission">${esc(ui("motion_denied"))}</p>`;
+    return `<div class="motion-permission"><button type="button" class="plain-action" data-enable-motion>${icon("bolt")}<span>${esc(ui("motion_retry"))}</span></button><p class="source-note">${esc(ui("motion_denied"))}</p></div>`;
   return "";
 }
 export function rideChoiceRowsHTML(candidates) {
@@ -371,6 +377,53 @@ function chooseRideHTML() {
   return settings.autoDetect === false || offeredCandidates().length
     ? ""
     : `<button type="button" class="choose-ride-action" data-choose-ride>${icon("bus")}<span>${esc(ui("choose_ride"))}</span><span class="chevron">›</span></button>`;
+}
+function describeCandidate(candidate) {
+  const ride = candidate.ride,
+    support = transitEvidenceEngine.support(ride),
+    evidence = [
+      ...new Set([
+        ...(support.contextual ? ["timetable"] : []),
+        ...support.sources,
+      ]),
+    ]
+      .filter((type) =>
+        ["timetable", "gps", "motion", "realtime", "audio"].includes(type),
+      )
+      .map((type) => ui(`boarding_evidence_${type}`));
+  return {
+    operator: ride.operator,
+    bus: ["citybus", "kyotobus"].includes(ride.operator),
+    service: serviceName(ride),
+    destination: ui("boarding_destination", [ride.destination ?? ui("vnext_view_049")]),
+    departure: Number.isFinite(ride.depart)
+      ? ui("boarding_departure", [formatMinute(ride.depart)])
+      : "",
+    evidence,
+  };
+}
+// Rise the boarding sheet for offered candidates while idle on Now.
+function syncBoardingSheet(offered) {
+  if (
+    !offered.length ||
+    state.ride ||
+    settings.autoDetect === false ||
+    state.tab !== "now" ||
+    document.hidden
+  )
+    return closeBoarding();
+  presentBoarding({
+    entries: offered,
+    key: offered.map(({ candidate }) => rideKey(candidate.ride)).join("|"),
+    describe: describeCandidate,
+    onConfirm: (index) => {
+      if (confirmRideCandidate(index)) renderNow();
+    },
+    onNotRiding: () => {
+      clearFalseRide();
+      renderNow();
+    },
+  });
 }
 function candidateHTML() {
   const candidates = offeredCandidates();
@@ -401,7 +454,7 @@ export function renderNow() {
     rideDetectionSession.confirm(state.ride);
   updateRideAnchor();
   renderStatusPill();
-  if (state.tab !== "now") return;
+  if (state.tab !== "now") return closeBoarding();
   const root = $("#now-hero"),
     vehicle = $("#vehicle-panel"),
     networkPanel = $("#network-panel"),
@@ -424,6 +477,7 @@ export function renderNow() {
         : "idle";
   // Keep the onboard display usable when GPS is temporarily lost underground.
   if (state.ride) {
+    closeBoarding();
     enterContext(resolveNowState(state.ride));
     renderRide(root, $("#ride-stops-source"), networkPanel, nearPanel, now);
     const status = rideDetectionSession.snapshot();
@@ -440,6 +494,7 @@ export function renderNow() {
   }
   const session = rideDetectionSession.snapshot();
   if (session.phase === "rechecking" && session.shell) {
+    closeBoarding();
     enterContext(resolveNowState(session.shell));
     document.querySelector(".app-shell").dataset.rideMode = session.mode;
     $('[data-view="now"]').dataset.contextIdentity = "rechecking";
@@ -466,6 +521,7 @@ export function renderNow() {
   $("#now-search").hidden = Boolean(state.armedJourney || state.itinerary);
   updateHTML($("#ride-actions"), "");
   $("#now-search").dispatchEvent(new Event("mymap-now-context"));
+  syncBoardingSheet(offeredCandidates());
   const detectionPhase = detectionDisplayState({
     phase: session.phase,
     locationStatus: state.locationStatus,
@@ -945,8 +1001,18 @@ function renderHero(root, html, model) {
     !current?.classList.contains("journey-display") ||
     current.dataset.rideKey !== model.observed.key
   ) {
+    const entering = !current?.classList.contains("journey-display");
     updateHTML(root, next.outerHTML);
     root.firstElementChild.dataset.rideKey = model.observed.key;
+    // Boarding: the onboard display rises into place.
+    if (entering && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+      root.firstElementChild.animate(
+        [
+          { opacity: 0, transform: "translateY(36px) scale(0.96)" },
+          { opacity: 1, transform: "none" },
+        ],
+        { duration: 560, easing: "cubic-bezier(0.2, 0.9, 0.25, 1.05)" },
+      );
     return;
   }
   if (compact && !current.classList.contains("compact"))
@@ -962,12 +1028,36 @@ function renderHero(root, html, model) {
     ".next-countdown",
     ".destination-progress",
     ".station-strip",
+    ".lcd-head",
+    ".ride-line",
     ".personal-destination",
     ".journey-metrics",
   ]) {
     const target = current.querySelector(selector),
       source = next.querySelector(selector);
-    if (selector === ".route-header" && target && source) {
+    if (selector === ".ride-line" && target && source) {
+      // Same stations: let the marker glide; new window: slide the line.
+      target.style.cssText = source.style.cssText;
+      if (target.dataset.signature !== source.dataset.signature) {
+        target.dataset.signature = source.dataset.signature;
+        updateHTML(target, source.innerHTML);
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+          target
+            .querySelector("ol")
+            ?.animate(
+              [
+                { opacity: 0.2, transform: target.dataset.kind === "bus" ? "translateY(18px)" : "translateX(18px)" },
+                { opacity: 1, transform: "none" },
+              ],
+              { duration: 420, easing: "cubic-bezier(0.2, 0.9, 0.25, 1)" },
+            );
+      } else
+        for (const [i, li] of [...source.querySelectorAll("li")].entries()) {
+          const old = target.querySelectorAll("li")[i];
+          if (old && old.className !== li.className) old.className = li.className;
+          if (old && old.innerHTML !== li.innerHTML) old.innerHTML = li.innerHTML;
+        }
+    } else if (selector === ".route-header" && target && source) {
       const oldTokens = target.querySelector(".route-tokens"),
         newTokens = source.querySelector(".route-tokens");
       oldTokens.className = newTokens.className;
@@ -992,6 +1082,7 @@ function renderHero(root, html, model) {
       if (code && newCode) updateMeaning(code, newCode.innerHTML);
       else if (newCode) target.append(newCode.cloneNode(true));
       else code?.remove();
+
     } else if (
       selector === ".destination-progress" &&
       target &&

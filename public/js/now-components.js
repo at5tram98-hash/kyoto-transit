@@ -8,6 +8,56 @@ import {
   itineraryDestinationChanged,
 } from "./journey-plan.js";
 import { formatTime } from "./router.js";
+import { stopTime } from "./journey-core.js";
+
+// The onboard line: a train-LCD style strip of the next stations, or for a
+// bus a vertical timeline of the upcoming stops. The marker position is a CSS
+// variable so the display glides between updates instead of re-rendering.
+export function rideLineHTML(model, ride, progress) {
+  const stops = progress.stops ?? [],
+    index = Math.max(0, model.index ?? 0),
+    destinationId = model.userDestination?.id,
+    shift = Number.isFinite(model.delayMinutes) ? model.delayMinutes : 0,
+    time = (stop) => {
+      const value = stopTime(stop);
+      return Number.isFinite(value) ? formatMinute(Math.round(value + shift)) : "";
+    };
+  if (!stops.length) return "";
+  if (model.bus) {
+    const upcoming = stops.slice(index, index + 6);
+    return `<div class="ride-line" data-kind="bus" data-signature="${esc(upcoming.map((s) => s.id).join(","))}" aria-hidden="true"><ol>${upcoming
+      .map((stop, i) => {
+        const last = index + i === stops.length - 1,
+          tag =
+            stop.id === destinationId
+              ? ui("ride_line_alight")
+              : last
+                ? ui("now_components_076")
+                : "";
+        return `<li class="${i === 0 ? "next" : ""} ${stop.id === destinationId ? "destination" : ""} ${last ? "terminal" : ""}"><time>${time(stop)}</time><i></i><span>${esc(displayStopName(stop))}</span>${tag ? `<small>${esc(tag)}</small>` : ""}</li>`;
+      })
+      .join("")}</ol>${stops.length > index + 6 ? `<p class="ride-line-more">${esc(ui("ride_line_more", [stops.length - index - 6]))}</p>` : ""}</div>`;
+  }
+  const start = Math.max(0, index - 1),
+    window_ = stops.slice(start, start + 5),
+    slot = 100 / Math.max(1, window_.length - 1),
+    previous = stops[index - 1],
+    next = stops[index],
+    segment = stopTime(next) - stopTime(previous),
+    fraction =
+      model.phase === "STOPPED" || !previous
+        ? 1
+        : Number.isFinite(segment) && segment > 0 && Number.isFinite(model.minutes)
+          ? Math.min(0.92, Math.max(0.08, 1 - model.minutes / segment))
+          : 0.5,
+    position = Math.min(100, (index - start - 1 + fraction) * slot);
+  return `<div class="ride-line" data-kind="rail" data-signature="${esc(window_.map((s) => s.id).join(","))}" style="--progress:${position.toFixed(1)}%" aria-hidden="true"><ol>${window_
+    .map((stop, i) => {
+      const at = start + i;
+      return `<li class="${at < index ? "passed" : ""} ${at === index ? "next" : ""} ${stop.id === destinationId ? "destination" : ""}" style="--at:${(i * slot).toFixed(1)}%"><i></i><span>${esc(displayStopName(stop))}</span><small>${esc(model.bus ? "" : (stop.id ?? ""))}</small></li>`;
+    })
+    .join("")}</ol><span class="ride-marker"></span></div>`;
+}
 
 export function itinerarySummary(plan, network, shift = null, ride = null) {
   if (!plan) return "";
@@ -192,20 +242,15 @@ export function nextStationHero(model, ride, progress) {
     model.remainingStops,
     model.bus ? ui("now_components_039") : ui("now_components_040"),
   ]);
-  const start = Math.max(0, model.index - 1),
-    end = Math.min(
-      progress.stops.length,
-      Math.max(start + 4, Math.min(progress.stops.length, start + 4)),
-    );
-  const strip = progress.stops.slice(start, end).map((s) => stationModel(s));
   return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-operator="${esc(model.bus ? (ride.operatingCompany ?? ride.operator) : ride.operator)}" data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}" data-rail-phase="${railCopy?.phase ?? ""}">
     ${model.routeUnavailable || (model.delayMinutes ?? 0) >= 10 ? `<p class="journey-warning" role="status">${model.routeUnavailable ? ui("now_components_041") : ui("now_components_042", [model.delayMinutes])}</p>` : ""}
     <div class="route-header">${routeBadge({ ...model, route: ride.route })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : ui("now_components_043")}` : model.lineId === "K" ? ui("now_components_044") : ui("now_components_045"))} <span>${esc(model.destination ?? ui("now_components_046"))}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? ui("now_components_047") : ride.operatingCompany === "citybus" ? ui("now_components_048") : (ride.operatingCompany ?? (ride.route === "北3" ? ui("now_components_049") : ride.operator === "kyotobus" ? ui("now_components_050") : ui("now_components_051")))) : model.serviceType)}${model.boundary ? ui("now_components_052") : ""}</p></div></div>
-    <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
+    <div class="next-station-hero ${model.bus ? "bus-stage" : "lcd"}" role="img" aria-label="${esc(spoken)}">
+      ${model.bus ? "" : `<div class="lcd-head" aria-hidden="true"><span class="lcd-type">${esc(model.serviceType)}</span><span class="lcd-dest">${esc(ui("lcd_bound", [model.destination ?? ui("now_components_046")]))}</span></div>`}
       <div class="next-state-label">${esc(heading)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(nextName)}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(next.code)}</span>` : ""}</div>
       <p class="next-countdown">${esc(duration)}</p>
       <p class="destination-progress">${!destination ? `${terminalNote}${ui("alighting_select_prompt")}` : model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
-      <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? ui("now_components_061") : ui("now_components_062")}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(displayStopName(s))}</b></span>`).join("")}</div></details>
+      ${rideLineHTML(model, ride, progress)}
     </div>
     <button class="personal-destination" data-context-action="destination" aria-label="${!destination ? ui("alighting_choose") : esc(destinationName)}"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destinationName)} ${model.bus || !destination ? "" : esc(destination.code ?? "")}</b></span><strong>${destination ? estimateTime(model.destinationArrival, model.confidence, model.officialPrediction) : ui("alighting_select_action")}</strong></button>
     ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? ui("now_components_092", [model.boundary.phase === "stopped" ? ui("now_components_066") : ui("now_components_067"), model.boundary.nextLine === "B" ? ui("now_components_068") : ui("now_components_069"), esc(model.serviceType), esc(model.destination)]) : ""}

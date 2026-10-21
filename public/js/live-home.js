@@ -22,6 +22,7 @@ import { routeMapHTML, renderRouteMap, nearbyMapModel } from "./route-map.js";
 import { updateHTML } from "./view-rendering.js";
 import { liveClock, appLocale, message } from "./locale.js";
 import { north3Day } from "./north3-feed.js";
+import { popoverMenu, withProgress } from "./ios-ui.js";
 
 // Live owns its screen, not a copy of the journey planner form or input store.
 export function mountLiveHome(host, search) {
@@ -200,7 +201,10 @@ export function mountLiveHome(host, search) {
           detail: { waitUntil: (job) => jobs.push(job) },
         }),
       );
-      const results = await Promise.allSettled(jobs);
+      const results = await withProgress(
+        "live-refresh",
+        Promise.allSettled(jobs),
+      );
       succeeded =
         navigator.onLine !== false &&
         Boolean(feed && !feed.cached) &&
@@ -279,8 +283,22 @@ export function mountLiveHome(host, search) {
     else if (b.hasAttribute("data-live-full-map"))
       navigation.push("map", { nearby: true });
     else if (b.hasAttribute("data-live-more")) {
-      sheet.dataset.detent = "fit";
-      openContextSheet(ui("live_home_020"), ui("live_home_021"));
+      popoverMenu(
+        b,
+        [
+          { id: "plan", label: ui("live_menu_plan"), icon: icon("search") },
+          { id: "arrivals", label: ui("live_menu_arrivals"), icon: icon("bus") },
+          { id: "choose", label: ui("choose_ride"), icon: icon("train") },
+          { id: "settings", label: ui("live_menu_settings"), icon: icon("settings") },
+        ],
+        (choice) => {
+          if (choice === "plan") search.open();
+          else if (choice === "arrivals") navigation.push("arrivals");
+          else if (choice === "choose")
+            document.dispatchEvent(new CustomEvent("mymap-choose-ride"));
+          else document.querySelector('[data-tab="settings"]')?.click();
+        },
+      );
     } else if (b.dataset.navigationScreen && sheet.open) {
       sheet.close();
       navigation.push(b.dataset.navigationScreen);

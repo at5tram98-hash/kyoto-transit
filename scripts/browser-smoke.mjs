@@ -1054,6 +1054,7 @@ async function navigationChecks() {
       "0",
     );
     await page.locator("#ride-end").click();
+    await page.locator('[data-action-sheet-choice="end"]').click();
     await settleNavigation(page);
     await searchScreen(page);
     await page.locator('[name="to"]').focus();
@@ -2190,6 +2191,7 @@ try {
           await layout(page, "foldback sheet");
           await page.locator("[data-sheet-close]").click();
           await page.locator("#ride-end").click();
+          await page.locator('[data-action-sheet-choice="end"]').click();
           assert.equal(
             await page.evaluate(() => window.__state.state.ride),
             null,
@@ -2391,6 +2393,7 @@ try {
           assert.equal(await page.locator("#ride-foldback").count(), 0);
           assert.equal(await page.locator("#network-panel").textContent(), "");
           await page.locator("#ride-end").click();
+          await page.locator('[data-action-sheet-choice="end"]').click();
           assert.equal(
             await page
               .locator('[data-view="now"]')
@@ -2563,6 +2566,7 @@ try {
             null,
           );
           await page.locator("#ride-end").click();
+          await page.locator('[data-action-sheet-choice="end"]').click();
           await page.reload();
           await page
             .locator('[data-view="now"][data-context="nearby"]')
