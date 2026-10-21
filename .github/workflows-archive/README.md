@@ -2,10 +2,11 @@
 
 GitHub Actionsは `.github/workflows/` 直下のファイルだけを実行します。ここにあるファイルは**実行されません**。内容・履歴はそのまま保存しています。
 
-2026-10-21に整理。有効なワークフローは次の3本だけです。
+2026-10-21に整理。有効なワークフローは次の4本だけです。
 
 | ファイル | 役割 |
 |---|---|
+| `workflows/pr-quality.yml` | mainへのPRでcheck・test・build・Worker dry-run・Chromium/WebKit・PWAを検証。公開・Secretsなし（PR #1 の同名ワークフローを現行mainへ移植） |
 | `workflows/pages.yml` | mainのみ。check・test・build・Chromium/WebKit・PWA・Worker dry-runを通過後にPages公開し、公開後に本番診断 |
 | `workflows/worker.yml` | mainのみ。Worker関連の変更時にcheck・test・dry-run後、既存Workerを公開 |
 | `workflows/production-health.yml` | 本番の読み取り専用診断（手動・診断スクリプト変更時） |

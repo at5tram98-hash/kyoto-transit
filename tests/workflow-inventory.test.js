@@ -4,7 +4,15 @@ import {readFileSync,readdirSync} from "node:fs";
 const dir=".github/workflows";
 const workflows=Object.fromEntries(readdirSync(dir).filter(name=>/\.ya?ml$/.test(name)).map(name=>[name,readFileSync(`${dir}/${name}`,"utf8")]));
 test("Workflows: only the verified production workflows are active",()=>{
- assert.deepEqual(Object.keys(workflows).sort(),["pages.yml","production-health.yml","worker.yml"]);
+ assert.deepEqual(Object.keys(workflows).sort(),["pages.yml","pr-quality.yml","production-health.yml","worker.yml"]);
+});
+test("Workflows: pull requests are verified without publishing or secrets",()=>{
+ const pr=workflows["pr-quality.yml"];
+ assert.match(pr,/pull_request:\n    branches: \[main\]/);
+ assert.match(pr,/permissions:\n  contents: read\n/);
+ assert.doesNotMatch(pr,/secrets\.|deploy-pages|pages: write|id-token/);
+ for(const action of ["npm run check","npm test","npm run build","npm run test:browser","npm run test:pwa","wrangler deploy --dry-run","BROWSER_ENGINE: webkit"])
+  assert.ok(pr.includes(action),`PR gate missing ${action}`);
 });
 test("Workflows: Pages is published only by the fully tested main workflow",()=>{
  const publishers=Object.keys(workflows).filter(name=>/actions\/deploy-pages@/.test(workflows[name]));
