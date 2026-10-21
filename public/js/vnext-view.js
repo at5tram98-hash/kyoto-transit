@@ -34,7 +34,8 @@ import {
   toast,
   haptic,
 } from "./vnext-state.js";
-import { updateRideAnchor } from "./vnext-detect.js";
+import { updateRideAnchor, kyotoBusPredictionFor } from "./vnext-detect.js";
+import { motionPermissionState } from "./motion-permission.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
 import { updateHTML, updateNearbyPanel } from "./view-rendering.js";
 import { getKintetsuFeed } from "./fast-data.js";
@@ -330,8 +331,8 @@ function renderStatusPill() {
   if (label)
     label.textContent = labels[state.locationStatus] ?? ui("vnext_view_046");
 }
-function candidateHTML() {
-  const candidates = (state.rideCandidates ?? [])
+function offeredCandidates() {
+  return (state.rideCandidates ?? [])
     .map((candidate, index) => ({ candidate, index }))
     .filter(({ candidate }) =>
       shouldOfferRideConfirmation(
@@ -339,6 +340,40 @@ function candidateHTML() {
         transitEvidenceEngine.support(candidate.ride),
       ),
     );
+}
+function motionControlHTML() {
+  if (settings.autoDetect === false) return "";
+  const permission = motionPermissionState();
+  if (permission === "prompt")
+    return `<div class="motion-permission"><button type="button" class="plain-action" data-enable-motion>${icon("bolt")}<span>${esc(ui("motion_enable"))}</span></button><p class="source-note">${esc(ui("motion_enable_note"))}</p></div>`;
+  if (permission === "denied")
+    return `<p class="source-note motion-permission">${esc(ui("motion_denied"))}</p>`;
+  return "";
+}
+export function rideChoiceRowsHTML(candidates) {
+  return candidates
+    .slice(0, 5)
+    .map((c, i) =>
+      ui("vnext_view_100", [
+        i,
+        modeClass(c.ride),
+        icon(["citybus", "kyotobus"].includes(c.ride.operator) ? "bus" : "train"),
+        esc(serviceName(c.ride)),
+        esc(c.ride.destination ?? ui("vnext_view_049")),
+        Number.isFinite(c.ride.depart)
+          ? ui("vnext_view_050", [formatMinute(c.ride.depart)])
+          : "",
+      ]),
+    )
+    .join("");
+}
+function chooseRideHTML() {
+  return settings.autoDetect === false || offeredCandidates().length
+    ? ""
+    : `<button type="button" class="choose-ride-action" data-choose-ride>${icon("bus")}<span>${esc(ui("choose_ride"))}</span><span class="chevron">›</span></button>`;
+}
+function candidateHTML() {
+  const candidates = offeredCandidates();
   if (!candidates.length) return "";
   return ui("vnext_view_108", [
     candidates.length === 1 ? ui("vnext_view_047") : ui("vnext_view_048"),
@@ -436,13 +471,13 @@ export function renderNow() {
     locationStatus: state.locationStatus,
     autoDetect: settings.autoDetect !== false,
     hidden: document.hidden,
-    candidates: state.rideCandidates.length,
+    candidates: offeredCandidates().length,
     moving: Number.isFinite(motion.speed) && motion.speed >= 2.8,
   });
   const detectionStatus = `<p class="source-note detection-stage" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
   updateHTML(
     vehicle,
-    `${detectionStatus}${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
@@ -589,6 +624,14 @@ export function nearbyDetailHTML(id) {
     esc(id),
   ]);
 }
+// The official Kyoto Bus prediction is current for four minutes; after that
+// the last official delay is still applied but not presented as live.
+function kyotoBusPredictionFeed(ride) {
+  const value = kyotoBusPredictionFor(ride);
+  return value && Date.now() - value.at <= 240000
+    ? { source: "live", stale: false, asOf: value.trip.asOf }
+    : null;
+}
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
     bus = ["citybus", "kyotobus"].includes(ride.operator),
@@ -612,13 +655,18 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
     geo: state.geo,
     locationStatus: state.locationStatus,
     feed: bus
-      ? state.busLive
+      ? ride.operator === "kyotobus"
+        ? kyotoBusPredictionFeed(ride)
+        : state.busLive
       : ride.operator === "subway"
         ? state.subwayFeed
         : state.railFeed,
     previous: state.heroObservation,
     motionSpeed: trajectory(state.samples).speed,
   });
+  // Kyoto Bus arrival times come from the official forecast while it is current.
+  model.officialPrediction =
+    ride.operator === "kyotobus" && Boolean(kyotoBusPredictionFeed(ride));
   state.heroObservation = model.observed;
   state.heroModel = model;
   if (

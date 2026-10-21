@@ -104,9 +104,9 @@ export function statusPill(confidence, text, updated) {
   };
   return `<span class="status-pill ${confidence}">${esc(text ?? labels[confidence])}${confidence === "stale" && updated ? ui("now_components_026", [esc(new Date(updated).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }))]) : ""}</span>`;
 }
-export function estimateTime(value, confidence) {
+export function estimateTime(value, confidence, official = false) {
   return Number.isFinite(value)
-    ? `${formatMinute(Math.round(value))}<small>${confidence === "confirmed" ? ui("now_components_027") : ui("now_components_028")}</small>`
+    ? `${formatMinute(Math.round(value))}<small>${official ? ui("official_prediction") : confidence === "confirmed" ? ui("now_components_027") : ui("now_components_028")}</small>`
     : ui("now_components_029");
 }
 // Kept separate from ride status: the LCD must never treat a timetable ETA
@@ -154,15 +154,33 @@ export function nextStationHero(model, ride, progress) {
             : ui("now_components_032"),
         ])
       : model.minutes === null
-        ? ui("now_components_033")
+        ? model.bus && !model.timesPublished
+          ? ui("bus_times_unpublished")
+          : ui("now_components_033")
         : model.minutes === 0
           ? ui("now_components_034")
           : ui("now_components_089", [
               model.minutes,
-              model.confidence === "confirmed"
-                ? ui("now_components_035")
-                : ui("now_components_036"),
+              model.officialPrediction
+                ? ui("official_prediction_suffix")
+                : model.confidence === "confirmed"
+                  ? ui("now_components_035")
+                  : ui("now_components_036"),
             ]));
+  // Without a chosen alighting stop, still show when this trip reaches its
+  // terminus if the timetable (or official forecast) has that time.
+  const terminalNote =
+    !destination && Number.isFinite(model.terminalArrival) && model.terminal
+      ? `<span class="terminal-arrival">${esc(ui("terminal_arrival", [
+          displayStopName(model.terminal),
+          formatMinute(Math.round(model.terminalArrival)),
+          model.officialPrediction
+            ? ui("official_prediction")
+            : model.terminalEstimated || model.delayMinutes
+              ? ui("now_components_028")
+              : ui("now_components_027"),
+        ]))}</span>`
+      : "";
   const heading = railCopy?.label ??
     (model.label === ui("now_model_010") ? ui("now_components_053") : model.label);
   const spoken = ui("now_components_090", [
@@ -186,10 +204,10 @@ export function nextStationHero(model, ride, progress) {
     <div class="next-station-hero" role="img" aria-label="${esc(spoken)}">
       <div class="next-state-label">${esc(heading)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(nextName)}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(next.code)}</span>` : ""}</div>
       <p class="next-countdown">${esc(duration)}</p>
-      <p class="destination-progress">${!destination ? ui("alighting_select_prompt") : model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
+      <p class="destination-progress">${!destination ? `${terminalNote}${ui("alighting_select_prompt")}` : model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>
       <details class="station-overview" ${model.bus ? "" : "open"}><summary>${model.bus ? ui("now_components_061") : ui("now_components_062")}</summary><div class="station-strip" aria-hidden="true">${strip.map((s) => `<span class="${s.id === next?.id ? "selected" : ""}"><i></i><b>${esc(displayStopName(s))}</b></span>`).join("")}</div></details>
     </div>
-    <button class="personal-destination" data-context-action="destination" aria-label="${!destination ? ui("alighting_choose") : esc(destinationName)}"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destinationName)} ${model.bus || !destination ? "" : esc(destination.code ?? "")}</b></span><strong>${destination ? estimateTime(model.destinationArrival, model.confidence) : ui("alighting_select_action")}</strong></button>
+    <button class="personal-destination" data-context-action="destination" aria-label="${!destination ? ui("alighting_choose") : esc(destinationName)}"><span><small>あなたの降車${model.bus ? ui("now_components_063") : ui("now_components_064")}</small><b>${esc(destinationName)} ${model.bus || !destination ? "" : esc(destination.code ?? "")}</b></span><strong>${destination ? estimateTime(model.destinationArrival, model.confidence, model.officialPrediction) : ui("alighting_select_action")}</strong></button>
     ${model.throughNotice ? `<p class="through-notice">${esc(model.throughNotice)}</p>` : ""}${model.boundary ? ui("now_components_092", [model.boundary.phase === "stopped" ? ui("now_components_066") : ui("now_components_067"), model.boundary.nextLine === "B" ? ui("now_components_068") : ui("now_components_069"), esc(model.serviceType), esc(model.destination)]) : ""}
     ${model.estimatedWithoutGps && !model.routeUnavailable ? `<p class="source-note rail-estimate-note" role="status">${ui(model.locationRecovering ? "rail_location_rechecking" : "rail_location_estimate")}</p>` : ""}
     ${model.delayMinutes > 0 ? ui("now_components_070", [model.delayMinutes]) : ""}

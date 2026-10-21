@@ -394,6 +394,63 @@ export function buildCityBusTrip({
 
 // Preserve pattern and direction identity, including a circular wrap. The legacy
 // single-trip builder remains available to explicit/manual callers.
+// North 3 has an official, all-stop timetable (see north3-feed.js). A ride
+// detected on it can therefore carry real scheduled times instead of the
+// stop order alone.
+export function north3RideCandidates(
+  feed,
+  { fromId, minute, network, windowBefore = 8, windowAfter = 3 } = {},
+) {
+  if (!feed?.services?.length || !Number.isFinite(minute) || !fromId) return [];
+  const rows = [];
+  for (const service of feed.services) {
+    if (service.route !== "北3") continue;
+    const fromIndex = service.stops?.indexOf(fromId) ?? -1;
+    if (fromIndex < 0 || fromIndex >= service.stops.length - 1) continue;
+    for (const trip of service.trips ?? []) {
+      const depart = trip.departures?.[fromIndex];
+      if (
+        !Number.isFinite(depart) ||
+        depart < minute - windowBefore ||
+        depart > minute + windowAfter
+      )
+        continue;
+      const stops = stopRows(service, trip, network, fromIndex);
+      if (stops.length < 2) continue;
+      if (service.terminalArrivalDerived && stops.at(-1)?.id === service.stops.at(-1))
+        stops.at(-1).estimated = true;
+      const last = stops.at(-1);
+      rows.push({
+        kind: "ride",
+        operator: "citybus",
+        category: "local",
+        route: "北3",
+        label: "市バス 北3系統",
+        destination: trip.headsign ?? last.name,
+        from: fromId,
+        to: last.id,
+        depart,
+        arrive: last.arrival,
+        minutes: last.arrival - depart,
+        officialStops: stops,
+        fullTerminus: true,
+        syntheticTimes: false,
+        serviceId: service.id,
+        servicePatternId: service.id,
+        directionId: service.id,
+        direction: service.id,
+        tripId: trip.id,
+        serviceDate: trip.date,
+        operatingCompany: trip.operatingCompany,
+        timetableSource: "north3-official",
+      });
+    }
+  }
+  return rows.sort(
+    (a, b) => Math.abs(a.depart - minute) - Math.abs(b.depart - minute) || a.depart - b.depart,
+  );
+}
+
 export function cityBusRideCandidates({
   route,
   currentStopId,

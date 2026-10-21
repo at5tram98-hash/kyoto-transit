@@ -242,10 +242,10 @@ function installDeviceMotion() {
   if (motionInstalled || typeof globalThis.addEventListener !== "function")
     return;
   motionInstalled = true;
-  // Do not call DeviceMotionEvent.requestPermission(). On browsers that already
-  // allow motion events we consume them; on iOS/WebKit where a user gesture is
-  // required, GPS-derived acceleration remains the fallback and no permission
-  // prompt or extra control is introduced.
+  // Never prompt from here. Browsers that already allow motion events deliver
+  // them directly; on iOS/WebKit the rider grants access from the explicit
+  // Now-tab control (motion-permission.js). Until then GPS-derived
+  // acceleration remains the fallback.
   globalThis.addEventListener("devicemotion", recordDeviceMotion, {
     passive: true,
   });

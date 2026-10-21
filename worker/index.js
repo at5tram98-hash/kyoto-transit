@@ -12,7 +12,8 @@ import {layoutChanged,requireRows,shouldExpectRail,fallbackDiagnostic} from './l
 import {refreshAll,readStatic,tokyoDate} from './static-refresh.js';
 import {visualBusApproach,visualRailSnapshot} from './visual-fallback.js';
 import {BUS_CHOICE_CACHE_TTL,BUS_CHOICE_LIVE_AGE,oldestChoiceIndexes} from './bus-refresh.js';
-import {validBusStop} from './bus-stops.js';
+import {validBusStop,officialBusStopName} from './bus-stops.js';
+import {fetchKyotoBusNav,KYOTOBUS_NAV_STOPS} from './kyotobus-nav.js';
 
 const POC='https://kyotocity.bus-navigation.jp/wgsys/wgs_kyt/';
 const KYOTO_BUS_VEHICLE='https://api.odpt.org/api/v4/gtfs/realtime/odpt_KyotoBus_AllLines_vehicle';
@@ -24,12 +25,14 @@ const error=(message,status=400,code=null)=>Response.json({error:message,...(cod
 const iso=ms=>new Date(ms).toISOString();
 
 export function selectionURL(stop){
+  stop=officialBusStopName(stop);
   const p=new URLSearchParams({tabName:'strainSelectionTab',from:stop,fromType:'1',to:'',toType:'',locale:'ja',bsid:'1',targetTabName:'busStopSearchTab',mapFlag:'false',existYn:'N'});
   for(const key of ['selectedLandmarkCatCd','fromlat','fromlng','tolat','tolng','fromSignpoleKey','routeLayoutCd','fromBusStopCd','toBusStopCd','routeKey','nextDiagramFlag','diaRevisedDate','timeTableDirevtionCd','searchDate','searchTime','fromBusStopKey','toBusStopKey','lineSelected','informationTextId','busStopName','search_map_from','search_map_to','routeKeys','fromDisplayPassNo','toDisplayPassNo','routeKeynum','busCode','formerApproachLat','formerApproachLng','formerApproachGuidance','informationFromTextId','informationToTextId','informationRouteId','busstopCdnum','autoRefreshTime','vehicleScrollPosition','destinationCd','fromSignpoleStringKey','routeSelectNo'])p.set(key,'');
   return `${POC}selection.htm?${p}`;
 }
 export function approachURL(stop,value){
-  if(!/^(?:\d{9}|N030\d{5});\d+:\d+:\d+(,\d+:\d+:\d+)*$/.test(value))throw Error('系統の情報が変更されています。停留所を選び直してください。');
+  stop=officialBusStopName(stop);
+  if(!/^[0-9A-Z]{9};\d+:\d+:\d+(,\d+:\d+:\d+)*$/.test(value))throw Error('系統の情報が変更されています。停留所を選び直してください。');
   const [dest,raw]=value.split(';'),parts=raw.split(',').map(v=>v.split(':'));
   if(!ROUTES.has(routeFromValue(dest)))throw Error('対象外の系統です。');
   const p=new URLSearchParams({tabName:'approachGuidance',from:stop,fromType:'1',locale:'ja',bsid:'1',targetTabName:'busStopSearchTab',busStopName:stop,routeKeys:parts.map(v=>v[0]).join(','),fromDisplayPassNo:parts.map(v=>v[2]).join(','),fromSignpoleStringKey:parts.map(v=>v[1]).join(','),destinationCd:dest,routeKeynum:'1',autoRefreshTime:'0'});
@@ -52,6 +55,15 @@ async function options(stop){
   const response=await fetch(selectionURL(stop),{headers:{'User-Agent':'My Map/1.0 (transport page reader)','Accept':'text/html'},signal:AbortSignal.timeout(7000)});
   if(!response.ok){await response.body?.cancel();throw Error(`停留所情報を取得できませんでした（HTTP ${response.status}）。`);}
   return requireRows('citybus',parseBusChoices(await boundedText(response)),'市バスの系統選択要素が見つかりません。');
+}
+// Route/direction choices change only with timetable revisions. Reuse them for
+// a few hours so each arrivals refresh needs a single upstream page.
+const OPTIONS_TTL=21600;
+async function cachedOptions(env,stop,{fresh=false}={}){
+  const key=`citybus:options:${stop}`;
+  if(!fresh&&env.LIVE_KV){try{const value=JSON.parse(await env.LIVE_KV.get(key)??'null');if(Array.isArray(value)&&value.length)return {choices:value,cached:true};}catch{}}
+  const choices=await options(stop);if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(choices),{expirationTtl:OPTIONS_TTL});
+  return {choices,cached:false};
 }
 async function recordVisualRecovery(env,source){
   if(!env.LIVE_KV)return;
@@ -81,7 +93,8 @@ async function bulkBusData(env,stop,choices){
     const results=[];
     for(const batch of batchBusChoices(unique,10)){const page=await fetchAllSelectedApproach(stop,batch,{timeout:9000});results.push(...page.results);}
     if(results.length!==unique.length)throw Error(`全方面の接近情報が揃いませんでした（${results.length}/${unique.length}）。`);
-    await Promise.all(results.map((value,index)=>saveBusChoice(env,stop,unique[index],value)));
+    // The whole arrivals response is persisted by cachedJSON; per-direction
+    // copies are only needed by the per-choice fallback below.
     return {unique,results,success:results.length,mode:'all_page'};
   }catch(e){allPageError=e;if(env.LIVE_KV)await env.LIVE_KV.put(`diag:citybus:all:${stop}`,JSON.stringify({code:'all_page_failed',message:String(e?.message??e),at:new Date().toISOString()}),{expirationTtl:86400});}
   const cached=await Promise.all(unique.map(c=>busChoiceCached(env,stop,c))),results=cached.slice();
@@ -96,14 +109,30 @@ async function busAll(env,stop,choices){const {results,mode}=await bulkBusData(e
 
 async function sha256(text){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function jsonETag(request,data,ttl=12){const body=JSON.stringify(data),etag=`"${(await sha256(body)).slice(0,24)}"`,headers=new Headers({'Content-Type':'application/json; charset=utf-8','Cache-Control':`public, max-age=0, s-maxage=${ttl}, stale-if-error=300`,'ETag':etag,'Vary':'Origin, Accept-Encoding'});if(request.headers.get('If-None-Match')===etag)return new Response(null,{status:304,headers});return new Response(body,{headers});}
+const LAST_GOOD_TTL=900,KV_WRITE_INTERVAL=300;
+const cacheURL=(kind,key)=>new Request(`https://mymap-cache.invalid/${kind}${encodeURIComponent(key)}`);
+// Keep the latest successful value in the Cache API on every success (no write
+// quota) and copy it to KV at most once per interval per key, so a failing
+// upstream can still fall back to the last observed value.
+async function rememberLastGood(cache,env,key,data){
+  const body=JSON.stringify(data);
+  await cache.put(cacheURL('last/',key),new Response(body,{headers:{'Content-Type':'application/json','Cache-Control':`public, max-age=${LAST_GOOD_TTL}`}}));
+  if(!env.LIVE_KV||await cache.match(cacheURL('kv-written/',key)))return;
+  await env.LIVE_KV.put(key,body,{expirationTtl:LAST_GOOD_TTL});
+  await cache.put(cacheURL('kv-written/',key),new Response('1',{headers:{'Cache-Control':`public, max-age=${KV_WRITE_INTERVAL}`}}));
+}
+async function readLastGood(cache,env,key){
+  const hit=await cache.match(cacheURL('last/',key));if(hit)return hit.text();
+  return env.LIVE_KV?env.LIVE_KV.get(key):null;
+}
 async function cachedJSON(request,env,key,producer,ttl=12){
   const cache=caches.default,cacheKey=new Request(`https://mymap-cache.invalid/${encodeURIComponent(key)}`),hit=await cache.match(cacheKey);
   if(hit){const etag=hit.headers.get('ETag');if(etag&&request.headers.get('If-None-Match')===etag)return new Response(null,{status:304,headers:hit.headers});return hit;}
   let data;
-  try{data=await producer();if(env.LIVE_KV)await env.LIVE_KV.put(key,JSON.stringify(data),{expirationTtl:900});}
+  try{data=await producer();await rememberLastGood(cache,env,key,data);}
   catch(e){
-    const diagnostic=fallbackDiagnostic(e,key);if(env.LIVE_KV)await env.LIVE_KV.put(`diag:${key}`,JSON.stringify(diagnostic),{expirationTtl:86400});
-    const raw=env.LIVE_KV?await env.LIVE_KV.get(key):null;if(!raw)throw e;data={...JSON.parse(raw),stale:true,source:'prediction',diagnostic};
+    const diagnostic=fallbackDiagnostic(e,key);if(env.LIVE_KV&&!(await cache.match(cacheURL('diag-written/',key)))){await env.LIVE_KV.put(`diag:${key}`,JSON.stringify(diagnostic),{expirationTtl:86400});await cache.put(cacheURL('diag-written/',key),new Response('1',{headers:{'Cache-Control':`public, max-age=${KV_WRITE_INTERVAL}`}}));}
+    const raw=await readLastGood(cache,env,key);if(!raw)throw e;data={...JSON.parse(raw),stale:true,source:'prediction',diagnostic};
   }
   const response=await jsonETag(request,data,ttl);if(response.status===200)await cache.put(cacheKey,response.clone());return response;
 }
@@ -112,12 +141,21 @@ async function kyotoBusRealtime(request,env){
   if(!env.ODPT_CONSUMER_KEY)return error('京都バスのリアルタイム連携を準備中です。',503,'odpt_not_configured');
   return cachedJSON(request,env,'rt:kyotobus',async()=>{const [vehicleBytes,tripBytes]=await Promise.all([fetchProto(KYOTO_BUS_VEHICLE,env.ODPT_CONSUMER_KEY),fetchProto(KYOTO_BUS_TRIP,env.ODPT_CONSUMER_KEY).catch(()=>null)]),vehicleFeed=decodeGtfsRealtime(vehicleBytes),tripFeed=tripBytes?decodeGtfsRealtime(tripBytes):{tripUpdates:[]},filtered=filterKyotoBusVehicles(vehicleFeed.vehicles,tripFeed.tripUpdates),timestamps=filtered.vehicles.map(v=>v.timestamp).filter(Number.isFinite),latest=timestamps.length?Math.max(...timestamps)*1000:Date.now(),hasFresh=filtered.vehicles.some(v=>v.fresh);return {kind:'kyotobus-rt',source:hasFresh?'live':'prediction',stale:!hasFresh,asOf:iso(latest),vehicles:filtered.vehicles.map(v=>({id:v.id,trip:v.trip,tripId:v.tripId,direction:v.direction,directionId:v.direction,serviceDate:v.serviceDate,startTime:v.startTime,route:v.route,lat:v.lat,lon:v.lon,bearing:v.bearing,speed:v.speed,timestamp:v.timestamp,stop:v.stop,stopSequence:v.stopSequence,congestion:v.congestion,occupancy:v.occupancy,occupancyPct:v.occupancyPct,delay:v.delay})),meta:{tripUpdates:tripFeed.tripUpdates.length,unmapped:filtered.unmapped}};},12);
 }
+async function kyotoBusApproach(request,env,url){
+  const from=url.searchParams.get('from'),to=url.searchParams.get('to');
+  if(!KYOTOBUS_NAV_STOPS.has(from)||!KYOTOBUS_NAV_STOPS.has(to)||from===to)return error('京都バスの対象区間を選択してください。');
+  return cachedJSON(request,env,`kyotobus:nav:${from}:${to}`,async()=>{const value=await fetchKyotoBusNav(from,to);return {...value,source:'live',stale:false,asOf:value.capturedAt};},15);
+}
 function normalizedCityRow(item,bus,index,now){const direct=Number.isFinite(bus?.minutes),hasStops=Number.isFinite(bus?.stopsAway),observed=direct||hasStops,minutes=direct?bus.minutes:null,at=Date.parse(item.capturedAt),fresh=Number.isFinite(at)&&now-at<=BUS_CHOICE_LIVE_AGE;return {key:`${item.value}:${index}`,route:String(item.route),dest:item.destination,boarding:item.boarding??'',minutes,stopsAway:hasStops?bus.stopsAway:null,congestion:bus?.congestion??null,status:minutes===null&&!hasStops?(item.noBus?'接近なし':null):null,delay:null,eta:direct?iso(now+minutes*60000):null,asOf:item.capturedAt,confidence:direct?0.96:hasStops?0.82:item.noBus?0.9:0.45,source:observed||item.noBus?(fresh?'live':'prediction'):'schedule',etaEstimated:false};}
 async function cityBusArrivals(request,env,url){
   const stop=url.searchParams.get('stop');
   if(!validBusStop(stop,env.STOP_NAMES))return error('対象の停留所を選択してください。');
   return cachedJSON(request,env,`citybus:${stop}`,async()=>{
-    const choices=await options(stop),{unique,results:items,success,mode}=await bulkBusData(env,stop,choices);
+    let {choices,cached}=await cachedOptions(env,stop),bulk=await bulkBusData(env,stop,choices);
+    // A cached direction list that no longer matches the official page is
+    // refreshed once instead of degrading every request to the slow fallback.
+    if(cached&&bulk.mode!=='all_page'){choices=(await cachedOptions(env,stop,{fresh:true})).choices;bulk=await bulkBusData(env,stop,choices);}
+    const {unique,results:items,success,mode}=bulk;
     if(unique.length&&success===0)throw layoutChanged('citybus','市バスの接近表を1件も読み取れませんでした。');
     const now=Date.now(),results=items.flatMap(item=>item.buses?.length?item.buses.slice(0,2).map((b,i)=>normalizedCityRow(item,b,i,now)):[normalizedCityRow(item,null,0,now)]).slice(0,40),asOf=results.map(r=>Date.parse(r.asOf)).filter(Number.isFinite).sort((a,b)=>b-a)[0]??now;
     return {kind:'citybus-arrivals',stop,source:results.some(r=>r.source==='live')?'live':'prediction',stale:false,asOf:iso(asOf),results,meta:{mode,coverage:{available:success,total:unique.length}}};
@@ -175,6 +213,7 @@ export default {
       else if(!(await env.LIMIT.limit({key:request.headers.get('CF-Connecting-IP')??'unknown'})).success)response=error('更新が続いています。少し待ってから再度お試しください。',429);
       else if(url.pathname==='/api/bus/rt')response=await kyotoBusRealtime(request,env);
       else if(url.pathname==='/api/citybus/arrivals')response=await cityBusArrivals(request,env,url);
+      else if(url.pathname==='/api/kyotobus/approach')response=await kyotoBusApproach(request,env,url);
       else if(url.pathname==='/api/rail/live')response=await railLive(request,env);
       else if(url.pathname==='/api/static/feed'){
         const operator=url.searchParams.get('operator'),date=url.searchParams.get('date')||tokyoDate(),data=await readStatic(env,operator,date);response=data?await jsonETag(request,data,60):error('静的時刻データをまだ準備できていません。',503,'static_not_ready');
@@ -189,7 +228,7 @@ export default {
       else if(url.pathname==='/timetable/trip')response=Response.json(await readOfficialTrip(url.searchParams.get('stop'),url.searchParams.get('direction'),url.searchParams.get('day'),url.searchParams.get('trip'),sourceFetch));
       else if(url.pathname==='/meeting'){const raw=url.searchParams.get('request');if(!raw||raw.length>4000)response=error('合流条件を確認してください。');else{let r;try{r=validateMeeting(JSON.parse(raw));}catch(e){response=error(e.message??'合流条件を確認してください。');}if(r)response=Response.json(await findMeeting(r));}}
       else if(url.pathname==='/journeys'){const raw=url.searchParams.get('request');if(!raw||raw.length>2500)response=error('検索条件を確認してください。');else{let r;try{r=validateJourneyRequest(JSON.parse(raw));}catch(e){response=error(e.message??'検索条件を確認してください。');}if(r)response=Response.json(await searchJourney(r));}}
-      else if(['/bus/options','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!validBusStop(stop,env.STOP_NAMES))response=error('対象の停留所を選択してください。');else{const choices=await options(stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice'),choice=choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=await busData(env,stop,choice);}}}
+      else if(['/bus/options','/bus/data','/bus/all'].includes(url.pathname)){const stop=url.searchParams.get('stop');if(!validBusStop(stop,env.STOP_NAMES))response=error('対象の停留所を選択してください。');else{const {choices}=await cachedOptions(env,stop);if(url.pathname==='/bus/options')response=Response.json({stop,choices});else if(url.pathname==='/bus/all')response=await busAll(env,stop,choices);else{const value=url.searchParams.get('choice');let choice=choices.find(c=>c.value===value);if(!choice)choice=(await cachedOptions(env,stop,{fresh:true})).choices.find(c=>c.value===value);if(!choice)response=error('現在の系統・行先を選び直してください。');else response=await busData(env,stop,choice);}}}
       else if(url.pathname==='/rail/location')response=Response.json({kind:'rail-location',...(await railSnapshot(env)),capturedAt:new Date().toISOString(),sourceURL:LOCATION_URL});
       else response=error('ページがありません。',404);
     }catch(e){console.error('transit fetch failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'データの取得に失敗しました。',502,e?.code??null);}

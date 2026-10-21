@@ -54,3 +54,48 @@ test('全選択取得は1リクエストで全方面を返す',async()=>{
 test('方面数のDOM変更は静かに誤対応せず失敗する',()=>{
   assert.throws(()=>parseApproachAll(html,[choices[0]]),/方面数が一致/);
 });
+
+// Shapes observed on the official site on 2026-10-21.
+const officialChoices=[
+  {route:'205',destination:'（快速）九条車庫',boarding:'',value:'205R20003;9993:28377:7'},
+  {route:'205',destination:'九条車庫まで',boarding:'',value:'205020005;10019:28377:7'},
+  {route:'78',destination:'（始発停留所）久世工業団地',boarding:'',value:'078010099;9780:28374:29'},
+  {route:'46',destination:'三条京阪',boarding:'Eのりば',value:'046T10002;10772:28370:32,9870:28370:33'}
+];
+const officialHtml=`<table id="approach_table"><tbody>
+<tr><td rowspan="2"><div><table><tbody><tr><td><img alt="かいそく205"></td></tr></tbody></table></div></td><td>（快速）九条車庫 (Rapid) Kujo Shako</td></tr>
+<tr><td colspan="6">本日の運行は終了いたしました</td></tr>
+<tr><td rowspan="2"><img alt="205くじょうしゃこ"></td><td>九条車庫まで Kujo Shako</td></tr>
+<tr><td id="vehicle-position-data_1"><img alt="４つまえ　混雑"></td><td id="vehicle-position-data_2"><img alt="５つまえ　空席あり"></td></tr>
+<tr><td rowspan="2"><img alt="78"></td><td>久世工業団地 Kuze Kogyodanchi</td></tr>
+<tr><td id="vehicle-position-data_1"></td></tr>
+<tr><td rowspan="2"><img alt="46"></td><td>三条京阪 Sanjo Keihan</td></tr>
+<tr><td id="vehicle-position-data_1"><img alt="１つまえ　空席あり"></td></tr>
+</tbody></table>`;
+
+test('公式の運行終了行・快速系統・始発停留所・英字入り方面コードを全方面で読む',()=>{
+  const rows=parseApproachAll(officialHtml,officialChoices);
+  assert.equal(rows.length,4);
+  assert.equal(rows[0].noBus,true);
+  assert.equal(rows[0].message,'本日の運行は終了いたしました');
+  assert.deepEqual(rows[1].buses.map(b=>b.stopsAway),[4,5]);
+  assert.equal(rows[2].noBus,true);
+  assert.equal(rows[3].buses[0].stopsAway,1);
+  assert.equal(rows[3].boarding,'Eのりば');
+});
+
+test('方面の並びが公式画面と異なる場合は誤対応せず失敗する',()=>{
+  assert.throws(()=>parseApproachAll(officialHtml,[officialChoices[1],officialChoices[0],...officialChoices.slice(2)]),/並び順/);
+});
+
+test('公式は正式名でしか系統を返さないため上流URLだけ正式名へ変換する',()=>{
+  const u=new URL(approachAllURL('四条烏丸',[officialChoices[3]]));
+  assert.equal(u.searchParams.get('from'),'四条烏丸（地下鉄四条駅）');
+  assert.equal(u.searchParams.get('destinationCd'),'046T10002');
+  assert.equal(new URL(approachAllURL('丸太町智恵光院',choices)).searchParams.get('from'),'丸太町智恵光院');
+});
+
+test('北3の方面コードも一括取得の対象にする',()=>{
+  const u=new URL(approachAllURL('北大路バスターミナル',[{route:'北3',destination:'京都産大',value:'N03000001;1:2:3'}]));
+  assert.equal(u.searchParams.get('destinationCd'),'N03000001');
+});

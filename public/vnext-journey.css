@@ -589,6 +589,14 @@
   font-size: 0.75rem;
   margin-top: 5px;
 }
+.next-station-hero .terminal-arrival {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .station-strip {
   display: flex;
   justify-content: space-between;

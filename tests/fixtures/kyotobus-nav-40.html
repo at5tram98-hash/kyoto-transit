@@ -1,0 +1,350 @@
+<html><body>
+<!-- bus list start -->
+		<div id="buslist">
+			<div class="clearfix">
+<!-- bus List area [01] -->
+		<div class="route_box clearfix" style="background-color: gold;">
+		<table width="100%">
+			<tr>
+				<td colspan="1" width="60%">
+							<span style="cursor: pointer;text-decoration: underline" onclick="checkRollsignName('N','京都産業大学前','国際会館駅前','17196');">
+								<font color="blue">４０</font>
+							</span>
+						&nbsp;&nbsp;<img src="/wgsys/img/bus_blue.png" />
+				</td>
+				<td>
+						&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+						<img src="/wgsys/img/wheelChair.png" />
+				</td>
+				<td rowspan="3" width="20%">
+					<div class="pussll-right">
+						<a type="button" class="btn-default button btn-block my_view_btn blue-btn" tabindex="1"
+						   onclick="detailClick(0);"  
+						   style="padding: 15% 20%;cursor:pointer;">
+							<font style="color: white;font:bold;">
+								詳細
+							</font>
+						</a>
+					</div>
+				</td>
+			</tr>
+				<tr>
+					<td colspan="2">
+							地球研前・北稜高校前
+								&nbsp;
+									経由
+					</td>
+				</tr>
+				<tr height="25px">
+					<td colspan="2">
+							国際会館駅前&nbsp;
+									行き
+					</td>
+				</tr>
+				<tr height="25px">
+					<td>
+						所要時間： 12 分
+					</td>
+					<td colspan="2">
+								乗り換え： なし
+					</td>
+				</tr>
+			<tr>
+				<td colspan="3"><span class="label-success label_custom_dep">発</span><span><font color="black">京都産業大学前</font></span></td>
+			</tr>
+			<tr>
+				<td style="padding-left: 30px;">予定時刻&nbsp; 22:01</p></td>
+				<td colspan="2">発車予測&nbsp; 22:01</td>
+			</tr>
+			<tr>
+				<td colspan="3"><span class="label-danger label_custom_arr">着</span><span><font color="black">国際会館駅前</font></span></td>
+			</tr>
+			<tr>
+				<td style="padding-left: 30px;">予定時刻&nbsp; 22:11</td>
+				<td colspan="2">到着予測&nbsp; 22:13</td>
+			</tr>
+			<tr>
+				<td colspan="3" style="padding-left: 30px;">
+							約&nbsp;
+							<font size="4">3</font>
+							分で発車します
+				</td>
+			</tr>
+		</table>
+	</div>
+			</div>
+			<!-- bus List area 凡例 -->
+				<table class="table table-bordered" style="margin-bottom: 5px;";>
+					<tbody>
+							<tr>
+								<td style="color:#0072bc;text-align:center"><Strong>凡例</Strong></td>
+							</tr>
+						<tr>
+							<td style="text-align:center">
+									一番最初に到着するバスの背景色を変更しています。
+							</td>
+						</tr>
+							<tr><td>バスの色は混雑度を表します。</br>
+<div style="display:inline-block;">
+	<table border="0" style="width: 225px;">
+		<tr><td style="width: 10px;">&nbsp</td>
+			<td style="width: 40px;">
+				<img src="/wgsys/img/bus_red.png" />
+			</td>
+			<td>
+				たいへん混雑しています。
+			</td>
+		</tr>
+	</table>
+</div>
+<div style="display:inline-block;">
+	<table border="0" style="width: 225px;">
+		<tr><td style="width: 10px;">&nbsp</td>
+			<td style="width: 40px;">
+				<img src="/wgsys/img/bus_yellow.png" />
+			</td>
+			<td>
+				混雑しています。
+			</td>
+		</tr>
+	</table>
+</div>
+<div style="display:inline-block;">
+	<table border="0" style="width: 225px;">
+		<tr><td style="width: 10px;">&nbsp</td>
+			<td style="width: 40px;">
+				<img src="/wgsys/img/bus_blue.png" />
+			</td>
+			<td>
+				通常の状態です。
+			</td>
+		</tr>
+	</table>
+</div>
+</td></tr>
+					</tbody>
+				</table>
+		</div>
+		<!-- bus list end -->
+		<!-- busData detail START -->
+<!-- busData detail START  [01] -->
+	<div id="detailPopUp_0" style="display: none;">
+		<div class="bus_status clearfix" style="border-bottom: 0px;">
+			<div class="col-md-12 col-xs-12 col-sm-12">
+	<ul style="text-align: right">
+		<li><span>
+						<span style="border: 0px; font-size: 12px; vertical-align:bottom;" >
+								2
+						</span> 
+						個前の停留所を通過
+			</span>
+		</li>
+		<li><img src="/wgsys/img/signpole_green_small.png" /></li>
+					<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+						<li>
+								<img src="/wgsys/img/bus_blue.png" />
+						</li>
+					<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+					<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+					<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+					<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+	</ul>
+</div>
+		</div>
+		<div class="blue_bar clearfix">
+			<div class="col-md-7 col-xs-7 col-sm-7">
+				<h3>
+					乗車区間
+					<p style="font-size:12px;">
+						京都産業大学前-国際会館駅前<br>
+						所要時間：
+							12
+							分
+					</p>
+				</h3>
+			</div>
+			<div class="col-md-2 col-xs-2 col-sm-2">
+				<h3 class="" style="font-size:11px; height: 47px; line-height: 35px; margin: 0 auto; text-align: left; vertical-align: middle; white-space: nowrap">
+					予定時刻
+				</h3>
+			</div>
+			<div class="col-md-2 col-xs-2 col-sm-2">
+				<h3 class="" style="font-size:11px; height: 47px; line-height: 35px; margin: 0 auto; text-align: left; vertical-align: middle; white-space: nowrap">
+					到着予測
+				</h3>
+			</div>
+		</div>
+		<div class="clearfix">
+			<div class="timeline-centered">
+				<article class="timeline-entry">
+					<div class="timeline-entry-inner">
+						<div class="timeline-icon bg-success"></div>
+						<div class="timeline-label clearfix">
+							<div class="col-md-5 col-xs-5 col-sm-5">
+								<h2>
+									<span class="badge green_badge"> 発</span> <br>京都産業大学前
+								</h2>
+								<span class="departure_info">のりば-（ターミナル(40)）</span>
+							</div>
+							<div class="col-md-2 col-xs-2 col-sm-2">
+								<ul>
+										<li><a target="_blank" href="https://www.kyotobus.jp/route/timetable/schedule.html?stop_id=7475_1">
+												<i class="fa fa-calendar"></i> 時刻表
+										</a></li>
+									<li><a target="_blank" href="/wgsys/wgs/busMap.htm?signPoleKey=52272&locale=ja">
+										<i class="fa fa-map-marker"></i> 地図
+									</a></li>
+								</ul>
+							</div>
+							<div class="col-md-2 col-xs-2 col-sm-2">
+								<h2 style="height: 44px; line-height: 44px; text-align: left;">22:01</h2>
+							</div>
+							<div class="col-md-2 col-xs-2 col-sm-2">
+								<h2 style="height: 44px; line-height: 44px; text-align: left;">22:01</h2>
+							</div>
+							<div class="route_line clearfix"
+								style="margin-bottom: 2px; border-bottom: 0px;">
+									<div class="col-md-10 col-xs-10 col-sm-10">
+									<p>
+										系統
+											&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:
+												<span style="cursor: pointer;text-decoration: underline" onclick="checkRollsignName('N','京都産業大学前','国際会館駅前','17196');">
+													<font color="blue">４０</font>
+												</span>
+									</p>
+								</div>
+									<div class="col-md-10 col-xs-10 col-sm-10">
+									<p style="text-align: left;">
+										経由
+											&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:
+											地球研前・北稜高校前&nbsp;
+									</p>
+								</div>
+									<div class="col-md-10 col-xs-10 col-sm-10">
+									<p style="text-align: left;">
+										行き先
+											&nbsp;&nbsp;&nbsp;&nbsp;:
+											国際会館駅前&nbsp;
+									</p>
+								</div>
+									<div class="col-md-10 col-xs-10 col-sm-10">
+									<p class="">
+											所要時間
+												:
+											12 分
+									</p>
+								</div>
+									<div class="arrow_area">
+											<a id="arrow1_0" href="#" onclick="showInfoBetStops(event,'52272','51670','17196','79263','busInfoTable_1_0');">
+											<i class="fa fa-chevron-down"></i></a>
+									</div>
+							</div>
+							<div id="busInfoDiv_0"
+								style="border-bottom: 1px solid #AEAEAE; padding-bottom: 10px;">
+								<table id="busInfoTable_1_0" style="margin-bottom: 5px" class="table route_table table-responsive table-bordered">
+									<tbody>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</article>
+				<article class="timeline-entry">
+					<div class="timeline-entry-inner">
+						<div class="timeline-icon bg-success"></div>
+						<div class="timeline-label">
+							<div class="col-md-5 col-xs-5 col-sm-5">
+								<h2>
+									<span class="badge brown_badge">着</span><br> 国際会館駅前
+								</h2>
+							</div>
+							<div class="col-md-2 col-xs-2 col-sm-2">
+								<ul>
+									<li><a target="_blank" href="/wgsys/wgs/busMap.htm?signPoleKey=51670&locale=ja">
+										<i class="fa fa-map-marker "></i> 地図</a></li>
+								</ul>
+							</div>
+							<div class="col-md-2 col-xs-2 col-sm-2">
+								<h2 class="" style="height: 44px; line-height: 44px; text-align: left;">22:11</h2>
+							</div>
+							<div class="col-md-2 col-xs-2 col-sm-2">
+								<h2 class="" style="height: 44px; line-height: 44px; text-align: left;">22:13</h2>
+							</div>
+						</div>
+					</div>
+				</article>
+			</div>
+		</div>
+	</div>
+	<div id="stopsaway_0" class="clearfix" style="display:none">
+		<div class="col-md-12 col-sm-12 col-xs-12 legend" style="padding: 5px">
+	<table class="table table-bordered" style="margin-bottom: 5px;";>
+		<tbody>
+				<tr>
+					<td colspan="2" style="color:#0072bc;text-align:center"><Strong>凡例</Strong></td>
+				</tr>
+			<tr>
+				<td style="border:0px" class="bus_status stop_away" >
+					<ul>
+						<li><span>
+								<span style="border: 0px;" class="badge green_badge">*</span>
+								個前の停留所を通過
+						</span></li>
+						<li><img src="/wgsys/img/signpole_green_small.png" /></li>
+							<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+							<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+							<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+							<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+							<li><img src="/wgsys/img/signpole_blue_small.png" /></li>
+						<li><img src="/wgsys/img/bus_blue.png" /></li>
+					</ul>
+				</td>
+				<td >
+					バスが何個前の停留所を出発したか表示しています
+				</td>
+			</tr>
+				<tr><td colspan="2">
+					バスの色は混雑度を表します。</br>
+<div style="display:inline-block;">
+	<table border="0" style="width: 225px;">
+		<tr><td style="width: 10px;">&nbsp</td>
+			<td style="width: 40px;">
+				<img src="/wgsys/img/bus_red.png" />
+			</td>
+			<td>
+				たいへん混雑しています。
+			</td>
+		</tr>
+	</table>
+</div>
+<div style="display:inline-block;">
+	<table border="0" style="width: 225px;">
+		<tr><td style="width: 10px;">&nbsp</td>
+			<td style="width: 40px;">
+				<img src="/wgsys/img/bus_yellow.png" />
+			</td>
+			<td>
+				混雑しています。
+			</td>
+		</tr>
+	</table>
+</div>
+<div style="display:inline-block;">
+	<table border="0" style="width: 225px;">
+		<tr><td style="width: 10px;">&nbsp</td>
+			<td style="width: 40px;">
+				<img src="/wgsys/img/bus_blue.png" />
+			</td>
+			<td>
+				通常の状態です。
+			</td>
+		</tr>
+	</table>
+</div>
+				</td></tr>
+		</tbody>
+	</table>
+</div>
+	</div>
+		<!-- busData detail END -->
+</body></html>

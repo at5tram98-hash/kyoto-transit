@@ -107,13 +107,13 @@ async function check(name, path, validate, { cors = true } = {}) {
         .includes(`access-control-allow-origin: ${origin}`.toLowerCase())
     )
       throw Error("公開元へのCORSヘッダーが一致しません");
-    validate(data);
-    checks.push({ name, status: "passed" });
+    const note = validate(data);
+    checks.push({ name, status: "passed", ...(typeof note === "string" ? { note } : {}) });
     return data;
   } catch (e) {
     let message = e.stderr?.trim() || e.message;
     if (
-      ["City bus arrivals", "North 3 arrivals", "Rail live positions"].includes(
+      ["City bus arrivals", "North 3 arrivals", "Kyoto bus navigation", "Rail live positions"].includes(
         name,
       )
     ) {
@@ -185,6 +185,8 @@ if (health) {
         d.source === "live" && !d.stale,
         "市バスの実測データを確認できません",
       );
+      // Recorded, not required: an upstream hiccup legitimately falls back.
+      return `取得方式 ${d.meta?.mode ?? "不明"} · 方面 ${d.meta?.coverage?.available ?? "?"}/${d.meta?.coverage?.total ?? "?"}`;
     },
   );
   await check(
@@ -199,6 +201,23 @@ if (health) {
         d.results?.some((r) => r.route === "北3"),
         "北3の方面がありません",
       );
+    },
+  );
+  await check(
+    "Kyoto bus navigation",
+    "/api/kyotobus/approach?from=" +
+      encodeURIComponent("国際会館駅前") +
+      "&to=" +
+      encodeURIComponent("京都産業大学前"),
+    (d) => {
+      required(Array.isArray(d.buses), "京都バスナビの形式が異なります");
+      required(
+        d.buses.length > 0 || typeof d.message === "string",
+        "京都バスナビの便も公式メッセージもありません",
+      );
+      return d.buses.length
+        ? `${d.buses.length}便 · 先頭 ${d.buses[0].route}系統`
+        : d.message;
     },
   );
   await check("Rail live positions", "/api/rail/live", (d) => {
