@@ -1347,6 +1347,17 @@ a.plain-action {
 .journey-display.compact .next-station-hero {
   padding: 12px 8px;
 }
+/* Large text / short screens: keep the next stop and the alighting stop on
+   one screen; the line of stations ahead stays in the stop list. */
+.journey-display.compact .ride-line {
+  display: none;
+}
+.journey-display.compact .next-station-hero.lcd {
+  padding-top: 0;
+}
+.journey-display.compact .lcd-head {
+  padding: 6px 12px;
+}
 .journey-display.compact .next-countdown {
   margin-top: 10px;
 }
