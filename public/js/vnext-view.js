@@ -42,6 +42,7 @@ import {
 } from "./vnext-detect.js";
 import { motionPermissionState } from "./motion-permission.js";
 import { presentBoarding, closeBoarding } from "./boarding-sheet.js";
+import { lineBadge } from "./line-badge.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
 import { updateHTML, updateNearbyPanel } from "./view-rendering.js";
 import { getKintetsuFeed } from "./fast-data.js";
@@ -257,7 +258,7 @@ function nearbyBusHTML(stop) {
         rows.map((r) => ({
           key: r.dest,
           label: busDirectionLabel(r.route, r.dest),
-          html: `<div class="live-nearby-arrival" data-operator="citybus"><span><b class="transport-badge">${esc(r.route)}</b> ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(r.boarding)}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
+          html: `<div class="live-nearby-arrival" data-operator="citybus"><span>${lineBadge({ operator: "citybus", route: r.route }, { size: "small" })} ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(r.boarding)}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
         })),
       )
     : north3DepartureHTML(stop);
@@ -669,13 +670,19 @@ export function renderNow() {
   );
   navigation.refresh();
 }
+// Station sign: the station number in its line colour and every line served.
+function stationHeaderHTML(stop) {
+  const lines = stop.id === "K15" ? ["subway", "kintetsu"] : [stop.type],
+    code = /^[A-Z]\d{2}$/.test(stop.id) ? stop.id : "";
+  return `<header class="station-header">${code ? `<span class="station-number" data-line="${esc(stop.type)}"><small>${esc(code[0])}</small>${esc(code.slice(1))}</span>` : ""}<span class="station-lines">${lines.map((operator) => lineBadge({ operator })).join("")}</span></header>`;
+}
 export function nearbyDetailHTML(id) {
   const stop = state.network.stops.get(id);
   if (!stop) return ui("vnext_view_063");
   return ui("vnext_view_064", [
     stop.type.includes("bus")
       ? '<section class="bus-stop-preview" data-bus-stop-preview></section>'
-      : '<section class="station-arrivals" data-station-arrivals></section>',
+      : `${stationHeaderHTML(stop)}<section class="station-arrivals" data-station-arrivals></section>`,
     esc(id),
     esc(id),
   ]);

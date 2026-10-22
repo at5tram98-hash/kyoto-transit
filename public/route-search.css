@@ -227,13 +227,29 @@
   font-variant-numeric: tabular-nums;
   font-size: var(--type-secondary);
 }
+/* iOS tinted (gray) capsule buttons, like Maps' previous/next departure. */
 .departure-neighbor {
+  justify-self: center;
   border: 0;
-  border-radius: var(--radius-row);
-  background: var(--color-search-action);
-  color: var(--color-on-transport);
-  font-weight: 700;
-  padding: 8px 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--fill-tertiary);
+  color: var(--color-link);
+  font-weight: 600;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+.departure-neighbor:active {
+  background: var(--fill-secondary);
+}
+.departure-neighbor:first-child {
+  grid-column: 1;
+}
+.departure-neighbor:last-child {
+  grid-column: 3;
+}
+.result-search-condition {
+  grid-column: 2;
+  grid-row: 1;
 }
 .result-search-condition [data-result-date] {
   font-size: var(--type-secondary);
@@ -244,34 +260,41 @@
   font-weight: 650;
 }
 
+/* iOS segmented control: filled track, raised selected segment. */
 .result-order {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  border-bottom: 1px solid var(--separator);
-  margin: 10px 0 0;
-  padding: 0;
-  background: var(--surface-primary);
-  border-radius: 0;
+  gap: 2px;
+  margin: 10px 0 6px;
+  padding: 2px;
+  border-radius: var(--radius-small);
+  background: var(--fill-tertiary);
 }
 .result-order button {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 5px;
-  min-height: 50px;
-  padding: 5px 2px;
+  gap: 4px;
+  min-height: 44px;
+  padding: 4px 2px;
   border: 0;
-  border-bottom: 3px solid transparent;
-  border-radius: 0;
+  border-radius: var(--radius-compact);
   background: transparent;
   color: var(--text);
-  font-size: var(--type-secondary);
+  font-size: var(--type-caption);
+  font-weight: 600;
+  transition: background-color var(--motion-standard) ease;
 }
 .result-order button.active {
-  border-bottom-color: var(--color-link);
-  color: var(--color-link);
+  background: var(--surface-segment-selected);
+  box-shadow: var(--shadow-toggle);
+}
+.result-order .route-rank {
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 4px;
+  font-size: 0.6875rem;
 }
 .planner-place-pair {
   display: block;
@@ -462,6 +485,9 @@
 .route-rank.fare {
   background: var(--color-rank-cheap);
 }
+.route-rank.walking {
+  background: var(--color-rank-walk);
+}
 .planner-result-head:empty {
   display: none;
 }
@@ -534,6 +560,7 @@
   overflow-wrap: anywhere;
 }
 .route-mode-badge svg {
+  color: var(--muted);
   width: 18px;
   height: 18px;
   flex: none;
@@ -771,7 +798,7 @@
 }
 .journey-service-row {
   padding-block: 14px;
-  min-height: 150px;
+  min-height: 96px;
 }
 .journey-service-row .planner-line::before {
   top: -14px;
@@ -799,6 +826,47 @@
 .journey-ride {
   position: relative;
   --journey-line-color: var(--transport-color);
+}
+.journey-ride[data-line] {
+  --journey-line-color: var(--line-color);
+}
+.journey-service-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.journey-service-title > b {
+  font-size: var(--type-body);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.journey-loop {
+  margin-inline-start: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-tiny);
+  background: color-mix(in srgb, var(--line-citybus-loop) 14%, var(--surface-primary));
+  color: var(--line-citybus-loop);
+  font-size: var(--type-caption);
+  font-style: normal;
+  font-weight: 700;
+  vertical-align: 0.1em;
+}
+.planner-leg small.journey-service-destination {
+  margin-top: 6px;
+  color: var(--text);
+  font-size: var(--type-secondary);
+  font-weight: 600;
+}
+.journey-leg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-variant-numeric: tabular-nums;
 }
 .planner-leg .planner-clock,
 .journey-departure {
@@ -1326,12 +1394,15 @@
 
 /* C-2–C-5 route comparison retains existing clickable result cards. */
 .route-compared-result { min-width: 0; margin-bottom: 12px; }
-.route-compare-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 12px; border: 1px solid var(--separator); border-radius: var(--radius-row); background: var(--surface-secondary); font-size: var(--type-caption); }
-.route-compare-strip > span { overflow-wrap: anywhere; }
+.route-compared-result { margin-bottom: 0; border-bottom: 1px solid var(--separator); }
+.route-compared-result > .route-option { border-bottom: 0; padding-bottom: 6px; }
+/* Caption line under the card: transfer margin and strengths as text. */
+.route-compare-note { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; margin: 0 18px 12px calc(1.5rem + 8px); color: var(--muted); font-size: var(--type-caption); line-height: 1.45; }
+.route-compare-note > span { overflow-wrap: anywhere; }
+.route-compare-note > span + span::before { content: "·"; margin: 0 6px; color: var(--muted); }
+.route-compare-best { color: var(--color-success); font-weight: 600; }
+.route-margin[data-transfer-risk="tight"] { color: var(--color-warning); }
 .route-margin[data-transfer-risk="critical"] { color: var(--color-warning); font-weight: 700; }
-.route-compare-tags { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 0; }
-.route-compare-tags > span { padding:4px 9px; border:1px solid var(--separator); border-radius: var(--radius-round); color:var(--text); font-size:var(--type-caption); }
-.result-order [data-result-order="walking"] { min-height:44px; }
 /* iOS segmented control: a filled track with a raised selected segment. */
 .nearby-sort { display:flex; gap:2px; padding:2px; margin-bottom:10px; border-radius:var(--radius-small); background:var(--fill-tertiary); }
 .nearby-sort button { flex:1 1 0; min-width:0; min-height:44px; padding:6px 8px; border:0; border-radius:var(--radius-compact); background:transparent; color:var(--text); font:inherit; font-size:var(--type-caption); font-weight:600; white-space:normal; }
@@ -1340,7 +1411,6 @@
 .manual-nearby-picker { display:grid; gap:10px; padding:12px; background:var(--surface-primary); border-radius:var(--radius-row); }
 #manual-nearby-search { min-height:44px; width:100%; max-width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--separator); border-radius:var(--radius-row); background:var(--surface-primary); color:var(--text); font:inherit; }
 .manual-nearby-options { display:flex; gap:8px; flex-wrap:wrap; }
-@media(max-width:370px) { .route-compare-strip { gap:6px 8px; } }
 
 /* C-6: recovery choices fit narrow screens and keep safe tap targets. */
 .c6-search-recovery { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }

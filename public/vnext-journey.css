@@ -474,13 +474,16 @@
   min-height: 30px;
 }
 .route-token.line-k {
-  background: var(--color-subway);
+  background: var(--line-subway);
+  color: var(--color-on-line);
 }
 .route-token.line-b {
-  background: var(--color-kintetsu);
+  background: var(--line-kintetsu);
+  color: var(--color-on-line);
 }
 .route-token.line-bus {
-  background: var(--transport-color);
+  background: var(--line-color, var(--transport-color));
+  color: var(--color-on-line);
 }
 .route-tokens.boundary .route-token {
   font-size: 0.8rem;

@@ -1016,7 +1016,7 @@ export default {
   route_search_view_052:
     '<button class="journey-departure" data-change-route="{0}" data-change-leg="{1}" aria-haspopup="dialog" aria-controls="trip-choice-sheet" aria-expanded="false" aria-label="{2} {3}発の便を変更">{4}</button>',
   route_search_view_053:
-    '<div class="journey-ride" data-operator="{0}"><div class="planner-leg ride journey-point">{1}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">発</span>{2}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><b>{3}{4}</b><small>{5}{6}{7}</small></div>{8}<small class="journey-leg-source">{9}</small>{10}{11}{12}</div></div>{13}{14}</div>',
+    '<div class="journey-ride" data-operator="{0}" data-line="{15}"><div class="planner-leg ride journey-point">{1}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">発</span>{2}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><div class="journey-service-title">{3}<b>{4}</b></div><small class="journey-service-destination">{5}{6}{7}</small>{16}</div>{8}<small class="journey-leg-source">{9}</small>{10}{11}{12}</div></div>{13}{14}</div>',
   route_search_view_054:
     '<article class="planner-result {0}" data-operator="{1}">{2}<div class="planner-result-head">{3}</div><div class="planner-times"><strong>{4}</strong><span>→</span><strong>{5}</strong><small>({6})</small></div><div class="planner-metrics"><span class="route-price"><b>{7}</b>{8}</span><span>乗換{9}回</span><span>徒歩{10}分</span>{11}{12}</div>{13}{14}{15}<div class="planner-result-actions">{16}</div></article>{17}',
   route_trip_screen_026:
@@ -1227,4 +1227,22 @@ export default {
   lcd_bound: "{0} ゆき",
   ride_line_alight: "降車",
   ride_line_more: "この先 {0} 停留所",
+  line_karasuma: "烏丸線",
+  line_kintetsu: "近鉄京都線",
+  line_through: "烏丸線・近鉄直通",
+  line_bus: "バス",
+  route_leg_minutes: "{0}分",
+  route_leg_fare: "{0}円",
+  route_leg_fare_covered: "定期内",
+  route_loop: "循環",
+  route_rank_walk: "歩",
+  kyotobus_nav_heading: "京都バスナビ 発車予測",
+  kyotobus_nav_destination: "{0}行",
+  kyotobus_nav_scheduled: "定刻 {0}",
+  kyotobus_nav_late: "{0}分遅れ",
+  kyotobus_nav_platform: "{0}のりば",
+  kyotobus_nav_departs: "{0}発",
+  kyotobus_nav_wait: "約{0}分後",
+  kyotobus_nav_source: "京都バスナビ（公式）· {0} 取得",
+  stop_schedule_heading: "公式時刻表",
 };

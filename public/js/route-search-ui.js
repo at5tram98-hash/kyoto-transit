@@ -667,7 +667,8 @@ export function mountRouteSearch({
       button.type = "button";
       button.dataset.resultOrder = "walking";
       button.setAttribute("aria-pressed", "false");
-      button.textContent = ui("c5_sort_walking");
+      button.setAttribute("aria-label", ui("c5_sort_walking"));
+      button.innerHTML = `<i class="route-rank walking" aria-hidden="true">${esc(ui("route_rank_walk"))}</i><span>${esc(ui("c5_sort_walking"))}</span>`;
       orderRoot.append(button);
     }
     resultFrame.querySelectorAll("[data-result-order]").forEach((button) => {
@@ -714,10 +715,10 @@ export function mountRouteSearch({
       const margin = risk.hasTransfer
         ? `<span class="route-margin" data-transfer-risk="${risk.critical ? "critical" : risk.tight ? "tight" : "normal"}">${esc(ui(risk.critical ? "c3_critical" : risk.tight ? "c3_tight" : "c3_margin", [risk.shortest]))}</span>`
         : `<span class="route-margin">${esc(ui("c3_direct"))}</span>`;
-      const cost = facts.fare === null
-        ? ui("c4_unknown")
-        : ui("c4_additional", [facts.fare.toLocaleString("ja-JP")]);
-      const overview = `<div class="route-compare-strip" aria-label="${esc(ui("c2_overview"))}"><span>${esc(ui("c2_walk", [facts.walking]))}</span><span>${esc(ui("c2_transfers", [facts.transfers]))}</span><span>${esc(cost)}</span>${margin}</div><p class="route-compare-tags">${compareTags.map(t => `<span>${esc(t)}</span>`).join("")}</p>`;
+      // Walk, transfers and fare already lead the card; the note adds the
+      // transfer margin and what this route is best at, as plain caption text.
+      const cost = facts.fare === null ? `<span>${esc(ui("c4_unknown"))}</span>` : "";
+      const overview = `<p class="route-compare-note" aria-label="${esc(ui("c2_overview"))}">${margin}${cost}${compareTags.map(t => `<span class="route-compare-best">${esc(t)}</span>`).join("")}</p>`;
       return `<div class="route-compared-result" data-route-compare-index="${i}">${routeHTML(
         routes[i], network, data.boarding?.[i], i, tokyoNow(), false,
         { position: position + 1, recommendations: [

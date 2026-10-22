@@ -1,3 +1,4 @@
+import { lineBadge } from "./line-badge.js";
 import { ui } from "./locale.js";
 import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
 import { getStaticFeed } from "./fast-data.js";
@@ -120,7 +121,10 @@ export function busRow(r) {
       primary.source === "live" &&
       ((Number.isFinite(primary.stopsAway) && primary.stopsAway <= 1) ||
         (Number.isFinite(primary.minutes) && primary.minutes <= 1)),
-    service: `<b class="arrival-route-badge" aria-label="${esc(busServiceLabel(r))}" title="${esc(busServiceLabel(r))}">${esc(r.route)}</b>`,
+    service: lineBadge(
+      { operator: r.operator ?? "citybus", route: r.route },
+      { className: "arrival-route-badge", label: busServiceLabel(r) },
+    ),
     destination: `<b>${esc(r.dest || ui("vnext_arrivals_014"))}</b>`,
     minutes: arrivalValue(primary),
     second: arrivals[1]
@@ -219,7 +223,7 @@ export function compactBusHTML(data, { stopId } = {}) {
     return Number.isFinite(r.scheduledDeparture)
       ? ui("station_scheduled_at", [clock(r.scheduledDeparture)]) : busArrivalText(r);
   };
-  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}><b class="arrival-route-badge">${esc(r.route)}</b><span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}</small></span><strong>${esc(arrival(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div><details class="source-caption"><summary>${ui("audit_freshness")}</summary>${rows.map((r) => `<p>${esc(r.route)} · ${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</p>`).join("")}</details>`;
+  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}>${lineBadge({ operator: r.operator ?? "citybus", route: r.route }, { className: "arrival-route-badge" })}<span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}</small></span><strong>${esc(arrival(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div><details class="source-caption"><summary>${ui("audit_freshness")}</summary>${rows.map((r) => `<p>${esc(r.route)} · ${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</p>`).join("")}</details>`;
 }
 
 export function mountArrivals({ network }) {
