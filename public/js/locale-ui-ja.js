@@ -1263,4 +1263,11 @@ export default {
   foldback_recommend_train: "{0} {1}行",
   foldback_recommend_return: "{0}に{1}着",
   foldback_recommend_slack: "乗換余裕 約{0}分",
+  through_prompt_north: "この列車は竹田から烏丸線へ直通しますか？",
+  through_prompt_south: "この列車は竹田から近鉄線へ直通しますか？",
+  through_prompt_note: "時刻表では判別できない区間です。車内表示やアナウンスで確認できたら選んでください。",
+  through_prompt_yes: "直通する・{0}行",
+  through_prompt_depart: "竹田 {0}発",
+  through_prompt_end_north: "竹田止まり・乗り換える",
+  through_prompt_end_south: "竹田止まり・乗り換える",
 };

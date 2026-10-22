@@ -42,6 +42,7 @@ import {
   startManualRide,
   finishCurrentRide,
   chooseRideCandidates,
+  confirmThroughContinuation,
 } from "./vnext-detect.js";
 import { renderNow, setupNowInteractions, rideChoiceRowsHTML } from "./vnext-view.js";
 import {
@@ -292,6 +293,11 @@ function setupEvents() {
       beginRideRecheck("manual");
       renderNow();
       void autoDetectRide(true, renderNow);
+    } else if (b.dataset.throughContinue !== undefined) {
+      if (confirmThroughContinuation(Number(b.dataset.throughContinue))) {
+        haptic();
+        renderNow();
+      }
     } else if (b.hasAttribute("data-choose-ride")) {
       openRideChooser();
     } else if (b.hasAttribute("data-enable-motion")) {

@@ -1276,4 +1276,11 @@ export default {
   foldback_recommend_train: "{0} to {1}",
   foldback_recommend_return: "Back at {0} {1}",
   foldback_recommend_slack: "About {0} min to change",
+  through_prompt_north: "Does this train continue onto the Karasuma Line at Takeda?",
+  through_prompt_south: "Does this train continue onto the Kintetsu Line at Takeda?",
+  through_prompt_note: "The timetable cannot tell. Choose once the car display or announcement confirms it.",
+  through_prompt_yes: "Continues · to {0}",
+  through_prompt_depart: "Dep. Takeda {0}",
+  through_prompt_end_north: "Ends at Takeda",
+  through_prompt_end_south: "Ends at Takeda",
 };

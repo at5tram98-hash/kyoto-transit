@@ -18,7 +18,14 @@ import {
 } from "./riding.js";
 import { currentMotionEvidence } from "./motion-assist.js";
 import { assessBoardingMovement } from "./auto-boarding-evidence.js";
-import { findThroughContinuation, spansTakeda } from "./through-continuity.js";
+import {
+  findThroughContinuation,
+  spansTakeda,
+  joinThroughFromFeeds,
+  throughContinuations,
+  throughDirection,
+  applyThroughContinuation,
+} from "./through-continuity.js";
 import { getKyotoBusRT } from "./live.js";
 import { fetchRealtime, getCached } from "./realtime.js";
 import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
@@ -31,7 +38,7 @@ import {
   kyotoBusStaticCandidates,
 } from "./vnext-core.js";
 import { getStaticFeed } from "./fast-data.js";
-import { journeyClock } from "./journey-core.js";
+import { journeyClock, stopTime } from "./journey-core.js";
 import { observeJourney } from "./journey-observation.js";
 import { boardingAvailable, selectedRideShift } from "./journey-session.js";
 import {
@@ -1032,26 +1039,123 @@ export function kyotoBusPredictionFor(ride, now = Date.now()) {
     : null;
 }
 
+// Through trains between Kintetsu and the Karasuma line. The static feeds
+// split them at Takeda; the official Kintetsu train page gives the exact
+// Takeda departure of a northbound one.
+let throughTripJob = null;
+function prefetchThroughEvidence(ride) {
+  const date = tokyoNow().date;
+  if (!state.kintetsuStaticFeed || state.kintetsuStaticDate !== date) {
+    state.kintetsuStaticDate = date;
+    void getStaticFeed("kintetsu", date)
+      .then((feed) => {
+        state.kintetsuStaticFeed = feed;
+      })
+      .catch(() => {
+        state.kintetsuStaticDate = null;
+      });
+  }
+  if (
+    throughDirection(ride) === "north" &&
+    ride.tripId &&
+    !String(ride.tripId).includes(":") &&
+    state.throughTakeda?.tripId !== ride.tripId &&
+    throughTripJob !== ride.tripId
+  ) {
+    throughTripJob = ride.tripId;
+    void boundedLive(
+      `kintetsu-trip:${ride.tripId}:${date}`,
+      () =>
+        official("/timetable/trip", {
+          stop: ride.from,
+          direction: "north",
+          day: "auto",
+          trip: ride.tripId,
+        }),
+      { wait: 0, maxAge: 6 * 3600000, retryAfter: 60000 },
+    ).then((trip) => {
+      const takeda = trip?.stops?.find((s) => /竹田/.test(s.name ?? ""));
+      if (Number.isFinite(takeda?.departure))
+        state.throughTakeda = { tripId: ride.tripId, departure: takeda.departure };
+      throughTripJob = null;
+    });
+  }
+}
+function heardDestinations() {
+  const a = state.smartLiveAnnouncement;
+  return a && Date.now() - a.at <= 120000 ? (a.parsed.destinationIds ?? [a.parsed.destination].filter(Boolean)) : [];
+}
+// Rider's answer to "does this train continue onto the other line?".
+export function confirmThroughContinuation(index) {
+  const prompt = state.throughPrompt,
+    ride = state.ride;
+  if (!prompt || !ride || prompt.key !== rideKey(ride)) return false;
+  if (index < 0) {
+    state.throughPrompt = { ...prompt, dismissed: true };
+    return true;
+  }
+  const continuation = prompt.rows[index];
+  const joined = continuation && applyThroughContinuation(ride, continuation, state.network, "rider");
+  if (!joined) return false;
+  adoptThroughRide(joined);
+  return true;
+}
+function adoptThroughRide(extended) {
+  // Same train, same Ride: do not trigger boarding, erase the itinerary,
+  // or infer the next station as the rider's alighting stop.
+  state.ride = extended;
+  state.throughPrompt = null;
+  state.rideObservation = null;
+  state.heroObservation = null;
+  state.audioProgress = null;
+  consensus.unlock();
+  consensus.lock(extended);
+  persistJourney(true);
+}
+function throughFromFeeds(ride, minute) {
+  const direction = throughDirection(ride);
+  if (!direction) return null;
+  prefetchThroughEvidence(ride);
+  const feeds = { subwayFeed: state.subwayFeed, kintetsuFeed: state.kintetsuStaticFeed, network: state.network };
+  const joined = joinThroughFromFeeds(ride, {
+    ...feeds,
+    takedaDeparture:
+      ride.tripId && state.throughTakeda?.tripId === ride.tripId
+        ? state.throughTakeda.departure
+        : null,
+    heardDestinations: heardDestinations(),
+  });
+  if (joined) return joined;
+  // Otherwise ask near Takeda, offering the trains that leave there.
+  const stops = ride.officialStops ?? [],
+    end = stops.at(-1),
+    endTime = stopTime(end),
+    key = rideKey(ride);
+  if (
+    Number.isFinite(endTime) &&
+    endTime - minute <= 6 &&
+    endTime - minute >= -2 &&
+    !(state.throughPrompt?.key === key && state.throughPrompt.dismissed)
+  ) {
+    const rows = throughContinuations(ride, feeds).slice(0, 2);
+    state.throughPrompt = rows.length ? { key, direction, rows } : null;
+  }
+  return null;
+}
+
 export function updateRideAnchor() {
   let ride = state.ride;
   if (!ride) return;
   const now = journeyClock(ride, tokyoNow());
-  const extended = findThroughContinuation(
-    ride,
-    [state.subwayFeed, state.network],
-    { minute: now.minute, network: state.network },
-  );
+  const extended =
+    findThroughContinuation(
+      ride,
+      [state.subwayFeed, state.network],
+      { minute: now.minute, network: state.network },
+    ) ?? throughFromFeeds(ride, now.minute);
   if (extended) {
-    // Same train, same Ride: do not trigger boarding, erase the itinerary,
-    // or infer the next station as the rider's alighting stop.
     ride = extended;
-    state.ride = extended;
-    state.rideObservation = null;
-    state.heroObservation = null;
-    state.audioProgress = null;
-    consensus.unlock();
-    consensus.lock(extended);
-    persistJourney(true);
+    adoptThroughRide(extended);
   }
   const observation = observeJourney(state.rideObservation, ride, {
       minute: now.minute,
