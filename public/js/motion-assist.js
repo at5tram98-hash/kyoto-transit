@@ -15,6 +15,7 @@ import {
 import { distance } from "./mobility.js";
 import { freshFix } from "./riding.js";
 import { state, settings, tokyoNow } from "./vnext-state.js";
+import { railMotionSummary } from "./rail-motion.js";
 
 const RETRY_MS = 16000,
   MOTION_WINDOW_MS = 15000,
@@ -30,7 +31,9 @@ let recognitionActive = false,
   recognitionRestartTimer = null,
   recognitionDeadline = 0,
   assistInterval = null;
-const motionSamples = [];
+const motionSamples = [],
+  // Ten minutes at ~10 Hz for underground run/stop counting.
+  railSamples = [];
 
 function speechCtor() {
   return (
@@ -78,6 +81,10 @@ function recordDeviceMotion(event) {
   if (!Number.isFinite(magnitude) || magnitude < 0 || magnitude > 25) return;
   const now = Date.now();
   motionSamples.push({ at: now, magnitude });
+  railSamples.push({ at: now, magnitude });
+  while (railSamples.length && railSamples[0].at < now - 10 * 60000)
+    railSamples.shift();
+  if (railSamples.length > 7000) railSamples.splice(0, railSamples.length - 7000);
   const cutoff = now - MOTION_WINDOW_MS * 2;
   while (motionSamples.length && motionSamples[0].at < cutoff)
     motionSamples.shift();
@@ -229,6 +236,10 @@ export function summarizeVehicleMotion(
     speed: currentSpeed,
     peakAcceleration,
   };
+}
+
+export function currentRailMotion(options = {}) {
+  return railMotionSummary(railSamples, options);
 }
 
 export function currentMotionEvidence(

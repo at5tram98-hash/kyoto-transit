@@ -16,9 +16,16 @@ import {
   matchMeasuredVehicles,
   applyRideMotionEvidence,
 } from "./riding.js";
-import { currentMotionEvidence } from "./motion-assist.js";
+import { currentMotionEvidence, currentRailMotion } from "./motion-assist.js";
 import { assessBoardingMovement } from "./auto-boarding-evidence.js";
-import { findThroughContinuation, spansTakeda } from "./through-continuity.js";
+import {
+  findThroughContinuation,
+  spansTakeda,
+  joinThroughFromFeeds,
+  throughContinuations,
+  throughDirection,
+  applyThroughContinuation,
+} from "./through-continuity.js";
 import { getKyotoBusRT } from "./live.js";
 import { fetchRealtime, getCached } from "./realtime.js";
 import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
@@ -31,7 +38,7 @@ import {
   kyotoBusStaticCandidates,
 } from "./vnext-core.js";
 import { getStaticFeed } from "./fast-data.js";
-import { journeyClock } from "./journey-core.js";
+import { journeyClock, stopTime } from "./journey-core.js";
 import { observeJourney } from "./journey-observation.js";
 import { boardingAvailable, selectedRideShift } from "./journey-session.js";
 import {
@@ -351,7 +358,10 @@ async function detectKyotoBus(stopId) {
     .slice(0, 3);
 }
 
-async function detectSubway(stopId, { throughOnly = false } = {}) {
+async function detectSubway(
+  stopId,
+  { throughOnly = false, windowBefore = 4, stationsTravelled = null } = {},
+) {
   const now = tokyoNow(),
     feed = await ensureSubwayFeed();
   if (!feed?.services?.length) return [];
@@ -361,7 +371,7 @@ async function detectSubway(stopId, { throughOnly = false } = {}) {
       direction: directionHint,
       minute: now.minute,
       network: state.network,
-      windowBefore: 4,
+      windowBefore,
       windowAfter: 1,
     }).filter((ride) =>
       !throughOnly || (ride.operator === "through" && spansTakeda(ride.officialStops))
@@ -375,11 +385,31 @@ async function detectSubway(stopId, { throughOnly = false } = {}) {
     railFeed: null,
     busFeed: null,
   });
+  // Underground: stations travelled (counted from the accelerometer) must
+  // agree with where each train should be by its timetable.
+  const hops = (leg) =>
+    (leg.officialStops ?? [])
+      .slice(1)
+      .filter((s) => Number.isFinite(s.departure ?? s.time) && (s.departure ?? s.time) <= now.minute)
+      .length;
+  const runFit = (leg) => {
+    if (!Number.isFinite(stationsTravelled)) return 0;
+    const diff = Math.abs(hops(leg) - stationsTravelled);
+    return diff === 0 ? 15 : diff === 1 ? 4 : -20;
+  };
   return ranked
     .map((r) =>
-      asCandidate(r.leg, r.score + 35, "地下鉄公式全駅時刻表＋現在地", {
-        evidence: r.evidence,
-      }),
+      asCandidate(
+        r.leg,
+        r.score + 35 + runFit(r.leg),
+        Number.isFinite(stationsTravelled)
+          ? "地下鉄公式全駅時刻表＋走行・停車の回数"
+          : "地下鉄公式全駅時刻表＋現在地",
+        {
+          evidence: r.evidence,
+          stationsTravelled,
+        },
+      ),
     )
     .sort(
       (a, b) =>
@@ -728,7 +758,17 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
   const fixFresh = freshFix(state.fix),
     freshNear = nearest();
   if (fixFresh) consensus.observeStation(freshNear.rail, state.fix);
-  const stationContext = consensus.stationContext();
+  // Underground: the last fix was at a subway station and GPS is gone. Keep
+  // that station for up to 15 minutes (waiting on the platform included).
+  const subwayContext = !fixFresh
+      ? consensus.stationContext(Date.now(), 15 * 60000)
+      : null,
+    underground =
+      subwayContext?.station?.stop?.type === "subway" ? subwayContext : null,
+    stationContext = consensus.stationContext() ?? underground;
+  const railMotion = underground
+    ? currentRailMotion({ since: underground.at })
+    : null;
   const announcement = state.smartLiveAnnouncement;
   const audioStop =
     announcement && Date.now() - announcement.at <= 75000
@@ -781,6 +821,7 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
           (fixFresh && onRailCorridor(state.fix, near.rail.stop.type))),
       railProbeAllowed =
         railMovement ||
+        Boolean(underground && railMotion?.available && !railMotion.walking) ||
         Boolean(state.armedJourney?.ride) ||
         Boolean(audioStop && ["subway", "kintetsu"].includes(audioStop.type)),
       recentBusTrail = state.busTrail.some((x) => Date.now() - x.at < 180000),
@@ -829,7 +870,21 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
         candidates =
           near.rail.stop.type === "kintetsu"
             ? await detectKintetsu(near.rail.id).catch(() => [])
-            : await detectSubway(near.rail.id).catch(() => []);
+            : await detectSubway(
+                near.rail.id,
+                underground
+                  ? {
+                      // Trains that left since the rider was last seen here.
+                      windowBefore: Math.min(
+                        16,
+                        Math.ceil((Date.now() - underground.at) / 60000) + 1,
+                      ),
+                      stationsTravelled: railMotion?.available
+                        ? railMotion.completedRuns
+                        : null,
+                    }
+                  : {},
+              ).catch(() => []);
     }
     if (!fixFresh && !stationContext && audioStop?.type === "subway") {
       const feed = await ensureSubwayFeed();
@@ -935,17 +990,25 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
             motion.span >= 15 && motion.speed >= 0.6 && motion.speed < 2.5,
           rejected: candidate.directionRejected,
         });
-      const motionEvidence = currentMotionEvidence(state.samples, observedAt);
+      const motionEvidence = currentMotionEvidence(state.samples, observedAt),
+        undergroundRiding =
+          Boolean(underground && railMotion?.riding) &&
+          ["subway", "through"].includes(ride.operator);
       if (
-        motionEvidence.sensorSamples >= 6 &&
-        motionEvidence.activeRatio >= 0.35 &&
-        motionEvidence.rms >= 0.12
+        (motionEvidence.sensorSamples >= 6 &&
+          motionEvidence.activeRatio >= 0.35 &&
+          motionEvidence.rms >= 0.12) ||
+        undergroundRiding
       )
-        add("motion", 0.55, motionEvidence.sensorObservedAt, {
+        add("motion", undergroundRiding ? 0.6 : 0.55, motionEvidence.sensorObservedAt ?? railMotion?.observedAt ?? observedAt, {
           phase: motionEvidence.phase,
           pattern: motionEvidence.pattern,
           acceleration: motionEvidence.acceleration,
-          vehicleMoving: movement.moving && motionEvidence.speed >= 2.8,
+          // Underground, the accelerometer's train pattern stands in for GPS.
+          vehicleMoving:
+            (movement.moving && motionEvidence.speed >= 2.8) || undergroundRiding,
+          underground: Boolean(underground),
+          stationsTravelled: railMotion?.completedRuns ?? null,
         });
       const live = candidate.live,
         liveAt =
@@ -1032,27 +1095,152 @@ export function kyotoBusPredictionFor(ride, now = Date.now()) {
     : null;
 }
 
+// Through trains between Kintetsu and the Karasuma line. The static feeds
+// split them at Takeda; the official Kintetsu train page gives the exact
+// Takeda departure of a northbound one.
+let throughTripJob = null;
+function prefetchThroughEvidence(ride) {
+  const date = tokyoNow().date;
+  if (!state.kintetsuStaticFeed || state.kintetsuStaticDate !== date) {
+    state.kintetsuStaticDate = date;
+    void getStaticFeed("kintetsu", date)
+      .then((feed) => {
+        state.kintetsuStaticFeed = feed;
+      })
+      .catch(() => {
+        state.kintetsuStaticDate = null;
+      });
+  }
+  if (
+    throughDirection(ride) === "north" &&
+    ride.tripId &&
+    !String(ride.tripId).includes(":") &&
+    state.throughTakeda?.tripId !== ride.tripId &&
+    throughTripJob !== ride.tripId
+  ) {
+    throughTripJob = ride.tripId;
+    void boundedLive(
+      `kintetsu-trip:${ride.tripId}:${date}`,
+      () =>
+        official("/timetable/trip", {
+          stop: ride.from,
+          direction: "north",
+          day: "auto",
+          trip: ride.tripId,
+        }),
+      { wait: 0, maxAge: 6 * 3600000, retryAfter: 60000 },
+    ).then((trip) => {
+      const takeda = trip?.stops?.find((s) => /竹田/.test(s.name ?? ""));
+      if (Number.isFinite(takeda?.departure))
+        state.throughTakeda = { tripId: ride.tripId, departure: takeda.departure };
+      throughTripJob = null;
+    });
+  }
+}
+function heardDestinations() {
+  const a = state.smartLiveAnnouncement;
+  return a && Date.now() - a.at <= 120000 ? (a.parsed.destinationIds ?? [a.parsed.destination].filter(Boolean)) : [];
+}
+// Rider's answer to "does this train continue onto the other line?".
+export function confirmThroughContinuation(index) {
+  const prompt = state.throughPrompt,
+    ride = state.ride;
+  if (!prompt || !ride || prompt.key !== rideKey(ride)) return false;
+  if (index < 0) {
+    state.throughPrompt = { ...prompt, dismissed: true };
+    return true;
+  }
+  const continuation = prompt.rows[index];
+  const joined = continuation && applyThroughContinuation(ride, continuation, state.network, "rider");
+  if (!joined) return false;
+  adoptThroughRide(joined);
+  return true;
+}
+function adoptThroughRide(extended) {
+  // Same train, same Ride: do not trigger boarding, erase the itinerary,
+  // or infer the next station as the rider's alighting stop.
+  state.ride = extended;
+  state.throughPrompt = null;
+  state.rideObservation = null;
+  state.heroObservation = null;
+  state.audioProgress = null;
+  consensus.unlock();
+  consensus.lock(extended);
+  persistJourney(true);
+}
+function throughFromFeeds(ride, minute) {
+  const direction = throughDirection(ride);
+  if (!direction) return null;
+  prefetchThroughEvidence(ride);
+  const feeds = { subwayFeed: state.subwayFeed, kintetsuFeed: state.kintetsuStaticFeed, network: state.network };
+  const joined = joinThroughFromFeeds(ride, {
+    ...feeds,
+    takedaDeparture:
+      ride.tripId && state.throughTakeda?.tripId === ride.tripId
+        ? state.throughTakeda.departure
+        : null,
+    heardDestinations: heardDestinations(),
+  });
+  if (joined) return joined;
+  // Otherwise ask near Takeda, offering the trains that leave there.
+  const stops = ride.officialStops ?? [],
+    end = stops.at(-1),
+    endTime = stopTime(end),
+    key = rideKey(ride);
+  if (
+    Number.isFinite(endTime) &&
+    endTime - minute <= 6 &&
+    endTime - minute >= -2 &&
+    !(state.throughPrompt?.key === key && state.throughPrompt.dismissed)
+  ) {
+    const rows = throughContinuations(ride, feeds).slice(0, 2);
+    state.throughPrompt = rows.length ? { key, direction, rows } : null;
+  }
+  return null;
+}
+
+// Underground there is no GPS: when the accelerometer shows the train
+// standing at a station after k station-to-station runs since it left the
+// boarding station, that station is officialStops[k] and the schedule
+// difference is the train's delay. Recent announcements take precedence.
+function anchorUndergroundFromMotion(ride, now) {
+  if (
+    !["subway", "through"].includes(ride.operator) ||
+    freshFix(state.fix) ||
+    (state.audioProgress && Date.now() - state.audioProgress.at <= 75000)
+  )
+    return;
+  const stops = ride.officialStops ?? [],
+    departed = stopTime(stops[0]);
+  if (!Number.isFinite(departed) || departed > now.minute) return;
+  const since = Date.now() - (now.minute - departed + 1) * 60000,
+    motion = currentRailMotion({ since });
+  if (!motion.available || !motion.stoppedNow || motion.completedRuns < 1) return;
+  const station = stops[motion.completedRuns],
+    scheduled = stopTime(station);
+  if (!station || !Number.isFinite(scheduled)) return;
+  const shift = Math.round(now.minute - scheduled);
+  if (shift < -2 || shift > 15) return;
+  state.rideShift = shift;
+  state.rideShiftKnown = true;
+  state.undergroundAnchor = { stopId: station.id, at: Date.now(), runs: motion.completedRuns };
+}
+
 export function updateRideAnchor() {
   let ride = state.ride;
   if (!ride) return;
   const now = journeyClock(ride, tokyoNow());
-  const extended = findThroughContinuation(
-    ride,
-    [state.subwayFeed, state.network],
-    { minute: now.minute, network: state.network },
-  );
+  const extended =
+    findThroughContinuation(
+      ride,
+      [state.subwayFeed, state.network],
+      { minute: now.minute, network: state.network },
+    ) ?? throughFromFeeds(ride, now.minute);
   if (extended) {
-    // Same train, same Ride: do not trigger boarding, erase the itinerary,
-    // or infer the next station as the rider's alighting stop.
     ride = extended;
-    state.ride = extended;
-    state.rideObservation = null;
-    state.heroObservation = null;
-    state.audioProgress = null;
-    consensus.unlock();
-    consensus.lock(extended);
-    persistJourney(true);
+    adoptThroughRide(extended);
   }
+  anchorUndergroundFromMotion(ride, now);
   const observation = observeJourney(state.rideObservation, ride, {
       minute: now.minute,
       shift: state.rideShift,

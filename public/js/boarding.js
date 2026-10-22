@@ -1,4 +1,6 @@
 import { officialData } from "./timetable-ui.js";
+import { getStaticFeed } from "./fast-data.js";
+import { staticFoldbackJourney } from "./foldback-static.js";
 import { officialTripLeg } from "./vehicle.js";
 import { scheduledBoarding } from "./journey-session.js";
 import { reverseDirection } from "./journey-core.js";
@@ -12,6 +14,20 @@ export async function foldbackJourney(
   { network, subwayFeed, signal } = {},
 ) {
   if (!plan) return null;
+  // A train chosen from the on-device timetables is rebuilt from them.
+  if (plan.source === "static") {
+    const feeds = await Promise.allSettled(
+      ["subway", "kintetsu"].map((operator) =>
+        getStaticFeed(operator, plan.date, { signal }),
+      ),
+    );
+    const ride = staticFoldbackJourney(
+      feeds.filter((r) => r.status === "fulfilled").map((r) => r.value),
+      plan,
+      network,
+    );
+    if (ride) return ride;
+  }
   const depart = Number.isFinite(plan.serviceDepart)
     ? plan.serviceDepart
     : ((plan.depart % 1440) + 1440) % 1440;

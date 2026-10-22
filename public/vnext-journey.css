@@ -1434,3 +1434,260 @@ summary {
     calc(100dvh - 240px - env(safe-area-inset-top, 0px) - var(--safe-bottom))
   );
 }
+
+/* Foldback suggestions: station → reverse train → back at the passed station. */
+.fold-recommend {
+  margin: 4px 0 18px;
+}
+.fold-recommend h3 {
+  margin: 0 4px 8px;
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-weight: 650;
+}
+.fold-recommend-list {
+  display: grid;
+  gap: 8px;
+}
+.fold-recommend-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.25fr);
+  grid-template-areas:
+    "station arrow train"
+    "meta meta meta";
+  align-items: center;
+  gap: 6px 10px;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--radius-group);
+  background: var(--surface-secondary);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+}
+.fold-recommend-row.best {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--surface-primary));
+  box-shadow: var(--shadow-selected-ring);
+}
+.fold-recommend-row:active {
+  background: var(--fill-secondary);
+}
+.fold-best {
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  padding: 1px 8px;
+  border-radius: var(--radius-capsule);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.fold-recommend-station {
+  grid-area: station;
+  display: grid;
+  min-width: 0;
+}
+.fold-recommend-station b {
+  font-size: var(--type-body);
+  overflow-wrap: anywhere;
+}
+.fold-recommend-station small,
+.fold-recommend-train small,
+.fold-recommend-meta small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.fold-recommend-arrow {
+  grid-area: arrow;
+  color: var(--color-accent);
+  font-size: 1.25rem;
+}
+.fold-recommend-train {
+  grid-area: train;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+  min-width: 0;
+}
+.fold-recommend-train > b {
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.fold-recommend-train > b small {
+  margin-left: 2px;
+  font-weight: 600;
+}
+.fold-recommend-train > small {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+.fold-recommend-meta {
+  grid-area: meta;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-top: 6px;
+  border-top: 1px solid var(--separator);
+}
+.fold-recommend-meta b {
+  color: var(--color-success);
+  font-size: var(--type-secondary);
+}
+.fold-recommend-row[data-status="tight"] .fold-recommend-meta small {
+  color: var(--color-warning);
+  font-weight: 650;
+}
+
+/* Through-service question near Takeda. */
+.through-prompt {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-group);
+  background: var(--surface-secondary);
+}
+.through-prompt-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: var(--type-body);
+}
+.through-prompt-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.through-prompt-yes,
+.through-prompt-no {
+  display: grid;
+  gap: 2px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-row);
+  font: inherit;
+  text-align: left;
+}
+.through-prompt-yes {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.through-prompt-yes small {
+  opacity: 0.85;
+  font-size: var(--type-caption);
+}
+.through-prompt-no {
+  background: var(--fill-tertiary);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Bus front sign: route plate, amber LED destination, stop lamp. */
+.bus-sign {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 8px;
+  padding: 6px;
+  border-radius: var(--radius-row);
+  background: var(--lcd-background);
+}
+.bus-sign-route {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 2.8em;
+  padding: 1px 8px;
+  border-radius: var(--radius-tiny);
+  background: var(--line-color);
+  color: var(--color-on-line);
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.bus-sign-dest {
+  display: flex;
+  flex: 1;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  align-items: baseline;
+  gap: 0 6px;
+  min-width: 0;
+  color: var(--led-amber);
+  text-shadow: var(--led-glow);
+  letter-spacing: 0.04em;
+}
+.bus-sign-dest b {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 1.125rem;
+  font-weight: 800;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bus-sign-dest small {
+  flex: none;
+}
+.bus-sign-dest small {
+  font-size: var(--type-caption);
+  font-weight: 700;
+}
+/* Stop-button lamp ("とまります"). */
+.stop-lamp {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  color: var(--lamp-red);
+  font-size: var(--type-caption);
+}
+.stop-lamp i {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-round);
+  background: var(--fill-secondary);
+}
+.stop-lamp.on b {
+  text-shadow: var(--lamp-glow);
+}
+.stop-lamp.on i {
+  background: var(--lamp-red);
+  box-shadow: var(--lamp-glow);
+  animation: stop-lamp-pulse 1.2s ease-in-out infinite;
+}
+@keyframes stop-lamp-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+html[data-reduce-motion="true"] .stop-lamp.on i {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stop-lamp.on i {
+    animation: none;
+  }
+}
+/* The front sign carries the route plate on bus rides. */
+.journey-display.bus .route-header .route-tokens {
+  display: none;
+}
+/* Bus ride colours follow the route plate (loop orange, others blue). */
+.journey-display.bus[data-bus-line="citybus"] {
+  --transport-color: var(--line-citybus);
+}
+.journey-display.bus[data-bus-line="citybus-loop"] {
+  --transport-color: var(--line-citybus-loop);
+}
+.journey-display.bus[data-bus-line^="kyotobus"] {
+  --transport-color: var(--line-kyotobus);
+}
+.journey-display.bus .bus-sign-route[data-line] {
+  background: var(--line-color);
+}

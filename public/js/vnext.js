@@ -1,4 +1,6 @@
 import { clearFalseRide } from "./vnext-detect.js";
+import { positionOptions, modeAllowsDetection, modeAllowsPip } from "./run-mode.js";
+import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
@@ -42,6 +44,7 @@ import {
   startManualRide,
   finishCurrentRide,
   chooseRideCandidates,
+  confirmThroughContinuation,
 } from "./vnext-detect.js";
 import { renderNow, setupNowInteractions, rideChoiceRowsHTML } from "./vnext-view.js";
 import {
@@ -292,6 +295,11 @@ function setupEvents() {
       beginRideRecheck("manual");
       renderNow();
       void autoDetectRide(true, renderNow);
+    } else if (b.dataset.throughContinue !== undefined) {
+      if (confirmThroughContinuation(Number(b.dataset.throughContinue))) {
+        haptic();
+        renderNow();
+      }
     } else if (b.hasAttribute("data-choose-ride")) {
       openRideChooser();
     } else if (b.hasAttribute("data-enable-motion")) {
@@ -567,6 +575,7 @@ async function init() {
     state.locationSession = createLocationSession({
       geolocation: navigator.geolocation,
       permissions: navigator.permissions,
+      positionOptions: () => positionOptions(),
       loadData: async () => state.geo,
       onStatus: (s) => {
         const changed = state.locationStatus !== s;
@@ -601,6 +610,15 @@ async function init() {
       },
     });
     document.addEventListener("mymap-ride-prediction", () => renderNow());
+    // A new mode restarts location with its accuracy and stops/starts
+    // detection and Picture in Picture accordingly.
+    document.addEventListener("mymap-run-mode", () => {
+      state.locationSession?.stop();
+      if (!document.hidden) state.locationSession?.start({ retry: true });
+      if (!modeAllowsDetection()) resetRideDetection();
+      if (!modeAllowsPip()) stopPip();
+      renderNow();
+    });
     document.addEventListener("mymap-motion-permission", () => renderNow());
     document.addEventListener("mymap-choose-ride", () => openRideChooser());
     document.addEventListener("mymap-transit-evidence", () => {
@@ -623,6 +641,11 @@ async function init() {
     state.locationSession.start();
     renderNow();
     arrivals.show();
+    // Underground no GPS fixes arrive to drive detection; poll briefly so
+    // accelerometer and announcement evidence are evaluated (gated inside).
+    setInterval(() => {
+      if (!document.hidden && !state.ride) autoDetectRide(false, renderNow);
+    }, 5000);
     setInterval(() => {
       if (document.hidden) return;
       renderNow();

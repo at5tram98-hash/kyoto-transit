@@ -63,6 +63,7 @@
   --line-kintetsu: #c8102e;
   --line-through: #6c4aa0;
   --color-on-line: #fff;
+  --shadow-selected-ring: inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 45%, transparent);
   --color-walk: #6e6e73;
   --color-success: #208345;
   --color-warning: #a35b00;
@@ -96,6 +97,10 @@
   --lcd-text: #f6f7f9;
   --lcd-dim: #8c939e;
   --lcd-next: #ffb21f;
+  --led-amber: #ffa21a;
+  --led-glow: 0 0 6px rgba(255, 162, 26, 0.55);
+  --lamp-red: #ff3b30;
+  --lamp-glow: 0 0 14px rgba(255, 59, 48, 0.75);
   --lcd-rule: rgba(255, 255, 255, 0.12);
   --panel: var(--surface-primary);
   --panel-2: var(--surface-secondary);

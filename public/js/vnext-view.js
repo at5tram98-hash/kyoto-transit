@@ -698,6 +698,33 @@ function kyotoBusPredictionFeed(ride) {
     ? { source: "live", stale: false, asOf: value.trip.asOf }
     : null;
 }
+// Near Takeda, when the timetable cannot tell whether this train runs
+// through onto the other line, ask the rider with the trains that do.
+function renderThroughPrompt(root, ride) {
+  const prompt = state.throughPrompt,
+    show = prompt && !prompt.dismissed && prompt.key === rideKey(ride);
+  let card = root.querySelector(".through-prompt");
+  if (!show) {
+    card?.remove();
+    return;
+  }
+  if (!card) {
+    card = document.createElement("section");
+    card.className = "through-prompt";
+    card.setAttribute("aria-live", "polite");
+    (root.querySelector(".personal-destination") ?? root.lastElementChild)?.before(card);
+  }
+  const target = prompt.direction === "north" ? "subway" : "kintetsu";
+  updateHTML(
+    card,
+    `<p class="through-prompt-title">${lineBadge({ operator: target }, { name: false, size: "small" })}<b>${esc(ui(prompt.direction === "north" ? "through_prompt_north" : "through_prompt_south"))}</b></p><p class="source-note">${esc(ui("through_prompt_note"))}</p><div class="through-prompt-actions">${prompt.rows
+      .map(
+        (row, i) =>
+          `<button type="button" class="through-prompt-yes" data-through-continue="${i}"><b>${esc(ui("through_prompt_yes", [row.headsign ?? ""]))}</b><small>${esc(ui("through_prompt_depart", [formatMinute(row.depart)]))}</small></button>`,
+      )
+      .join("")}<button type="button" class="through-prompt-no" data-through-continue="-1">${esc(ui(prompt.direction === "north" ? "through_prompt_end_north" : "through_prompt_end_south"))}</button></div>`,
+  );
+}
 function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   const ride = state.ride,
     bus = ["citybus", "kyotobus"].includes(ride.operator),
@@ -751,6 +778,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   });
   state.routeMap = map;
   renderHero(root, nextStationHero(model, ride, progress), model);
+  renderThroughPrompt(root, ride);
   if (bus) {
     let section = root.querySelector(".bus-mini-map");
     if (!section) {
