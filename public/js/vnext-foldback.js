@@ -27,7 +27,8 @@ import {
 } from "./journey-core.js";
 import { renderNow } from "./vnext-view.js";
 import { getStaticFeed } from "./fast-data.js";
-import { staticReverseEntries } from "./foldback-static.js";
+import { staticReverseEntries, foldbackRecommendations } from "./foldback-static.js";
+import { lineBadge } from "./line-badge.js";
 
 const directionLabel = (stopId, direction) =>
   ui(
@@ -111,8 +112,63 @@ export function openFoldback() {
         .join(""),
     ]),
   );
+  $("#foldback-body").insertAdjacentHTML(
+    "afterbegin",
+    `<section class="fold-recommend" aria-live="polite" aria-busy="true"><h3>${esc(ui("foldback_recommend_title"))}</h3><p class="source-note">${esc(ui("foldback_recommend_loading"))}</p></section>`,
+  );
   if (!dialog.open) dialog.showModal();
   $("#foldback-body [data-foldback-mode]")?.focus({ preventScroll: true });
+  void showRecommendations(version);
+}
+let recommendations = [];
+// Instant options from the on-device timetables (platform buffer 3 min).
+async function showRecommendations(job) {
+  const root = $("#foldback-body .fold-recommend");
+  if (!root) return;
+  const ride = state.foldbackRide,
+    now = clock();
+  try {
+    const feeds = await staticFeeds(now.date);
+    if (job !== version || !root.isConnected || ride !== state.ride) return;
+    recommendations = foldbackRecommendations({
+      ride,
+      feeds,
+      stops: stops(),
+      minute: now.minute,
+      shift: state.rideShift,
+      buffer: 3,
+      date: now.date,
+      network: state.network,
+      reverseOf: (stopId) => reverseDirection(ride, stopId),
+      assess: (stop, depart) =>
+        assessFoldback(stop, depart, { shift: state.rideShift, buffer: 3, now: now.minute }),
+    });
+  } catch {
+    recommendations = [];
+  }
+  if (job !== version || !root.isConnected) return;
+  root.removeAttribute("aria-busy");
+  root.innerHTML = recommendations.length
+    ? `<h3>${esc(ui("foldback_recommend_title"))}</h3><div class="fold-recommend-list">${recommendations
+        .map(
+          (r, i) =>
+            `<button type="button" class="fold-recommend-row${i === 0 ? " best" : ""}" data-fold-recommend="${i}" data-status="${esc(r.assessment.status)}">${i === 0 ? `<span class="fold-best">${esc(ui("foldback_recommend_best"))}</span>` : ""}<span class="fold-recommend-station"><b>${esc(r.stop.name)}</b><small>${esc(ui("foldback_recommend_arrive", [formatMinute(Math.round(r.assessment.arrival))]))}</small></span><span class="fold-recommend-arrow" aria-hidden="true">↩︎</span><span class="fold-recommend-train">${lineBadge({ operator: r.entry.operator === "kintetsu" ? "kintetsu" : "subway" }, { name: false, size: "small" })}<b>${formatMinute(r.entry.depart)}<small>${esc(ui("foldback_recommend_depart"))}</small></b><small>${esc(ui("foldback_recommend_train", [category(r.entry), r.entry.destination ?? ""]))}</small></span><span class="fold-recommend-meta">${Number.isFinite(r.returnArrival) ? `<b>${esc(ui("foldback_recommend_return", [r.target.name, formatMinute(Math.round(r.returnArrival))]))}</b>` : ""}<small>${esc(ui("foldback_recommend_slack", [Math.floor(r.assessment.slack)]))}</small></span></button>`,
+        )
+        .join("")}</div>`
+    : `<h3>${esc(ui("foldback_recommend_title"))}</h3><p class="source-note">${esc(ui("foldback_recommend_none"))}</p>`;
+}
+// A recommendation opens the confirmation for that station and train.
+function pickRecommendation(index) {
+  const r = recommendations[index];
+  if (!r) return;
+  showMode("station");
+  const select = $("#fold-station");
+  if (select) select.value = r.stop.id;
+  choices = [{ ...r.entry, buffer: 3 }];
+  baseChoiceCount = 1;
+  const root = $("#fold-result");
+  if (root) root.innerHTML = "";
+  evaluate(0);
 }
 function showMode(mode) {
   const items = stops(),
@@ -445,7 +501,9 @@ export function setupFoldback() {
   dialog.addEventListener("click", (e) => {
     const button = e.target.closest("button");
     if (!button) return;
-    if (button.dataset.foldbackMode) showMode(button.dataset.foldbackMode);
+    if (button.dataset.foldRecommend !== undefined)
+      pickRecommendation(Number(button.dataset.foldRecommend));
+    else if (button.dataset.foldbackMode) showMode(button.dataset.foldbackMode);
     else if (button.hasAttribute("data-foldback-home")) openFoldback();
     else if (button.hasAttribute("data-foldback-search")) void load("station");
     else if (button.hasAttribute("data-load-target-trains")) void load("train");

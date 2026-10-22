@@ -1254,4 +1254,13 @@ export default {
   foldback_direction_subway_south: "京都・竹田・近鉄方面",
   foldback_direction_kintetsu_north: "京都・国際会館方面",
   foldback_direction_kintetsu_south: "近鉄奈良・橿原神宮前方面",
+  foldback_recommend_title: "おすすめの折り返し",
+  foldback_recommend_loading: "時刻表から探しています…",
+  foldback_recommend_none: "この先の駅で間に合う反対方向の列車が見つかりません。下の方法で駅や列車を選んでください。",
+  foldback_recommend_best: "最速",
+  foldback_recommend_arrive: "{0}着で降りる",
+  foldback_recommend_depart: "発",
+  foldback_recommend_train: "{0} {1}行",
+  foldback_recommend_return: "{0}に{1}着",
+  foldback_recommend_slack: "乗換余裕 約{0}分",
 };

@@ -1267,4 +1267,13 @@ export default {
   foldback_direction_subway_south: "Toward Kyoto / Takeda / Kintetsu",
   foldback_direction_kintetsu_north: "Toward Kyoto / Kokusaikaikan",
   foldback_direction_kintetsu_south: "Toward Kintetsu-Nara / Kashiharajingu-mae",
+  foldback_recommend_title: "Suggested turnbacks",
+  foldback_recommend_loading: "Searching the timetable…",
+  foldback_recommend_none: "No reachable train in the opposite direction ahead. Choose a station or train below.",
+  foldback_recommend_best: "Fastest",
+  foldback_recommend_arrive: "Get off at {0}",
+  foldback_recommend_depart: "dep.",
+  foldback_recommend_train: "{0} to {1}",
+  foldback_recommend_return: "Back at {0} {1}",
+  foldback_recommend_slack: "About {0} min to change",
 };

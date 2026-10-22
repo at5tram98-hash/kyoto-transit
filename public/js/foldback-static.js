@@ -61,3 +61,48 @@ export function staticFoldbackJourney(feeds, plan, network) {
     plan.date,
   );
 }
+
+// Ready-made foldback options: for each upcoming station, the first reverse
+// train the rider can still reach with the platform buffer, and when the
+// rider has passed a station, when that train gets back there.
+export function foldbackRecommendations({
+  ride,
+  feeds,
+  stops,
+  minute,
+  shift = 0,
+  buffer = 3,
+  date,
+  network,
+  reverseOf,
+  assess,
+  limit = 4,
+}) {
+  const timeOf = (s) => s?.arrival ?? s?.time ?? s?.departure,
+    passed = (ride?.officialStops ?? []).filter(
+      (s) => Number.isFinite(timeOf(s)) && timeOf(s) + shift < minute,
+    ),
+    target = passed.at(-1) ?? null,
+    rows = [];
+  for (const stop of stops.slice(0, 6)) {
+    const direction = reverseOf(stop.id);
+    if (!direction) continue;
+    const entries = staticReverseEntries(feeds, stop.id, direction, date);
+    for (const entry of entries) {
+      const assessment = assess(stop, entry.depart);
+      if (!Number.isFinite(assessment.slack) || assessment.slack < 0) continue;
+      const journey = staticFoldbackJourney(feeds, { ...entry, stopId: stop.id }, network),
+        back = target && journey?.officialStops?.find((s) => s.id === target.id);
+      rows.push({
+        stop,
+        entry: { ...entry, stopId: stop.id, direction },
+        assessment,
+        target: target ? { id: target.id, name: target.name } : null,
+        returnArrival: back ? timeOf(back) : null,
+      });
+      break;
+    }
+  }
+  const key = (r) => (Number.isFinite(r.returnArrival) ? r.returnArrival : r.entry.depart + 60);
+  return rows.sort((a, b) => key(a) - key(b) || a.entry.depart - b.entry.depart).slice(0, limit);
+}

@@ -42,3 +42,26 @@ test("選んだ折り返し列車の全駅時刻を同じ時刻表から復元�
   assert.deepEqual(ride.officialStops.map((s) => [s.id, s.departure]), [["K04", 612], ["K03", 614]]);
   assert.equal(staticFoldbackJourney([subway], { serviceId: "s-north", tripId: "zz", stopId: "K04", date: "2026-10-22" }, network), null);
 });
+
+test("おすすめは各駅で間に合う最初の反対列車と、通過駅へ戻る時刻の早い順", async () => {
+  const { foldbackRecommendations } = await import("../public/js/foldback-static.js");
+  const network = { stops: new Map(["K03", "K04", "K05"].map((id) => [id, { name: id }])) };
+  const feed = {
+    services: [
+      { id: "n", operator: "subway", category: "local", stops: ["K05", "K04", "K03"],
+        trips: [
+          { id: "n1", date: "2026-10-22", arrivals: [600, 602, 604], departures: [600, 602, 604], headsign: "国際会館" },
+          { id: "n2", date: "2026-10-22", arrivals: [610, 612, 614], departures: [610, 612, 614], headsign: "国際会館" },
+        ] },
+    ],
+  };
+  const ride = { officialStops: [{ id: "K03", name: "K03", time: 590 }, { id: "K04", name: "K04", time: 598 }, { id: "K05", name: "K05", time: 603 }] };
+  const rows = foldbackRecommendations({
+    ride, feeds: [feed], stops: ride.officialStops.slice(1), minute: 597, date: "2026-10-22", network,
+    reverseOf: () => "north",
+    assess: (stop, depart) => ({ slack: depart - Math.max(stop.time, 597) - 3, status: "possible" }),
+  });
+  // K04 着598 → 602発は余裕1分、K05 着603 → 610発。戻り先 K03 へは 604 / 614。
+  assert.deepEqual(rows.map((r) => [r.stop.id, r.entry.depart, r.returnArrival]), [["K04", 602, 604], ["K05", 610, 614]]);
+  assert.equal(rows[0].target.id, "K03");
+});
