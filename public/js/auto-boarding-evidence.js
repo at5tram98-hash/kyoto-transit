@@ -50,7 +50,7 @@ export function assessBoardingMovement(
     : span > 0
       ? travel / span
       : null;
-  const moving =
+  const sustained =
     fixes.length >= 3 &&
     plausibleTrail &&
     span >= 15 &&
@@ -59,6 +59,22 @@ export function assessBoardingMovement(
     Number.isFinite(speed) &&
     speed >= 2.8 &&
     speed <= 45;
+  // Departure is recognised sooner when the device itself reports vehicle
+  // speed on each of the last three precise fixes (above running pace) and
+  // the positions agree with it.
+  const recent = fixes.slice(-3),
+    early =
+      !sustained &&
+      recent.length === 3 &&
+      plausibleTrail &&
+      span >= 9 &&
+      span <= 45 &&
+      recent.every(
+        (p) => Number.isFinite(p.speed) && p.speed >= 4 && p.speed <= 45 && p.accuracy <= 30,
+      ) &&
+      travel >= Math.max(45, first.accuracy + last.accuracy) &&
+      travel / span >= 3;
+  const moving = sustained || early;
   const positive = (needle) =>
     evidence.some((item) => item.points > 0 && item.reason === needle);
   const reversed = evidence.some(

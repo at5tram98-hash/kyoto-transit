@@ -149,6 +149,64 @@ export function subwayRideCandidates(
     .slice(0, 6);
 }
 
+// Kyoto Bus trips from the static feed (official departures, intermediate
+// stops completed from the route order). Building candidates on the device
+// avoids waiting for official timetable pages on every detection cycle.
+export function kyotoBusStaticCandidates(
+  feed,
+  { fromId, minute, network, windowBefore = 8, windowAfter = 2 } = {},
+) {
+  if (!feed || !Array.isArray(feed.services) || !Number.isFinite(minute) || !fromId)
+    return [];
+  const rows = [];
+  for (const service of feed.services) {
+    if (service.operator !== "kyotobus") continue;
+    const fromIndex = service.stops?.indexOf(fromId) ?? -1;
+    if (fromIndex < 0 || fromIndex >= service.stops.length - 1) continue;
+    for (const trip of service.trips ?? []) {
+      const depart = trip.departures?.[fromIndex] ?? trip.arrivals?.[fromIndex];
+      if (
+        !Number.isFinite(depart) ||
+        depart < minute - windowBefore ||
+        depart > minute + windowAfter
+      )
+        continue;
+      const stops = stopRows(service, trip, network, fromIndex);
+      if (stops.length < 2) continue;
+      const last = stops.at(-1),
+        arrive = last.arrival ?? last.time;
+      rows.push({
+        kind: "ride",
+        operator: "kyotobus",
+        route: String(service.route ?? ""),
+        category: service.category ?? "local",
+        label: service.label ?? "京都バス",
+        destination: trip.headsign ?? last.name,
+        from: fromId,
+        to: last.id,
+        depart,
+        arrive,
+        minutes: arrive - depart,
+        officialStops: stops,
+        fullTerminus: true,
+        syntheticTimes: false,
+        direction: service.id,
+        serviceId: service.id,
+        tripId: trip.id,
+        serviceDate: trip.date,
+        timetableSource: "static",
+      });
+    }
+  }
+  return rows
+    .sort(
+      (a, b) =>
+        Math.abs(a.depart - minute) - Math.abs(b.depart - minute) ||
+        a.depart - b.depart,
+    )
+    .slice(0, 6);
+}
+
 function projectSubwayStatic(feed, nowMinute, network) {
   const trains = [];
   for (const service of feed?.services ?? []) {

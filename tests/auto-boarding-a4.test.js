@@ -152,3 +152,23 @@ test("walking GPS along the line plus audio does not count as rail travel", () =
   });
   assert.equal(engine.evaluate([{ ride, score: 90 }], now).confirmed, null);
 });
+
+test("departure is recognised after ~10 s when each fix reports vehicle speed", () => {
+  const quick = [0, 5000, 10000].map((offset, i) => ({
+    lat: 35.0 + i * 0.00032,
+    lng: 135.75,
+    accuracy: 8,
+    timestamp: now - 10000 + offset,
+    speed: 7,
+  }));
+  assert.equal(assessBoardingMovement(quick, evidence, now).moving, true);
+  // Running pace or a single slow fix is not enough for the early path.
+  assert.equal(
+    assessBoardingMovement(quick.map((p) => ({ ...p, speed: 3 })), evidence, now).moving,
+    false,
+  );
+  assert.equal(
+    assessBoardingMovement(quick.map((p, i) => ({ ...p, speed: i === 1 ? null : 7 })), evidence, now).moving,
+    false,
+  );
+});
