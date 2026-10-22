@@ -654,3 +654,8 @@ html[data-app-hidden="true"] .idle-status .idle-state::before {
   font-weight: 650;
   text-transform: none;
 }
+.itinerary-line {
+  display: inline-flex;
+  margin-right: 6px;
+  vertical-align: -0.15em;
+}

@@ -1,4 +1,4 @@
-import { lineKind } from "./line-badge.js";
+import { lineKind, lineBadge } from "./line-badge.js";
 import { displayStopName, ui } from "./locale.js";
 import { selectedAlightingStop } from "./ride-destination.js";
 import { esc } from "./vnext-state.js";
@@ -124,10 +124,13 @@ export function itinerarySummary(plan, network, shift = null, ride = null) {
         a.dwell +
         Number(plan.input?.buffer ?? 3) >
         a.next.depart;
+  // The line plate of the service the rider takes next (or is riding).
+  const upcoming =
+    plan.phase === "riding" ? a.next : plan.phase === "walking" || plan.phase === "arrived" ? null : a.current;
   return ui("now_components_087", [
     esc(a.current.serviceDate ?? plan.route.date),
     esc(title),
-    esc(detail),
+    `${upcoming ? `<span class="itinerary-line">${lineBadge(upcoming, { size: "small" })}</span>` : ""}${esc(detail)}`,
     changed ? ui("now_components_019") : "",
     risky ? ui("now_components_020") : "",
   ]);
