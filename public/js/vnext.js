@@ -1,4 +1,6 @@
 import { clearFalseRide } from "./vnext-detect.js";
+import { positionOptions, modeAllowsDetection, modeAllowsPip } from "./run-mode.js";
+import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
@@ -573,6 +575,7 @@ async function init() {
     state.locationSession = createLocationSession({
       geolocation: navigator.geolocation,
       permissions: navigator.permissions,
+      positionOptions: () => positionOptions(),
       loadData: async () => state.geo,
       onStatus: (s) => {
         const changed = state.locationStatus !== s;
@@ -607,6 +610,15 @@ async function init() {
       },
     });
     document.addEventListener("mymap-ride-prediction", () => renderNow());
+    // A new mode restarts location with its accuracy and stops/starts
+    // detection and Picture in Picture accordingly.
+    document.addEventListener("mymap-run-mode", () => {
+      state.locationSession?.stop();
+      if (!document.hidden) state.locationSession?.start({ retry: true });
+      if (!modeAllowsDetection()) resetRideDetection();
+      if (!modeAllowsPip()) stopPip();
+      renderNow();
+    });
     document.addEventListener("mymap-motion-permission", () => renderNow());
     document.addEventListener("mymap-choose-ride", () => openRideChooser());
     document.addEventListener("mymap-transit-evidence", () => {

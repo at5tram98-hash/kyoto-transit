@@ -5,6 +5,11 @@ export function createLocationSession({
   loadData,
   onPosition,
   onStatus,
+  positionOptions = () => ({
+    enableHighAccuracy: true,
+    maximumAge: 10000,
+    timeout: 20000,
+  }),
 }) {
   let watch = null,
     generation = 0,
@@ -74,7 +79,7 @@ export function createLocationSession({
               onStatus("denied");
             } else onStatus("unavailable");
           },
-          { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
+          positionOptions(),
         );
       } catch {
         if (token === generation) onStatus("unavailable");

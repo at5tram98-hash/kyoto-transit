@@ -88,6 +88,13 @@ function nearbyBoardingContext(now = Date.now()) {
   )
     return true;
   if (transitEvidenceEngine.stationContext(now)) return true;
+  // Underground at a subway station (GPS lost there): announcements are the
+  // main identity evidence, so keep listening for up to 15 minutes.
+  if (
+    !freshFix(state.fix, now) &&
+    transitEvidenceEngine.stationContext(now, 15 * 60000)?.station?.stop?.type === "subway"
+  )
+    return true;
   if ((state.busTrail ?? []).some((row) => now - row.at <= 120000)) return true;
   if (!freshFix(state.fix, now) || !state.network || !state.geo) return false;
   try {

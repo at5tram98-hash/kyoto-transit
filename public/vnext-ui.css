@@ -734,3 +734,32 @@ summary:focus-visible {
   gap: 4px;
   margin-top: 4px;
 }
+
+/* Mode picker: iOS checkmark list. */
+.run-mode-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.run-mode-row + .run-mode-row {
+  border-top: 1px solid var(--separator);
+}
+.run-mode-check {
+  color: var(--color-accent);
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: right;
+}
+.pip-source {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}

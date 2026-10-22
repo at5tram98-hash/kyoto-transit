@@ -1,3 +1,4 @@
+import { RUN_MODES, runMode, setRunMode } from "./run-mode.js";
 import { ui } from "./locale.js";
 import { openContextSheet } from "./context-sheet.js";
 import {
@@ -369,6 +370,14 @@ export function renderSettings(
     info: [4, ui("vnext_network_view_061")],
   };
   root.replaceChildren(sections[categories[category]?.[0] ?? 4]);
+  if (category === "auto")
+    root.insertAdjacentHTML(
+      "afterbegin",
+      `<section class="settings-section run-mode-section"><h2>${esc(ui("mode_title"))}</h2><div class="settings-card run-mode-list" role="radiogroup" aria-label="${esc(ui("mode_title"))}">${RUN_MODES.map(
+        (mode) =>
+          `<button type="button" class="setting-row run-mode-row" role="radio" aria-checked="${mode === runMode()}" data-run-mode="${mode}"><span><b>${esc(ui(`mode_${mode}`))}</b><small>${esc(ui(`mode_${mode}_note`))}</small></span><span class="run-mode-check" aria-hidden="true">${mode === runMode() ? "✓" : ""}</span></button>`,
+      ).join("")}</div></section>`,
+    );
 }
 export function setupSettings(onRender, onSavedRoute) {
   const locationHome = document.querySelector('[data-view="settings"]');
@@ -480,6 +489,13 @@ export function setupSettings(onRender, onSavedRoute) {
     lastTap = 0;
   function bind(root, category = "home") {
     root.addEventListener("change", (e) => {
+      if (e.target.dataset.setting === "autoDetect") {
+        // The detection switch picks FullAuto or Auto.
+        setRunMode(e.target.checked ? "fullauto" : "auto");
+        renderSettings(root, category);
+        onRender();
+        return;
+      }
       if (e.target.dataset.setting) {
         settings[e.target.dataset.setting] = e.target.checked;
         saveSettings();
@@ -518,6 +534,13 @@ export function setupSettings(onRender, onSavedRoute) {
       }
     });
     root.addEventListener("click", (e) => {
+      const modeButton = e.target.closest("[data-run-mode]");
+      if (modeButton) {
+        setRunMode(modeButton.dataset.runMode);
+        renderSettings(root, category);
+        onRender();
+        return;
+      }
       if (e.target.closest("[data-request-notifications]")) {
         const b = e.target.closest("button");
         if (!("Notification" in window)) {
