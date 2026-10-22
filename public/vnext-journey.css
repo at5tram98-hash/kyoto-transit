@@ -1614,7 +1614,8 @@ summary {
 .bus-sign-dest {
   display: flex;
   flex: 1;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   align-items: baseline;
   gap: 0 6px;
   min-width: 0;
@@ -1623,9 +1624,15 @@ summary {
   letter-spacing: 0.04em;
 }
 .bus-sign-dest b {
+  min-width: 0;
+  overflow: hidden;
   font-size: 1.125rem;
   font-weight: 800;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bus-sign-dest small {
+  flex: none;
 }
 .bus-sign-dest small {
   font-size: var(--type-caption);
