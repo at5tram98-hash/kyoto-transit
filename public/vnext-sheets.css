@@ -86,7 +86,7 @@
 }
 .board-day-segments button {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: 0;
   border-radius: var(--radius-compact);
   background: transparent;
