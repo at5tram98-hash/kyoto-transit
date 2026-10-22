@@ -109,8 +109,8 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
       )
         lastStation = { station, fix: { ...fix }, at: fix.timestamp };
     },
-    stationContext(now = Date.now()) {
-      return lastStation && now - lastStation.at <= 240000 ? lastStation : null;
+    stationContext(now = Date.now(), maxAge = 240000) {
+      return lastStation && now - lastStation.at <= maxAge ? lastStation : null;
     },
     lock(ride) {
       locked = transitCandidateKey(ride);

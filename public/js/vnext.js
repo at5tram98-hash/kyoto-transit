@@ -629,6 +629,11 @@ async function init() {
     state.locationSession.start();
     renderNow();
     arrivals.show();
+    // Underground no GPS fixes arrive to drive detection; poll briefly so
+    // accelerometer and announcement evidence are evaluated (gated inside).
+    setInterval(() => {
+      if (!document.hidden && !state.ride) autoDetectRide(false, renderNow);
+    }, 5000);
     setInterval(() => {
       if (document.hidden) return;
       renderNow();
