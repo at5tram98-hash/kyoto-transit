@@ -28,7 +28,9 @@ import {
   cityBusRideCandidates,
   north3RideCandidates,
   routeIntersection,
+  kyotoBusStaticCandidates,
 } from "./vnext-core.js";
+import { getStaticFeed } from "./fast-data.js";
 import { journeyClock } from "./journey-core.js";
 import { observeJourney } from "./journey-observation.js";
 import { boardingAvailable, selectedRideShift } from "./journey-session.js";
@@ -153,21 +155,70 @@ async function ensureKyotoBusFeed() {
   }
 }
 
+// Network evidence never holds up a detection cycle. A request is started
+// (once per key), awaited briefly, and if it is still in flight the cycle
+// continues with what is already known; when it lands, detection re-runs
+// immediately through the transit-evidence event.
+const SLOW = Symbol("slow"),
+  liveJobs = new Map(),
+  liveValues = new Map(),
+  lateKeys = new Set();
+export async function boundedLive(
+  key,
+  start,
+  { wait = 1500, maxAge = 30000, retryAfter = 10000, now = Date.now() } = {},
+) {
+  const known = liveValues.get(key);
+  if (known && now - known.at <= (known.value == null ? retryAfter : maxAge))
+    return known.value;
+  let job = liveJobs.get(key);
+  if (!job) {
+    job = Promise.resolve()
+      .then(start)
+      .then(
+        (value) => value ?? null,
+        () => null,
+      )
+      .then((value) => {
+        liveValues.set(key, { value, at: Date.now() });
+        if (liveValues.size > 40)
+          liveValues.delete(liveValues.keys().next().value);
+        liveJobs.delete(key);
+        if (lateKeys.delete(key) && value != null)
+          globalThis.document?.dispatchEvent?.(
+            new CustomEvent("mymap-transit-evidence"),
+          );
+        return value;
+      });
+    liveJobs.set(key, job);
+  }
+  const result = await Promise.race([
+    job,
+    new Promise((resolve) => setTimeout(() => resolve(SLOW), wait)),
+  ]);
+  if (result !== SLOW) return result;
+  lateKeys.add(key);
+  return known?.value ?? null;
+}
+export function resetBoundedLive() {
+  liveJobs.clear();
+  liveValues.clear();
+  lateKeys.clear();
+}
+
 // 京都バスナビ: the official scheduled and predicted times for a served pair.
 async function kyotoBusNav(fromId, toId) {
   const from = state.network.stops.get(fromId)?.name,
     to = state.network.stops.get(toId)?.name;
   if (!from || !to || from === to) return null;
-  try {
-    return await fetchRealtime(
+  return boundedLive(`kyotobus:nav:${from}:${to}`, () =>
+    fetchRealtime(
       `kyotobus:nav:${from}:${to}`,
       "/api/kyotobus/approach",
       { from, to },
       { timeout: 8000 },
-    );
-  } catch {
-    return null;
-  }
+    ),
+  );
 }
 // The same trip is the one whose official scheduled departure matches.
 export function kyotoBusNavTrip(nav, ride) {
@@ -190,13 +241,35 @@ export function kyotoBusNavTrip(nav, ride) {
 
 async function detectKyotoBus(stopId) {
   const now = tokyoNow(),
-    data = await official("/rider/candidates", {
-      stop: stopId,
-      date: now.date,
+    staticFeed = await boundedLive(
+      `static:kyotobus:${now.date}`,
+      () => getStaticFeed("kyotobus", now.date),
+      { wait: 2500, maxAge: 30 * 60000, retryAfter: 60000 },
+    ),
+    staticLegs = kyotoBusStaticCandidates(staticFeed, {
+      fromId: stopId,
       minute: now.minute,
-    }),
-    legs = data.trips
-      .map((t) => officialTripLeg(t, state.network))
+      network: state.network,
+    });
+  // The official per-stop pages are only read when the static feed has no
+  // trip here (it is slow and may be rate limited upstream).
+  const data = staticLegs.length
+      ? null
+      : await boundedLive(
+          `rider:${stopId}:${now.date}:${Math.floor(now.minute / 5)}`,
+          () =>
+            official("/rider/candidates", {
+              stop: stopId,
+              date: now.date,
+              minute: now.minute,
+            }),
+          { wait: 2500, maxAge: 5 * 60000, retryAfter: 30000 },
+        ),
+    legs = (
+      staticLegs.length
+        ? staticLegs
+        : (data?.trips ?? []).map((t) => officialTripLeg(t, state.network))
+    )
       .filter(Boolean)
       .filter((l) => now.minute >= l.depart - 8 && now.minute <= l.arrive + 5);
   if (!legs.length) return [];
@@ -367,15 +440,15 @@ async function cityArrivals(name) {
   try {
     const cached = recent((await getCached(`citybus:${name}`))?.data);
     if (cached) return cached;
-    return await fetchRealtime(
+  } catch {}
+  return boundedLive(`citybus:${name}`, () =>
+    fetchRealtime(
       `citybus:${name}`,
       "/api/citybus/arrivals",
       { stop: name },
       { timeout: 10000 },
-    );
-  } catch {
-    return null;
-  }
+    ),
+  );
 }
 
 async function detectCityBus(stopInfo) {
@@ -624,6 +697,20 @@ export function startManualRide(ride) {
   return true;
 }
 
+// Poll quickly while something is happening: a recheck, candidates on screen,
+// or the phone moving at vehicle speed. Otherwise stay at the idle cadence.
+export function detectionInterval(now = Date.now()) {
+  if (rideDetectionSession.snapshot(now).intensified) return 4000;
+  if (state.rideCandidates?.length) return 4000;
+  const motion = trajectory(state.samples ?? [], now),
+    sensors = currentMotionEvidence(state.samples ?? [], now);
+  if (
+    (Number.isFinite(motion.speed) && motion.speed >= 2.8) ||
+    (sensors.sensorSamples >= 6 && sensors.activeRatio >= 0.35 && sensors.rms >= 0.12)
+  )
+    return 4000;
+  return 12000;
+}
 export async function autoDetectRide(force = false, onChange = () => {}) {
   if (
     !settings.autoDetect ||
@@ -635,8 +722,7 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
     return;
   if (
     !force &&
-    Date.now() - state.lastDetectAt <
-      (rideDetectionSession.snapshot().intensified ? 4000 : 12000)
+    Date.now() - state.lastDetectAt < detectionInterval()
   )
     return;
   const fixFresh = freshFix(state.fix),
@@ -706,6 +792,21 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
         near.kyotoBus &&
         near.kyotoBus.meters <=
           Math.max(180, (state.fix?.accuracy ?? 100) * 2.3);
+    // Bus probes start alongside the rail probe; their result is used only
+    // when the rail probe finds nothing (or while rechecking), as before.
+    const busWanted = busClose || kyotoClose,
+      busProbe = busWanted
+        ? Promise.all([
+            busClose && near.bus.stop.type === "citybus"
+              ? detectCityBus(near.bus).catch(() => [])
+              : [],
+            kyotoClose
+              ? detectKyotoBus(near.kyotoBus.id).catch(() => [])
+              : near.bus?.stop.type === "kyotobus" && busClose
+                ? detectKyotoBus(near.bus.id).catch(() => [])
+                : [],
+          ])
+        : Promise.resolve([[], []]);
     if (railClose && railProbeAllowed) {
       if (near.rail.id === "K15") {
         const [k, s] = await Promise.all([
@@ -748,18 +849,9 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
     if (
       (!candidates.length ||
         rideDetectionSession.snapshot().phase === "rechecking") &&
-      (busClose || kyotoClose)
+      busWanted
     ) {
-      const cityPromise =
-          busClose && near.bus.stop.type === "citybus"
-            ? detectCityBus(near.bus).catch(() => [])
-            : Promise.resolve([]),
-        kyotoPromise = kyotoClose
-          ? detectKyotoBus(near.kyotoBus.id).catch(() => [])
-          : near.bus?.stop.type === "kyotobus" && busClose
-            ? detectKyotoBus(near.bus.id).catch(() => [])
-            : Promise.resolve([]);
-      const [city, kyoto] = await Promise.all([cityPromise, kyotoPromise]);
+      const [city, kyoto] = await busProbe;
       candidates = mergeCandidates(candidates, city, kyoto);
     }
     if (generation !== detectionGeneration || state.ride) return;

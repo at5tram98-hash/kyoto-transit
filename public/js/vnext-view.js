@@ -42,7 +42,7 @@ import {
 } from "./vnext-detect.js";
 import { motionPermissionState } from "./motion-permission.js";
 import { presentBoarding, closeBoarding } from "./boarding-sheet.js";
-import { lineBadge } from "./line-badge.js";
+import { lineBadge, lineKind } from "./line-badge.js";
 import { renderNetworkPanel } from "./vnext-network-view.js";
 import { updateHTML, updateNearbyPanel } from "./view-rendering.js";
 import { getKintetsuFeed } from "./fast-data.js";
@@ -394,6 +394,7 @@ function describeCandidate(candidate) {
       .map((type) => ui(`boarding_evidence_${type}`));
   return {
     operator: ride.operator,
+    line: lineKind(ride),
     bus: ["citybus", "kyotobus"].includes(ride.operator),
     service: serviceName(ride),
     destination: ui("boarding_destination", [ride.destination ?? ui("vnext_view_049")]),
@@ -652,7 +653,9 @@ export function renderNow() {
                             }[s.stop.type] ?? s.stop.name)
                           : s.stop.name,
                       ),
-                      esc(s.stop.lines?.join("・") ?? ""),
+                      s.stop.type.includes("bus")
+                        ? `<span class="inline-line-badges" aria-label="${esc(s.stop.lines?.join("・") ?? "")}">${(s.stop.lines ?? []).map((route) => lineBadge({ operator: s.stop.type, route }, { size: "small" })).join("")}</span>`
+                        : esc(s.stop.lines?.join("・") ?? ""),
                       Math.max(1, Math.ceil(s.meters / 70)),
                       Math.round(s.meters),
                       s.stop.type === "subway"

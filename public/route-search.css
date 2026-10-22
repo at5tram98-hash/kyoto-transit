@@ -76,16 +76,17 @@
   text-align: left;
   font-size: var(--type-body);
 }
+/* Departure/arrival tags: a tinted label inside the filled field. */
 .place-label {
   display: grid;
   place-items: center;
-  align-self: stretch;
-  min-height: 48px;
+  align-self: center;
+  min-height: 34px;
   border-radius: var(--radius-compact);
-  background: var(--color-place-label);
-  color: var(--color-on-transport);
+  background: color-mix(in srgb, var(--color-place-label) 16%, var(--surface-primary));
+  color: var(--color-place-label);
   font-weight: 700;
-  font-size: var(--type-body);
+  font-size: var(--type-secondary);
 }
 .planner-place-tools {
   display: flex;
@@ -98,12 +99,13 @@
   margin-right: auto;
   min-height: 44px;
   min-width: 44px;
-  border: 1px solid var(--separator);
-  border-radius: var(--radius-row);
-  background: var(--surface-primary);
-  color: var(--text);
-  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--fill-tertiary);
+  color: var(--color-link);
+  padding: 6px 14px;
   font-size: var(--type-secondary);
+  font-weight: 600;
 }
 .planner-current,
 .planner-swap {
@@ -113,10 +115,10 @@
   width: 44px;
   height: 44px;
   padding: 8px;
-  border: 1px solid var(--separator);
+  border: 0;
   border-radius: var(--radius-round);
-  background: var(--surface-primary);
-  color: var(--text);
+  background: var(--fill-tertiary);
+  color: var(--color-link);
   font-size: 22px;
 }
 .planner-current svg,
@@ -138,11 +140,11 @@
   gap: 9px;
   min-height: 52px;
   width: 100%;
-  margin: 14px 0 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--separator);
+  margin: 12px 0 8px;
+  padding: 8px 12px;
+  border: 0;
   border-radius: var(--radius-option);
-  background: var(--surface-primary);
+  background: var(--surface-place-entry);
   text-align: left;
   font: inherit;
   font-size: var(--type-secondary);
@@ -400,8 +402,22 @@
   min-height: 44px;
   display: flex;
   align-items: center;
-  font-size: 0.8125rem;
-  color: var(--muted);
+  justify-content: space-between;
+  list-style: none;
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  color: var(--color-link);
+}
+.search-history > summary::-webkit-details-marker {
+  display: none;
+}
+.search-history > summary::after {
+  content: "›";
+  font-size: 1.25rem;
+  transition: transform var(--motion-standard) ease;
+}
+.search-history[open] > summary::after {
+  transform: rotate(90deg);
 }
 .search-history .native-row {
   font-size: 0.875rem;
@@ -1378,9 +1394,9 @@
 .planner-quick-stops { padding: 12px 4px 14px; }
 .planner-quick-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .planner-quick-buttons button {
-  min-height: 44px; padding: 9px 14px; border-radius: var(--radius-round);
-  border: 1px solid var(--separator);
-  background: var(--surface-secondary); color: var(--text);
+  min-height: 44px; padding: 9px 16px; border-radius: var(--radius-capsule);
+  border: 0;
+  background: var(--fill-tertiary); color: var(--text);
   font: inherit; font-weight: 600;
 }
 .planner-quick-buttons button:focus-visible {
