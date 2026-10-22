@@ -279,6 +279,8 @@ dialog.boarding-sheet h2 {
 .boarding-primary[data-operator="through"] { --mode: var(--color-through); }
 .boarding-primary[data-operator="citybus"] { --mode: var(--color-citybus); }
 .boarding-primary[data-operator="kyotobus"] { --mode: var(--color-kyotobus); }
+.boarding-primary[data-line] { --mode: var(--line-color); }
+.boarding-primary[data-line] .boarding-mode { color: var(--color-on-line); }
 .boarding-mode {
   display: grid;
   place-items: center;
@@ -433,4 +435,32 @@ html[data-reduce-motion="true"] :is(dialog.boarding-sheet, .boarding-pulse, .boa
     animation: none !important;
     transition: none;
   }
+}
+
+/* Ride chooser: a plain inset list inside the sheet (no card in a card). */
+.ride-chooser.section-block {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ride-choice-list.native-list {
+  border: 0;
+  border-radius: var(--radius-group);
+  background: var(--surface-primary);
+  box-shadow: none;
+  overflow: hidden;
+}
+.ride-choice-row {
+  min-height: 64px;
+  text-align: left;
+}
+.ride-choice-row b {
+  font-size: var(--type-body);
+}
+.ride-choice-row small {
+  color: var(--muted);
+}
+.ride-chooser .source-caption {
+  margin: 10px 16px 0;
 }

@@ -57,7 +57,7 @@ function element() {
 
 function candidateCard(entry, describe) {
   const d = describe(entry.candidate);
-  return `<div class="boarding-primary" data-operator="${esc(d.operator)}"><span class="boarding-mode">${icon(d.bus ? "bus" : "train")}</span><div><b>${esc(d.service)}</b><strong>${esc(d.destination)}</strong>${d.departure ? `<small>${esc(d.departure)}</small>` : ""}</div></div>${d.evidence.length ? `<ul class="boarding-evidence">${d.evidence.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
+  return `<div class="boarding-primary" data-operator="${esc(d.operator)}"${d.line ? ` data-line="${esc(d.line)}"` : ""}><span class="boarding-mode">${icon(d.bus ? "bus" : "train")}</span><div><b>${esc(d.service)}</b><strong>${esc(d.destination)}</strong>${d.departure ? `<small>${esc(d.departure)}</small>` : ""}</div></div>${d.evidence.length ? `<ul class="boarding-evidence">${d.evidence.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
 }
 
 function render() {
@@ -93,7 +93,10 @@ export function presentBoarding({ entries, key, describe, onConfirm, onNotRiding
     sheet.show();
     sheet.dataset.state = "presenting";
     haptic();
-    sheet.querySelector("[data-boarding-confirm]")?.focus({ preventScroll: true });
+    // Focus for assistive technology without painting a keyboard focus ring.
+    sheet
+      .querySelector("[data-boarding-confirm]")
+      ?.focus({ preventScroll: true, focusVisible: false });
   }
 }
 

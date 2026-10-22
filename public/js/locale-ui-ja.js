@@ -960,7 +960,7 @@ export default {
     '<div class="live-direction-segments" role="group" aria-label="方面">{0}</div>',
   vnext_view_099: "<p><time>{0}</time><span>{1}行き</span></p>",
   vnext_view_100:
-    '<button class="native-row ride-choice-row" data-ride-candidate="{0}"><span class="mode-symbol {1}">{2}</span><span><b>{3}</b><small>{4}方面{5}</small></span><strong>選択</strong><span class="chevron">›</span></button>',
+    '<button class="native-row ride-choice-row" data-ride-candidate="{0}"><span class="mode-symbol {1}">{2}</span><span><b>{3}</b><small>{4}方面{5}</small></span><span class="chevron">›</span></button>',
   vnext_view_101:
     '<section class="section-block armed-journey" tabindex="-1"><span class="section-label">案内開始の準備ができました</span><h3>{0} · {1}行き</h3><p class="source-note">{2}で降車予定。位置・移動・対象便が一致したら乗車を確認します。</p>{3}<div class="screen-action-group"><button class="secondary-action" data-board-armed>この便に乗車中 · 案内を開始</button><button class="plain-action" data-cancel-armed>解除</button></div></section>',
   vnext_view_102:

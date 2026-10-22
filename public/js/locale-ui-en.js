@@ -971,7 +971,7 @@ export default {
     '<div class="live-direction-segments" role="group" aria-label="Direction">{0}</div>',
   vnext_view_099: "<p><time>{0}</time><span>To {1}</span></p>",
   vnext_view_100:
-    '<button class="native-row ride-choice-row" data-ride-candidate="{0}"><span class="mode-symbol {1}">{2}</span><span><b>{3}</b><small>Toward {4}{5}</small></span><strong>Select</strong><span class="chevron">›</span></button>',
+    '<button class="native-row ride-choice-row" data-ride-candidate="{0}"><span class="mode-symbol {1}">{2}</span><span><b>{3}</b><small>Toward {4}{5}</small></span><span class="chevron">›</span></button>',
   vnext_view_101:
     '<section class="section-block armed-journey" tabindex="-1"><span class="section-label">Ready to start guidance</span><h3>{0} · To {1}</h3><p class="source-note">Alight at {2}. Boarding is confirmed when location, movement and the selected service agree.</p>{3}<div class="screen-action-group"><button class="secondary-action" data-board-armed>I am on this service · Start guidance</button><button class="plain-action" data-cancel-armed>Remove</button></div></section>',
   vnext_view_102:

@@ -659,3 +659,13 @@ html[data-app-hidden="true"] .idle-status .idle-state::before {
   margin-right: 6px;
   vertical-align: -0.15em;
 }
+.inline-line-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  vertical-align: -0.2em;
+}
+.inline-line-badges .line-badge.small {
+  min-height: 1.35em;
+  font-size: 0.75rem;
+}
