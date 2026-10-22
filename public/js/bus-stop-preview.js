@@ -1,6 +1,7 @@
 import { ui } from "./locale.js";
 import { officialData } from "./timetable-ui.js";
-import { esc, tokyoNow } from "./vnext-state.js";
+import { esc, tokyoNow, state, icon } from "./vnext-state.js";
+import { approachStops } from "./approach-stops.js";
 import { compactBusHTML, busRow } from "./vnext-arrivals.js";
 import {
   getCached,
@@ -15,7 +16,7 @@ import {
 } from "./arrival-stability.js";
 import { navigation } from "./navigation.js";
 import { updateArrivalRows, updateHTML } from "./view-rendering.js";
-import { lineBadge } from "./line-badge.js";
+import { lineBadge, lineKind } from "./line-badge.js";
 
 // Kyoto Bus stops that 京都バスナビ resolves, and the onward stop that
 // selects each served direction (route 40 and the 臨時 line).
@@ -167,10 +168,32 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
     scheduleDate = now.date;
     scheduleAt = Date.now();
   }
+  // Named stops before this one, with each approaching bus placed on them.
+  function updateApproachStops(target, row) {
+    const list = row && approachStops(state.network, stop.id, row.route, row.dest);
+    if (!list) {
+      target.hidden = true;
+      return;
+    }
+    const at = new Map();
+    for (const a of row.arrivals ?? [])
+      if (Number.isFinite(a.stopsAway) && a.stopsAway >= 0 && a.stopsAway < list.length)
+        at.set(Math.round(a.stopsAway), a);
+    target.hidden = false;
+    updateHTML(
+      target,
+      `<h3 class="stop-section-heading">${esc(ui("approach_stops_heading"))}</h3><ol class="approach-stops" data-line="${esc(lineKind({ operator: stop.type, route: row.route }))}">${list
+        .map(
+          (s) =>
+            `<li class="${s.away === 0 ? "here" : ""}${at.has(s.away) ? " bus" : ""}"><span class="approach-stop-dot" aria-hidden="true">${at.has(s.away) ? icon("bus") : ""}</span><b>${esc(s.name)}</b><small>${esc(s.away === 0 ? ui("approach_stops_here") : ui("approach_stops_away", [s.away]))}${at.has(s.away) ? ` · ${esc(ui("approach_stops_bus"))}` : ""}</small></li>`,
+        )
+        .join("")}</ol><p class="source-caption">${esc(ui("approach_stops_note"))}</p>`,
+    );
+  }
   function render({ updating = false, failed = false } = {}) {
     if (serviceKey) {
       if (!host.querySelector(".arrival-lines"))
-        host.innerHTML = `<div class="arrival-lines" aria-live="polite"></div><p class="source-note" data-approach-message></p>`;
+        host.innerHTML = `<div class="arrival-lines" aria-live="polite"></div><p class="source-note" data-approach-message></p><section class="approach-stops-card" data-approach-stops hidden></section>`;
       const rows = groupCityBusRows(
         normalizedBusSources(data).filter(
           (r) => busServiceKey(r) === serviceKey,
@@ -185,6 +208,7 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
           "true",
         );
       });
+      updateApproachStops(host.querySelector("[data-approach-stops]"), rows[0]);
       host.querySelector("[data-approach-message]").textContent = failed
         ? ui("bus_stop_preview_007").replace(/<[^>]+>/g, "")
         : !rows.some((r) =>

@@ -81,6 +81,8 @@ export function updateArrivalRows(root, rows, present) {
     el.classList.toggle("imminent", Boolean(view.imminent));
     el.classList.toggle("delayed", Boolean(view.delayed));
     el.dataset.operator = view.operator ?? "citybus";
+    if (view.line) el.dataset.line = view.line;
+    else delete el.dataset.line;
     const toggle = el.querySelector(".arrival-toggle");
     if (toggle && view.expandable === false) toggle.remove();
     if (toggle && view.expandable !== false)

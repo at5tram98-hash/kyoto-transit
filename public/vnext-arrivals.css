@@ -597,9 +597,6 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   }
 }
 @media (prefers-color-scheme: dark) {
-  .arrival-route-badge {
-    color: var(--color-citybus);
-  }
   .arrival-rail-badge {
     color: var(--color-kintetsu);
   }
@@ -618,4 +615,95 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
 .arrival-compact small > .source-dot {
   margin-right: 5px;
   vertical-align: 1px;
+}
+
+/* Approach timeline: preceding stops top to bottom, buses on their stop. */
+.approach-stops-card {
+  margin-top: 16px;
+  padding: 4px 16px 8px;
+  border-radius: var(--radius-inset);
+  background: var(--panel);
+}
+.approach-stops {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.approach-stops li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.approach-stops li::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--line-color);
+  opacity: 0.35;
+}
+.approach-stops li:first-child::before {
+  top: 50%;
+}
+.approach-stops li.here::before {
+  bottom: 50%;
+}
+.approach-stop-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line-color);
+  border-radius: var(--radius-round);
+  background: var(--panel);
+}
+.approach-stops li.bus .approach-stop-dot {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-compact);
+  background: var(--line-color);
+  color: var(--color-on-line);
+  box-shadow: var(--shadow-arrival-marker);
+}
+.approach-stop-dot svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.approach-stops li.here .approach-stop-dot {
+  width: 16px;
+  height: 16px;
+  border-width: 4px;
+}
+.approach-stops b {
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.approach-stops li.here b {
+  font-weight: 750;
+}
+.approach-stops small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  text-align: right;
+}
+.approach-stops li.bus small {
+  color: var(--color-link);
+  font-weight: 650;
+}
+.arrival-line[data-line] .arrival-track-vehicle {
+  background: var(--line-color);
+  color: var(--color-on-line);
 }

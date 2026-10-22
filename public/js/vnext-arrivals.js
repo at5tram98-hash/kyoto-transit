@@ -1,4 +1,4 @@
-import { lineBadge } from "./line-badge.js";
+import { lineBadge, lineKind } from "./line-badge.js";
 import { ui } from "./locale.js";
 import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
 import { getStaticFeed } from "./fast-data.js";
@@ -116,6 +116,7 @@ export function busRow(r) {
       `<span class="arrival-source-label">${sourceDot(a.source)}${a.scheduleStale ? ui("vnext_arrivals_012") : sourceLabel(a.source)}${Number.isFinite(timestamp(a.asOf)) ? ui("vnext_arrivals_013", [updateTime.format(timestamp(a.asOf))]) : ""}</span>`;
   return {
     operator: "citybus",
+    line: lineKind({ operator: r.operator ?? "citybus", route: r.route }),
     delayed: r.delay > 0,
     imminent:
       primary.source === "live" &&

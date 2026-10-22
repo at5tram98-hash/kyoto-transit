@@ -1258,4 +1258,9 @@ export default {
   kyotobus_nav_wait: "in ~{0} min",
   kyotobus_nav_source: "Kyoto Bus Navi (official) · {0}",
   stop_schedule_heading: "Official timetable",
+  approach_stops_heading: "Approach to this stop",
+  approach_stops_here: "This stop",
+  approach_stops_away: "{0} before",
+  approach_stops_bus: "Bus here",
+  approach_stops_note: "Stop order from route data; bus positions from the official approach information.",
 };

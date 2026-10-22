@@ -1245,4 +1245,9 @@ export default {
   kyotobus_nav_wait: "約{0}分後",
   kyotobus_nav_source: "京都バスナビ（公式）· {0} 取得",
   stop_schedule_heading: "公式時刻表",
+  approach_stops_heading: "この停留所までの接近状況",
+  approach_stops_here: "この停留所",
+  approach_stops_away: "{0}つ前",
+  approach_stops_bus: "バスがいます",
+  approach_stops_note: "停留所の並びは路線データ、バスの位置は公式の接近情報（何停留所前か）です。",
 };
