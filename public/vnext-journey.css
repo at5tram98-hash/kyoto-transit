@@ -1470,7 +1470,7 @@ summary {
 }
 .fold-recommend-row.best {
   background: color-mix(in srgb, var(--color-accent) 10%, var(--surface-primary));
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: var(--shadow-selected-ring);
 }
 .fold-recommend-row:active {
   background: var(--fill-secondary);

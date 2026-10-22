@@ -63,6 +63,7 @@
   --line-kintetsu: #c8102e;
   --line-through: #6c4aa0;
   --color-on-line: #fff;
+  --shadow-selected-ring: inset 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 45%, transparent);
   --color-walk: #6e6e73;
   --color-success: #208345;
   --color-warning: #a35b00;
