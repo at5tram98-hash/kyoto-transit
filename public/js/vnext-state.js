@@ -1,6 +1,6 @@
 import { getStaticFeed } from "./fast-data.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
-import { subwayIds, kintetsuIds } from "./network.js";
+import { subwayIds, kintetsuIds, normalize } from "./network.js";
 import { setAppLocale, ui } from "./locale.js";
 import { distance } from "./mobility.js";
 import { trajectory, freshFix } from "./riding.js";
@@ -204,17 +204,20 @@ export function speed() {
   const m = trajectory(state.samples);
   return Number.isFinite(m.speed) ? m.speed : 0;
 }
+// Kyoto Bus stops share the kerbside of the same-named city bus stop; borrow
+// its coordinates. Stops without a located counterpart stay off the map.
 export function augmentKyotoBusGeometry() {
-  for (const [id, name] of [
-    ["kyotobus-karasuma-marutamachi", "烏丸丸太町"],
-    ["kyotobus-senbon-marutamachi", "千本丸太町"],
-  ]) {
-    if (state.geo.stops.some((s) => s.id === id)) continue;
-    const city = [...state.network.stops.values()].find(
-        (s) => s.type === "citybus" && s.name === name,
-      ),
-      point = city && state.geo.stops.find((s) => s.id === city.id);
-    if (point) state.geo.stops.push({ id, lat: point.lat, lng: point.lng });
+  const key = (stop) => normalize(stop.fullName ?? stop.name);
+  const located = new Map(state.geo.stops.map((s) => [s.id, s]));
+  const cityByName = new Map();
+  for (const stop of state.network.stops.values())
+    if (stop.type === "citybus" && located.has(stop.id))
+      for (const name of [stop.name, stop.fullName].filter(Boolean))
+        cityByName.set(normalize(name), located.get(stop.id));
+  for (const stop of state.network.stops.values()) {
+    if (stop.type !== "kyotobus" || located.has(stop.id)) continue;
+    const point = cityByName.get(key(stop)) ?? cityByName.get(normalize(stop.name));
+    if (point) state.geo.stops.push({ id: stop.id, lat: point.lat, lng: point.lng });
   }
 }
 export const rideKey = journeyKey;

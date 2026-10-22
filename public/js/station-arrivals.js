@@ -8,6 +8,7 @@ import {
   railPositionNames,
 } from "./rail-arrivals-core.js";
 import { updateArrivalRows, updateHTML } from "./view-rendering.js";
+import { lineBadge } from "./line-badge.js";
 
 // A station screen owns only its visible subscription. Static requests remain
 // deduplicated by fast-data; returning to the screen keeps its existing rows.
@@ -118,14 +119,14 @@ export function mountStationArrivals(host, stop) {
         (row) => ({
           operator: group.operator,
           expandable: false,
-          service: `<span class="station-service"><span class="transport-icon" data-operator="${group.operator}">${icon("train")}</span><small>${esc(row.label ?? (row.category === "express" ? ui("timetable_ui_001") : row.category === "local" ? ui("timetable_ui_002") : ui("timetable_ui_004")))}</small></span>`,
-          destination: `<b>${esc(row.dest || ui("vnext_arrivals_021"))}</b>`,
+          // Departure-board row: scheduled time and train type on the left,
+          // line symbol and destination, then minutes.
+          service: `<span class="station-service">${Number.isFinite(row.scheduledDeparture) ? `<b class="station-clock">${esc(row.clock)}</b>` : `<span class="transport-icon" data-operator="${group.operator}">${icon("train")}</span>`}<small class="station-category" data-category="${esc(row.category ?? "")}">${esc(row.label ?? (row.category === "express" ? ui("timetable_ui_001") : row.category === "local" ? ui("timetable_ui_002") : ui("timetable_ui_004")))}</small></span>`,
+          destination: `<span class="station-destination">${lineBadge({ operator: group.operator }, { name: false, size: "small" })}<b>${esc(row.dest || ui("vnext_arrivals_021"))}</b></span>`,
           minutes: Number.isFinite(row.minutes)
             ? `<span><b>${Math.max(0, Math.ceil(row.minutes))}</b><small>${ui("station_minutes")}</small></span>`
             : `<span class="arrival-unconfirmed">${ui("station_eta_unknown")}</span>`,
-          details: Number.isFinite(row.scheduledDeparture)
-            ? `<span>${ui("station_scheduled_at", [row.clock])}</span>`
-            : "",
+          details: "",
           source:
             row.source === "live"
               ? `<span class="arrival-source-label"><i class="source-dot live" aria-hidden="true"></i>${ui(Number.isFinite(row.minutes) ? "station_observed_eta" : "station_observed_position")}</span>`

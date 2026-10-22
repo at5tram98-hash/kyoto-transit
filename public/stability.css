@@ -154,15 +154,14 @@ select {
     grid-template-columns: 1fr;
   }
   .hour-row {
-    grid-template-columns: 38px minmax(0, 1fr);
-    padding: 9px 7px;
+    grid-template-columns: 44px minmax(0, 1fr);
   }
   .hour-row > div {
-    gap: 8px;
+    gap: 2px 6px;
   }
   .minute-cell {
-    min-width: 46px;
-    padding: 6px 5px;
+    min-width: 44px;
+    padding: 4px 2px;
   }
   .bus-service b {
     font-size: 0.6875rem;

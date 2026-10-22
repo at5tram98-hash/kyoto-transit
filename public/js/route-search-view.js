@@ -3,6 +3,7 @@ import { esc, icon } from "./vnext-state.js";
 import { formatTime } from "./router.js";
 import { boardingAvailable } from "./journey-session.js";
 import { routeObservationState } from "./route-search-model.js";
+import { lineBadge, lineKind, isLoopRoute } from "./line-badge.js";
 const yen = (n) =>
   Number.isFinite(n)
     ? ui("route_search_view_001", [Math.round(n).toLocaleString("ja-JP")])
@@ -33,6 +34,7 @@ const clock = (minute, label) => {
   const parts = formatTime(minute).split(" ");
   return `${parts.length > 1 ? `<small class="journey-clock-day">${esc(parts[0])}</small>` : ""}<b>${esc(parts.at(-1))}</b><small>${label}</small>`;
 };
+const isBus = (leg) => /bus/.test(leg.operatingCompany ?? leg.operator ?? "");
 const serviceLabel = (leg) =>
   leg.route
     ? ui("route_search_view_008", [leg.route])
@@ -70,9 +72,21 @@ export function routeHTML(
     .filter((leg) => leg.kind === "ride")
     .map(
       (leg) =>
-        `<span class="transport-badge route-mode-badge" data-operator="${esc(leg.operator === "through" ? "through" : (leg.operatingCompany ?? leg.operator))}">${icon(leg.operator.includes("bus") ? "bus" : "train")}${esc(serviceLabel(leg))}</span>`,
+        `<span class="route-mode-badge" data-operator="${esc(leg.operator === "through" ? "through" : (leg.operatingCompany ?? leg.operator))}">${isBus(leg) ? icon("bus") : ""}${lineBadge(leg, { size: "small", label: serviceLabel(leg) })}</span>`,
     )
     .join('<span class="route-mode-transfer" aria-hidden="true">›</span>');
+  // Fare per ride block, shown on the leg where the block starts (Yahoo-style).
+  const legFare = (leg) => {
+    const d = route.fare.details?.find(
+      (x) => x.from === leg.from && x.path?.includes(leg.to),
+    );
+    if (!d) return "";
+    return d.covered
+      ? ui("route_leg_fare_covered")
+      : Number.isFinite(d.additional)
+        ? ui("route_leg_fare", [Math.round(d.additional).toLocaleString("ja-JP")])
+        : "";
+  };
   const startTime =
     route.legs[0]?.kind === "ride" ? route.legs[0].depart : route.start;
   const shownDuration = Math.max(0, route.time - startTime);
@@ -163,12 +177,17 @@ export function routeHTML(
         esc(leg.operatingCompany ?? leg.operator),
         departure,
         stationName(leg.from),
-        esc(serviceLabel(leg)),
-        leg.category === "express"
-          ? ui("route_search_view_025")
-          : leg.category === "local"
-            ? ui("route_search_view_026")
-            : "",
+        lineBadge(leg, { size: isBus(leg) ? "large" : "regular", label: serviceLabel(leg) }),
+        isBus(leg)
+          ? `${esc(operatorLabel[leg.operatingCompany ?? leg.operator] ?? "")} ${esc(serviceLabel(leg))}${isLoopRoute(leg.route) ? `<em class="journey-loop">${esc(ui("route_loop"))}</em>` : ""}`
+          : esc(
+              (leg.category === "express"
+                ? ui("route_search_view_025")
+                : leg.category === "local"
+                  ? ui("route_search_view_026")
+                  : ""
+              ).replace(/^\s*·\s*/, ""),
+            ),
         esc(leg.destination ?? ui("route_search_view_027")),
         leg.destination ? ui("route_search_view_028") : "",
         leg.through ? ui("route_search_view_029") : "",
@@ -190,6 +209,8 @@ export function routeHTML(
         leg.arrivalPlatform
           ? ui("route_search_view_033", [esc(leg.arrivalPlatform)])
           : "",
+        esc(lineKind(leg)),
+        `<p class="journey-leg-meta"><span>${esc(ui("route_leg_minutes", [Math.max(0, Math.round(leg.arrive - leg.depart))]))}</span>${legFare(leg) ? `<span>${esc(legFare(leg))}</span>` : ""}</p>`,
       ]),
     );
   });

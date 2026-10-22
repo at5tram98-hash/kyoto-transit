@@ -1,3 +1,4 @@
+import { lineBadge } from "./line-badge.js";
 import { ui } from "./locale.js";
 import {
   operationStatus,
@@ -288,7 +289,7 @@ export function mountTimetables({
     if (b) navigation.push("timetable-line", { id: b.dataset.timetableLine });
   });
   function rows(stops) {
-    return `<div class="native-list">${stops.map((s) => `<button class="native-row" data-timetable-stop="${esc(s.id)}"><span class="transport-icon" data-operator="${esc(s.type)}">${transitSymbol(s.type.includes("bus"))}</span><span><b>${esc(s.name)}</b><small>${esc(s.lines.join("・"))}</small></span><span class="chev">›</span></button>`).join("")}</div>`;
+    return `<div class="native-list">${stops.map((s) => `<button class="native-row" data-timetable-stop="${esc(s.id)}"><span class="transport-icon" data-operator="${esc(s.type)}">${transitSymbol(s.type.includes("bus"))}</span><span><b>${esc(s.name)}</b>${s.type.includes("bus") ? `<small class="row-line-badges" aria-label="${esc(s.lines.join("・"))}">${s.lines.map((r) => lineBadge({ operator: s.type, route: r }, { size: "small" })).join("")}</small>` : `<small>${esc(s.lines.join("・"))}</small>`}</span><span class="chev">›</span></button>`).join("")}</div>`;
   }
   async function select(id) {
     if (chosen !== id) {

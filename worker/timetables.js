@@ -25,15 +25,39 @@ function validKyotoPage(html,url){
   if(url.pathname.endsWith('/stop.html'))return parseKyotoPlatforms(html,url.searchParams.get('stop_id')).length>0 || load(html)('a.busStop_platform_towards_list_item[href*="schedule.html?"]').length>0;
   return false;
 }
-export function officialFetcher(env,{direct=fetch}={}){return async(url,init)=>{
+// Last good official Kyoto Bus page per URL. Timetables change with service
+// revisions only, so a page saved within the week is served (labelled with its
+// capture time) when both HTTP and the browser service fail, e.g. on HTTP 429.
+const OFFICIAL_COPY_TTL=604800,OFFICIAL_COPY_INTERVAL=21600;
+const officialCopyKey=u=>`official:kyotobus:${u.pathname}${u.search}`;
+async function rememberOfficial(env,u,html){
+  if(!env?.LIVE_KV)return;
+  const marker=typeof caches!=='undefined'?new Request(`https://mymap-cache.invalid/official-copy${u.pathname}${u.search}`):null;
+  if(marker&&await caches.default.match(marker))return;
+  await env.LIVE_KV.put(officialCopyKey(u),JSON.stringify({html,capturedAt:new Date().toISOString()}),{expirationTtl:OFFICIAL_COPY_TTL});
+  if(marker)await caches.default.put(marker,new Response('1',{headers:{'Cache-Control':`public, max-age=${OFFICIAL_COPY_INTERVAL}`}}));
+}
+async function savedOfficial(env,u){
+  try{const value=JSON.parse(await env?.LIVE_KV?.get(officialCopyKey(u))??'null');if(value?.html&&validKyotoPage(value.html,u))return value;}catch{}
+  return null;
+}
+const officialResponse=(u,html,capturedAt=null)=>new Response(html,{headers:{'Content-Type':u.pathname.endsWith('.json')?'application/json;charset=utf-8':'text/html;charset=utf-8',...(capturedAt?{'X-Official-Captured-At':capturedAt}:{})}});
+export function officialFetcher(env,{direct=fetch}={}){const inner=officialFetcherLive(env,{direct});return async(url,init)=>{
+  const u=new URL(url);if(u.origin!==KYOTO)return direct(url,init);
+  try{const response=await inner(url,init);const html=await response.clone().text();await rememberOfficial(env,u,html).catch(()=>{});return response;}
+  catch(error){if(init?.signal?.aborted)throw error;const saved=await savedOfficial(env,u);if(saved)return officialResponse(u,saved.html,saved.capturedAt);throw error;}
+};}
+function officialFetcherLive(env,{direct=fetch}={}){return async(url,init)=>{
   const u=new URL(url);if(u.origin!==KYOTO)return direct(url,init);
   // The official pages already embed their complete timetable. A browser is
   // only needed if the origin refuses HTTP or returns an interstitial.
-  try{
-    const response=await direct(url,{...init,redirect:'manual',signal:init?.signal?AbortSignal.any([init.signal,AbortSignal.timeout(7000)]):AbortSignal.timeout(7000)});
-    if(response.ok){const html=await boundedText(response);if(validKyotoPage(html,u))return new Response(html,{headers:{'Content-Type':u.pathname.endsWith('.json')?'application/json;charset=utf-8':'text/html;charset=utf-8'}});}
-    else await response.body?.cancel();
-  }catch(error){if(init?.signal?.aborted)throw error;}
+  for(let attempt=0;attempt<2;attempt++){
+    try{
+      const response=await direct(url,{...init,redirect:'manual',signal:init?.signal?AbortSignal.any([init.signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000)});
+      if(response.ok){const html=await boundedText(response);if(validKyotoPage(html,u))return officialResponse(u,html);}
+      else await response.body?.cancel();
+    }catch(error){if(init?.signal?.aborted)throw error;}
+  }
   const r=await env.BROWSER.quickAction('content',{url:u.href,gotoOptions:{waitUntil:'domcontentloaded',timeout:15000},waitForSelector:{selector:u.pathname.endsWith('.json')?'pre':u.pathname.endsWith('/stop.html')?'a[href*="schedule.html?stop_id="]':'script',timeout:8000},actionTimeout:18000});
   if(!r.ok){
     const status=r.status;await r.body?.cancel();
@@ -141,6 +165,20 @@ export function parseKyotoPlatforms(html,sid){
 }
 export function parseKyotoSchedules(html){const boot=jsonConstant(html,'SCHEDULE_BOOT'),urls=jsonConstant(html,'FARE_URLS');if(!boot)throw Error('京都バスの公式時刻表を読み取れませんでした。');return {boot,urls};}
 export function kyotoEntries(schedule){const days={};for(const [day,data]of Object.entries(schedule.timetable??{})){days[day]=Object.values(data.hour??{}).flat().filter(e=>/^(?:特|直行)?40$|^臨時/.test(String(e.route_short_name).normalize('NFKC'))).map(e=>({depart:timeNumber(e.departure_time),route:String(e.route_short_name).normalize('NFKC'),tripId:e.trip_id,routeId:e.route_id,destination:e.stop_headsign})).filter(e=>e.depart!==null).sort((a,b)=>a.depart-b.depart);}return days;}
+// Kyoto Bus boards name their days differently: route 40 follows the Kyoto
+// Sangyo University calendar (weekday_a / weekday_b / weekday_wa …) while the
+// 臨時 line uses plain weekday / saturday / sunday. Resolve a requested day to
+// the key this board actually publishes, or null when it is ambiguous.
+export function kyotoDayKey(days,day){
+  const has=key=>Array.isArray(days?.[key]);
+  if(!day)return null;
+  if(day==='holiday')return has('sunday')?'sunday':has('holiday')?'holiday':null;
+  if(has(day))return day;
+  // The university calendar's 平日A水曜 is published as weekday_wa (水曜A).
+  if(day==='wednesday_a'){if(has('weekday_wa'))return 'weekday_wa';if(has('weekday_w'))return 'weekday_w';}
+  if(/^(?:weekday|wednesday)_/.test(day)&&has('weekday'))return 'weekday';
+  return null;
+}
 export function parseCityCatalog(html,sourceURL){const $=load(html);return $('h2[id^="bs"]').map((_,e)=>({name:clean($(e).text()),officialId:$(e).attr('id').slice(2),boards:$(e).closest('.panel').find('a[href*="hyperdia/"]').map((_,a)=>({label:clean($(a).text()),sourceURL:new URL($(a).attr('href'),sourceURL).href})).get()})).get();}
 export async function timetableOptions(id,fetcher=fetch){
   const stop=network.stops.get(id);if(!stop)throw Error('対応する駅・停留所を選んでください。');
@@ -170,7 +208,7 @@ export async function readTimetable(id,key,day,fetcher=fetch,date=null){
   if(options.operator==='kintetsu'){const u=new URL(sourceURL);u.searchParams.set('dw',day==='weekday'?'0':'1');sourceURL=u.href;data=parseKintetsuBoard(await officialText(sourceURL,fetcher),sourceURL);}
   else if(options.operator==='kyotobus'){
     const html=await officialText(sourceURL,fetcher),{boot,urls}=parseKyotoSchedules(html),schedule=boot.master_current??Object.values(boot)[0];
-    const days=kyotoEntries(schedule),selected=day==='holiday'?'sunday':day==='weekday'?(days.weekday?'weekday':null):day;
+    const days=kyotoEntries(schedule),selected=kyotoDayKey(days,day);
     data={title:schedule.stop_name,days,entries:days[selected]??[],dayRequired:!selected,dayKeys:Object.keys(days),effective:schedule.start_date,stopId:schedule.stop_id,fareURL:urls?.master_current?safeKyotoAsset(urls.master_current,schedule.stop_id,'fare'):null};
   }else {data=parseHyperdia(await officialText(sourceURL,fetcher));data.entries=data.days[day]??[];}
   return {kind:'timetable',...options,boards:undefined,...board,...data,day,date,calendarSource:options.operator==='kyotobus'?CALENDAR_SOURCE:null,sourceURL,fetchedAt:new Date().toISOString()};

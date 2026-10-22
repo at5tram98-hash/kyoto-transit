@@ -52,6 +52,17 @@
   --color-citybus: #ae5600;
   --color-kyotobus: #1964b6;
   --color-through: #7751a8;
+  /* Route plates: city loop (循環) orange, other city routes blue, Kyoto
+     Bus route colours, Karasuma green, Kintetsu red. White text on each. */
+  --line-citybus-loop: #c95a00;
+  --line-citybus: #0b5cb5;
+  --line-kyotobus: #c6492a;
+  --line-kyotobus-express: #c4231d;
+  --line-kyotobus-temp: #127a52;
+  --line-subway: #138a48;
+  --line-kintetsu: #c8102e;
+  --line-through: #6c4aa0;
+  --color-on-line: #fff;
   --color-walk: #6e6e73;
   --color-success: #208345;
   --color-warning: #a35b00;
@@ -64,6 +75,7 @@
   --color-rank-early: #bd5600;
   --color-rank-easy: #006f9f;
   --color-rank-cheap: #866500;
+  --color-rank-walk: #2c7a3c;
   --color-on-transport: #fff;
   --color-destination: #111114;
   --surface-destination: #f5f5f7;
@@ -146,6 +158,7 @@
     --color-rank-early: #ffae68;
     --color-rank-easy: #78cfff;
     --color-rank-cheap: #f5d16b;
+    --color-rank-walk: #7fd38a;
     --muted: #98989d;
     --separator: rgba(174, 174, 180, 0.3);
     --color-link: #69b1ff;
@@ -157,6 +170,14 @@
     --color-citybus: #ffb464;
     --color-kyotobus: #82bbff;
     --color-through: #c2a2f0;
+    --line-citybus-loop: #d96a0c;
+    --line-citybus: #1a6fcf;
+    --line-kyotobus: #d2573a;
+    --line-kyotobus-express: #d23a2f;
+    --line-kyotobus-temp: #1a8a5f;
+    --line-subway: #1c9a55;
+    --line-kintetsu: #d8283f;
+    --line-through: #7c5bb3;
     --color-walk: #98989d;
     --color-success: #72d391;
     --color-warning: #ffc169;
@@ -217,6 +238,87 @@ html[data-reduce-motion="true"] *::after {
 }
 [data-operator="through"] {
   --transport-color: var(--color-through);
+}
+[data-line] {
+  --line-color: var(--line-citybus);
+}
+[data-line="citybus-loop"] {
+  --line-color: var(--line-citybus-loop);
+}
+[data-line="kyotobus"] {
+  --line-color: var(--line-kyotobus);
+}
+[data-line="kyotobus-express"] {
+  --line-color: var(--line-kyotobus-express);
+}
+[data-line="kyotobus-temp"] {
+  --line-color: var(--line-kyotobus-temp);
+}
+[data-line="subway"] {
+  --line-color: var(--line-subway);
+}
+[data-line="kintetsu"] {
+  --line-color: var(--line-kintetsu);
+}
+[data-line="through"] {
+  --line-color: var(--line-through);
+}
+/* Route plate: a solid, rounded number plate like the bus destination sign. */
+.line-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: none;
+  min-width: 2.6em;
+  min-height: 1.75em;
+  padding: 1px 7px;
+  border-radius: var(--radius-tiny);
+  background: var(--line-color);
+  color: var(--color-on-line);
+  font-size: 0.9375rem;
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.line-badge.small {
+  min-width: 2.3em;
+  min-height: 1.5em;
+  padding: 0 5px;
+  font-size: 0.8125rem;
+}
+.line-badge.large {
+  min-width: 2.4em;
+  min-height: 1.9em;
+  padding: 2px 9px;
+  font-size: 1.125rem;
+  border-radius: var(--radius-marker);
+}
+/* Rail: line symbol in a ring plus the line name, on a tinted capsule. */
+.line-badge.rail {
+  min-width: 0;
+  padding: 1px 9px 1px 3px;
+  border-radius: var(--radius-capsule);
+  background: color-mix(in srgb, var(--line-color) 14%, var(--surface-primary));
+  color: var(--text);
+  font-weight: 650;
+}
+.line-badge.rail > i {
+  display: grid;
+  place-items: center;
+  width: 1.35em;
+  height: 1.35em;
+  border-radius: var(--radius-round);
+  background: var(--line-color);
+  color: var(--color-on-line);
+  font-style: normal;
+  font-size: 0.8em;
+  font-weight: 800;
+}
+.line-badge.rail:not(:has(> span:not(.sr-only))) {
+  padding: 1px;
 }
 .transport-badge,
 .transport-icon {

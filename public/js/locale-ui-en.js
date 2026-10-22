@@ -1027,7 +1027,7 @@ export default {
   route_search_view_052:
     '<button class="journey-departure" data-change-route="{0}" data-change-leg="{1}" aria-haspopup="dialog" aria-controls="trip-choice-sheet" aria-expanded="false" aria-label="Change the service from {2} departing {3}">{4}</button>',
   route_search_view_053:
-    '<div class="journey-ride" data-operator="{0}"><div class="planner-leg ride journey-point">{1}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">Dep.</span>{2}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><b>{3}{4}</b><small>{5}{6}{7}</small></div>{8}<small class="journey-leg-source">{9}</small>{10}{11}{12}</div></div>{13}{14}</div>',
+    '<div class="journey-ride" data-operator="{0}" data-line="{15}"><div class="planner-leg ride journey-point">{1}<span class="planner-line"></span><div class="journey-station-band"><span class="journey-station-kind">Dep.</span>{2}</div></div><div class="planner-leg journey-service-row"><span></span><span class="planner-line"></span><div><div class="journey-service"><div class="journey-service-title">{3}<b>{4}</b></div><small class="journey-service-destination">{5}{6}{7}</small>{16}</div>{8}<small class="journey-leg-source">{9}</small>{10}{11}{12}</div></div>{13}{14}</div>',
   route_search_view_054:
     '<article class="planner-result {0}" data-operator="{1}">{2}<div class="planner-result-head">{3}</div><div class="planner-times"><strong>{4}</strong><span>→</span><strong>{5}</strong><small>({6})</small></div><div class="planner-metrics"><span class="route-price"><b>{7}</b>{8}</span><span>Transfers {9}</span><span>Walk {10} min</span>{11}{12}</div>{13}{14}{15}<div class="planner-result-actions">{16}</div></article>{17}',
   route_trip_screen_026:
@@ -1240,4 +1240,27 @@ export default {
   lcd_bound: "For {0}",
   ride_line_alight: "Get off",
   ride_line_more: "{0} more stops",
+  line_karasuma: "Karasuma Line",
+  line_kintetsu: "Kintetsu Kyoto Line",
+  line_through: "Karasuma–Kintetsu through",
+  line_bus: "Bus",
+  route_leg_minutes: "{0} min",
+  route_leg_fare: "¥{0}",
+  route_leg_fare_covered: "Pass",
+  route_loop: "Loop",
+  route_rank_walk: "W",
+  kyotobus_nav_heading: "Kyoto Bus Navi departures",
+  kyotobus_nav_destination: "To {0}",
+  kyotobus_nav_scheduled: "Sched. {0}",
+  kyotobus_nav_late: "{0} min late",
+  kyotobus_nav_platform: "Stop {0}",
+  kyotobus_nav_departs: "{0}",
+  kyotobus_nav_wait: "in ~{0} min",
+  kyotobus_nav_source: "Kyoto Bus Navi (official) · {0}",
+  stop_schedule_heading: "Official timetable",
+  approach_stops_heading: "Approach to this stop",
+  approach_stops_here: "This stop",
+  approach_stops_away: "{0} before",
+  approach_stops_bus: "Bus here",
+  approach_stops_note: "Stop order from route data; bus positions from the official approach information.",
 };

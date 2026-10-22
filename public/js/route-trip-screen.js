@@ -4,6 +4,7 @@ import { navigation } from "./navigation.js";
 import { esc } from "./vnext-state.js";
 import { formatTime } from "./router.js";
 import { routeHTML, operatorLabel } from "./route-search-view.js";
+import { lineBadge } from "./line-badge.js";
 import { journeyChange } from "./journey-plan.js";
 
 // Own the selection screen, not the shared document click router. A preview
@@ -82,11 +83,11 @@ export function registerTripChoice({
               Number.isFinite(l.arrive)
                 ? ui("route_trip_screen_003", [formatTime(l.arrive)])
                 : ui("route_trip_screen_004"),
-              esc(
+              `${lineBadge(l, { size: "small", name: false })} ${esc(
                 l.route
                   ? ui("route_trip_screen_005", [l.route])
                   : (operatorLabel[l.operator] ?? l.label),
-              ),
+              )}`,
               l.category === "express"
                 ? ui("route_trip_screen_006")
                 : l.category === "local"

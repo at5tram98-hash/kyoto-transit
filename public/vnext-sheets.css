@@ -75,24 +75,28 @@
 .saved-row .plain-action {
   margin-right: 8px;
 }
+/* iOS segmented control. */
 .board-day-segments {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   margin: 12px 0;
-  flex-wrap: wrap;
+  padding: 2px;
+  border-radius: var(--radius-small);
+  background: var(--fill-tertiary);
 }
 .board-day-segments button {
   flex: 1;
   min-height: 44px;
-  border: 1px solid var(--separator);
-  border-radius: var(--radius-option);
-  background: var(--surface-primary);
-  color: var(--muted);
+  border: 0;
+  border-radius: var(--radius-compact);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--type-secondary);
+  font-weight: 600;
 }
 .board-day-segments button[aria-pressed="true"] {
-  color: var(--color-link);
-  border-color: var(--color-link);
-  background: var(--blue-soft);
+  background: var(--surface-segment-selected);
+  box-shadow: var(--shadow-toggle);
 }
 .originating-badge {
   border: 1px solid currentColor;
