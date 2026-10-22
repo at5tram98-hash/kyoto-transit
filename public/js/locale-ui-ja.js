@@ -1250,4 +1250,8 @@ export default {
   approach_stops_away: "{0}つ前",
   approach_stops_bus: "バスがいます",
   approach_stops_note: "停留所の並びは路線データ、バスの位置は公式の接近情報（何停留所前か）です。",
+  foldback_direction_subway_north: "国際会館方面",
+  foldback_direction_subway_south: "京都・竹田・近鉄方面",
+  foldback_direction_kintetsu_north: "京都・国際会館方面",
+  foldback_direction_kintetsu_south: "近鉄奈良・橿原神宮前方面",
 };

@@ -1263,4 +1263,8 @@ export default {
   approach_stops_away: "{0} before",
   approach_stops_bus: "Bus here",
   approach_stops_note: "Stop order from route data; bus positions from the official approach information.",
+  foldback_direction_subway_north: "Toward Kokusaikaikan",
+  foldback_direction_subway_south: "Toward Kyoto / Takeda / Kintetsu",
+  foldback_direction_kintetsu_north: "Toward Kyoto / Kokusaikaikan",
+  foldback_direction_kintetsu_south: "Toward Kintetsu-Nara / Kashiharajingu-mae",
 };

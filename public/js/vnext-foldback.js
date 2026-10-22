@@ -26,6 +26,24 @@ import {
   journeyClock,
 } from "./journey-core.js";
 import { renderNow } from "./vnext-view.js";
+import { getStaticFeed } from "./fast-data.js";
+import { staticReverseEntries } from "./foldback-static.js";
+
+const directionLabel = (stopId, direction) =>
+  ui(
+    `foldback_direction_${/^K(?:0[1-9]|1[0-4])$/.test(stopId) ? "subway" : "kintetsu"}_${direction}`,
+  );
+// Static subway + Kintetsu feeds for a service date; a feed that cannot be
+// read is skipped so the other operator still answers.
+async function staticFeeds(date, signal) {
+  const results = await Promise.allSettled(
+    ["subway", "kintetsu"].map((operator) =>
+      getStaticFeed(operator, date, { signal }),
+    ),
+  );
+  if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+  return results.filter((r) => r.status === "fulfilled").map((r) => r.value);
+}
 
 let version = 0,
   controller = null,
@@ -130,6 +148,32 @@ async function reverseBoard(stopId, signal) {
   const ride = state.foldbackRide,
     reverse = reverseDirection(ride, stopId);
   if (!reverse) throw Error(ui("vnext_foldback_023"));
+  const now0 = clock(),
+    stop0 = ride.officialStops?.find((s) => s.id === stopId),
+    arrival0 = Number.isFinite(stopTime(stop0))
+      ? stopTime(stop0) + state.rideShift
+      : now0.minute,
+    serviceDays = [{ date: now0.date, offset: 0 }];
+  if (arrival0 + Number($("#fold-buffer").value) >= 1440)
+    serviceDays.push(foldbackServiceDay(now0.date, Math.max(1440, arrival0)));
+  // On-device timetables first: instant and independent of the network.
+  const local = (
+    await Promise.all(
+      serviceDays.map(async (day) =>
+        staticReverseEntries(await staticFeeds(day.date, signal), stopId, reverse, day.date).map(
+          (entry) => ({ ...entry, depart: entry.depart + day.offset }),
+        ),
+      ),
+    ).catch((error) => {
+      if (signal?.aborted) throw error;
+      return [];
+    })
+  ).flat();
+  if (local.length)
+    return {
+      board: { key: reverse, label: directionLabel(stopId, reverse) },
+      entries: local.sort((a, b) => a.depart - b.depart),
+    };
   const data = await officialData(
       "/timetable/options",
       { stop: stopId },
@@ -229,7 +273,10 @@ async function load(mode) {
               formatMinute(entry.depart),
               esc(entry.destination ?? board.label),
               esc(category(entry)),
-              entry.tripId ? ui("vnext_foldback_029", [esc(entry.tripId)]) : "",
+              // Official train numbers only; feed-internal ids are not shown.
+              entry.tripId && !String(entry.tripId).includes(":")
+                ? ui("vnext_foldback_029", [esc(entry.tripId)])
+                : "",
               assessment.status,
               assessment.status === "unknown"
                 ? ui("vnext_foldback_030")
