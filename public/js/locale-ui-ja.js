@@ -1270,4 +1270,8 @@ export default {
   through_prompt_depart: "竹田 {0}発",
   through_prompt_end_north: "竹田止まり・乗り換える",
   through_prompt_end_south: "竹田止まり・乗り換える",
+  bus_sign_loop: "循環",
+  bus_sign_bound: "行",
+  bus_stop_lamp_on: "とまります — 降車ボタンを押してください",
+  bus_stop_lamp_off: "あなたの降車停留所へ向かっています",
 };

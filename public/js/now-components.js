@@ -194,6 +194,17 @@ export function railHeroCopy(model) {
   return { phase, label, duration };
 }
 
+// Bus front sign (route plate + amber destination) and the "とまります"
+// lamp that lights when the next stop is the rider's alighting stop.
+function busSignHTML(model, ride) {
+  const kind = lineKind({ operator: ride.operator, operatingCompany: ride.operatingCompany, route: ride.route }),
+    loop = kind === "citybus-loop",
+    lamp = Boolean(model.nextIsDestination && model.userDestination);
+  const lampHTML = model.userDestination
+    ? `<div class="stop-lamp${lamp ? " on" : ""}" role="status" aria-live="polite"><i aria-hidden="true"></i><span>${esc(ui(lamp ? "bus_stop_lamp_on" : "bus_stop_lamp_off"))}</span></div>`
+    : "";
+  return `<div class="bus-sign" aria-hidden="true"><span class="bus-sign-route" data-line="${esc(kind)}">${esc(String(ride.route ?? "").normalize("NFKC"))}</span><span class="bus-sign-dest">${loop ? `<small>${esc(ui("bus_sign_loop"))}</small>` : ""}<b>${esc(model.destination ?? ui("now_components_046"))}</b><small>${esc(ui("bus_sign_bound"))}</small></span></div>${lampHTML}`;
+}
 export function nextStationHero(model, ride, progress) {
   const next = model.nextStation,
     destination = model.userDestination,
@@ -247,11 +258,11 @@ export function nextStationHero(model, ride, progress) {
     model.remainingStops,
     model.bus ? ui("now_components_039") : ui("now_components_040"),
   ]);
-  return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-operator="${esc(model.bus ? (ride.operatingCompany ?? ride.operator) : ride.operator)}" data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}" data-rail-phase="${railCopy?.phase ?? ""}">
+  return `<section class="hero-card aboard journey-display ${model.bus ? "bus" : model.lineId === "B" ? "rail" : "subway"}" data-operator="${esc(model.bus ? (ride.operatingCompany ?? ride.operator) : ride.operator)}"${model.bus ? ` data-bus-line="${esc(lineKind({ operator: ride.operator, operatingCompany: ride.operatingCompany, route: ride.route }))}"` : ""} data-train-state="${model.trainState}" data-phase="${model.phase}" data-line="${model.lineId}" data-rail-phase="${railCopy?.phase ?? ""}">
     ${model.routeUnavailable || (model.delayMinutes ?? 0) >= 10 ? `<p class="journey-warning" role="status">${model.routeUnavailable ? ui("now_components_041") : ui("now_components_042", [model.delayMinutes])}</p>` : ""}
     <div class="route-header">${routeBadge({ ...model, route: ride.route, operator: ride.operator, operatingCompany: ride.operatingCompany })}<div><h2>${esc(model.bus ? `${ride.route ?? ""}${ride.route === "北3" ? " · North 3" : ui("now_components_043")}` : model.lineId === "K" ? ui("now_components_044") : ui("now_components_045"))} <span>${esc(model.destination ?? ui("now_components_046"))}行き</span></h2><p>${esc(model.bus ? (ride.operatingCompany === "kyotobus" ? ui("now_components_047") : ride.operatingCompany === "citybus" ? ui("now_components_048") : (ride.operatingCompany ?? (ride.route === "北3" ? ui("now_components_049") : ride.operator === "kyotobus" ? ui("now_components_050") : ui("now_components_051")))) : model.serviceType)}${model.boundary ? ui("now_components_052") : ""}</p></div></div>
     <div class="next-station-hero ${model.bus ? "bus-stage" : "lcd"}" role="img" aria-label="${esc(spoken)}">
-      ${model.bus ? "" : `<div class="lcd-head" aria-hidden="true"><span class="lcd-type">${esc(model.serviceType)}</span><span class="lcd-dest">${esc(ui("lcd_bound", [model.destination ?? ui("now_components_046")]))}</span></div>`}
+      ${model.bus ? busSignHTML(model, ride) : ""}${model.bus ? "" : `<div class="lcd-head" aria-hidden="true"><span class="lcd-type">${esc(model.serviceType)}</span><span class="lcd-dest">${esc(ui("lcd_bound", [model.destination ?? ui("now_components_046")]))}</span></div>`}
       <div class="next-state-label">${esc(heading)}</div><div class="next-station-title"><strong class="journey-next-name">${esc(nextName)}</strong>${!model.bus && next?.code ? `<span class="station-code">${esc(next.code)}</span>` : ""}</div>
       <p class="next-countdown">${esc(duration)}</p>
       <p class="destination-progress">${!destination ? `${terminalNote}${ui("alighting_select_prompt")}` : model.routeUnavailable ? ui("now_components_055") : model.nextIsDestination ? (model.bus ? ui("now_components_056") : ui("now_components_057")) : ui("now_components_091", [esc(destinationName), model.remainingStops, model.bus ? ui("now_components_059") : ui("now_components_060")])}</p>

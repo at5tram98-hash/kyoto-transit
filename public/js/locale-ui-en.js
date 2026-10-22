@@ -1283,4 +1283,8 @@ export default {
   through_prompt_depart: "Dep. Takeda {0}",
   through_prompt_end_north: "Ends at Takeda",
   through_prompt_end_south: "Ends at Takeda",
+  bus_sign_loop: "Loop",
+  bus_sign_bound: "bound",
+  bus_stop_lamp_on: "Stopping — press the stop button",
+  bus_stop_lamp_off: "Heading to your stop",
 };
