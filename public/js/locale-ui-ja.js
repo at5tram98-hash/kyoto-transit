@@ -1297,4 +1297,5 @@ export default {
   pip_destination_rail: "{0}まで あと{1}駅",
   pip_press_stop: "降車ボタンを押してください",
   pip_get_off: "次の駅で降車です",
+  bus_stop_lamp_short: "とまります",
 };

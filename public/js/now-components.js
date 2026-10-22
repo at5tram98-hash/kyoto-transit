@@ -200,10 +200,11 @@ function busSignHTML(model, ride) {
   const kind = lineKind({ operator: ride.operator, operatingCompany: ride.operatingCompany, route: ride.route }),
     loop = kind === "citybus-loop",
     lamp = Boolean(model.nextIsDestination && model.userDestination);
+  // The lamp sits inside the sign: dark until the next stop is the rider's.
   const lampHTML = model.userDestination
-    ? `<div class="stop-lamp${lamp ? " on" : ""}" role="status" aria-live="polite"><i aria-hidden="true"></i><span>${esc(ui(lamp ? "bus_stop_lamp_on" : "bus_stop_lamp_off"))}</span></div>`
+    ? `<span class="stop-lamp${lamp ? " on" : ""}"><i></i>${lamp ? `<b>${esc(ui("bus_stop_lamp_short"))}</b>` : ""}</span>`
     : "";
-  return `<div class="bus-sign" aria-hidden="true"><span class="bus-sign-route" data-line="${esc(kind)}">${esc(String(ride.route ?? "").normalize("NFKC"))}</span><span class="bus-sign-dest">${loop ? `<small>${esc(ui("bus_sign_loop"))}</small>` : ""}<b>${esc(model.destination ?? ui("now_components_046"))}</b><small>${esc(ui("bus_sign_bound"))}</small></span></div>${lampHTML}`;
+  return `<div class="bus-sign"><span class="bus-sign-route" data-line="${esc(kind)}" aria-hidden="true">${esc(String(ride.route ?? "").normalize("NFKC"))}</span><span class="bus-sign-dest" aria-hidden="true">${loop ? `<small>${esc(ui("bus_sign_loop"))}</small>` : ""}<b>${esc(model.destination ?? ui("now_components_046"))}</b><small>${esc(ui("bus_sign_bound"))}</small></span>${lampHTML}<span class="sr-only" role="status" aria-live="polite">${lamp ? esc(ui("bus_stop_lamp_on")) : ""}</span></div>`;
 }
 export function nextStationHero(model, ride, progress) {
   const next = model.nextStation,

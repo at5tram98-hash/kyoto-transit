@@ -1588,40 +1588,42 @@ summary {
   font-weight: 600;
 }
 
-/* Bus front sign: route plate and amber LED destination. */
+/* Bus front sign: route plate, amber LED destination, stop lamp. */
 .bus-sign {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 10px;
-  margin: -2px 0 12px;
-  padding: 8px;
+  margin: -4px 0 8px;
+  padding: 6px;
   border-radius: var(--radius-row);
   background: var(--lcd-background);
 }
 .bus-sign-route {
   display: grid;
   place-items: center;
-  min-width: 3.2em;
-  padding: 2px 8px;
+  flex: none;
+  min-width: 2.8em;
+  padding: 1px 8px;
   border-radius: var(--radius-tiny);
   background: var(--line-color);
   color: var(--color-on-line);
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 .bus-sign-dest {
   display: flex;
+  flex: 1;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 2px 8px;
+  gap: 0 6px;
   min-width: 0;
   color: var(--led-amber);
   text-shadow: var(--led-glow);
   letter-spacing: 0.04em;
 }
 .bus-sign-dest b {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
@@ -1629,28 +1631,23 @@ summary {
   font-size: var(--type-caption);
   font-weight: 700;
 }
-/* Stop-button lamp. */
+/* Stop-button lamp ("とまります"). */
 .stop-lamp {
   display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 10px;
-  padding: 4px 12px 4px 6px;
-  border-radius: var(--radius-capsule);
-  background: var(--fill-tertiary);
-  color: var(--muted);
+  gap: 6px;
+  color: var(--lamp-red);
   font-size: var(--type-caption);
-  font-weight: 650;
 }
 .stop-lamp i {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   border-radius: var(--radius-round);
   background: var(--fill-secondary);
 }
-.stop-lamp.on {
-  background: color-mix(in srgb, var(--lamp-red) 14%, var(--surface-primary));
-  color: var(--lamp-red);
+.stop-lamp.on b {
+  text-shadow: var(--lamp-glow);
 }
 .stop-lamp.on i {
   background: var(--lamp-red);

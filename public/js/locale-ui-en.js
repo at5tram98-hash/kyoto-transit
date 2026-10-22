@@ -1310,4 +1310,5 @@ export default {
   pip_destination_rail: "{0} · {1} more stations",
   pip_press_stop: "Press the stop button",
   pip_get_off: "Get off at the next station",
+  bus_stop_lamp_short: "Stopping",
 };
