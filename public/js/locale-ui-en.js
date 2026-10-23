@@ -1352,7 +1352,6 @@ export default {
   checkin_done_shake: "Shake check-in: route {0} ({1})",
   checkin_choice_loop: "Loop · next {0}",
   checkin_empty_kyotobus: "No Kyoto Bus leaves this stop within 30 minutes.",
-  search_slot_label: "Searches {0}/{1}",
   search_slot_tabs: "Open searches",
   search_slot_new: "New search",
   search_slot_running: "Searching",
@@ -1361,7 +1360,5 @@ export default {
   search_slot_none: "No routes",
   search_slot_close: "Close search {0}",
   search_slot_add: "Add a search ({0}/{1})",
-  search_slot_show: "Show {0} routes",
-  search_slot_show_none: "Show results",
-  search_slot_running_note: "This search is running and continues while you switch.",
+  search_slot_number: "Search {0}",
 };

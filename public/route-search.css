@@ -1472,30 +1472,40 @@
 .c6-search-recovery { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 .c6-search-recovery button { min-height:44px; flex:1 1 150px; white-space:normal; text-align:center; }
 
-/* Search slots: up to four searches open side by side, like tabs. */
+/* Search slots: up to four open searches as tabs at the bottom of the
+   Search tab, floating just above the tab bar on every search screen. */
 .search-slots {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  min-width: 0;
-  max-width: 100%;
-  margin: 0 0 10px;
-  overflow: hidden;
+  display: none;
 }
-.search-slot-bar {
-  min-width: 0;
+.app-shell[data-tab="search"] .search-slots {
+  display: block;
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--safe-bottom) + 70px);
+  z-index: 39;
+  padding: 4px;
+  border: 0.5px solid var(--separator-tab-light);
+  border-radius: var(--radius-glass);
+  background: var(--material-navigation);
+  box-shadow: var(--shadow-tab-light);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
 }
-.search-slot-bar .section-label {
-  margin: 0 2px 6px;
+.navigation-app[data-keyboard="true"] .search-slots,
+.app-shell[data-keyboard="true"] .search-slots {
+  visibility: hidden;
+}
+.app-shell[data-tab="search"] .navigation-screen {
+  padding-bottom: calc(144px + var(--safe-bottom));
 }
 .search-slot-tabs {
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
   scroll-snap-type: x proximity;
-  padding-bottom: 2px;
 }
 .search-slot-tabs::-webkit-scrollbar {
   display: none;
@@ -1503,28 +1513,30 @@
 .search-slot-wrap {
   position: relative;
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 0 auto;
+  min-width: 0;
   scroll-snap-align: start;
 }
 .search-slot {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  min-height: 52px;
-  width: 168px;
-  padding: 6px 12px 6px 8px;
+  gap: 7px;
+  min-height: 46px;
+  width: 100%;
+  min-width: 128px;
+  max-width: 200px;
+  padding: 4px 10px 4px 8px;
   border: 0;
-  border-radius: var(--radius-row);
-  background: var(--fill-tertiary);
+  border-radius: var(--radius-surface);
+  background: transparent;
   color: var(--text);
   text-align: left;
-  transition: background-color 0.2s, box-shadow 0.2s;
+  transition: background-color 0.2s;
 }
 .search-slot[aria-selected="true"] {
-  background: var(--surface-primary);
-  box-shadow: var(--shadow-hairline);
-  padding-right: 40px;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  padding-right: 38px;
 }
 .search-slot-index {
   display: grid;
@@ -1541,29 +1553,36 @@
 .search-slot[aria-selected="true"] .search-slot-index {
   background: var(--color-accent);
 }
+.search-slot[data-state="running"] .search-slot-index {
+  background: transparent;
+}
 .search-slot-copy {
   display: grid;
   min-width: 0;
+  line-height: 1.2;
 }
 .search-slot-copy b {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--type-secondary);
+  font-size: var(--type-caption);
+}
+.search-slot[aria-selected="true"] .search-slot-copy b {
+  color: var(--color-accent);
 }
 .search-slot-copy small {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
-  font-size: var(--type-caption);
+  font-size: 0.6875rem;
 }
 .search-slot[data-state="done"] small {
   color: var(--green);
 }
 .search-slot-spinner {
-  width: 10px;
-  height: 10px;
+  width: 16px;
+  height: 16px;
   border-radius: var(--radius-round);
   border: 2px solid var(--fill-secondary);
   border-top-color: var(--color-accent);
@@ -1595,22 +1614,22 @@
 .search-slot-close span {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: var(--radius-round);
   background: var(--fill-secondary);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   line-height: 1;
 }
 .search-slot-add {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 52px;
-  min-height: 52px;
+  width: 46px;
+  min-height: 46px;
   border: 0;
-  border-radius: var(--radius-row);
-  background: var(--fill-tertiary);
+  border-radius: var(--radius-surface);
+  background: transparent;
   color: var(--color-accent);
 }
 .search-slot-add svg {
@@ -1619,44 +1638,4 @@
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
-}
-.search-slot-results {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 8px 14px;
-  border: 0;
-  border-radius: var(--radius-row);
-  background: var(--surface-primary);
-  color: var(--color-accent);
-  text-align: left;
-  font-size: var(--type-body);
-}
-.search-slot-results svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.75;
-}
-.search-slot-results > span:nth-child(2) {
-  display: grid;
-  min-width: 0;
-}
-.search-slot-results small {
-  color: var(--muted);
-  font-size: var(--type-caption);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.search-slot-results .chevron {
-  color: var(--muted);
-}
-.search-slot-note {
-  margin: 0 2px;
-  color: var(--muted);
-  font-size: var(--type-caption);
 }

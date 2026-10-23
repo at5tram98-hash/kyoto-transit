@@ -324,10 +324,13 @@ export function mountRouteSearch({
   ]);
   const inlineStatus = root.querySelector("#search-inline-status"),
     form = root.querySelector("#planner-form");
-  const slotStrip = document.createElement("div");
+  // The open searches sit as tabs at the bottom of the Search tab, above the
+  // tab bar, on the form, the results and the route detail alike.
+  const slotStrip = document.createElement("nav");
   slotStrip.id = "search-slots";
   slotStrip.className = "search-slots";
-  form.before(slotStrip);
+  slotStrip.setAttribute("aria-label", ui("search_slot_tabs"));
+  (document.querySelector(".app-shell") ?? document.body).append(slotStrip);
   const quickStops = quickSearchStops(network);
   const shortcuts = document.createElement("section");
   shortcuts.className = "planner-quick-stops";
@@ -1380,27 +1383,21 @@ export function mountRouteSearch({
   }
   function renderSlots() {
     const active = activeSlot();
+    document.querySelector(".app-shell")?.toggleAttribute("data-search-slots", true);
     const tabs = slots
       .map((slot, i) => {
         const [state, label] = slotState(slot),
           selected = slot === active;
-        return `<div class="search-slot-wrap"><button type="button" role="tab" class="search-slot" data-search-slot="${slot.id}" aria-selected="${selected}" data-state="${state}"><span class="search-slot-index" aria-hidden="true">${i + 1}</span><span class="search-slot-copy"><b>${esc(slotTitle(slot))}</b><small>${state === "running" ? '<i class="search-slot-spinner" aria-hidden="true"></i>' : ""}${esc(label)}</small></span></button>${selected && slots.length > 1 ? `<button type="button" class="search-slot-close" data-search-slot-close="${slot.id}" aria-label="${esc(ui("search_slot_close", [i + 1]))}"><span aria-hidden="true">×</span></button>` : ""}</div>`;
+        return `<div class="search-slot-wrap"><button type="button" role="tab" class="search-slot" data-search-slot="${slot.id}" aria-selected="${selected}" data-state="${state}" aria-label="${esc(`${ui("search_slot_number", [i + 1])} ${slotTitle(slot)} ${label}`)}"><span class="search-slot-index" aria-hidden="true">${state === "running" ? '<i class="search-slot-spinner"></i>' : i + 1}</span><span class="search-slot-copy" aria-hidden="true"><b>${esc(slotTitle(slot))}</b><small>${esc(label)}</small></span></button>${selected && slots.length > 1 ? `<button type="button" class="search-slot-close" data-search-slot-close="${slot.id}" aria-label="${esc(ui("search_slot_close", [i + 1]))}"><span aria-hidden="true">×</span></button>` : ""}</div>`;
       })
       .join("");
     const add =
       slots.length < MAX_SLOTS
         ? `<button type="button" class="search-slot-add" data-search-slot-add aria-label="${esc(ui("search_slot_add", [slots.length, MAX_SLOTS]))}">${icon("plus")}</button>`
         : "";
-    const data = snapshots.get(active.revision),
-      results =
-        data && !active.job
-          ? `<button type="button" class="search-slot-results" data-search-slot-results>${icon("clock")}<span>${esc(data.routes.length ? ui("search_slot_show", [data.routes.length]) : ui("search_slot_show_none"))}<small>${esc(data.description ?? "")}</small></span><span class="chevron" aria-hidden="true">›</span></button>`
-          : active.job
-            ? `<p class="search-slot-note" role="status">${esc(ui("search_slot_running_note"))}</p>`
-            : "";
     updateHTML(
       slotStrip,
-      `<div class="search-slot-bar"><p class="section-label">${esc(ui("search_slot_label", [slots.length, MAX_SLOTS]))}</p><div class="search-slot-tabs" role="tablist" aria-label="${esc(ui("search_slot_tabs"))}">${tabs}${add}</div></div>${results}`,
+      `<div class="search-slot-tabs" role="tablist">${tabs}${add}</div>`,
     );
     // Keep the selected tab in view within the strip (never scroll the page).
     const strip = slotStrip.querySelector(".search-slot-tabs"),
@@ -1412,6 +1409,13 @@ export function mountRouteSearch({
       else if (right > strip.scrollLeft + strip.clientWidth)
         strip.scrollLeft = right - strip.clientWidth;
     }
+  }
+  // Show a slot where it left off: its results when it has any, else the form.
+  function showSlot(slot) {
+    const revision = slot.revision;
+    navigation.root("search");
+    if (snapshots.get(revision) || slot.job)
+      queueMicrotask(() => navigation.push("results", { revision }));
   }
   function blankInput() {
     const current = tokyoNow(),
@@ -1446,15 +1450,14 @@ export function mountRouteSearch({
     if (tab) {
       const id = Number(tab.dataset.searchSlot);
       if (id !== activeSlotId) selectSlot(id);
-      else if (snapshots.get(activeSlot().revision) && !activeSlot().job)
-        navigation.push("results", { revision: activeSlot().revision });
+      showSlot(activeSlot());
       return;
     }
     if (event.target.closest("[data-search-slot-add]") && slots.length < MAX_SLOTS) {
       const slot = newSlot();
       slots.push(slot);
       selectSlot(slot.id, blankInput());
-      form.elements[form.elements.from.value ? "to" : "from"].focus({ preventScroll: true });
+      navigation.root("search");
       return;
     }
     const close = event.target.closest("[data-search-slot-close]");
@@ -1468,11 +1471,9 @@ export function mountRouteSearch({
       navigation.remember("search-input", captureInput());
       persistSlots();
       renderSlots();
+      showSlot(activeSlot());
       slotStrip.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
-      return;
     }
-    if (event.target.closest("[data-search-slot-results]") && activeSlot().revision)
-      navigation.push("results", { revision: activeSlot().revision });
   });
   form.addEventListener("input", () => renderSlots());
   function historyView() {

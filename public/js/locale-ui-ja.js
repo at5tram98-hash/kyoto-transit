@@ -1339,7 +1339,6 @@ export default {
   checkin_done_shake: "シェイクでチェックイン：{0}系統（{1}）",
   checkin_choice_loop: "循環 · 次は{0}",
   checkin_empty_kyotobus: "この停留所を前後30分に発車する京都バスはありません。",
-  search_slot_label: "検索 {0}/{1}",
   search_slot_tabs: "開いている検索",
   search_slot_new: "新しい検索",
   search_slot_running: "検索中",
@@ -1348,7 +1347,5 @@ export default {
   search_slot_none: "経路なし",
   search_slot_close: "検索{0}を閉じる",
   search_slot_add: "新しい検索を追加（{0}/{1}）",
-  search_slot_show: "{0}件の経路を表示",
-  search_slot_show_none: "検索結果を表示",
-  search_slot_running_note: "この検索は実行中です。ほかの検索に切り替えても続きます。",
+  search_slot_number: "検索{0}",
 };
