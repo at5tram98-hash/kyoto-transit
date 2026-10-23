@@ -5,6 +5,7 @@
 import { state, tokyoNow } from "./vnext-state.js";
 import { ui, displayStopName } from "./locale.js";
 import { lineKind } from "./line-badge.js";
+import { transferSteps, planMinute } from "./transfer-guide.js";
 
 const W = 640,
   H = 360;
@@ -85,6 +86,38 @@ export function pipContent(now = tokyoNow()) {
             ])
           : ui("pip_bound", [ride.destination ?? ""]),
       alert: Boolean(model.nextIsDestination),
+    };
+  }
+  // Between rides of a planned journey: the next service and its countdown.
+  const plan = state.itinerary,
+    steps = transferSteps(plan);
+  if (steps) {
+    const next = steps.next,
+      bus = ["citybus", "kyotobus"].includes(next.operator),
+      kind = lineKind(next),
+      minute = planMinute(plan, now),
+      remaining = Number.isFinite(minute) ? Math.round(next.depart - minute) : null,
+      at = `${String(Math.floor(next.depart / 60) % 24).padStart(2, "0")}:${String(next.depart % 60).padStart(2, "0")}`;
+    return {
+      kind: "ride",
+      plate: bus ? String(next.route ?? "") : kind === "kintetsu" ? "B" : "K",
+      color: bus
+        ? lineColor(kind)
+        : kind === "kintetsu"
+          ? token("--line-kintetsu", "#c8102e")
+          : token("--line-subway", "#138a48"),
+      title: displayStopName(state.network?.stops.get(next.from)) || next.from || "—",
+      label: ui("pip_transfer"),
+      detail:
+        remaining == null
+          ? ui("transfer_depart_at", [at])
+          : remaining > 0
+            ? `${ui("transfer_countdown", [remaining])} · ${ui("transfer_depart_at", [at])}`
+            : ui("transfer_departing"),
+      footer: next.destination
+        ? ui("transfer_ride", [next.destination])
+        : ui("transfer_ride_to", [displayStopName(state.network?.stops.get(next.to)) || next.to]),
+      alert: remaining != null && remaining <= 2,
     };
   }
   const live = state.busLive;

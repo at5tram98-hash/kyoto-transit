@@ -9,6 +9,7 @@ import { rideDetectionSession } from "./ride-detection-session.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
 import { createAlightingNotifier } from "./alighting-notifier-b4.js";
 import { ui } from "./locale.js";
+import { transferGuideHTML } from "./transfer-guide.js";
 import {
   groupCityBusRows,
   normalizedBusSources,
@@ -532,10 +533,13 @@ export function renderNow() {
     candidates: offeredCandidates().length,
     moving: Number.isFinite(motion.speed) && motion.speed >= 2.8,
   });
+  // Between rides of a planned journey the hero keeps guiding to the next
+  // leg (walk, wait, next service, countdown) instead of the idle screen.
+  const transferring = ["transfer", "walking"].includes(state.itinerary?.phase);
   const detectionStatus = `<p class="source-note detection-stage" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
   updateHTML(
     vehicle,
-    `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>${state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>${transferring ? "" : state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
@@ -545,7 +549,9 @@ export function renderNow() {
       : state.locationStatus === "loading"
         ? ui("vnext_view_052")
         : ui("vnext_view_053");
-  updateHTML(
+  if (transferring)
+    updateHTML(root, transferGuideHTML(state.itinerary, state.network, tokyoNow()));
+  else updateHTML(
     root,
     ui("vnext_view_102", [
       moving

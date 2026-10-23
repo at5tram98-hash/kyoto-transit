@@ -36,6 +36,7 @@ import {
   north3RideCandidates,
   routeIntersection,
   kyotoBusStaticCandidates,
+  formatMinute,
 } from "./vnext-core.js";
 import { getStaticFeed } from "./fast-data.js";
 import { journeyClock, stopTime } from "./journey-core.js";
@@ -636,6 +637,12 @@ export function finishCurrentRide({ keepItinerary = false } = {}) {
   resetRideDetection();
   persistJourney(true);
   const missed = keepItinerary && missedConnection(state.itinerary, tokyoNow());
+  // Carry straight on to the next leg: say what to take next.
+  if (!missed && state.itinerary?.phase === "transfer") {
+    const next = state.itinerary.route.legs[state.itinerary.legIndex];
+    haptic();
+    toast(ui("transfer_next_toast", [serviceName(next), formatMinute(next.depart)]));
+  }
   if (recoveryPlan || missed) {
     const plan = recoveryPlan ?? state.itinerary,
       stopId = recoveryStop ?? plan.route.legs[plan.legIndex].from;
@@ -1310,7 +1317,7 @@ export function updateRideAnchor() {
     state.foldbackPlan && state.foldbackPlan.depart >= now.minute - 5;
   if (observation.arrived && !transfer) {
     finishCurrentRide({ keepItinerary: Boolean(state.itinerary) });
-    toast(ui("ride_arrival_confirmed"));
+    if (state.itinerary?.phase !== "transfer") toast(ui("ride_arrival_confirmed"));
   }
   persistJourney();
 }
