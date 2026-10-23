@@ -8,7 +8,7 @@ import { manualNearbyRows, manualReferenceOptions } from "./manual-nearby-b7.js"
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
 import { createAlightingNotifier } from "./alighting-notifier-b4.js";
-import { ui } from "./locale.js";
+import { ui, displayStopName } from "./locale.js";
 import { transferGuideHTML } from "./transfer-guide.js";
 import {
   groupCityBusRows,
@@ -376,9 +376,19 @@ export function rideChoiceRowsHTML(candidates) {
     .join("");
 }
 function chooseRideHTML() {
-  return settings.autoDetect === false || offeredCandidates().length
-    ? ""
-    : `<button type="button" class="choose-ride-action" data-choose-ride>${icon("bus")}<span>${esc(ui("choose_ride"))}</span><span class="chevron">›</span></button>`;
+  // Bus check-in is offered whenever a bus stop is close, in every mode:
+  // it is the reliable way to start a bus ride.
+  const near = nearest(),
+    checkIn =
+      near.bus && near.bus.meters <= 300
+        ? `<button type="button" class="choose-ride-action checkin-action" data-checkin>${icon("checkin")}<span>${esc(ui("checkin_entry"))}<small>${esc(ui("checkin_entry_hint", [displayStopName(near.bus.stop)]))}</small></span><span class="chevron">›</span></button>`
+        : "";
+  return (
+    checkIn +
+    (settings.autoDetect === false || offeredCandidates().length
+      ? ""
+      : `<button type="button" class="choose-ride-action" data-choose-ride>${icon("bus")}<span>${esc(ui("choose_ride"))}</span><span class="chevron">›</span></button>`)
+  );
 }
 function describeCandidate(candidate) {
   const ride = candidate.ride,

@@ -1,4 +1,5 @@
-import { clearFalseRide } from "./vnext-detect.js";
+import { clearFalseRide, checkInRide } from "./vnext-detect.js";
+import { openCheckIn } from "./checkin-sheet.js";
 import { positionOptions, modeAllowsDetection, modeAllowsPip } from "./run-mode.js";
 import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
@@ -302,6 +303,8 @@ function setupEvents() {
       }
     } else if (b.hasAttribute("data-choose-ride")) {
       openRideChooser();
+    } else if (b.hasAttribute("data-checkin")) {
+      openCheckIn(checkInAndShow);
     } else if (b.hasAttribute("data-enable-motion")) {
       void requestMotionPermission().then(() => renderNow());
     } else if (b.hasAttribute("data-not-riding")) {
@@ -385,6 +388,13 @@ function boardRide(ride, itinerary) {
   if (itinerary && boardingAvailable(ride, tokyoNow()))
     state.itinerary = itinerary;
   if (!startManualRide(ride)) return false;
+  navigation.root("now");
+  renderNow();
+  arrivals?.show();
+  return true;
+}
+function checkInAndShow(ride) {
+  if (!checkInRide(ride)) return false;
   navigation.root("now");
   renderNow();
   arrivals?.show();
@@ -621,6 +631,7 @@ async function init() {
     });
     document.addEventListener("mymap-motion-permission", () => renderNow());
     document.addEventListener("mymap-choose-ride", () => openRideChooser());
+    document.addEventListener("mymap-checkin", () => openCheckIn(checkInAndShow));
     document.addEventListener("mymap-transit-evidence", () => {
       renderNow();
       void autoDetectRide(true, renderNow);

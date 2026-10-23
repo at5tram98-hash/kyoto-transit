@@ -714,6 +714,22 @@ export function resetRideDetection() {
   lastNextAlertKey = null;
 }
 
+// The rider checked in on a bus they picked from the routes at their stop.
+// Bus boarding is hard to sense, so this is taken as a manual confirmation.
+export function checkInRide(ride) {
+  if (!ride || !Array.isArray(ride.officialStops) || ride.officialStops.length < 2)
+    return false;
+  resetRideDetection();
+  applyRide({
+    ride,
+    manual: true,
+    source: "チェックイン（乗車した系統を選択）",
+    score: 90,
+    live: null,
+  });
+  return true;
+}
+
 export function startManualRide(ride) {
   if (!boardingAvailable(ride, tokyoNow())) {
     toast(ui("ride_not_boardable"));

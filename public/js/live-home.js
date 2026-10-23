@@ -292,6 +292,7 @@ export function mountLiveHome(host, search) {
         [
           { id: "plan", label: ui("live_menu_plan"), icon: icon("search") },
           { id: "arrivals", label: ui("live_menu_arrivals"), icon: icon("bus") },
+          { id: "checkin", label: ui("checkin_entry"), icon: icon("checkin") },
           { id: "choose", label: ui("choose_ride"), icon: icon("train") },
           {
             id: "mode",
@@ -324,6 +325,8 @@ export function mountLiveHome(host, search) {
           }
           else if (choice === "plan") search.open();
           else if (choice === "arrivals") navigation.push("arrivals");
+          else if (choice === "checkin")
+            document.dispatchEvent(new CustomEvent("mymap-checkin"));
           else if (choice === "choose")
             document.dispatchEvent(new CustomEvent("mymap-choose-ride"));
           else document.querySelector('[data-tab="settings"]')?.click();
