@@ -30,6 +30,7 @@ const icons = {
   shield: '<path class="fillable" d="M12 2.9 5 5.5v5.9c0 4.3 2.9 7.8 7 9.4 4.1-1.6 7-5.1 7-9.4V5.5Z"/><path class="knock" d="m8.8 12 2.3 2.3 4.2-4.6"/>',
   document: '<path class="fillable" d="M7.5 3h6.4c.4 0 .8.2 1.1.4l3.6 3.6c.3.3.4.7.4 1.1v11.4a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19.5v-15A1.5 1.5 0 0 1 7.5 3Z"/><path class="knock" d="M9 12.5h6m-6 3.5h4.2"/>',
   close: '<path d="M6.6 6.6l10.8 10.8M17.4 6.6 6.6 17.4"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
   'chevron-up': '<path d="m6.4 14.6 5.6-5.6 5.6 5.6"/>',
   checkmark: '<path d="m5.2 12.6 4.3 4.3 9.3-9.8"/>',
   pip: '<rect class="fillable" x="2.8" y="5" width="18.4" height="14" rx="2.4"/><rect class="knock-dot" x="11.4" y="11.6" width="7.4" height="5.4" rx="1.2"/>',

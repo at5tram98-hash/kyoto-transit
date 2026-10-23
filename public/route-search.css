@@ -1471,3 +1471,192 @@
 /* C-6: recovery choices fit narrow screens and keep safe tap targets. */
 .c6-search-recovery { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
 .c6-search-recovery button { min-height:44px; flex:1 1 150px; white-space:normal; text-align:center; }
+
+/* Search slots: up to four searches open side by side, like tabs. */
+.search-slots {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 10px;
+  overflow: hidden;
+}
+.search-slot-bar {
+  min-width: 0;
+}
+.search-slot-bar .section-label {
+  margin: 0 2px 6px;
+}
+.search-slot-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  padding-bottom: 2px;
+}
+.search-slot-tabs::-webkit-scrollbar {
+  display: none;
+}
+.search-slot-wrap {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+.search-slot {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  width: 168px;
+  padding: 6px 12px 6px 8px;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: var(--fill-tertiary);
+  color: var(--text);
+  text-align: left;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+.search-slot[aria-selected="true"] {
+  background: var(--surface-primary);
+  box-shadow: var(--shadow-hairline);
+  padding-right: 40px;
+}
+.search-slot-index {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-round);
+  background: var(--muted);
+  color: var(--surface-primary);
+  font-size: var(--type-caption);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.search-slot[aria-selected="true"] .search-slot-index {
+  background: var(--color-accent);
+}
+.search-slot-copy {
+  display: grid;
+  min-width: 0;
+}
+.search-slot-copy b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--type-secondary);
+}
+.search-slot-copy small {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.search-slot[data-state="done"] small {
+  color: var(--green);
+}
+.search-slot-spinner {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-round);
+  border: 2px solid var(--fill-secondary);
+  border-top-color: var(--color-accent);
+  animation: search-slot-spin 0.8s linear infinite;
+}
+@keyframes search-slot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-slot-spinner {
+    animation-duration: 2.4s;
+  }
+}
+.search-slot-close {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.search-slot-close span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-round);
+  background: var(--fill-secondary);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.search-slot-add {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 52px;
+  min-height: 52px;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: var(--fill-tertiary);
+  color: var(--color-accent);
+}
+.search-slot-add svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+.search-slot-results {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: var(--surface-primary);
+  color: var(--color-accent);
+  text-align: left;
+  font-size: var(--type-body);
+}
+.search-slot-results svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+}
+.search-slot-results > span:nth-child(2) {
+  display: grid;
+  min-width: 0;
+}
+.search-slot-results small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-slot-results .chevron {
+  color: var(--muted);
+}
+.search-slot-note {
+  margin: 0 2px;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
