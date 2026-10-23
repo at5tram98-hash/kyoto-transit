@@ -1,7 +1,7 @@
 import { ui } from "./locale.js";
 import { setupSheetGestures } from "./context-sheet.js";
 import { navigation } from "./navigation.js";
-import { esc } from "./vnext-state.js";
+import { esc, icon } from "./vnext-state.js";
 import { formatTime } from "./router.js";
 import { routeHTML, operatorLabel } from "./route-search-view.js";
 import { lineBadge } from "./line-badge.js";
@@ -103,7 +103,7 @@ export function registerTripChoice({
                 ? `<small class="trip-choice-reason">${esc(o.reason)}</small>`
                 : "",
               picked
-                ? '<svg viewBox="0 0 24 24"><path d="M5 12l4 4L19 6"/></svg>'
+                ? icon("checkmark")
                 : "",
             ]);
           })

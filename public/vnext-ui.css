@@ -756,10 +756,14 @@ summary:focus-visible {
   font-weight: 700;
   text-align: right;
 }
+/* PiP source video: kept in the page (Safari will not present a hidden
+   video) but too small and faint to see. */
 .pip-source {
   position: fixed;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
+  left: 0;
+  bottom: 0;
+  width: 2px;
+  height: 2px;
+  opacity: 0.02;
   pointer-events: none;
 }

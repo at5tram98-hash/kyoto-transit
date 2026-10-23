@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 import { lineBadge } from "./line-badge.js";
 import { ui } from "./locale.js";
 import {
@@ -30,8 +31,7 @@ const esc = (s) =>
         c
       ],
   );
-const transitSymbol = (bus) =>
-  `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="16" rx="4"/><path d="M5 11h14M12 3v8M8 22l1-3m7 3-1-3M8 15h.01M16 15h.01"/>${bus ? '<path d="M3 7v4m18-4v4"/>' : ""}</svg>`;
+const transitSymbol = (bus) => icon(bus ? "bus" : "train");
 const kind = (e) =>
   e.route ??
   (e.category === "express"
@@ -595,7 +595,7 @@ export function mountOperations({
   const versions = new WeakMap();
   const isSaved = (id) => operationIds(getFavorites()).includes(id);
   const bookmark =
-    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4Z"/></svg>';
+    icon("bookmark");
   function detail(element, route) {
     const lines =
       latest?.lines?.filter(

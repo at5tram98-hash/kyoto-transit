@@ -605,3 +605,30 @@ main {
     transform: translateX(390%);
   }
 }
+
+/* Icon system (see icons in vnext-state.js). Outline by default; solid
+   details stay solid; selected states fill the main shape and knock the
+   inner detail out in the surrounding background colour. */
+svg[viewBox="0 0 24 24"] {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+svg[viewBox="0 0 24 24"] :is(.solid, .knock-dot, .knock-dots circle) {
+  fill: currentColor;
+  stroke: none;
+}
+:is(.tab-button.active, .icon-filled, [aria-pressed="true"]) > svg .fillable {
+  fill: currentColor;
+}
+:is(.tab-button.active, .icon-filled, [aria-pressed="true"]) > svg .knock {
+  stroke: var(--knock, var(--surface-primary));
+}
+:is(.tab-button.active, .icon-filled, [aria-pressed="true"]) > svg :is(.knock-dot, .knock-dots circle) {
+  fill: var(--knock, var(--surface-primary));
+}
+.tab-button.active {
+  --knock: color-mix(in srgb, var(--color-accent) 12%, var(--material-navigation));
+}
+.tab-button svg {
+  stroke-width: 1.75;
+}

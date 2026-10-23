@@ -108,7 +108,8 @@ export function operationIds(ids) {
     ),
   ].filter((id) => supportedOperators.includes(id));
 }
-export function operationGroups(lines, current, favorites) {
+export function operationGroups(lines = [], current, favorites) {
+  lines = Array.isArray(lines) ? lines : [];
   const used = new Set(operationIds(current)),
     saved = new Set(operationIds(favorites));
   return {

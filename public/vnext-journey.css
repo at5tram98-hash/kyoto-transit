@@ -1691,3 +1691,101 @@ html[data-reduce-motion="true"] .stop-lamp.on i {
 .journey-display.bus .bus-sign-route[data-line] {
   background: var(--line-color);
 }
+
+/* Transfer guidance between two rides of a planned journey. */
+.transfer-guide {
+  background: var(--panel);
+  border-radius: var(--radius-surface);
+  padding: 18px 18px 14px;
+  margin: 0 0 12px;
+  animation: transfer-guide-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes transfer-guide-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .transfer-guide {
+    animation: none;
+  }
+}
+.transfer-step-label {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: var(--type-caption);
+  font-weight: 650;
+}
+.transfer-guide h2 {
+  margin: 2px 0 12px;
+  font-size: var(--type-arrival);
+  line-height: 1.2;
+}
+.transfer-next {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.transfer-clock {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.transfer-clock time {
+  font-size: var(--type-secondary);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.transfer-clock b {
+  font-size: var(--type-hero);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.transfer-clock b[data-soon="true"] {
+  color: var(--orange);
+}
+.transfer-steps {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  border-top: 1px solid var(--separator);
+}
+.transfer-steps li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--separator);
+}
+.transfer-steps li > span:last-child {
+  display: grid;
+  min-width: 0;
+}
+.transfer-steps small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  overflow-wrap: anywhere;
+}
+.transfer-step-icon {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.transfer-step-icon > svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+}
+.transfer-steps li[data-kind="ride"] b {
+  color: var(--text);
+}
+.transfer-guide .screen-action-group {
+  display: grid;
+  gap: 6px;
+}

@@ -669,3 +669,166 @@ html[data-app-hidden="true"] .idle-status .idle-state::before {
   min-height: 1.35em;
   font-size: 0.75rem;
 }
+
+/* Bus check-in: entry row, stop switcher, wheel picker and gesture hint. */
+.checkin-action > span:nth-child(2) {
+  display: grid;
+}
+.checkin-action small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.checkin {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+.checkin-stops {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.checkin-stops button {
+  display: grid;
+  flex: none;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: var(--surface-secondary);
+  color: var(--text);
+  font-size: var(--type-secondary);
+  font-weight: 600;
+  text-align: left;
+}
+.checkin-stops button small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-weight: 400;
+}
+.checkin-stops button[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--surface-primary);
+}
+.checkin-stops button[aria-pressed="true"] small {
+  color: inherit;
+  opacity: 0.85;
+}
+.wheel-picker {
+  position: relative;
+  height: 220px;
+  border-radius: var(--radius-group);
+  background: var(--surface-secondary);
+  overflow: hidden;
+  perspective: 600px;
+  outline: none;
+}
+.wheel-picker:focus-visible {
+  box-shadow: var(--shadow-focus);
+}
+.wheel-track {
+  height: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  padding: 88px 0;
+  box-sizing: border-box;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+  -webkit-mask-image: linear-gradient(transparent, var(--text) 32%, var(--text) 68%, transparent);
+  mask-image: linear-gradient(transparent, var(--text) 32%, var(--text) 68%, transparent);
+}
+.wheel-track::-webkit-scrollbar {
+  display: none;
+}
+.wheel-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px;
+  scroll-snap-align: center;
+  font-size: var(--type-body);
+  white-space: nowrap;
+  cursor: pointer;
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
+.wheel-row > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wheel-row[aria-selected="true"] {
+  font-weight: 650;
+}
+.wheel-band {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 88px;
+  height: 44px;
+  border-radius: var(--radius-compact);
+  background: var(--fill-tertiary);
+  pointer-events: none;
+}
+.checkin-gesture {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.checkin-gesture p {
+  display: grid;
+  margin: 0;
+}
+.checkin-gesture small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.checkin-shake {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+.checkin-shake svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  animation: checkin-shake 2.4s ease-in-out infinite;
+}
+@keyframes checkin-shake {
+  0%, 60%, 100% { transform: rotate(0); }
+  66% { transform: rotate(-14deg); }
+  72% { transform: rotate(12deg); }
+  78% { transform: rotate(-10deg); }
+  84% { transform: rotate(6deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkin-shake svg {
+    animation: none;
+  }
+}
+.checkin-gesture[data-motion="denied"] .checkin-shake {
+  color: var(--muted);
+  background: var(--surface-secondary);
+}
+.checkin [data-checkin-confirm] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.checkin [data-checkin-confirm] svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}

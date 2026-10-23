@@ -57,6 +57,10 @@ const searchStorage = () => {
   }
 };
 let plannerSequence = 0;
+// Up to four searches can be kept open at once (search slots); results for
+// each stay available while the others run.
+const MAX_SLOTS = 4,
+  MAX_SNAPSHOTS = 8;
 async function api(path, params = {}, signal) {
   const u = new URL(path, CAPTURE_API);
   for (const [k, v] of Object.entries(params))
@@ -247,23 +251,29 @@ export function mountRouteSearch({
 }) {
   const root = document.querySelector("#route-search-root");
   if (!root) return { show() {}, setFrom() {}, openBoard() {} };
-  let controller = null,
-    boarding = [],
-    adjustedRoutes = [],
-    resultStatus = "",
-    requestDescription = "",
-    searchRevision = 0,
+  let searchRevision = 0,
     previousSearch = false,
-    requestInput = null,
-    requestOrder = "arrival",
     invalidField = null,
     incomingInput = null;
   const feedContexts = new Map();
-  let activeRequest = null;
   let observationElement = null,
     observationTimer = null,
-    searchPending = false,
-    resumeSearch = false;
+    resumeSearch = false,
+    lastJob = null;
+  // Searches in flight, one per search slot. Each owns its controller and
+  // result snapshot, so up to four searches can run side by side.
+  const runningJobs = new Set();
+  let slotSequence = 0;
+  const newSlot = (input = null) => ({
+    id: ++slotSequence,
+    input,
+    revision: null,
+    job: null,
+  });
+  const slots = [newSlot()];
+  let activeSlotId = slots[0].id;
+  const activeSlot = () =>
+    slots.find((slot) => slot.id === activeSlotId) ?? slots[0];
   function watchObservations(element) {
     observationElement = element;
     clearInterval(observationTimer);
@@ -287,8 +297,8 @@ export function mountRouteSearch({
         refreshRouteObservations(observationElement);
     });
   function suspendSearch() {
-    resumeSearch ||= searchPending;
-    controller?.abort();
+    resumeSearch ||= runningJobs.size > 0;
+    for (const job of runningJobs) job.controller.abort();
     clearInterval(observationTimer);
   }
   window.addEventListener("beforeunload", suspendSearch);
@@ -298,7 +308,10 @@ export function mountRouteSearch({
     watchObservations(observationElement);
     if (resumeSearch) {
       resumeSearch = false;
-      status.innerHTML = ui("route_search_ui_006");
+      if (lastJob) {
+        lastJob.status = ui("route_search_ui_006");
+        publish(lastJob);
+      }
     }
   });
   const now = tokyoNow();
@@ -311,6 +324,13 @@ export function mountRouteSearch({
   ]);
   const inlineStatus = root.querySelector("#search-inline-status"),
     form = root.querySelector("#planner-form");
+  // The open searches sit as tabs at the bottom of the Search tab, above the
+  // tab bar, on the form, the results and the route detail alike.
+  const slotStrip = document.createElement("nav");
+  slotStrip.id = "search-slots";
+  slotStrip.className = "search-slots";
+  slotStrip.setAttribute("aria-label", ui("search_slot_tabs"));
+  (document.querySelector(".app-shell") ?? document.body).append(slotStrip);
   const quickStops = quickSearchStops(network);
   const shortcuts = document.createElement("section");
   shortcuts.className = "planner-quick-stops";
@@ -615,42 +635,57 @@ export function mountRouteSearch({
         .filter((row) => Array.isArray(row) && row.length === 2))
         if (typeof key === "string" && value && typeof value === "object")
           searchDrafts.set(key, value);
+    const savedSlots = navigation.recalled("search-slots");
+    if (savedSlots && Array.isArray(savedSlots.slots) && savedSlots.slots.length) {
+      slots.splice(
+        0,
+        slots.length,
+        ...savedSlots.slots
+          .slice(0, MAX_SLOTS)
+          .map((row) => ({
+            ...newSlot(row?.input && typeof row.input === "object" ? row.input : null),
+            revision: Number.isSafeInteger(row?.revision) ? row.revision : null,
+          })),
+      );
+      activeSlotId = (slots[savedSlots.active] ?? slots[0]).id;
+    }
     const saved = navigation.recalled("search-data");
     if (Array.isArray(saved))
-      for (const x of saved.slice(-5))
+      for (const x of saved.slice(-MAX_SNAPSHOTS))
         if (validSnapshot(x)) {
           snapshots.set(x.revision, { ...x, status: "" });
           searchRevision = Math.max(searchRevision, x.revision);
         }
   }
-  function publish() {
-    const previous = snapshots.get(searchRevision);
-    snapshots.set(searchRevision, {
-      revision: searchRevision,
-      routes: adjustedRoutes,
-      boarding,
-      description: requestDescription,
-      status: resultStatus,
-      input: requestInput,
-      request: activeRequest,
-      order: previous?.order ?? requestOrder,
-      routeVersions: adjustedRoutes.map(
+  function publish(job) {
+    const previous = snapshots.get(job.revision);
+    snapshots.set(job.revision, {
+      revision: job.revision,
+      routes: job.routes,
+      boarding: job.boarding,
+      description: job.description,
+      status: job.status,
+      input: job.input,
+      request: job.request,
+      order: previous?.order ?? job.order,
+      routeVersions: job.routes.map(
         (_, i) => previous?.routeVersions?.[i] ?? 0,
       ),
     });
-    while (snapshots.size > 5) snapshots.delete(snapshots.keys().next().value);
+    trimSnapshots();
     renderResults();
+    renderSlots();
     navigation.refresh();
   }
-  const status = {
-    set innerHTML(html) {
-      resultStatus = html;
-      publish();
-    },
-    get innerHTML() {
-      return resultStatus;
-    },
-  };
+  // Keep the newest results, but never drop one a search slot still shows.
+  function trimSnapshots() {
+    const kept = new Set(slots.map((slot) => slot.revision));
+    while (snapshots.size > MAX_SNAPSHOTS) {
+      const oldest = [...snapshots.keys()].find((key) => !kept.has(key));
+      if (oldest === undefined) break;
+      snapshots.delete(oldest);
+    }
+  }
   function renderResults() {
     if (!resultFrame) return;
     const revision = Number(resultFrame.dataset.searchRevision),
@@ -760,7 +795,7 @@ export function mountRouteSearch({
             ))
         )
           return;
-        controller?.abort();
+        activeSlot().job?.controller.abort();
         data.status = "";
         tripChoices.open({
           index,
@@ -974,8 +1009,7 @@ export function mountRouteSearch({
         status: "",
       };
       snapshots.set(snapshot.revision, snapshot);
-      while (snapshots.size > 5)
-        snapshots.delete(snapshots.keys().next().value);
+      trimSnapshots();
     }
     element.dataset.searchRevision = snapshot.revision;
     const action = itineraryAction(plan),
@@ -1047,6 +1081,7 @@ export function mountRouteSearch({
         incomingInput = null;
       }
       historyView();
+      renderSlots();
     },
     onFocus() {
       if (invalidField) {
@@ -1324,6 +1359,123 @@ export function mountRouteSearch({
     },
     update: renderRouteDetail,
   });
+  function persistSlots() {
+    navigation.remember("search-slots", {
+      active: slots.indexOf(activeSlot()),
+      slots: slots.map(({ input, revision }) => ({ input, revision })),
+    });
+  }
+  function slotTitle(slot) {
+    const input = slot === activeSlot() ? captureInput() : slot.input;
+    const from = input?.from?.trim(),
+      to = input?.to?.trim();
+    return from || to
+      ? `${from || "—"} → ${to || "—"}`
+      : ui("search_slot_new");
+  }
+  function slotState(slot) {
+    if (slot.job) return ["running", ui("search_slot_running")];
+    const data = snapshots.get(slot.revision);
+    if (!data) return ["idle", ui("search_slot_idle")];
+    return data.routes.length
+      ? ["done", ui("search_slot_routes", [data.routes.length])]
+      : ["empty", ui("search_slot_none")];
+  }
+  function renderSlots() {
+    const active = activeSlot();
+    document.querySelector(".app-shell")?.toggleAttribute("data-search-slots", true);
+    const tabs = slots
+      .map((slot, i) => {
+        const [state, label] = slotState(slot),
+          selected = slot === active;
+        return `<div class="search-slot-wrap"><button type="button" role="tab" class="search-slot" data-search-slot="${slot.id}" aria-selected="${selected}" data-state="${state}" aria-label="${esc(`${ui("search_slot_number", [i + 1])} ${slotTitle(slot)} ${label}`)}"><span class="search-slot-index" aria-hidden="true">${state === "running" ? '<i class="search-slot-spinner"></i>' : i + 1}</span><span class="search-slot-copy" aria-hidden="true"><b>${esc(slotTitle(slot))}</b><small>${esc(label)}</small></span></button>${selected && slots.length > 1 ? `<button type="button" class="search-slot-close" data-search-slot-close="${slot.id}" aria-label="${esc(ui("search_slot_close", [i + 1]))}"><span aria-hidden="true">×</span></button>` : ""}</div>`;
+      })
+      .join("");
+    const add =
+      slots.length < MAX_SLOTS
+        ? `<button type="button" class="search-slot-add" data-search-slot-add aria-label="${esc(ui("search_slot_add", [slots.length, MAX_SLOTS]))}">${icon("plus")}</button>`
+        : "";
+    updateHTML(
+      slotStrip,
+      `<div class="search-slot-tabs" role="tablist">${tabs}${add}</div>`,
+    );
+    // Keep the selected tab in view within the strip (never scroll the page).
+    const strip = slotStrip.querySelector(".search-slot-tabs"),
+      selected = strip?.querySelector('[aria-selected="true"]')?.parentElement;
+    if (strip && selected) {
+      const left = selected.offsetLeft - strip.offsetLeft,
+        right = left + selected.offsetWidth;
+      if (left < strip.scrollLeft) strip.scrollLeft = left;
+      else if (right > strip.scrollLeft + strip.clientWidth)
+        strip.scrollLeft = right - strip.clientWidth;
+    }
+  }
+  // Show a slot where it left off: its results when it has any, else the form.
+  function showSlot(slot) {
+    const revision = slot.revision;
+    navigation.root("search");
+    if (snapshots.get(revision) || slot.job)
+      queueMicrotask(() => navigation.push("results", { revision }));
+  }
+  function blankInput() {
+    const current = tokyoNow(),
+      stop = onCurrentLocation?.({ silent: true });
+    return {
+      ...captureInput(),
+      from: stop?.name ?? "",
+      fromId: stop?.id ?? "",
+      to: "",
+      toId: "",
+      date: current.date,
+      time: current.time,
+      timeMode: "departure",
+      via: [],
+    };
+  }
+  function selectSlot(id, input = null) {
+    const current = activeSlot();
+    current.input = captureInput();
+    activeSlotId = id;
+    const next = activeSlot();
+    applyInput(input ?? next.input ?? blankInput());
+    next.input = captureInput();
+    navigation.remember("search-input", next.input);
+    autocomplete.close();
+    inlineStatus.textContent = "";
+    persistSlots();
+    renderSlots();
+  }
+  slotStrip.addEventListener("click", (event) => {
+    const tab = event.target.closest("[data-search-slot]");
+    if (tab) {
+      const id = Number(tab.dataset.searchSlot);
+      if (id !== activeSlotId) selectSlot(id);
+      showSlot(activeSlot());
+      return;
+    }
+    if (event.target.closest("[data-search-slot-add]") && slots.length < MAX_SLOTS) {
+      const slot = newSlot();
+      slots.push(slot);
+      selectSlot(slot.id, blankInput());
+      navigation.root("search");
+      return;
+    }
+    const close = event.target.closest("[data-search-slot-close]");
+    if (close && slots.length > 1) {
+      const index = slots.findIndex((slot) => slot.id === Number(close.dataset.searchSlotClose));
+      if (index < 0) return;
+      const [removed] = slots.splice(index, 1);
+      removed.job?.controller.abort();
+      activeSlotId = (slots[index] ?? slots[index - 1]).id;
+      applyInput(activeSlot().input ?? blankInput());
+      navigation.remember("search-input", captureInput());
+      persistSlots();
+      renderSlots();
+      showSlot(activeSlot());
+      slotStrip.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
+    }
+  });
+  form.addEventListener("input", () => renderSlots());
   function historyView() {
     const pairs = readSearchPairs(searchStorage()),
       open = root.querySelector(".search-history")?.open ?? false;
@@ -1341,6 +1493,7 @@ export function mountRouteSearch({
     );
   }
   historyView();
+  renderSlots();
   root.addEventListener("click", (e) => {
     const deleted = e.target.closest("[data-delete-kind]");
     if (deleted) {
@@ -1479,8 +1632,9 @@ export function mountRouteSearch({
     if (dateSheet.open) dateSheet.close();
     const active = document.activeElement;
     if (active instanceof HTMLInputElement) active.blur();
-    controller?.abort();
-    controller = new AbortController();
+    const slot = activeSlot();
+    slot.job?.controller.abort();
+    const controller = new AbortController();
     const signal = controller.signal,
       endpoints = ["from", "to"].map((name) =>
         resolveStop(
@@ -1531,17 +1685,30 @@ export function mountRouteSearch({
     }
     autocomplete.close();
 
-    searchPending = true;
-
     inlineStatus.innerHTML = "";
-    requestOrder =
-      snapshots.get(Number(resultFrame?.dataset.searchRevision))?.order ??
-      [...snapshots.values()].at(-1)?.order ??
-      "arrival";
-    searchRevision++;
-    adjustedRoutes = [];
-    boarding = [];
-    requestDescription = `${from.name}${via.length ? ` → ${via.map((v) => v.resolved.stop.name).join(" → ")}` : ""} → ${to.name} · ${form.elements.date.value} ${searchClockLabel(captureInput())}`;
+    const job = {
+      revision: ++searchRevision,
+      controller,
+      routes: [],
+      boarding: [],
+      status: "",
+      order:
+        snapshots.get(Number(resultFrame?.dataset.searchRevision))?.order ??
+        [...snapshots.values()].at(-1)?.order ??
+        "arrival",
+    };
+    runningJobs.add(job);
+    lastJob = job;
+    slot.job = job;
+    slot.revision = job.revision;
+    // Status updates belong to this search, whichever slot is on screen.
+    const status = {
+      set innerHTML(html) {
+        job.status = html;
+        publish(job);
+      },
+    };
+    job.description = `${from.name}${via.length ? ` → ${via.map((v) => v.resolved.stop.name).join(" → ")}` : ""} → ${to.name} · ${form.elements.date.value} ${searchClockLabel(captureInput())}`;
     form.elements.from.value = displayStopName(from);
     form.elements.to.value = displayStopName(to);
     form.elements.fromId.value = from.id;
@@ -1552,9 +1719,12 @@ export function mountRouteSearch({
       form.querySelector(`[data-via-index="${i}"]`).value =
         v.resolved.stop.name;
     });
-    requestInput = captureInput();
+    const requestInput = captureInput();
+    job.input = requestInput;
+    slot.input = requestInput;
     navigation.remember("search-input", requestInput);
-    navigation.push("results", { revision: searchRevision });
+    persistSlots();
+    navigation.push("results", { revision: job.revision });
     saveSearchPair(searchStorage(), requestInput);
     historyView();
     const request = {
@@ -1571,7 +1741,7 @@ export function mountRouteSearch({
       walkSpeed: form.elements.walkSpeed.value,
     };
     if (previousDeparture) request.previousDeparture = true;
-    activeRequest = request;
+    job.request = request;
     status.innerHTML = ui("route_search_ui_069");
     document.dispatchEvent(new Event("mymap-search-started"));
     try {
@@ -1587,12 +1757,12 @@ export function mountRouteSearch({
       }
       if (signal.aborted) return;
       if (!feeds.length) throw Error(ui("route_search_ui_070"));
-      feedContexts.set(searchRevision, {
+      feedContexts.set(job.revision, {
         feeds,
         request,
         nextDay: Boolean(nextDate),
       });
-      while (feedContexts.size > 3)
+      while (feedContexts.size > 5)
         feedContexts.delete(feedContexts.keys().next().value);
       const base = {
         ...network,
@@ -1635,7 +1805,7 @@ export function mountRouteSearch({
       const mapped = mergeTimetableFeeds(network, feeds, {
         date: request.date,
       });
-      boarding = planned.map((r) =>
+      job.boarding = planned.map((r) =>
         r.legs.map((l) => {
           const ride =
             l.kind === "ride"
@@ -1644,11 +1814,11 @@ export function mountRouteSearch({
           return ride;
         }),
       );
-      adjustedRoutes = planned.map((r) => ({
+      job.routes = planned.map((r) => ({
         ...r,
         realtimeSource: "schedule",
       }));
-      publish();
+      publish(job);
       persistSnapshots();
       status.innerHTML = ui("route_search_ui_074");
       const live =
@@ -1674,7 +1844,7 @@ export function mountRouteSearch({
           },
         );
       if (signal.aborted) return;
-      boarding = adjusted.map((r) =>
+      job.boarding = adjusted.map((r) =>
         r.legs.map((l) =>
           l.kind === "ride"
             ? scheduledJourney(l, mapped, network, request.date)
@@ -1694,14 +1864,16 @@ export function mountRouteSearch({
         ),
       );
       status.innerHTML = `${warnings.map((w) => `<p class="planner-warning">${esc(w)}</p>`).join("")}${relevantMissing.length ? ui("route_search_ui_075", [esc(relevantMissing.map((x) => operatorLabel[x.operator] ?? x.operator).join("・"))]) : ""}`;
-      adjustedRoutes = adjusted;
-      publish();
+      job.routes = adjusted;
+      publish(job);
       persistSnapshots();
     } catch (err) {
       if (!signal.aborted)
         status.innerHTML = ui("route_search_ui_076", [esc(err.message)]);
     } finally {
-      if (controller?.signal === signal) searchPending = false;
+      runningJobs.delete(job);
+      if (slot.job === job) slot.job = null;
+      renderSlots();
     }
   });
   function persistSnapshots() {
