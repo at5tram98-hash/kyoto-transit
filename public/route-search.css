@@ -949,6 +949,35 @@
     transparent 5px 9px
   );
 }
+/* A wait is time spent standing still, not a stretch of track: it shows a
+   clock in place of the rail, and the rails either side stop at their
+   stations rather than running through it. */
+.planner-wait-icon::before,
+.planner-wait-icon::after {
+  display: none;
+}
+.planner-wait-icon {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 20px;
+  margin-inline: -4px;
+  color: var(--muted);
+}
+.planner-wait-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+}
+.journey-point:has(+ .journey-wait) .planner-line::before,
+.journey-ride:has(+ .journey-wait) .journey-transfer .planner-line::before {
+  bottom: 50%;
+}
+.journey-wait + .journey-ride > .journey-point:first-child .planner-line::before {
+  top: 50%;
+}
 .journey-wait,
 .journey-dwell,
 .planner-leg.walk {
@@ -1304,6 +1333,17 @@
   .journey-final .planner-line::before {
     top: 0;
     bottom: calc(100% - 1.8rem);
+  }
+  .journey-point:has(+ .journey-wait) .planner-line::before,
+  .journey-ride:has(+ .journey-wait) .journey-transfer .planner-line::before {
+    bottom: calc(100% - 1.8rem);
+  }
+  .journey-wait + .journey-ride > .journey-point:first-child .planner-line::before {
+    top: 1.8rem;
+  }
+  .planner-leg > .planner-wait-icon {
+    align-self: start;
+    padding-top: 2px;
   }
   .journey-station-band {
     flex-wrap: wrap;

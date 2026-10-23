@@ -1008,7 +1008,7 @@ export default {
   route_search_ui_086:
     '<p class="planner-warning">この条件で利用できる経路がありません。時刻・経由地・徒歩上限を変更してお試しください。</p>{0}',
   route_search_view_049:
-    '<div class="planner-leg journey-wait"><span class="journey-wait-time">{0}分</span><span class="planner-line"></span><div><b>{1}</b><small>{2}</small></div></div>',
+    '<div class="planner-leg journey-wait"><span class="journey-wait-time">{0}分</span><span class="planner-line planner-wait-icon">{3}</span><div><b>{1}</b><small>{2}</small></div></div>',
   route_search_view_050:
     '<div class="planner-leg {0}"><time class="planner-clock">{1}</time><span class="planner-line"></span><div><b>{2} {3}分</b><small>{4}{5}</small>{6}</div></div>',
   route_search_view_051:

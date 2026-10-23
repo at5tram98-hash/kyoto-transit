@@ -1019,7 +1019,7 @@ export default {
   route_search_ui_086:
     '<p class="planner-warning">No journey matches these conditions. Change the time, via points or maximum walk.</p>{0}',
   route_search_view_049:
-    '<div class="planner-leg journey-wait"><span class="journey-wait-time">{0} min</span><span class="planner-line"></span><div><b>{1}</b><small>{2}</small></div></div>',
+    '<div class="planner-leg journey-wait"><span class="journey-wait-time">{0} min</span><span class="planner-line planner-wait-icon">{3}</span><div><b>{1}</b><small>{2}</small></div></div>',
   route_search_view_050:
     '<div class="planner-leg {0}"><time class="planner-clock">{1}</time><span class="planner-line"></span><div><b>{2} {3} min</b><small>{4}{5}</small>{6}</div></div>',
   route_search_view_051:

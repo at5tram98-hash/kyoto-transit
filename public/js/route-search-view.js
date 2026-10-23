@@ -110,6 +110,7 @@ export function routeHTML(
             ? ui("route_search_view_010")
             : ui("route_search_view_011"),
           esc(name(leg.from)),
+          icon("clock"),
         ]),
       );
     }
