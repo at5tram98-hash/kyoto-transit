@@ -9,6 +9,7 @@ import {
   haptic,
   tokyoNow,
   ensureSubwayFeed,
+  toast,
 } from "./vnext-state.js";
 import { navigation } from "./navigation.js";
 import { openContextSheet, setupSheetGestures } from "./context-sheet.js";
@@ -24,7 +25,7 @@ import { liveClock, appLocale, message } from "./locale.js";
 import { north3Day } from "./north3-feed.js";
 import { popoverMenu, withProgress, actionSheet } from "./ios-ui.js";
 import { RUN_MODES, runMode, setRunMode, modeAllowsPip } from "./run-mode.js";
-import { pipSupported, pipActive, togglePip } from "./pip.js";
+import { pipSupported, pipActive, togglePip, preparePip } from "./pip.js";
 
 // Live owns its screen, not a copy of the journey planner form or input store.
 export function mountLiveHome(host, search) {
@@ -285,6 +286,7 @@ export function mountLiveHome(host, search) {
     else if (b.hasAttribute("data-live-full-map"))
       navigation.push("map", { nearby: true });
     else if (b.hasAttribute("data-live-more")) {
+      if (modeAllowsPip()) preparePip();
       popoverMenu(
         b,
         [
@@ -296,8 +298,8 @@ export function mountLiveHome(host, search) {
             label: `${ui("mode_title")}：${ui(`mode_${runMode()}`)}`,
             icon: icon("bolt"),
           },
-          ...(pipSupported() && modeAllowsPip()
-            ? [{ id: "pip", label: ui(pipActive() ? "pip_stop" : "pip_start"), icon: icon("display") }]
+          ...(modeAllowsPip()
+            ? [{ id: "pip", label: ui(pipActive() ? "pip_stop" : "pip_start"), icon: icon("pip") }]
             : []),
           { id: "settings", label: ui("live_menu_settings"), icon: icon("settings") },
         ],
@@ -312,7 +314,14 @@ export function mountLiveHome(host, search) {
             }).then((mode) => {
               if (mode) setRunMode(mode);
             });
-          else if (choice === "pip") void togglePip();
+          else if (choice === "pip") {
+            if (!pipSupported()) toast(ui("pip_unsupported"));
+            // Called inside the tap: PiP must be requested synchronously.
+            else
+              void togglePip().then((ok) => {
+                if (ok === false && !pipActive()) toast(ui("pip_failed"));
+              });
+          }
           else if (choice === "plan") search.open();
           else if (choice === "arrivals") navigation.push("arrivals");
           else if (choice === "choose")

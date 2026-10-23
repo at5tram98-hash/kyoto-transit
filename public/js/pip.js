@@ -13,14 +13,17 @@ let canvas = null,
   timer = null,
   active = false;
 
-export function pipSupported(doc = globalThis.document) {
+// Video PiP (Safari, Chrome) needs a playing video and must be requested
+// synchronously inside the tap; Document PiP (desktop Chrome) is the
+// fallback. Support is checked per path so the menu can explain failures.
+export function pipSupported(doc = globalThis.document, win = globalThis) {
   const v = doc?.createElement?.("video"),
     c = doc?.createElement?.("canvas");
-  return Boolean(
-    c?.captureStream &&
-      (doc?.pictureInPictureEnabled ||
-        typeof v?.webkitSetPresentationMode === "function"),
-  );
+  const videoPip =
+    Boolean(c?.captureStream) &&
+    (Boolean(doc?.pictureInPictureEnabled && v?.requestPictureInPicture) ||
+      Boolean(v?.webkitSupportsPresentationMode?.("picture-in-picture")));
+  return videoPip || Boolean(win?.documentPictureInPicture);
 }
 export const pipActive = () => active;
 
@@ -160,59 +163,108 @@ export function paintPip(ctx, content) {
 }
 
 export function refreshPip() {
-  if (!active || !canvas) return;
+  if (!canvas) return;
   try {
     paintPip(canvas.getContext("2d"), pipContent());
   } catch {}
 }
 
-export async function startPip() {
-  if (active) return true;
-  if (!pipSupported()) return false;
+let docWindow = null;
+function ensureSource() {
   canvas ??= Object.assign(document.createElement("canvas"), { width: W, height: H });
-  refreshPip();
   paintPip(canvas.getContext("2d"), pipContent());
-  if (!video) {
+  if (!video && canvas.captureStream) {
     video = document.createElement("video");
     video.muted = true;
+    video.autoplay = true;
     video.playsInline = true;
     video.setAttribute("playsinline", "");
+    video.setAttribute("muted", "");
     video.className = "pip-source";
     video.setAttribute("aria-hidden", "true");
     document.body.append(video);
     video.addEventListener("leavepictureinpicture", stopPip);
     video.addEventListener("webkitpresentationmodechanged", () => {
-      if (video.webkitPresentationMode !== "picture-in-picture") stopPip();
+      if (video.webkitPresentationMode === "picture-in-picture") markActive();
+      else if (active) stopPip();
     });
+    video.srcObject = canvas.captureStream(2);
   }
-  video.srcObject = canvas.captureStream(2);
+  if (video?.paused) video.play().catch(() => {});
+}
+// Prepare the stream ahead of the tap so the request can be made at once.
+export function preparePip() {
+  if (!pipSupported()) return;
   try {
-    await video.play();
-    if (document.pictureInPictureEnabled && video.requestPictureInPicture)
-      await video.requestPictureInPicture();
-    else video.webkitSetPresentationMode("picture-in-picture");
-  } catch {
-    return false;
-  }
+    ensureSource();
+    clearInterval(timer);
+    timer = setInterval(refreshPip, 1000);
+  } catch {}
+}
+function markActive() {
   active = true;
   clearInterval(timer);
   timer = setInterval(refreshPip, 1000);
   document.dispatchEvent(new CustomEvent("mymap-pip", { detail: { active } }));
-  return true;
+}
+// Must be called synchronously from the rider's tap.
+export function startPip() {
+  if (active) return Promise.resolve(true);
+  if (!pipSupported()) return Promise.resolve(false);
+  ensureSource();
+  refreshPip();
+  if (video) {
+    try {
+      if (document.pictureInPictureEnabled && video.requestPictureInPicture) {
+        const request = video.readyState >= 1
+          ? video.requestPictureInPicture()
+          : video.play().then(() => video.requestPictureInPicture());
+        return request.then(
+          () => (markActive(), true),
+          () => documentPip(),
+        );
+      }
+      if (video.webkitSupportsPresentationMode?.("picture-in-picture")) {
+        video.webkitSetPresentationMode("picture-in-picture");
+        return Promise.resolve(true);
+      }
+    } catch {}
+  }
+  return documentPip();
+}
+async function documentPip() {
+  const api = globalThis.documentPictureInPicture;
+  if (!api) return false;
+  try {
+    docWindow = await api.requestWindow({ width: 360, height: 203 });
+    const view = Object.assign(docWindow.document.createElement("canvas"), { width: W, height: H });
+    view.style.cssText = "width:100%;height:100%;display:block;background:#0b0e13";
+    docWindow.document.body.style.margin = "0";
+    docWindow.document.body.append(view);
+    const copy = () => view.getContext("2d").drawImage(canvas, 0, 0);
+    copy();
+    docWindow.__copy = setInterval(copy, 1000);
+    docWindow.addEventListener("pagehide", () => stopPip());
+    markActive();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function stopPip() {
-  if (!active && !timer) return;
+  if (!active) return;
   active = false;
-  clearInterval(timer);
-  timer = null;
   try {
     if (document.pictureInPictureElement) void document.exitPictureInPicture();
     else if (video?.webkitPresentationMode === "picture-in-picture")
       video.webkitSetPresentationMode("inline");
+    if (docWindow) {
+      clearInterval(docWindow.__copy);
+      docWindow.close();
+      docWindow = null;
+    }
   } catch {}
-  video?.pause?.();
-  if (video) video.srcObject = null;
   document.dispatchEvent(new CustomEvent("mymap-pip", { detail: { active } }));
 }
 

@@ -1311,4 +1311,5 @@ export default {
   pip_press_stop: "Press the stop button",
   pip_get_off: "Get off at the next station",
   bus_stop_lamp_short: "Stopping",
+  pip_failed: "Could not start Picture in Picture. Tap again.",
 };

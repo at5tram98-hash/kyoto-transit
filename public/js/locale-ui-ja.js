@@ -1298,4 +1298,5 @@ export default {
   pip_press_stop: "降車ボタンを押してください",
   pip_get_off: "次の駅で降車です",
   bus_stop_lamp_short: "とまります",
+  pip_failed: "ピクチャインピクチャを開始できませんでした。もう一度タップしてください。",
 };
