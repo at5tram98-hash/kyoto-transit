@@ -130,7 +130,7 @@ function syncPrimaryRootTitle() {
 }
 function syncTab(tab) {
   state.tab = tab;
-  $(".app-shell").dataset.tab = tab;
+  $(".app-shell").dataset.activeTab = tab;
   if (tab !== "now") $(".app-shell").dataset.nowHome = "false";
   $("#view-subtitle").textContent = tab === "now" ? "MyMap" : "MyMap";
   if (tab === "now") {
