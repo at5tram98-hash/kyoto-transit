@@ -1496,7 +1496,7 @@
 .app-shell[data-keyboard="true"] .search-slots {
   visibility: hidden;
 }
-.app-shell[data-active-tab="search"] .navigation-screen {
+.app-shell[data-active-tab="search"] :is(.navigation-screen, .view) {
   padding-bottom: calc(144px + var(--safe-bottom));
 }
 .search-slot-tabs {
