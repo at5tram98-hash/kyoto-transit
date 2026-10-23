@@ -1,3 +1,4 @@
+import { icon } from "./icons.js";
 import { ui } from "./locale.js";
 import { animateState as animate } from "./navigation-motion.js";
 // Preserve DOM nodes when the visible content has not changed.
@@ -131,7 +132,7 @@ export function updateArrivalRows(root, rows, present) {
             "<i></i>".repeat(7) +
             "</div>" +
             '<div class="arrival-track-position"><span class="arrival-track-vehicle">' +
-            '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="15" rx="4"/><path d="M4 11h16M8 19v2m8-2v2M8 15h.01M16 15h.01"/></svg>' +
+            icon("bus") +
             "</span></div></div>";
         }
         if (view.vehicleSymbol && cached.vehicleSymbol !== view.vehicleSymbol) {

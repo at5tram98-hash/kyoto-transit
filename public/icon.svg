@@ -1,1 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="44" fill="#007AFF"/><path d="M46 54 79 42l35 13 32-12v99l-32 12-35-13-33 12z" fill="none" stroke="white" stroke-width="9" stroke-linejoin="round"/><path d="M79 42v99m35-86v99" stroke="white" stroke-width="7"/><circle cx="114" cy="88" r="17" fill="#007AFF" stroke="white" stroke-width="7"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E9BFF"/>
+      <stop offset="1" stop-color="#0057D9"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#002B73" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="228" fill="url(#gloss)"/>
+  <g filter="url(#shadow)">
+    <!-- route: a smooth line through three stations, ending in a location pin -->
+    <path d="M230 770C330 770 360 600 470 600S640 470 640 400" fill="none" stroke="#FFFFFF" stroke-width="64" stroke-linecap="round"/>
+    <circle cx="230" cy="770" r="62" fill="#FFFFFF"/>
+    <circle cx="230" cy="770" r="28" fill="#0A6CF0"/>
+    <circle cx="470" cy="600" r="44" fill="#FFFFFF"/>
+    <path d="M640 160c-106 0-192 84-192 190 0 140 192 330 192 330s192-190 192-330c0-106-86-190-192-190Z" fill="#FFFFFF"/>
+    <circle cx="640" cy="350" r="78" fill="#0A6CF0"/>
+  </g>
+</svg>

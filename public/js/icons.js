@@ -1,0 +1,40 @@
+// Icon glyphs on a 24-pt grid in the manner of SF Symbols: 1.75 strokes,
+// round caps and joins, optical sizes matched across the set. Shapes with
+// class "fillable" become solid in selected states (e.g. the tab bar);
+// "knock" detail then shows through in the background colour.
+const icons = {
+  swap: '<path d="M8 4v16M4.5 7.5 8 4l3.5 3.5M16 20V4m-3.5 12.5L16 20l3.5-3.5"/>',
+  bolt: '<path class="fillable" d="M13.6 2.6 5.2 13.4a.6.6 0 0 0 .5 1H11l-1 6.9c-.1.6.6.9 1 .4l8.4-10.8a.6.6 0 0 0-.5-1H13.6l1-6.9c.1-.6-.6-.9-1-.4Z"/>',
+  map: '<path class="fillable" d="M3.5 6.6c0-.4.3-.8.7-.9L9 4l6 2 4.8-1.7c.4-.1.7.2.7.6v12.5c0 .4-.3.8-.7.9L15 20l-6-2-4.8 1.7c-.4.1-.7-.2-.7-.6Z"/><path class="knock" d="M9 4v14m6-12v14"/>',
+  ticket: '<path class="fillable" d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2.2a2.8 2.8 0 0 0 0 5.6V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.2a2.8 2.8 0 0 0 0-5.6Z"/><path class="knock" d="M14.5 7.5v1.5m0 2.2v1.6m0 2.2v1.5"/>',
+  clock: '<circle class="fillable" cx="12" cy="12" r="9"/><path class="knock" d="M12 7v5l3.2 2.1"/>',
+  walk: '<circle class="solid" cx="13.6" cy="4.3" r="1.9"/><path d="m7.3 12.4 2.5-3.6 3.4-.6 2.1 3.4 2.9 1.2M13.2 8.2l-1.7 6.3-2.6 6.6m2.6-6.6 3.2 2.4 1.1 4.2"/>',
+  bookmark: '<path class="fillable" d="M7 3.5h10A1.5 1.5 0 0 1 18.5 5v15.3c0 .4-.5.7-.8.4L12 16.8l-5.7 3.9c-.3.3-.8 0-.8-.4V5A1.5 1.5 0 0 1 7 3.5Z"/>',
+  share: '<path d="M12 14.5V3M8.3 6.6 12 3l3.7 3.6"/><path d="M9 9.5H7A1.5 1.5 0 0 0 5.5 11v8.5A1.5 1.5 0 0 0 7 21h10a1.5 1.5 0 0 0 1.5-1.5V11A1.5 1.5 0 0 0 17 9.5h-2"/>',
+  camera: '<path class="fillable" d="M4.5 7.5h3l1.6-2.3c.3-.4.7-.7 1.2-.7h3.4c.5 0 .9.3 1.2.7l1.6 2.3h3a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5V9a1.5 1.5 0 0 1 1.5-1.5Z"/><circle class="knock" cx="12" cy="13.3" r="3.4"/>',
+  search: '<circle class="fillable-ring" cx="10.6" cy="10.6" r="6.6"/><path d="m15.4 15.4 5.1 5.1" stroke-width="2.2"/>',
+  more: '<circle class="solid" cx="5.5" cy="12" r="1.6"/><circle class="solid" cx="12" cy="12" r="1.6"/><circle class="solid" cx="18.5" cy="12" r="1.6"/>',
+  now: '<circle class="fillable" cx="12" cy="12" r="9"/><path class="knock" d="M12 7v5l3.2 2.1"/>',
+  timetable: '<rect class="fillable" x="3.5" y="4.8" width="17" height="15.7" rx="3"/><path class="knock" d="M3.5 9.6h17"/><path d="M8 3v3.6M16 3v3.6"/><g class="knock-dots"><circle cx="8" cy="13.2" r="1"/><circle cx="12" cy="13.2" r="1"/><circle cx="16" cy="13.2" r="1"/><circle cx="8" cy="16.8" r="1"/><circle cx="12" cy="16.8" r="1"/></g>',
+  operations: '<circle class="fillable" cx="12" cy="12" r="9"/><path class="knock" d="M12 7.2v5.7"/><circle class="knock-dot" cx="12" cy="16.4" r="1.15"/>',
+  settings: '<path class="fillable" d="M18.89 10.29 L21.24 10.91 L21.24 13.09 L18.89 13.71 L18.08 15.66 L19.30 17.76 L17.76 19.30 L15.66 18.08 L13.71 18.89 L13.09 21.24 L10.91 21.24 L10.29 18.89 L8.34 18.08 L6.24 19.30 L4.70 17.76 L5.92 15.66 L5.11 13.71 L2.76 13.09 L2.76 10.91 L5.11 10.29 L5.92 8.34 L4.70 6.24 L6.24 4.70 L8.34 5.92 L10.29 5.11 L10.91 2.76 L13.09 2.76 L13.71 5.11 L15.66 5.92 L17.76 4.70 L19.30 6.24 L18.08 8.34Z"/><circle class="knock" cx="12" cy="12" r="3"/>',
+  location: '<path class="fillable" d="M20 4.1 3.9 10.6c-.7.3-.6 1.3.1 1.5l7 1.5 1.5 7c.2.7 1.2.8 1.5.1L20.5 4.6c.2-.4-.1-.7-.5-.5Z"/>',
+  train: '<rect class="fillable" x="5" y="2.8" width="14" height="15.4" rx="3.6"/><rect class="knock" x="7.6" y="5.6" width="8.8" height="5.2" rx="1.3"/><circle class="knock-dot" cx="9" cy="14.6" r="1.05"/><circle class="knock-dot" cx="15" cy="14.6" r="1.05"/><path d="m8.6 18.2-2 3.3m8.8-3.3 2 3.3M7.4 20.2h9.2"/>',
+  bus: '<rect class="fillable" x="4.3" y="3" width="15.4" height="15" rx="3.4"/><rect class="knock" x="6.8" y="5.6" width="10.4" height="5.8" rx="1.3"/><circle class="knock-dot" cx="8.4" cy="14.8" r="1.05"/><circle class="knock-dot" cx="15.6" cy="14.8" r="1.05"/><path d="M7.3 18v2.6M16.7 18v2.6" stroke-width="2.4"/>',
+  refresh: '<path d="M19.6 12.4A7.6 7.6 0 1 1 17.2 6.5"/><path d="M19.4 3.8v4.6h-4.6"/>',
+  info: '<circle class="fillable" cx="12" cy="12" r="9"/><path class="knock" d="M12 11v5.6"/><circle class="knock-dot" cx="12" cy="7.8" r="1.15"/>',
+  fold: '<path d="M9.2 13.8 4.6 9.3 9.2 4.8"/><path d="M4.6 9.3h10.2a4.7 4.7 0 0 1 0 9.4h-3.1"/>',
+  bell: '<path class="fillable" d="M12 3.2a5.8 5.8 0 0 0-5.8 5.8v4.4l-1.6 2.5c-.3.5 0 1.1.6 1.1h13.6c.6 0 .9-.6.6-1.1l-1.6-2.5V9A5.8 5.8 0 0 0 12 3.2Z"/><path d="M9.8 19.6a2.3 2.3 0 0 0 4.4 0"/>',
+  display: '<rect class="fillable" x="3" y="4.3" width="18" height="12.4" rx="2.2"/><path d="M9 20.6h6M12 16.7v3.9"/>',
+  accessibility: '<circle class="solid" cx="12" cy="4.6" r="1.8"/><path d="M5 8.6c2.3.6 4.6.9 7 .9s4.7-.3 7-.9M12 9.5v4.8m0 0-3.4 6.4m3.4-6.4 3.4 6.4"/>',
+  shield: '<path class="fillable" d="M12 2.9 5 5.5v5.9c0 4.3 2.9 7.8 7 9.4 4.1-1.6 7-5.1 7-9.4V5.5Z"/><path class="knock" d="m8.8 12 2.3 2.3 4.2-4.6"/>',
+  document: '<path class="fillable" d="M7.5 3h6.4c.4 0 .8.2 1.1.4l3.6 3.6c.3.3.4.7.4 1.1v11.4a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19.5v-15A1.5 1.5 0 0 1 7.5 3Z"/><path class="knock" d="M9 12.5h6m-6 3.5h4.2"/>',
+  close: '<path d="M6.6 6.6l10.8 10.8M17.4 6.6 6.6 17.4"/>',
+  'chevron-up': '<path d="m6.4 14.6 5.6-5.6 5.6 5.6"/>',
+  checkmark: '<path d="m5.2 12.6 4.3 4.3 9.3-9.8"/>',
+  pip: '<rect class="fillable" x="2.8" y="5" width="18.4" height="14" rx="2.4"/><rect class="knock-dot" x="11.4" y="11.6" width="7.4" height="5.4" rx="1.2"/>',
+  shake: '<rect class="fillable" x="8" y="3.5" width="8" height="17" rx="2.2"/><path d="M4.2 8.5 2.8 12l1.4 3.5M19.8 8.5l1.4 3.5-1.4 3.5"/>',
+  checkin: '<rect class="fillable" x="4.3" y="3" width="15.4" height="15" rx="3.4"/><path class="knock" d="m8.6 10.6 2.4 2.4 4.6-4.8"/><path d="M7.3 18v2.6M16.7 18v2.6" stroke-width="2.4"/>',
+};
+export const icon = (name) =>
+  `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[name] ?? icons.info}</svg>`;
