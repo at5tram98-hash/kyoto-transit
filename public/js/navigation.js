@@ -35,6 +35,10 @@ export const navigation = {
   get route() {
     return controller?.route ?? { type: "root", params: {} };
   },
+  // The screens open on the current tab, root excluded, oldest first.
+  get stack() {
+    return controller?.stack ?? [];
+  },
   get tab() {
     return controller?.tab ?? "now";
   },
@@ -556,6 +560,12 @@ export function initializeNavigation({
   const api = {
     get route() {
       return currentRoute(state);
+    },
+    get stack() {
+      return state.stacks[state.tab].map(({ type, params }) => ({
+        type,
+        params: { ...params },
+      }));
     },
     get tab() {
       return state.tab;

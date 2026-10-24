@@ -654,6 +654,7 @@ export function mountRouteSearch({
           .map((row) => ({
             ...newSlot(row?.input && typeof row.input === "object" ? row.input : null),
             revision: Number.isSafeInteger(row?.revision) ? row.revision : null,
+            stack: Array.isArray(row?.stack) ? row.stack.slice(0, 6) : undefined,
           })),
       );
       activeSlotId = (slots[savedSlots.active] ?? slots[0]).id;
@@ -1371,7 +1372,7 @@ export function mountRouteSearch({
   function persistSlots() {
     navigation.remember("search-slots", {
       active: slots.indexOf(activeSlot()),
-      slots: slots.map(({ input, revision }) => ({ input, revision })),
+      slots: slots.map(({ input, revision, stack }) => ({ input, revision, stack })),
     });
   }
   function slotTitle(slot) {
@@ -1419,13 +1420,58 @@ export function mountRouteSearch({
         strip.scrollLeft = right - strip.clientWidth;
     }
   }
-  // Show a slot where it left off: its results when it has any, else the form.
-  function showSlot(slot) {
-    const revision = slot.revision;
-    navigation.root("search");
-    if (snapshots.get(revision) || slot.job)
-      queueMicrotask(() => navigation.push("results", { revision }));
+  // Each slot remembers the screens it had open (results, a route's
+  // detail, a stop opened from it), and switching back reopens that last
+  // screen rather than the results list.
+  let restoringSlot = false;
+  const RESULT_SCREENS = new Set(["results", "route"]);
+  const settled = (move) =>
+    new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        document.removeEventListener("mymap-navigation-change", done);
+        resolve();
+      };
+      const timer = setTimeout(done, 1500);
+      document.addEventListener("mymap-navigation-change", done);
+      if (move() === false) done();
+    });
+  function slotScreens(slot) {
+    const saved = Array.isArray(slot.stack)
+      ? slot.stack
+      : slot.revision != null
+        ? [{ type: "results", params: { revision: slot.revision } }]
+        : [];
+    const live = (entry) =>
+      !RESULT_SCREENS.has(entry?.type) ||
+      snapshots.has(entry.params?.revision) ||
+      (slot.job && entry.params?.revision === slot.revision);
+    const valid = [];
+    for (const entry of saved) {
+      if (!entry || typeof entry.type !== "string" || !live(entry)) break;
+      valid.push(entry);
+    }
+    return valid.slice(0, 6);
   }
+  async function showSlot(slot) {
+    const screens = slotScreens(slot);
+    restoringSlot = true;
+    try {
+      if (navigation.stack.length || navigation.tab !== "search")
+        await settled(() => navigation.root("search"));
+      for (const entry of screens)
+        await settled(() => navigation.push(entry.type, entry.params));
+    } finally {
+      restoringSlot = false;
+      rememberSlotScreens();
+    }
+  }
+  function rememberSlotScreens() {
+    if (restoringSlot || navigation.tab !== "search") return;
+    activeSlot().stack = navigation.stack;
+    persistSlots();
+  }
+  document.addEventListener("mymap-navigation-change", rememberSlotScreens);
   function blankInput() {
     const current = tokyoNow(),
       stop = onCurrentLocation?.({ silent: true });
@@ -1458,8 +1504,10 @@ export function mountRouteSearch({
     const tab = event.target.closest("[data-search-slot]");
     if (tab) {
       const id = Number(tab.dataset.searchSlot);
+      // The open slot stays where it is; another slot reopens its last screen.
+      if (id === activeSlotId && navigation.stack.length) return;
       if (id !== activeSlotId) selectSlot(id);
-      showSlot(activeSlot());
+      void showSlot(activeSlot());
       return;
     }
     if (event.target.closest("[data-search-slot-add]") && slots.length < MAX_SLOTS) {
@@ -1480,7 +1528,7 @@ export function mountRouteSearch({
       navigation.remember("search-input", captureInput());
       persistSlots();
       renderSlots();
-      showSlot(activeSlot());
+      void showSlot(activeSlot());
       slotStrip.querySelector('[aria-current="true"]')?.focus({ preventScroll: true });
     }
   });
