@@ -1745,17 +1745,18 @@
 }
 .time-block {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
 .time-big {
-  flex: 1;
+  flex: 1 1 14rem;
   min-width: 0;
 }
 .date-sheet .time-big input {
   width: 100%;
   min-height: 64px;
-  font-size: 2rem;
+  font-size: min(2rem, 8vw);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -1764,7 +1765,7 @@
   display: grid;
   justify-items: center;
   gap: 2px;
-  flex: none;
+  flex: 1 0 76px;
   min-width: 76px;
   min-height: 64px;
   padding: 6px 10px;
