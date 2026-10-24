@@ -1,6 +1,6 @@
 import { icon } from "./icons.js";
 import { lineBadge } from "./line-badge.js";
-import { ui } from "./locale.js";
+import { ui, placeName } from "./locale.js";
 import {
   operationStatus,
   journeyOperationStatus,
@@ -406,7 +406,7 @@ export function mountTimetables({
         board.platform ? ui("timetable_ui_043", [esc(board.platform)]) : "",
         esc(board.effective ?? ""),
         hours.size
-          ? `<div class="hour-table">${[...hours].map(([h, entries]) => ui("timetable_ui_076", [h % 24, entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(e.destination)} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.originating === true || /当駅始発|この駅始発/.test(e.note ?? "") ? ui("timetable_ui_044") : ""}${e.platform ? ui("timetable_ui_045", [esc(e.platform)]) : ""}${e.destination ? `<span>${esc(e.destination)}</span>` : ""}${e.operatingCompany === "kyotobus" ? ui("timetable_ui_046") : ""}</button>`).join("")])).join("")}</div>`
+          ? `<div class="hour-table">${[...hours].map(([h, entries]) => ui("timetable_ui_076", [h % 24, entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(placeName(e.destination))} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.originating === true || /当駅始発|この駅始発/.test(e.note ?? "") ? ui("timetable_ui_044") : ""}${e.platform ? ui("timetable_ui_045", [esc(e.platform)]) : ""}${e.destination ? `<span>${esc(placeName(e.destination))}</span>` : ""}${e.operatingCompany === "kyotobus" ? ui("timetable_ui_046") : ""}</button>`).join("")])).join("")}</div>`
           : ui("timetable_ui_047"),
         board.cached ? ui("timetable_ui_048") : ui("timetable_ui_049"),
         new Date(board.fetchedAt).toLocaleTimeString("ja-JP", {

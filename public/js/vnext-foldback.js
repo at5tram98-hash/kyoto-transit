@@ -1,4 +1,4 @@
-import { ui } from "./locale.js";
+import { ui, placeName } from "./locale.js";
 import { foldbackJourney } from "./boarding.js";
 import {
   foldbackMeetingPoints,
@@ -327,7 +327,7 @@ async function load(mode) {
             return ui("vnext_foldback_053", [
               i,
               formatMinute(entry.depart),
-              esc(entry.destination ?? board.label),
+              esc(placeName(entry.destination) ?? board.label),
               esc(category(entry)),
               // Official train numbers only; feed-internal ids are not shown.
               entry.tripId && !String(entry.tripId).includes(":")
@@ -386,7 +386,7 @@ function evaluate(index, entry = choices[index]) {
     labels[assessment.status],
     esc(stop?.name ?? entry.stopId),
     esc(category(entry)),
-    esc(entry.destination ?? ui("vnext_foldback_040")),
+    esc(placeName(entry.destination) ?? ui("vnext_foldback_040")),
     Number.isFinite(assessment.arrival)
       ? formatMinute(Math.round(assessment.arrival))
       : ui("vnext_foldback_041"),

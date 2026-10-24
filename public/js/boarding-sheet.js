@@ -3,7 +3,7 @@
 // Swiping the sheet up starts guidance; swiping down or "Later" snoozes it.
 // Nothing is confirmed without the rider's swipe or explicit button.
 import { esc, icon, haptic } from "./vnext-state.js";
-import { ui } from "./locale.js";
+import { ui, placeName } from "./locale.js";
 
 const CONFIRM_DISTANCE = 96,
   DISMISS_DISTANCE = 80,
@@ -57,7 +57,7 @@ function element() {
 
 function candidateCard(entry, describe) {
   const d = describe(entry.candidate);
-  return `<div class="boarding-primary" data-operator="${esc(d.operator)}"${d.line ? ` data-line="${esc(d.line)}"` : ""}><span class="boarding-mode">${icon(d.bus ? "bus" : "train")}</span><div><b>${esc(d.service)}</b><strong>${esc(d.destination)}</strong>${d.departure ? `<small>${esc(d.departure)}</small>` : ""}</div></div>${d.evidence.length ? `<ul class="boarding-evidence">${d.evidence.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
+  return `<div class="boarding-primary" data-operator="${esc(d.operator)}"${d.line ? ` data-line="${esc(d.line)}"` : ""}><span class="boarding-mode">${icon(d.bus ? "bus" : "train")}</span><div><b>${esc(d.service)}</b><strong>${esc(placeName(d.destination))}</strong>${d.departure ? `<small>${esc(d.departure)}</small>` : ""}</div></div>${d.evidence.length ? `<ul class="boarding-evidence">${d.evidence.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`;
 }
 
 function render() {
@@ -71,7 +71,7 @@ function render() {
   <p class="boarding-eyebrow"><span class="boarding-pulse" aria-hidden="true"></span>${esc(ui("boarding_detected"))}</p>
   <h2 id="boarding-sheet-title">${esc(ui("boarding_question"))}</h2>
   ${candidateCard(primary, describe)}
-  ${others.length ? `<div class="boarding-alternatives" role="group" aria-label="${esc(ui("boarding_alternatives"))}">${others.map(({ entry, i }) => { const d = describe(entry.candidate); return `<button type="button" data-boarding-pick="${i}"><span>${esc(d.service)}</span><small>${esc(d.destination)}${d.departure ? ` · ${esc(d.departure)}` : ""}</small></button>`; }).join("")}</div>` : ""}
+  ${others.length ? `<div class="boarding-alternatives" role="group" aria-label="${esc(ui("boarding_alternatives"))}">${others.map(({ entry, i }) => { const d = describe(entry.candidate); return `<button type="button" data-boarding-pick="${i}"><span>${esc(d.service)}</span><small>${esc(placeName(d.destination))}${d.departure ? ` · ${esc(d.departure)}` : ""}</small></button>`; }).join("")}</div>` : ""}
   <div class="boarding-swipe" aria-hidden="true"><span class="boarding-chevron">${icon("chevron-up")}</span><span>${esc(ui("boarding_swipe"))}</span></div>
   <div class="boarding-actions"><button type="button" class="boarding-confirm" data-boarding-confirm>${esc(ui("boarding_start"))}</button><button type="button" class="boarding-secondary" data-boarding-not-riding>${esc(ui("smartlive_not_riding"))}</button><button type="button" class="boarding-secondary" data-boarding-later>${esc(ui("boarding_later"))}</button></div>`;
 }

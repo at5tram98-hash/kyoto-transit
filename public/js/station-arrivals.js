@@ -1,4 +1,4 @@
-import { ui } from "./locale.js";
+import { ui, placeName } from "./locale.js";
 import { esc, tokyoNow, icon } from "./vnext-state.js";
 import { getStaticFeed } from "./fast-data.js";
 import { fetchRealtime, createLiveLoop, isFresh } from "./realtime.js";
@@ -122,7 +122,7 @@ export function mountStationArrivals(host, stop) {
           // Departure-board row: scheduled time and train type on the left,
           // line symbol and destination, then minutes.
           service: `<span class="station-service">${Number.isFinite(row.scheduledDeparture) ? `<b class="station-clock">${esc(row.clock)}</b>` : `<span class="transport-icon" data-operator="${group.operator}">${icon("train")}</span>`}<small class="station-category" data-category="${esc(row.category ?? "")}">${esc(row.label ?? (row.category === "express" ? ui("timetable_ui_001") : row.category === "local" ? ui("timetable_ui_002") : ui("timetable_ui_004")))}</small></span>`,
-          destination: `<span class="station-destination">${lineBadge({ operator: group.operator }, { name: false, size: "small" })}<b>${esc(row.dest || ui("vnext_arrivals_021"))}</b></span>`,
+          destination: `<span class="station-destination">${lineBadge({ operator: group.operator }, { name: false, size: "small" })}<b>${esc(placeName(row.dest) || ui("vnext_arrivals_021"))}</b></span>`,
           minutes: Number.isFinite(row.minutes)
             ? `<span><b>${Math.max(0, Math.ceil(row.minutes))}</b><small>${ui("station_minutes")}</small></span>`
             : `<span class="arrival-unconfirmed">${ui("station_eta_unknown")}</span>`,

@@ -209,14 +209,27 @@ export function initializeNavigation({
             },
           ]),
       );
-      const value = JSON.stringify({
-        state: {
-          ...state,
-          sequence: Math.max(state.sequence, sequenceCeiling),
-        },
-        ui: serial,
-        memory,
-      });
+      const encode = (kept) =>
+        JSON.stringify({
+          state: {
+            ...state,
+            sequence: Math.max(state.sequence, sequenceCeiling),
+          },
+          ui: serial,
+          memory: kept,
+        });
+      // Over the budget, shed the oldest entries of the largest remembered
+      // lists (saved search results) instead of not saving at all.
+      let kept = memory,
+        value = encode(kept);
+      for (let i = 0; value.length >= 500000 && i < 40; i++) {
+        const [key] = Object.entries(kept)
+          .filter(([, v]) => Array.isArray(v) && v.length)
+          .sort((a, b) => JSON.stringify(b[1]).length - JSON.stringify(a[1]).length)[0] ?? [];
+        if (!key) break;
+        kept = { ...kept, [key]: kept[key].slice(1) };
+        value = encode(kept);
+      }
       if (value.length < 500000) sessionStorage.setItem(STORE, value);
     } catch {}
   }

@@ -5,7 +5,7 @@ import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
-import { ui } from "./locale.js";
+import { ui, placeName, appLocale } from "./locale.js";
 import { rideConfirmationFacts } from "./ride-confirmation-facts.js";
 import { nextSidebarTabIndex } from "./desktop-tabs-d4.js";
 import { transitEvidenceEngine, transitCandidateKey } from "./transit-evidence.js";
@@ -13,6 +13,7 @@ import { formatMinute } from "./vnext-core.js";
 import { mountLiveHome } from "./live-home.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { createNetwork } from "./network.js";
+import { startEnglishNames } from "./english-names.js";
 import { locate } from "./mobility.js";
 import { createLocationSession } from "./location-session.js";
 import { mountTimetables, mountOperations } from "./timetable-ui.js";
@@ -193,7 +194,7 @@ function openRideCandidateConfirmation(index) {
   ].join("");
   openContextSheet(
     ui("b2_confirm_board"),
-    `<section class="section-block ride-confirmation" data-confirmation-stage="${esc(fact.stage)}"><span class="section-label">${esc(serviceName(candidate.ride))}</span><h2>${esc(fact.destination ?? ui("vnext_view_049"))}</h2><p class="source-note" role="status">${esc(stage)}</p><dl class="context-facts">${details}</dl><details class="confidence"><summary>${esc(ui("b2_confirm_source"))}</summary><p>${esc(fact.source)}</p>${fact.score === null ? "" : `<p>${esc(ui("b2_confirm_score"))}: ${fact.score}/100</p>`}</details><p class="source-caption">${esc(ui("b2_confirm_explain"))}</p><div class="screen-action-group"><button type="button" class="primary-action" data-confirm-ride-candidate="${esc(key)}">${esc(ui("b2_confirm_start"))}</button><button type="button" class="secondary-action" data-context-close>${ui("static_close")}</button></div></section>`,
+    `<section class="section-block ride-confirmation" data-confirmation-stage="${esc(fact.stage)}"><span class="section-label">${esc(serviceName(candidate.ride))}</span><h2>${esc(placeName(fact.destination) ?? ui("vnext_view_049"))}</h2><p class="source-note" role="status">${esc(stage)}</p><dl class="context-facts">${details}</dl><details class="confidence"><summary>${esc(ui("b2_confirm_source"))}</summary><p>${esc(fact.source)}</p>${fact.score === null ? "" : `<p>${esc(ui("b2_confirm_score"))}: ${fact.score}/100</p>`}</details><p class="source-caption">${esc(ui("b2_confirm_explain"))}</p><div class="screen-action-group"><button type="button" class="primary-action" data-confirm-ride-candidate="${esc(key)}">${esc(ui("b2_confirm_start"))}</button><button type="button" class="secondary-action" data-context-close>${ui("static_close")}</button></div></section>`,
   );
 }
 function setupEvents() {
@@ -461,6 +462,7 @@ async function init() {
       }),
     ]);
     state.network = createNetwork(catalog);
+    if (appLocale(settings) === "en") startEnglishNames();
     state.geo = geo;
     augmentKyotoBusGeometry();
     restoreJourney();

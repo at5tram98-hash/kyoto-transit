@@ -32,6 +32,20 @@ export function ui(key, values = []) {
 }
 export const displayStopName = (stop) =>
   activeLocale === "en" ? (stop?.en ?? stop?.name ?? "") : (stop?.name ?? "");
+// Free-text place names from timetables (headsigns such as "国際会館") in
+// English: rail stations have official spellings; other names stay as given.
+const placeNames = new Map();
+export function registerPlaceName(name, english) {
+  if (name && english) placeNames.set(String(name).replace(/駅$/, ""), english);
+}
+export const placeNameEntries = () => [...placeNames.entries()];
+export const placeName = (text) => {
+  if (activeLocale !== "en" || typeof text !== "string") return text;
+  const pole = text.trim().match(/^([A-Za-z0-9Ａ-Ｚ０-９]+)\s*のりば$/);
+  if (pole) return `Stop ${pole[1].normalize("NFKC")}`;
+  const plain = text.trim().replace(/駅$/, "");
+  return placeNames.get(plain) ?? placeNames.get(plain.replace(/^(近鉄|地下鉄)/, "")) ?? text;
+};
 export const transitTimeZone = "Asia/Tokyo";
 export function serviceDateLabel(date) {
   return new Intl.DateTimeFormat(activeLocale === "en" ? "en-GB" : "ja-JP", {

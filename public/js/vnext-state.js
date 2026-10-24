@@ -245,19 +245,19 @@ export function restoreJourney() {
 }
 export function serviceName(ride) {
   if (!ride) return "";
-  if (ride.operator === "subway") return "地下鉄烏丸線";
+  if (ride.operator === "subway") return ui("service_subway");
   if (ride.operator === "kintetsu")
-    return `近鉄京都線${ride.category === "express" ? "・急行" : "・普通"}`;
+    return ui(ride.category === "express" ? "service_kintetsu_express" : "service_kintetsu_local");
   if (ride.operator === "through") {
     const first = ride.officialStops?.find(
         (s) => s.id !== "K15" && state.network?.stops.has(s.id),
       ),
       start = state.network?.stops.get(first?.id)?.type;
-    return `${start === "kintetsu" ? "近鉄→烏丸線直通" : start === "subway" ? "烏丸線→近鉄直通" : "烏丸線・近鉄直通"}${ride.category === "express" ? "・急行" : ""}`;
+    return `${ui(start === "kintetsu" ? "service_through_from_kintetsu" : start === "subway" ? "service_through_from_subway" : "service_through")}${ride.category === "express" ? ui("service_express_suffix") : ""}`;
   }
-  if (ride.operator === "citybus") return `京都市バス ${ride.route}系統`;
-  if (ride.operator === "kyotobus") return `京都バス ${ride.route}系統`;
-  return ride.label ?? "乗車中";
+  if (ride.operator === "citybus") return ui("service_citybus", [ride.route]);
+  if (ride.operator === "kyotobus") return ui("service_kyotobus", [ride.route]);
+  return ride.label ?? ui("service_riding");
 }
 export const modeClass = (ride) =>
   ["citybus", "kyotobus"].includes(ride?.operator)

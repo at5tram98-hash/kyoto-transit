@@ -1,4 +1,4 @@
-import { ui } from "./locale.js";
+import { ui, placeName } from "./locale.js";
 import { officialData } from "./timetable-ui.js";
 import { esc, tokyoNow, state, icon } from "./vnext-state.js";
 import { approachStops } from "./approach-stops.js";
@@ -128,7 +128,7 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
     const clock = (m) =>
       `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     return entries.length
-      ? `${navTargets.length ? `<h3 class="stop-section-heading">${esc(ui("stop_schedule_heading"))}</h3>` : ""}<div class="arrival-compact scheduled-stop-departures">${entries.map((e) => `<div>${lineBadge({ operator: stop.type, route: e.route }, { className: "arrival-route-badge" })}<span><b>${esc(e.destination ?? e.boardLabel ?? "")}</b><small>${esc(ui("audit_schedule_countdown", [clock(e.depart), Math.max(0, Math.ceil(e.depart - now.minute))]))}</small></span></div>`).join("")}</div><p class="source-caption">${ui("audit_schedule_note")}</p>${scheduleIncomplete ? `<p class="source-caption">${ui("audit_schedule_missing")}</p>` : ""}`
+      ? `${navTargets.length ? `<h3 class="stop-section-heading">${esc(ui("stop_schedule_heading"))}</h3>` : ""}<div class="arrival-compact scheduled-stop-departures">${entries.map((e) => `<div>${lineBadge({ operator: stop.type, route: e.route }, { className: "arrival-route-badge" })}<span><b>${esc(placeName(e.destination) ?? e.boardLabel ?? "")}</b><small>${esc(ui("audit_schedule_countdown", [clock(e.depart), Math.max(0, Math.ceil(e.depart - now.minute))]))}</small></span></div>`).join("")}</div><p class="source-caption">${ui("audit_schedule_note")}</p>${scheduleIncomplete ? `<p class="source-caption">${ui("audit_schedule_missing")}</p>` : ""}`
       : `<p class="source-note">${ui(updating ? "audit_schedule_loading" : failed || scheduleIncomplete || scheduleDate !== now.date ? "audit_schedule_missing" : "audit_schedule_empty")}</p>`;
   }
   async function loadSchedule(signal) {
