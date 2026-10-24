@@ -240,7 +240,13 @@ function mapDrawing(map, view) {
     .join("");
   return {
     tiles: tiles.join(""),
-    overlay: `${lines}${accuracy}${map.place ? "" : `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>`}${radarRing}${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}${buses}`,
+    // The live bus layer is drawn separately so its updates never replace
+    // the base map (stops, position) underneath.
+    base: `${lines}${accuracy}${map.place ? "" : `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>`}${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}`,
+    radar: `${radarRing}${buses}`,
+    get overlay() {
+      return `<g data-map-base>${this.base}</g><g data-map-radar>${this.radar}</g>`;
+    },
   };
 }
 const mapNote = (map) =>
@@ -292,7 +298,12 @@ function draw(element, map, view) {
   const drawing = mapDrawing(map, view);
   if (map.nearby) svg.setAttribute("aria-label", mapNote(map));
   updateHTML(element.querySelector(".map-tiles"), drawing.tiles);
-  updateHTML(svg, drawing.overlay);
+  const base = svg.querySelector(":scope > [data-map-base]"),
+    radar = svg.querySelector(":scope > [data-map-radar]");
+  if (base && radar) {
+    updateHTML(base, drawing.base);
+    updateHTML(radar, drawing.radar);
+  } else updateHTML(svg, drawing.overlay);
   viewports.set(element, view);
 }
 const savedViewports = new Map();

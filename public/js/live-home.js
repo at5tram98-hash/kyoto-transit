@@ -569,12 +569,15 @@ export function mountLiveHome(host, search) {
         (await fetchRealtime(`citybus:${name}`, "/api/citybus/arrivals", { stop: name }, { timeout: 8000 }).catch(
           () => null,
         ));
-      radar = {
+      const next = {
         stopId: row.id,
         stopName: row.stop.name,
         loaded: Boolean(data),
         buses: radarBuses({ stop: row.stop, data, network: state.network, geo: state.geo }),
       };
+      // Redraw only when what the map shows has changed.
+      if (JSON.stringify(next) === JSON.stringify(radar)) return;
+      radar = next;
     } finally {
       radarBusy = false;
     }
