@@ -1,4 +1,6 @@
 import { RUN_MODES, runMode, setRunMode } from "./run-mode.js";
+import { atsLevel, atsChosenLevel, setAtsLevel } from "./ats.js";
+import { betaBadge, MODE_ICONS } from "./ats-ui.js";
 import { ui } from "./locale.js";
 import { openContextSheet } from "./context-sheet.js";
 import {
@@ -373,9 +375,9 @@ export function renderSettings(
   if (category === "auto")
     root.insertAdjacentHTML(
       "afterbegin",
-      `<section class="settings-section run-mode-section"><h2>${esc(ui("mode_title"))}</h2><div class="settings-card run-mode-list" role="radiogroup" aria-label="${esc(ui("mode_title"))}">${RUN_MODES.map(
+      `<section class="settings-section ats-settings"><h2>ATS ${betaBadge()}</h2><div class="settings-card"><button type="button" class="setting-row ats-settings-row" data-ats-open aria-haspopup="dialog">${icon("ats")}<span><b>${esc(ui("ats_level_title"))}: LV.${atsLevel()} ${esc(ui(`ats_level_${atsLevel()}`))}</b><small>${esc(ui(`ats_level_${atsLevel()}_note`))}</small></span><span class="chevron" aria-hidden="true">›</span></button></div></section><section class="settings-section run-mode-section"><h2>${esc(ui("mode_title"))}</h2><div class="settings-card run-mode-list" role="radiogroup" aria-label="${esc(ui("mode_title"))}">${RUN_MODES.map(
         (mode) =>
-          `<button type="button" class="setting-row run-mode-row" role="radio" aria-checked="${mode === runMode()}" data-run-mode="${mode}"><span><b>${esc(ui(`mode_${mode}`))}</b><small>${esc(ui(`mode_${mode}_note`))}</small></span><span class="run-mode-check" aria-hidden="true">${mode === runMode() ? "✓" : ""}</span></button>`,
+          `<button type="button" class="setting-row run-mode-row" role="radio" aria-checked="${mode === runMode()}" data-run-mode="${mode}"><span class="run-mode-icon" data-mode="${mode}" aria-hidden="true">${icon(MODE_ICONS[mode])}</span><span><b>${esc(ui(`mode_${mode}`))}</b><small>${esc(ui(`mode_${mode}_note`))}</small></span><span class="run-mode-check" aria-hidden="true">${mode === runMode() ? "✓" : ""}</span></button>`,
       ).join("")}</div></section>`,
     );
 }
@@ -490,8 +492,8 @@ export function setupSettings(onRender, onSavedRoute) {
   function bind(root, category = "home") {
     root.addEventListener("change", (e) => {
       if (e.target.dataset.setting === "autoDetect") {
-        // The detection switch picks FullAuto or Auto.
-        setRunMode(e.target.checked ? "fullauto" : "auto");
+        // The detection switch turns ATS boarding on (LV.3) or down to LV.1.
+        setAtsLevel(e.target.checked ? Math.max(3, atsChosenLevel()) : 1);
         renderSettings(root, category);
         onRender();
         return;

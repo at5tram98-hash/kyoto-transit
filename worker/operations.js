@@ -143,3 +143,50 @@ export async function operationInformation(fetcher = fetch) {
       "お知らせの掲載がなくても、各便の定刻運行を保証するものではありません。近鉄の公式運行情報は原則15分以上の遅れが対象です。",
   };
 }
+
+// The official pages answer slowly (often 5–15 s), so a snapshot is kept in
+// the edge cache: a fresh one (under a minute) is returned as is, an older
+// one (up to six hours) is returned at once while a refresh runs in the
+// background, and only a cold cache waits for the official pages.
+const SNAPSHOT_KEY = "https://my-map.internal/operations-snapshot";
+const FRESH_MS = 60_000;
+const STALE_MS = 6 * 3600_000;
+let refreshing = null;
+async function storeSnapshot(cache, data) {
+  if (!cache) return;
+  await cache.put(
+    new Request(SNAPSHOT_KEY),
+    new Response(JSON.stringify(data), {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": `public,max-age=${STALE_MS / 1000}`,
+      },
+    }),
+  );
+}
+export async function cachedOperationInformation(fetcher = fetch, ctx = null, now = Date.now()) {
+  const cache = typeof caches !== "undefined" ? caches.default : null;
+  const refresh = () =>
+    (refreshing ??= operationInformation(fetcher)
+      .then(async (data) => {
+        // Keep the last good snapshot if every source failed this time.
+        if (data.lines.some((line) => line.status !== "unavailable"))
+          await storeSnapshot(cache, data);
+        return data;
+      })
+      .finally(() => {
+        refreshing = null;
+      }));
+  let snapshot = null;
+  try {
+    snapshot = await (await cache?.match(new Request(SNAPSHOT_KEY)))?.json();
+  } catch {}
+  const age = snapshot ? now - Date.parse(snapshot.fetchedAt) : Infinity;
+  if (snapshot && age < FRESH_MS) return snapshot;
+  if (snapshot && age < STALE_MS) {
+    const job = refresh().catch(() => null);
+    ctx?.waitUntil?.(job);
+    return { ...snapshot, revalidating: true };
+  }
+  return refresh();
+}

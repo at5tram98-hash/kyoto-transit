@@ -1,4 +1,5 @@
 import { rideDetectionSession } from "./ride-detection-session.js";
+import { atsBoardsAutomatically } from "./ats.js";
 import { missedConnection } from "./journey-recovery.js";
 import { ui } from "./locale.js";
 import {
@@ -1069,6 +1070,9 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       )
     )
       decision.confirmed = null;
+    // Below ATS LV.3 an agreed ride is offered, not started: the rider
+    // confirms it with a tap.
+    if (decision.confirmed && !atsBoardsAutomatically()) decision.confirmed = null;
     state.rideConsensusCount = decision.count;
     state.rideCandidates = decision.confirmed
       ? []

@@ -35,6 +35,10 @@ const icons = {
   checkmark: '<path d="m5.2 12.6 4.3 4.3 9.3-9.8"/>',
   pip: '<rect class="fillable" x="2.8" y="5" width="18.4" height="14" rx="2.4"/><rect class="knock-dot" x="11.4" y="11.6" width="7.4" height="5.4" rx="1.2"/>',
   shake: '<rect class="fillable" x="8" y="3.5" width="8" height="17" rx="2.2"/><path d="M4.2 8.5 2.8 12l1.4 3.5M19.8 8.5l1.4 3.5-1.4 3.5"/>',
+  ats: '<path d="M4.2 16.8a8.6 8.6 0 1 1 15.6 0"/><path d="m12.4 13.2 4-4.6" stroke-width="2.2"/><circle class="solid" cx="12" cy="13.6" r="1.7"/><path d="M7.6 20h8.8"/>',
+  home: '<path class="fillable" d="M4 10.6 12 4l8 6.6V19a1.5 1.5 0 0 1-1.5 1.5H15v-5.2H9v5.2H5.5A1.5 1.5 0 0 1 4 19Z"/>',
+  leaf: '<path class="fillable" d="M19.5 4.5c-8.6-.4-14.6 3.4-14.6 9.8 0 1.5.4 2.8 1 3.8 6.6.4 12.5-3.4 13.6-13.6Z"/><path class="knock" d="M4.6 20.5c2.4-4.4 5.9-7.8 10.2-10.2"/>',
+  hand: '<path d="M8.2 12.6V6a1.4 1.4 0 0 1 2.8 0v5m0-6.6a1.4 1.4 0 0 1 2.8 0V11m0-5.2a1.4 1.4 0 0 1 2.8 0V11.5m0-3.4a1.4 1.4 0 0 1 2.8 0V14c0 3.8-2.6 6.6-6.3 6.6-2.5 0-4-1.1-5.2-2.8l-2.7-3.9c-.6-.9-.3-2 .6-2.4.8-.4 1.7-.1 2.2.6l1 1.5"/>',
   checkin: '<rect class="fillable" x="4.3" y="3" width="15.4" height="15" rx="3.4"/><path class="knock" d="m8.6 10.6 2.4 2.4 4.6-4.8"/><path d="M7.3 18v2.6M16.7 18v2.6" stroke-width="2.4"/>',
 };
 export const icon = (name) =>

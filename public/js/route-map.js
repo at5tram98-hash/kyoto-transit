@@ -3,6 +3,7 @@ import { freshFix } from "./riding.js";
 import { distance } from "./mobility.js";
 import { esc } from "./vnext-state.js";
 import { updateHTML } from "./view-rendering.js";
+import { busPosition } from "./bus-radar.js";
 
 export function snapToPolyline(
   fix,
@@ -215,9 +216,12 @@ function mapDrawing(map, view) {
     placed.some(
       (p) => box.x < p.x + p.w + 2 && p.x < box.x + box.w + 2 && box.y < p.y + p.h + 2 && p.y < box.y + box.h + 2,
     );
+  // Each bus is drawn round its own origin and moved by a CSS transform, so
+  // the clock can glide it between stops without redrawing (moveRadarBuses).
   const buses = (map.buses ?? [])
-    .map((b) => {
-      const [x, y] = xy([b.lng, b.lat]),
+    .map((b, i) => {
+      const at = b.to ? busPosition(b) : b,
+        [x, y] = xy([at.lng, at.lat]),
         label = String(b.route),
         away = b.stopsAway === 0 ? ui("radar_at_stop") : ui("radar_stops_away", [b.stopsAway]),
         w = Math.max(30, 12 + label.length * 9),
@@ -235,9 +239,10 @@ function mapDrawing(map, view) {
       }
       if (!box) return "";
       placed.push(box);
-      const cx = box.x + w / 2,
-        by = box.y + 9;
-      return `<g class="map-bus${b.stopsAway <= 1 ? " imminent" : ""}" data-line="${esc(b.kind)}" role="img" aria-label="${esc(ui("radar_bus_label", [label, b.dest, away]))}"><line class="map-bus-stem" x1="${x}" y1="${y}" x2="${cx}" y2="${by + 9}"/><circle class="map-bus-anchor" cx="${x}" cy="${y}" r="5"/><rect class="map-bus-plate" x="${box.x}" y="${box.y}" width="${w}" height="18" rx="5"/><text class="map-bus-route" x="${cx}" y="${by + 4}" text-anchor="middle">${esc(label)}</text><text class="map-bus-away" x="${box.x + w + 3}" y="${by + 4}">${esc(away)}</text></g>`;
+      const bx = box.x - x,
+        by = box.y - y,
+        cx = bx + w / 2;
+      return `<g class="map-bus${b.stopsAway <= 1 ? " imminent" : ""}" data-bus-index="${i}" data-line="${esc(b.kind)}" style="transform:translate(${x.toFixed(1)}px,${y.toFixed(1)}px)" role="img" aria-label="${esc(ui("radar_bus_label", [label, b.dest, away]))}"><line class="map-bus-stem" x1="0" y1="0" x2="${cx}" y2="${by + 18}"/><circle class="map-bus-anchor" cx="0" cy="0" r="5"/><rect class="map-bus-plate" x="${bx}" y="${by}" width="${w}" height="18" rx="5"/><text class="map-bus-route" x="${cx}" y="${by + 13}" text-anchor="middle">${esc(label)}</text><text class="map-bus-away" x="${bx + w + 3}" y="${by + 13}">${esc(away)}</text></g>`;
     })
     .join("");
   const radarRing = (() => {
@@ -262,6 +267,7 @@ function mapDrawing(map, view) {
     // the base map (stops, position) underneath.
     base: `${lines}${accuracy}${map.place ? "" : `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>`}${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}`,
     radar: `${radarRing}${buses}`,
+    project: xy,
     get overlay() {
       return `<g data-map-base>${this.base}</g><g data-map-radar>${this.radar}</g>`;
     },
@@ -322,7 +328,38 @@ function draw(element, map, view) {
     updateHTML(base, drawing.base);
     updateHTML(radar, drawing.radar);
   } else updateHTML(svg, drawing.overlay);
+  trackRadar(svg.querySelector(":scope > [data-map-radar]"), map.buses, drawing.project);
   viewports.set(element, view);
+}
+// RTM motion: once a second each drawn bus is moved to where it is now
+// estimated to be; the CSS transition makes the step a glide.
+const radarLayers = new Map();
+let radarClock = 0;
+function trackRadar(layer, buses, project) {
+  if (!layer) return;
+  if (buses?.some((b) => b.to)) radarLayers.set(layer, { buses, project });
+  else radarLayers.delete(layer);
+  if (radarLayers.size && !radarClock) radarClock = setInterval(moveRadarBuses, 1000);
+}
+export function moveRadarBuses(now = Date.now()) {
+  if (globalThis.document?.hidden) return;
+  for (const [layer, { buses, project }] of radarLayers) {
+    if (!layer.isConnected) {
+      radarLayers.delete(layer);
+      continue;
+    }
+    for (const g of layer.querySelectorAll("[data-bus-index]")) {
+      const bus = buses[Number(g.dataset.busIndex)];
+      if (!bus?.to) continue;
+      const at = busPosition(bus, now),
+        [x, y] = project([at.lng, at.lat]);
+      g.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+    }
+  }
+  if (!radarLayers.size) {
+    clearInterval(radarClock);
+    radarClock = 0;
+  }
 }
 const savedViewports = new Map();
 export function rememberMapViewport(host, key) {

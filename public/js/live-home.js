@@ -23,8 +23,10 @@ import { routeMapHTML, renderRouteMap, nearbyMapModel } from "./route-map.js";
 import { updateHTML } from "./view-rendering.js";
 import { liveClock, appLocale, message } from "./locale.js";
 import { north3Day } from "./north3-feed.js";
-import { popoverMenu, withProgress, actionSheet } from "./ios-ui.js";
-import { RUN_MODES, runMode, setRunMode, modeAllowsPip } from "./run-mode.js";
+import { popoverMenu, withProgress } from "./ios-ui.js";
+import { runMode, modeAllowsPip } from "./run-mode.js";
+import { atsLevel } from "./ats.js";
+import { openAtsSheet } from "./ats-ui.js";
 import { pipSupported, pipActive, togglePip, preparePip } from "./pip.js";
 import { radarStop, radarBuses } from "./bus-radar.js";
 import { fetchRealtime } from "./realtime.js";
@@ -303,8 +305,8 @@ export function mountLiveHome(host, search) {
               ]),
           {
             id: "mode",
-            label: `${ui("mode_title")}：${ui(`mode_${runMode()}`)}`,
-            icon: icon("bolt"),
+            label: `ATS Beta LV.${atsLevel()} · ${ui("mode_title")}：${ui(`mode_${runMode()}`)}`,
+            icon: icon("ats"),
           },
           ...(modeAllowsPip()
             ? [{ id: "pip", label: ui(pipActive() ? "pip_stop" : "pip_start"), icon: icon("pip") }]
@@ -312,16 +314,7 @@ export function mountLiveHome(host, search) {
           { id: "settings", label: ui("live_menu_settings"), icon: icon("settings") },
         ],
         (choice) => {
-          if (choice === "mode")
-            void actionSheet({
-              title: ui("mode_title"),
-              actions: RUN_MODES.map((mode) => ({
-                id: mode,
-                label: `${mode === runMode() ? "✓ " : ""}${ui(`mode_${mode}`)} — ${ui(`mode_${mode}_note`)}`,
-              })),
-            }).then((mode) => {
-              if (mode) setRunMode(mode);
-            });
+          if (choice === "mode") openAtsSheet();
           else if (choice === "pip") {
             if (!pipSupported()) toast(ui("pip_unsupported"));
             // Called inside the tap: PiP must be requested synchronously.
@@ -573,7 +566,7 @@ export function mountLiveHome(host, search) {
         stopId: row.id,
         stopName: row.stop.name,
         loaded: Boolean(data),
-        buses: radarBuses({ stop: row.stop, data, network: state.network, geo: state.geo }),
+        buses: radarBuses({ stop: row.stop, data, network: state.network, geo: state.geo, previous: radar?.stopId === row.id ? radar.buses : [] }),
       };
       // Redraw only when what the map shows has changed.
       if (JSON.stringify(next) === JSON.stringify(radar)) return;

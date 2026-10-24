@@ -3,6 +3,7 @@ import {createNetwork,normalize} from '../public/js/network.js';
 import {calendarDay} from './service-calendar.js';
 import {officialFetcher,officialText,parseCityCatalog,parseHyperdia,parseKyotoSchedules,kyotoEntries,kyotoDayKey} from './timetables.js';
 import {north3Feed} from '../public/js/north3-feed.js';
+import {readRouteBoards,anchorTrips,stopBoards} from './citybus-boards.js';
 
 const network=createNetwork(catalog);
 const CACHE_TTL=172800;
@@ -46,12 +47,15 @@ async function parsedBoard(board,fetcher,timetableCache){
   if(!value){value=officialText(board.sourceURL,fetcher,1800).then(parseHyperdia);timetableCache.set(board.sourceURL,value);}
   return value;
 }
-async function cityServiceFromRows(service,date,day,fetcher,rows,timetableCache){
+async function cityServiceFromRows(service,date,day,fetcher,rows,timetableCache,record={boards:{}}){
   const anchorId=service.stops[0],anchor=network.stops.get(anchorId),next=network.stops.get(service.stops[1]);if(!anchor||!next)return null;
   const row=rows.find(r=>normalize(r.name)===normalize(cleanName(anchor)));if(!row?.boards?.length)return null;
   const board=chooseCityBoard(row.boards,cleanName(next),service.id.endsWith('-up'));if(!board)return null;
   const parsed=await parsedBoard(board,fetcher,timetableCache),entries=parsed.days?.[day]??[],trips=offsetTrips(entries,service,date);if(!trips.length)return null;
-  return {id:`official-${service.id}`,label:service.label,operator:'citybus',route:String(service.route),category:'local',stops:service.stops,trips,officialFallback:true,sourceURL:board.sourceURL};
+  // Stops whose own official board lines up are read from it; the rest stay
+  // segment-minute estimates between them.
+  const officialStops=anchorTrips(trips,service,stopBoards(service,rows,record,id=>cleanName(network.stops.get(id))),day);
+  return {id:`official-${service.id}`,label:service.label,operator:'citybus',route:String(service.route),category:'local',stops:service.stops,trips,officialFallback:true,officialStops,sourceURL:board.sourceURL};
 }
 async function recordCityRouteError(env,route,service,error){
   if(!env.LIVE_KV)return;await env.LIVE_KV.put(`diag:static:citybus:${route}:${service}`,JSON.stringify({operator:'citybus',route,service,error:String(error?.message??error),at:new Date().toISOString()}),{expirationTtl:604800});
@@ -67,7 +71,8 @@ async function readCityRouteFallback(env,route,services,date,day,fetcher){
     if(!current?.services.every(s=>s.trips.length))throw Error('北3の便・停留所順を照合できませんでした。');
     built.push(...current.services);
   }else{
-  for(const service of services){try{const value=await cityServiceFromRows(service,date,day,fetcher,rows,timetableCache);if(value)built.push(value);else failed.push(service.id);}catch(error){failed.push(service.id);await recordCityRouteError(env,route,service.id,error);}}
+  const record=await readRouteBoards(env,route);
+  for(const service of services){try{const value=await cityServiceFromRows(service,date,day,fetcher,rows,timetableCache,record);if(value)built.push(value);else failed.push(service.id);}catch(error){failed.push(service.id);await recordCityRouteError(env,route,service.id,error);}}
   }
   if(!built.length)throw Error(`市バス${route}系統の公式時刻表fallbackを生成できませんでした。`);
   const value={route,date,services:built,expectedServices:services.length,availableServices:built.length,failed,capturedAt:new Date().toISOString()};
@@ -83,7 +88,9 @@ async function cachedCityRoutes(env,date,groups){
   return {routeResults,missing,services:routeResults.flatMap(r=>r.services??[])};
 }
 function cityFeedFromRoutes(date,prototypes,groups,routeResults,services,missing){
-  const value=feed('citybus',date,services,'京都市交通局 公式停留所時刻表（区間所要時間は路線順序から補完）','official_departures_with_segment_completion');
+  // How many stop times were read from each stop's own official board.
+  const timed=services.reduce((n,s)=>n+(s.officialStops?.length??1),0),stops=services.reduce((n,s)=>n+Math.max(1,(s.stops?.length??1)-1),0),coverage=stops?Math.round(timed/stops*1000)/1000:0;
+  const value=feed('citybus',date,services,coverage>=0.8?'京都市交通局 公式停留所時刻表（各停留所の時刻表で照合、照合できない停留所は区間所要時間で補完）':'京都市交通局 公式停留所時刻表（区間所要時間は路線順序から補完）',coverage>=0.8?'official_stop_departures':'official_departures_with_segment_completion');value.meta.stopCoverage=coverage;
   value.meta.expectedRoutes=groups.length;value.meta.availableRoutes=routeResults.length;value.meta.expectedServices=prototypes.length;value.meta.availableServices=services.length;value.meta.partial=missing.length>0||services.length<prototypes.length;value.meta.failedRoutes=missing;return value;
 }
 export async function refreshCityBusBatch(env,date,batchIndex,fetcher=officialFetcher(env)){

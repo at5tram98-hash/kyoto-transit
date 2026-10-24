@@ -1819,6 +1819,9 @@ html[data-reduce-motion="true"] .stop-lamp.on i {
   stroke: var(--panel);
   stroke-width: 2;
 }
+.map-bus {
+  transition: transform 1s linear;
+}
 .map-bus.imminent .map-bus-plate {
   animation: map-bus-pulse 1.6s ease-in-out infinite;
 }
@@ -1829,6 +1832,9 @@ html[data-reduce-motion="true"] .stop-lamp.on i {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .map-bus {
+    transition: none;
+  }
   .map-bus.imminent .map-bus-plate {
     animation: none;
   }

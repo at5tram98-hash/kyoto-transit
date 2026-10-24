@@ -24,7 +24,7 @@ test("an approaching bus is placed at the stop it was reported at", () => {
   });
   assert.equal(buses.length, 1);
   assert.equal(buses[0].atName, "千本");
-  assert.equal(buses[0].lat, geo.stops[1].lat);
+  assert.equal(buses[0].from.lat, geo.stops[1].lat);
   assert.equal(buses[0].route, "204");
 });
 
@@ -54,4 +54,33 @@ test("the radar stop is the nearest city bus stop within 500 m", () => {
   ];
   assert.equal(radarStop(rows).id, "d");
   assert.equal(radarStop([{ id: "far", meters: 900, stop: { type: "citybus" } }]), null);
+});
+
+test("a bus between stops is placed by its reported minutes and moves on with the clock", async () => {
+  const { busPosition, RADAR_MAX_PROGRESS } = await import("../public/js/bus-radar.js");
+  const timed = { ...network, services: network.services.map((s) => ({ ...s, offsets: [0, 4, 8, 12, 16] })) };
+  const [bus] = radarBuses({
+    stop: timed.stops.get("d"),
+    data: live([{ route: "204", dest: "銀閣寺", stopsAway: 2, minutes: 6, source: "live" }]),
+    network: timed,
+    geo,
+    now: Date.parse(live([]).asOf),
+  });
+  // 8 scheduled minutes from 千本, 4 of them on the 千本→堀川 segment: 6 left is halfway.
+  assert.equal(bus.progress, 0.5);
+  assert.ok(Math.abs(bus.lat - (geo.stops[1].lat + geo.stops[2].lat) / 2) < 1e-9);
+  const later = busPosition(bus, bus.reportedAt + 60000);
+  assert.ok(Math.abs(later.along - 0.75) < 1e-9);
+  // It never reaches the next stop before the operator reports it there.
+  assert.equal(busPosition(bus, bus.reportedAt + 3600000).along, RADAR_MAX_PROGRESS);
+});
+
+test("a new report of the same bus never moves it backwards", async () => {
+  const timed = { ...network, services: network.services.map((s) => ({ ...s, offsets: [0, 4, 8, 12, 16] })) };
+  const args = { stop: timed.stops.get("d"), network: timed, geo };
+  const first = radarBuses({ ...args, data: live([{ route: "204", dest: "銀閣寺", stopsAway: 2, source: "live" }]), now });
+  const t = now + 120000;
+  const data = { ...live([{ route: "204", dest: "銀閣寺", stopsAway: 2, source: "live" }]), asOf: new Date(t).toISOString() };
+  const [again] = radarBuses({ ...args, data, now: t, previous: first });
+  assert.ok(again.along > 0.4, String(again.along));
 });

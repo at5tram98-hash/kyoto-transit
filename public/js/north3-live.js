@@ -81,7 +81,7 @@ async function enrichRow(row) {
       rows
         .map(
           (item) =>
-            `<div><span><b>北3</b> · ${esc(busDirectionLabel(item.route, item.dest))}</span><b>${esc(busArrivalText({ ...item, arrivals: item.arrivals?.slice(0, 1) }))}<small>${observed ? "接近・実測" : "接近・予測"}</small></b></div>`,
+            `<div><span><b>北3</b> · ${esc(busDirectionLabel(item.route, item.dest))}</span><b>${esc(busArrivalText({ ...item, arrivals: item.arrivals?.slice(0, 2) }))}<small>${observed ? "接近・実測" : "接近・予測"}</small></b></div>`,
         )
         .join(""),
     );
