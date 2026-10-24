@@ -1,7 +1,7 @@
 import { getStaticFeed } from "./fast-data.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { subwayIds, kintetsuIds, normalize } from "./network.js";
-import { setAppLocale, ui } from "./locale.js";
+import { setAppLocale, ui, userError } from "./locale.js";
 import { distance } from "./mobility.js";
 import { trajectory, freshFix } from "./riding.js";
 import { getRailLocation, CAPTURE_API } from "./live.js";
@@ -278,7 +278,7 @@ export function ensureRailFeed(force = false) {
       state.railFeedAt = Date.now();
       return state.railFeed;
     } catch (error) {
-      if (force) toast(error.message);
+      if (force) toast(userError(error));
       return state.railFeed;
     }
   })().finally(() => {
@@ -319,7 +319,7 @@ export function ensureSubwayFeed(force = false) {
       state.subwayFeedAt = Date.now();
       return state.subwayFeed;
     } catch (error) {
-      if (force) toast(error.message);
+      if (force) toast(userError(error));
       else console.warn("subway static feed", error);
       return state.subwayFeedDate === now.date ? state.subwayFeed : null;
     }

@@ -1,5 +1,5 @@
 import { lineBadge, lineKind } from "./line-badge.js";
-import { ui, placeName } from "./locale.js";
+import { ui, placeName, userFacingError } from "./locale.js";
 import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
 import { getStaticFeed } from "./fast-data.js";
 import { mergeTimetableFeeds } from "./search-core.js";
@@ -473,7 +473,7 @@ export function mountArrivals({ network }) {
         signal: AbortSignal.timeout(7000),
         cache: "no-store",
       });
-      if (!r.ok) throw Error(ui("vnext_arrivals_040"));
+      if (!r.ok) throw userFacingError(ui("vnext_arrivals_040"));
       const d = await r.json();
       railSchedule = d;
       railScheduleDate = date;

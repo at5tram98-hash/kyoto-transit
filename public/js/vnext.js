@@ -5,7 +5,7 @@ import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
-import { ui, placeName, appLocale } from "./locale.js";
+import { ui, placeName, appLocale, userFacingError, userError } from "./locale.js";
 import { rideConfirmationFacts } from "./ride-confirmation-facts.js";
 import { nextSidebarTabIndex } from "./desktop-tabs-d4.js";
 import { transitEvidenceEngine, transitCandidateKey } from "./transit-evidence.js";
@@ -280,7 +280,7 @@ function setupEvents() {
         });
         if (state.ride === key && state.foldbackPlan === plan) boardRide(ride);
       } catch (error) {
-        toast(error.message);
+        toast(userError(error));
       } finally {
         if (b.isConnected) b.disabled = false;
       }
@@ -453,11 +453,11 @@ async function init() {
   try {
     const [catalog, geo] = await Promise.all([
       fetch("data/bus-catalog.json").then((r) => {
-        if (!r.ok) throw Error(ui("vnext_006"));
+        if (!r.ok) throw userFacingError(ui("vnext_006"));
         return r.json();
       }),
       fetch("data/locations.json").then((r) => {
-        if (!r.ok) throw Error(ui("vnext_007"));
+        if (!r.ok) throw userFacingError(ui("vnext_007"));
         return r.json();
       }),
     ]);
@@ -675,7 +675,7 @@ async function init() {
     }, 20000);
   } catch (e) {
     console.error(e);
-    $("#now-hero").innerHTML = ui("vnext_009", [esc(e.message)]);
+    $("#now-hero").innerHTML = ui("vnext_009", [esc(userError(e))]);
     document.addEventListener(
       "click",
       (ev) => {

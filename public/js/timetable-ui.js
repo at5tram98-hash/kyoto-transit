@@ -1,6 +1,6 @@
 import { icon } from "./icons.js";
 import { lineBadge } from "./line-badge.js";
-import { ui, placeName } from "./locale.js";
+import { ui, placeName, userFacingError, userError } from "./locale.js";
 import {
   operationStatus,
   journeyOperationStatus,
@@ -88,10 +88,10 @@ export async function officialData(path, params = {}, signal) {
       }
     } else if (path === "/timetable") {
       const day = params.day === "auto" ? north3Day(params.date) : params.day;
-      if (!day) throw Error(ui("timetable_ui_009"));
+      if (!day) throw userFacingError(ui("timetable_ui_009"));
       const direction = params.direction.split(":")[1],
         board = north3Board(snapshot, name, direction, day);
-      if (!board) throw Error(ui("timetable_ui_010"));
+      if (!board) throw userFacingError(ui("timetable_ui_010"));
       return {
         ...board,
         entries: board.entries.map((entry, i) => ({
@@ -109,8 +109,13 @@ export async function officialData(path, params = {}, signal) {
       signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       cache: "no-store",
     }),
-    d = await r.json();
-  if (!r.ok) throw Error(d.error ?? ui("timetable_ui_011"));
+    d = await r.json().catch(() => ({}));
+  if (!r.ok)
+    throw Object.assign(Error(`HTTP ${r.status}`), {
+      status: r.status,
+      detail: d.error,
+      fallback: ui("timetable_ui_011"),
+    });
   return d;
 }
 export const dayLabel = {
@@ -341,7 +346,7 @@ export function mountTimetables({
     } catch (e) {
       if (current === job && !controller.signal.aborted)
         $("#timetable-board").innerHTML =
-          `<p class="empty-note">${esc(e.message)}</p>`;
+          `<p class="empty-note">${esc(userError(e))}</p>`;
     }
   }
   async function loadBoard() {
@@ -420,7 +425,7 @@ export function mountTimetables({
     } catch (e) {
       if (current === job && !controller.signal.aborted)
         $("#timetable-entries").innerHTML =
-          `<p class="empty-note">${esc(e.message)}</p>`;
+          `<p class="empty-note">${esc(userError(e))}</p>`;
     }
   }
   root.addEventListener("input", (e) => {
@@ -471,7 +476,7 @@ export function mountTimetables({
             network,
             serviceDate,
           );
-        if (!ride) throw Error(ui("timetable_ui_052"));
+        if (!ride) throw userFacingError(ui("timetable_ui_052"));
         trip = {
           title: ui("timetable_ui_053", [ride.destination]),
           stops: ride.officialStops,
@@ -491,7 +496,7 @@ export function mountTimetables({
           },
           network,
         );
-        if (!ride) throw Error(ui("timetable_ui_054"));
+        if (!ride) throw userFacingError(ui("timetable_ui_054"));
         trip = {
           title: ui("timetable_ui_055", [ride.destination]),
           stops: ride.officialStops,
@@ -530,7 +535,7 @@ export function mountTimetables({
     } catch (err) {
       if (!signal.aborted && current === tripJob)
         $("#timetable-trip-content").innerHTML = ui("timetable_ui_058", [
-          esc(err.message),
+          esc(userError(err)),
           index,
         ]);
     }
@@ -681,7 +686,7 @@ export function mountOperations({
         latest = d;
         renderOverview();
       } catch (e) {
-        if (!latest) root.innerHTML = ui("timetable_ui_066", [esc(e.message)]);
+        if (!latest) root.innerHTML = ui("timetable_ui_066", [esc(userError(e, "operations_unavailable"))]);
         else {
           renderOverview();
           root.insertAdjacentHTML("afterbegin", ui("timetable_ui_067"));

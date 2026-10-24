@@ -880,7 +880,7 @@ export default {
   timetable_ui_065:
     '<p class="empty-note">対応路線の最新情報を自動取得します</p>',
   timetable_ui_066:
-    '<p class="empty-note">{0}</p><button class="plain" data-operations-refresh>再取得</button>',
+    '<p class="empty-note">{0}</p><button class="secondary-action" data-operations-refresh>再取得</button>',
   timetable_ui_067:
     '<p class="source-note" role="status">更新できません。前回取得した情報を表示しています。</p>',
   timetable_ui_068: "この影響を避けて再検索",
@@ -1363,4 +1363,12 @@ export default {
   arrival_in_minutes: "あと{0}分",
   arrival_stops_away: "{0}停留所前",
   arrival_next_scheduled: "次の予定",
+  error_generic: "情報を取得できませんでした。時間をおいてもう一度お試しください。",
+  error_timeout: "応答に時間がかかっています。もう一度お試しください。",
+  error_offline: "インターネットに接続できません。通信状態を確認してください。",
+  error_busy: "アクセスが集中しています。少し待ってからもう一度お試しください。",
+  error_server: "公式データの提供元で問題が発生しています。時間をおいてもう一度お試しください。",
+  operations_unavailable: "運行情報を取得できませんでした。",
+  recovery_no_operators: "利用できる交通機関がありません。回避する路線か検索条件を変更してください。",
+  route_search_data_missing: "<p class=\"planner-warning\">時刻データを取得できなかったため、経路を検索できませんでした（{0}）。通信状態を確認して、もう一度お試しください。</p><button type=\"button\" class=\"secondary-action\" data-retry-search>もう一度検索</button>",
 };

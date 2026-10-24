@@ -1,4 +1,4 @@
-import { ui, displayStopName, serviceDateLabel } from "./locale.js";
+import { ui, displayStopName, serviceDateLabel, userFacingError, userError } from "./locale.js";
 import { downloadRouteImage } from "./route-image.js";
 import { esc, icon } from "./vnext-state.js";
 import {
@@ -80,7 +80,9 @@ async function api(path, params = {}, signal) {
       data = await r.json();
     } catch {}
     if (!r.ok)
-      throw Object.assign(Error(data?.error ?? ui("route_search_ui_001")), {
+      throw Object.assign(Error(`HTTP ${r.status}`), {
+        detail: data?.error,
+        fallback: ui("route_search_ui_001"),
         status: r.status,
         code: data?.code,
       });
@@ -222,7 +224,11 @@ async function planInWorker(base, feeds, request, passes, signal, extra = {}) {
       if (data.ok) {
         const { id: completedId, ok, ...result } = data;
         finish(resolve, result);
-      } else finish(reject, Error(data.error ?? ui("route_search_ui_004")));
+      } else
+        finish(
+          reject,
+          Object.assign(Error(data.error ?? "planner"), { fallback: ui("route_search_ui_004") }),
+        );
     };
     worker.onerror = (event) => {
       // The owned promise reports genuine failures inline. Cancellation during
@@ -850,7 +856,7 @@ export function mountRouteSearch({
   function requestFor(data) {
     if (data.request) return data.request;
     const input = data.input;
-    if (!input) throw Error(ui("route_search_ui_021"));
+    if (!input) throw userFacingError(ui("route_search_ui_021"));
     return {
       from: resolveStop(network, input.from, input.fromId).stop?.id,
       to: resolveStop(network, input.to, input.toId).stop?.id,
@@ -873,7 +879,7 @@ export function mountRouteSearch({
     if (!context) {
       const loaded = await loadFeeds(request.date, signal, network);
       if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-      if (!loaded.feeds.length) throw Error(ui("route_search_ui_022"));
+      if (!loaded.feeds.length) throw userFacingError(ui("route_search_ui_022"));
       context = { feeds: loaded.feeds, request };
     }
     if (
@@ -1308,7 +1314,7 @@ export function mountRouteSearch({
             );
             feedback.textContent = ui("route_search_ui_046");
           } catch (error) {
-            feedback.textContent = error.message;
+            feedback.textContent = userError(error);
           } finally {
             if (button.isConnected) button.disabled = false;
           }
@@ -1756,7 +1762,7 @@ export function mountRouteSearch({
         feeds.push(...next.feeds);
       }
       if (signal.aborted) return;
-      if (!feeds.length) throw Error(ui("route_search_ui_070"));
+      if (!feeds.length) throw userFacingError(ui("route_search_ui_070"));
       feedContexts.set(job.revision, {
         feeds,
         request,
@@ -1797,9 +1803,19 @@ export function mountRouteSearch({
         const actions = searchRecoveryOptions(requestInput)
           .map(option => `<button type="button" class="secondary-action" data-c6-recovery="${esc(option.id)}">${esc(ui(`c6_recovery_${option.id}`))}</button>`)
           .join("");
-        status.innerHTML = ui("route_search_ui_086", [
-          missingNote + `<div class="c6-search-recovery" role="group" aria-label="${esc(ui("c6_recovery_title"))}">${actions}</div>`,
-        ]);
+        // Missing timetables, not the conditions, are why nothing was found:
+        // offer to try again first.
+        status.innerHTML = relevantMissing.length
+          ? ui("route_search_data_missing", [
+              esc(
+                relevantMissing
+                  .map((x) => operatorLabel[x.operator] ?? x.operator)
+                  .join("・"),
+              ),
+            ])
+          : ui("route_search_ui_086", [
+              missingNote + `<div class="c6-search-recovery" role="group" aria-label="${esc(ui("c6_recovery_title"))}">${actions}</div>`,
+            ]);
         return;
       }
       const mapped = mergeTimetableFeeds(network, feeds, {
@@ -1869,7 +1885,7 @@ export function mountRouteSearch({
       persistSnapshots();
     } catch (err) {
       if (!signal.aborted)
-        status.innerHTML = ui("route_search_ui_076", [esc(err.message)]);
+        status.innerHTML = ui("route_search_ui_076", [esc(userError(err))]);
     } finally {
       runningJobs.delete(job);
       if (slot.job === job) slot.job = null;
@@ -1932,7 +1948,7 @@ export function mountRouteSearch({
       }
     } catch (error) {
       navigation.root("search");
-      inlineStatus.innerHTML = `<p class="planner-warning" role="status">${esc(error.message)}</p>`;
+      inlineStatus.innerHTML = `<p class="planner-warning" role="status">${esc(userError(error))}</p>`;
     }
   }
   dateChanged();

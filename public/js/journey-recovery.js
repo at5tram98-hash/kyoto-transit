@@ -1,4 +1,5 @@
 import { shiftServiceDate } from "./journey-plan.js";
+import { ui, userFacingError } from "./locale.js";
 import { operationIds } from "./operation-status.js";
 
 // Build new search conditions from the actual remaining journey. This never
@@ -37,9 +38,7 @@ export function recoveryInput({
       (input.operators ?? "subway,kintetsu,citybus,kyotobus").split(","),
     ).filter((id) => !excluded.has(id));
   if (!operators.length)
-    throw Error(
-      "利用できる交通機関がありません。回避する路線か検索条件を変更してください。",
-    );
+    throw userFacingError(ui("recovery_no_operators"));
   const stop = ride?.officialStops?.find((s) => s.id === fromId),
     serviceOffset =
       (Date.parse(`${ride?.serviceDate}T00:00:00Z`) -

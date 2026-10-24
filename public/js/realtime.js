@@ -190,9 +190,10 @@ async function requestRealtime(key, path, params = {}, options = {}) {
     }
     const data = await r.json().catch(() => ({}));
     if (!r.ok)
-      throw Object.assign(Error(data.error ?? `HTTP ${r.status}`), {
+      throw Object.assign(Error(`HTTP ${r.status}`), {
         status: r.status,
         code: data.code,
+        detail: data.error,
       });
     const saved = { data, etag: r.headers.get('ETag'), savedAt: Date.now() };
     await putCached(key, saved);

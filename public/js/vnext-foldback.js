@@ -1,4 +1,4 @@
-import { ui, placeName } from "./locale.js";
+import { ui, placeName, userFacingError, userError } from "./locale.js";
 import { foldbackJourney } from "./boarding.js";
 import {
   foldbackMeetingPoints,
@@ -203,7 +203,7 @@ function showMode(mode) {
 async function reverseBoard(stopId, signal) {
   const ride = state.foldbackRide,
     reverse = reverseDirection(ride, stopId);
-  if (!reverse) throw Error(ui("vnext_foldback_023"));
+  if (!reverse) throw userFacingError(ui("vnext_foldback_023"));
   const now0 = clock(),
     stop0 = ride.officialStops?.find((s) => s.id === stopId),
     arrival0 = Number.isFinite(stopTime(stop0))
@@ -236,7 +236,7 @@ async function reverseBoard(stopId, signal) {
       signal,
     ),
     board = data.boards?.find((x) => x.key === reverse);
-  if (!board) throw Error(ui("vnext_foldback_024"));
+  if (!board) throw userFacingError(ui("vnext_foldback_024"));
   const now = clock(),
     stop = ride.officialStops?.find((s) => s.id === stopId),
     arrival = Number.isFinite(stopTime(stop))
@@ -347,7 +347,7 @@ async function load(mode) {
   } catch (error) {
     if (current() && error.name !== "AbortError")
       root.innerHTML = ui("vnext_foldback_034", [
-        esc(error.message),
+        esc(userError(error)),
         train ? "data-load-target-trains" : "data-foldback-search",
       ]);
     else if (current())

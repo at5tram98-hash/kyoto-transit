@@ -890,7 +890,7 @@ export default {
   timetable_ui_065:
     '<p class="empty-note">Latest information for supported routes is retrieved automatically.</p>',
   timetable_ui_066:
-    '<p class="empty-note">{0}</p><button class="plain" data-operations-refresh>Retry</button>',
+    '<p class="empty-note">{0}</p><button class="secondary-action" data-operations-refresh>Retry</button>',
   timetable_ui_067:
     '<p class="source-note" role="status">Unable to refresh. Previously retrieved information is shown.</p>',
   timetable_ui_068: "Find an alternative",
@@ -1376,4 +1376,12 @@ export default {
   arrival_in_minutes: "in {0} min",
   arrival_stops_away: "{0} stops away",
   arrival_next_scheduled: "Next scheduled",
+  error_generic: "Couldn't load this information. Please try again shortly.",
+  error_timeout: "The service is taking too long to respond. Please try again.",
+  error_offline: "You're offline. Check your connection.",
+  error_busy: "The service is busy. Please wait a moment and try again.",
+  error_server: "The official data source is having a problem. Please try again later.",
+  operations_unavailable: "Couldn't load service status.",
+  recovery_no_operators: "No transit operators are left. Change the lines to avoid or the search conditions.",
+  route_search_data_missing: "<p class=\"planner-warning\">Couldn't search because timetables could not be loaded ({0}). Check your connection and try again.</p><button type=\"button\" class=\"secondary-action\" data-retry-search>Search again</button>",
 };

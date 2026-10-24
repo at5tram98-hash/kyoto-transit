@@ -46,6 +46,26 @@ export const placeName = (text) => {
   const plain = text.trim().replace(/駅$/, "");
   return placeNames.get(plain) ?? placeNames.get(plain.replace(/^(近鉄|地下鉄)/, "")) ?? text;
 };
+// What the rider is told when something fails. Messages the app wrote for
+// riders (marked userFacing) are kept; raw errors from the network, the
+// browser or the server are never shown verbatim.
+export const userFacingError = (message, extra = {}) =>
+  Object.assign(Error(message), { userFacing: true }, extra);
+export function userError(error, fallbackKey = "error_generic") {
+  if (error?.userFacing && error.message) return error.message;
+  const name = error?.name,
+    text = String(error?.message ?? "");
+  if (name === "AbortError" || name === "TimeoutError" || /timeout|timed out/i.test(text))
+    return ui("error_timeout");
+  if (
+    (typeof navigator !== "undefined" && navigator.onLine === false) ||
+    (name === "TypeError" && /fetch|network|load/i.test(text))
+  )
+    return ui("error_offline");
+  if (error?.status === 429) return ui("error_busy");
+  if (error?.status >= 500) return ui("error_server");
+  return error?.fallback ?? ui(fallbackKey);
+}
 export const transitTimeZone = "Asia/Tokyo";
 export function serviceDateLabel(date) {
   return new Intl.DateTimeFormat(activeLocale === "en" ? "en-GB" : "ja-JP", {
