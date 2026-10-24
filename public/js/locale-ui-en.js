@@ -1555,4 +1555,8 @@ export default {
   place_meta: "Searched from the stations and stops within walking distance",
   place_here_unavailable: "Current location is unavailable. Check location access or pick a station or stop.",
   place_home_unavailable: "Home is not set. Set it in ATS settings.",
+  service_ended: "Today's service has ended",
+  service_first: "First departure {0}",
+  bus_side_kou: "甲 · westward",
+  bus_side_otsu: "乙 · eastward",
 };

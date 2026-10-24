@@ -111,3 +111,25 @@ test("a new report of the same bus never moves it backwards", async () => {
   const [again] = radarBuses({ ...args, data, now: t, previous: first });
   assert.ok(again.along > 0.4, String(again.along));
 });
+
+test("a row with no stop count (接近なし, after the last bus) is never drawn at the stop", () => {
+  const buses = radarBuses({
+    stop: network.stops.get("d"),
+    data: live([
+      { route: "204", dest: "銀閣寺", stopsAway: null, minutes: null, status: "接近なし", source: "live" },
+      { route: "204", dest: "銀閣寺", source: "live" },
+    ]),
+    network,
+    geo,
+    now,
+  });
+  assert.deepEqual(buses, []);
+});
+
+test("loop-less routes are 甲 heading west and 乙 heading east", async () => {
+  const { lineSide } = await import("../public/js/bus-direction.js");
+  const located = new Map([["w", { lat: 35, lng: 135.70 }], ["e", { lat: 35, lng: 135.78 }]]);
+  assert.equal(lineSide({ stops: ["e", "w"] }, located), "kou");
+  assert.equal(lineSide({ stops: ["w", "e"] }, located), "otsu");
+  assert.equal(lineSide({ stops: ["w", "e", "x", "w"] }, located), null);
+});

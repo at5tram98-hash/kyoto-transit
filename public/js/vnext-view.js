@@ -2,6 +2,7 @@ import {
   transitEvidenceEngine,
   shouldOfferRideConfirmation,
 } from "./transit-evidence.js";
+import { stopEndNote } from "./service-end.js";
 import { withDirections, directionTagsHTML } from "./bus-direction-ui.js";
 import { groupNearbyPlaces } from "./transit-places.js";
 import { orderNearbyPlaces } from "./nearby-sort-b6.js";
@@ -151,7 +152,7 @@ function kintetsuDepartureHTML(stop) {
             : ui("vnext_view_006"),
         ]),
       )
-      .join("") || ui("vnext_view_007")
+      .join("") || stopEndNote(stop, [nearbyRailFeed], now).html || ui("vnext_view_007")
   }</div>`;
 }
 let north3Request = null;
@@ -244,8 +245,10 @@ function directionRowsHTML(id, entries) {
 function nearbyBusHTML(stop) {
   if (stop.type !== "citybus") return north3DepartureHTML(stop);
   const data = state.busLive;
-  if (data?.stop !== (stop.fullName ?? stop.name))
-    return north3DepartureHTML(stop);
+  if (data?.stop !== (stop.fullName ?? stop.name)) {
+    const ended = stopEndNote(stop, "citybus", tokyoNow(), () => { if (!state.ride) renderNow(); });
+    return ended.state ? ended.html : north3DepartureHTML(stop);
+  }
   const rows = withDirections(groupCityBusRows(normalizedBusSources(data)), stop.id)
     .filter((r) =>
       (r.arrivals ?? [r]).some(
@@ -254,6 +257,11 @@ function nearbyBusHTML(stop) {
     )
     .slice(0, 2);
   const observed = data.source === "live" && !data.stale && isFresh(data.asOf);
+  // No bus reported and the day's last bus has gone: say so.
+  if (!rows.length) {
+    const ended = stopEndNote(stop, "citybus", tokyoNow(), () => { if (!state.ride) renderNow(); });
+    if (ended.state) return ended.html;
+  }
   return rows.length
     ? directionRowsHTML(
         stop.id,
@@ -270,10 +278,11 @@ function departureHTML(stopId, expanded = false) {
     feed = state.subwayFeedDate === now.date ? state.subwayFeed : null;
   if (!feed)
     return `<div class="nearby-departures"><p class="source-note">${nearbyRequest ? ui("vnext_view_025") : ui("vnext_view_026")}${!nearbyRequest ? ui("vnext_view_027") : ""}</p></div>`;
-  const groups = nearbyDepartures(feed, stopId, now);
+  const groups = nearbyDepartures(feed, stopId, now),
+    ended = stopEndNote({ id: stopId }, [feed], now);
   if (!expanded) {
     const populated = groups.filter((g) => g.entries.length);
-    if (!populated.length) return ui("vnext_view_028");
+    if (!populated.length) return ended.state ? ended.html : ui("vnext_view_028");
     return directionRowsHTML(
       stopId,
       populated.map((g) => {

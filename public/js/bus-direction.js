@@ -36,6 +36,21 @@ export function loopRotation(service, located) {
   return Math.abs(area) < 1e-9 ? null : area > 0 ? "ccw" : "cw";
 }
 
+// Non-loop routes are told apart the way the app names them (by request):
+// a service whose terminus lies west of its start (towards 千本) is 甲, one
+// heading east (towards 河原町) is 乙. Taken from the overall east-west
+// run from first to last stop.
+export function lineSide(service, located) {
+  if (!service || isLoop(service)) return null;
+  // The first and last stops that have a position (a terminus may not).
+  const points = (service.stops ?? []).map((id) => located.get(id)).filter(Boolean),
+    a = points[0],
+    b = points.at(-1);
+  if (!a || !b) return null;
+  const dx = (b.lng - a.lng) * Math.cos(toRad((a.lat + b.lat) / 2));
+  return Math.abs(dx) < 1e-5 ? null : dx < 0 ? "kou" : "otsu";
+}
+
 export function serviceDirection(service, network, located) {
   const rotation = loopRotation(service, located);
   if (rotation) return { kind: "loop", rotation };
@@ -112,7 +127,8 @@ export function annotateRows(rows, stopId, network, located, serviceFor) {
     const match = serviceFor(row, stopId, network, located);
     if (!match) return row;
     const rotation = loopRotation(match.service, located),
+      side = lineSide(match.service, located),
       degrees = departureHeading(match.service, stopId, located);
-    return { ...row, rotation, heading: degrees === null ? null : compass(degrees) };
+    return { ...row, rotation, side, heading: degrees === null ? null : compass(degrees) };
   });
 }
