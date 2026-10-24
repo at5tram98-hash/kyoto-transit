@@ -1789,3 +1789,58 @@ html[data-reduce-motion="true"] .stop-lamp.on i {
   display: grid;
   gap: 6px;
 }
+
+/* RTM: live buses approaching the nearest stop. */
+.map-bus-plate {
+  fill: var(--line-color);
+  stroke: var(--panel);
+  stroke-width: 1.5;
+}
+.map-bus-route {
+  fill: var(--color-on-accent);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.map-bus-away {
+  fill: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-width: 3px;
+}
+.map-bus-stem {
+  stroke: var(--line-color);
+  stroke-width: 2;
+}
+.map-bus-anchor {
+  fill: var(--line-color);
+  stroke: var(--panel);
+  stroke-width: 2;
+}
+.map-bus.imminent .map-bus-plate {
+  animation: map-bus-pulse 1.6s ease-in-out infinite;
+}
+@keyframes map-bus-pulse {
+  50% {
+    stroke: var(--line-color);
+    stroke-width: 4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-bus.imminent .map-bus-plate {
+    animation: none;
+  }
+}
+.map-radar-stop {
+  fill: none;
+  stroke: var(--line-citybus);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+.radar-caption {
+  margin: 6px 4px 0;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
