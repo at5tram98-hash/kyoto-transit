@@ -292,8 +292,13 @@ export function mountLiveHome(host, search) {
         [
           { id: "plan", label: ui("live_menu_plan"), icon: icon("search") },
           { id: "arrivals", label: ui("live_menu_arrivals"), icon: icon("bus") },
-          { id: "checkin", label: ui("checkin_entry"), icon: icon("checkin") },
-          { id: "choose", label: ui("choose_ride"), icon: icon("train") },
+          // Starting a ride is offered only when none is in progress.
+          ...(state.ride
+            ? []
+            : [
+                { id: "checkin", label: ui("checkin_entry"), icon: icon("checkin") },
+                { id: "choose", label: ui("choose_ride"), icon: icon("train") },
+              ]),
           {
             id: "mode",
             label: `${ui("mode_title")}：${ui(`mode_${runMode()}`)}`,
