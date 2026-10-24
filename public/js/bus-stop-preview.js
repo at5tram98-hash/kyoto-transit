@@ -17,6 +17,7 @@ import {
 import { navigation } from "./navigation.js";
 import { updateArrivalRows, updateHTML } from "./view-rendering.js";
 import { lineBadge, lineKind } from "./line-badge.js";
+import { withDirections, polesFor } from "./bus-direction-ui.js";
 
 // Kyoto Bus stops that 京都バスナビ resolves, and the onward stop that
 // selects each served direction (route 40 and the 臨時 line).
@@ -190,14 +191,31 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
         .join("")}</ol><p class="source-caption">${esc(ui("approach_stops_note"))}</p>`,
     );
   }
+  // The stop's poles by direction: which routes leave which way, and the
+  // stand letters the live data shows for them.
+  function polesHTML() {
+    const poles = polesFor(stop.id, normalizedBusSources(data ?? {}));
+    if (poles.length < 2) return "";
+    return `<h3 class="stop-section-heading">${esc(ui("bus_poles_heading"))}</h3><div class="stop-poles">${poles
+      .map(
+        (p) =>
+          `<div class="stop-pole" data-heading="${esc(p.heading)}"><span class="stop-pole-dir"><b>${esc(ui(`bus_heading_${p.heading}`))}</b><small>${esc(p.toward ? ui("bus_poles_toward", [p.toward]) : "")}</small></span><span class="stop-pole-routes">${p.routes
+            .map((r) => lineBadge({ operator: stop.type, route: r }, { size: "small" }))
+            .join("")}</span>${p.boardings.length ? `<span class="stop-pole-board">${esc(p.boardings.join("・"))}</span>` : ""}</div>`,
+      )
+      .join("")}</div><p class="source-caption">${esc(ui("bus_poles_note"))}</p>`;
+  }
   function render({ updating = false, failed = false } = {}) {
     if (serviceKey) {
       if (!host.querySelector(".arrival-lines"))
         host.innerHTML = `<div class="arrival-lines" aria-live="polite"></div><p class="source-note" data-approach-message></p><section class="approach-stops-card" data-approach-stops hidden></section>`;
-      const rows = groupCityBusRows(
-        normalizedBusSources(data).filter(
-          (r) => busServiceKey(r) === serviceKey,
+      const rows = withDirections(
+        groupCityBusRows(
+          normalizedBusSources(data).filter(
+            (r) => busServiceKey(r) === serviceKey,
+          ),
         ),
+        stop.id,
       );
       const root = host.querySelector(".arrival-lines");
       updateArrivalRows(root, rows, busRow);
@@ -240,7 +258,7 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
               `<button type="button" class="${route === String(r) ? "active" : ""}" data-preview-route="${esc(r)}" aria-pressed="${route === String(r)}">${esc(r)}</button>`,
           )
           .join(""),
-        rows || `${navHTML()}${scheduleHTML({ updating, failed })}`,
+        `${polesHTML()}${rows || `${navHTML()}${scheduleHTML({ updating, failed })}`}`,
         updating && rows ? ui("bus_stop_preview_005") : "",
         data && !fresh ? ui("bus_stop_preview_006") : "",
         failed && city ? ui("bus_stop_preview_007") : "",

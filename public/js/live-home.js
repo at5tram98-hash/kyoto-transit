@@ -37,9 +37,7 @@ export function mountLiveHome(host, search) {
   host.innerHTML = ui("live_home_001", [
     icon("search"),
     text("searchStop"),
-    icon("map"),
-    text("map"),
-    icon("search"),
+    icon("expand"),
   ]);
   // Quick lives in the navigation bar: tap for the list, press and slide to
   // pick a destination in one gesture.

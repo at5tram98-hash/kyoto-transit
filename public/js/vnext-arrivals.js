@@ -1,4 +1,5 @@
 import { lineBadge, lineKind } from "./line-badge.js";
+import { withDirections, directionTagsHTML } from "./bus-direction-ui.js";
 import { ui, placeName, userFacingError } from "./locale.js";
 import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
 import { getStaticFeed } from "./fast-data.js";
@@ -137,7 +138,7 @@ export function busRow(r) {
           esc(delayText(r.delay)),
         ])
       : "",
-    details: `${r.boarding ? `<span>${esc(placeName(r.boarding))}</span>` : ""}${congestion !== "—" ? `<span>${esc(congestion)}</span>` : ""}`,
+    details: `${directionTagsHTML(r)}${r.boarding ? `<span>${esc(placeName(r.boarding))}</span>` : ""}${congestion !== "—" ? `<span>${esc(congestion)}</span>` : ""}`,
     source: `${source(primary)}${arrivals[1] && (arrivals[1].source !== primary.source || arrivals[1].asOf !== primary.asOf) ? ui("vnext_arrivals_017", [source(arrivals[1])]) : ""}`,
     // Animate only an observed stop count; never derive minutes from it.
     stopsAway: observed?.stopsAway,
@@ -212,7 +213,7 @@ function normalizeRail(data, timetable = null, nowMinute = null) {
 }
 
 export function compactBusHTML(data, { stopId } = {}) {
-  const rows = busPreviewRows(data);
+  const rows = withDirections(busPreviewRows(data), stopId);
   if (!rows.length) return "";
   const clock = (minute) => `${String(Math.floor(minute / 60) % 24).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
   const arrival = r => {
@@ -224,7 +225,7 @@ export function compactBusHTML(data, { stopId } = {}) {
     return Number.isFinite(r.scheduledDeparture)
       ? ui("station_scheduled_at", [clock(r.scheduledDeparture)]) : busArrivalText(r);
   };
-  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}>${lineBadge({ operator: r.operator ?? "citybus", route: r.route }, { className: "arrival-route-badge" })}<span><b>${esc(placeName(r.dest))}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(placeName(r.boarding))}` : ""}</small></span><strong>${esc(arrival(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div><details class="source-caption"><summary>${ui("audit_freshness")}</summary>${rows.map((r) => `<p>${esc(r.route)} · ${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</p>`).join("")}</details>`;
+  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}>${lineBadge({ operator: r.operator ?? "citybus", route: r.route }, { className: "arrival-route-badge" })}<span><b>${esc(placeName(r.dest))}</b><small>${directionTagsHTML(r)}${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(placeName(r.boarding))}` : ""}</small></span><strong>${esc(arrival(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div><details class="source-caption"><summary>${ui("audit_freshness")}</summary>${rows.map((r) => `<p>${esc(r.route)} · ${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</p>`).join("")}</details>`;
 }
 
 export function mountArrivals({ network }) {
@@ -361,7 +362,7 @@ export function mountArrivals({ network }) {
           : rows;
     ensureBusSchedule(rows);
     applyNotice(root.querySelector("#bus-stale"), projected, opts);
-    updateArrivalRows(busRoot(), presented, busRow);
+    updateArrivalRows(busRoot(), withDirections(presented, stopId), busRow);
     if (!rows.length) updateHTML(busRoot(), ui("vnext_arrivals_036"));
     setStatus("bus-update-status", projected);
     state.busLive = {

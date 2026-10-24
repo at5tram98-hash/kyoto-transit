@@ -197,6 +197,22 @@ export function updateNearbyPanel(element, html) {
     return;
   }
   const focus = document.activeElement;
+  // The heading and the sort control are not place rows: bring them up to
+  // date too, or a tapped segment would never show as selected.
+  const statics = (root) =>
+    [...root.children].filter((child) => !child.matches("[data-nearby-place], [data-nearby-key]"));
+  const nextStatics = statics(next),
+    currentStatics = statics(current);
+  if (nextStatics.length === currentStatics.length)
+    nextStatics.forEach((node, i) => {
+      const was = currentStatics[i];
+      if (was.outerHTML === node.outerHTML) return;
+      const focusedSort = was.contains(focus) ? focus.dataset?.nearbySort : null;
+      const fresh = node.cloneNode(true);
+      was.replaceWith(fresh);
+      if (focusedSort)
+        fresh.querySelector(`[data-nearby-sort="${focusedSort}"]`)?.focus({ preventScroll: true });
+    });
   const old = new Map(
     [...current.querySelectorAll("[data-nearby-key]")].map((node) => [
       node.dataset.nearbyKey,

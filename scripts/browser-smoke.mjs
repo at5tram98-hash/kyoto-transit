@@ -2663,7 +2663,7 @@ try {
               true,
             );
             await page.goto(base);
-            await page.locator('[data-view="now"] [data-live-plan]').waitFor();
+            await page.locator('[data-view="now"] [data-live-full-map]').waitFor();
             await layout(page, "offline PWA navigation and app shell");
           } finally {
             originUnavailable = false;

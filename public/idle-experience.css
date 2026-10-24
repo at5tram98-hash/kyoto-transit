@@ -1425,3 +1425,35 @@ button.setting-row.ats-settings-row:last-child {
   flex: 1;
   text-align: start;
 }
+
+/* The map's own expand button, top right as in Apple Maps. */
+.live-map-frame {
+  position: relative;
+}
+.map-expand {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: var(--glass-toolbar);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: var(--shadow-hairline);
+  color: var(--blue);
+}
+.map-expand svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

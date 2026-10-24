@@ -57,22 +57,49 @@ test("the radar stop is the nearest city bus stop within 500 m", () => {
 });
 
 test("a bus between stops is placed by its reported minutes and moves on with the clock", async () => {
-  const { busPosition, RADAR_MAX_PROGRESS } = await import("../public/js/bus-radar.js");
-  const timed = { ...network, services: network.services.map((s) => ({ ...s, offsets: [0, 4, 8, 12, 16] })) };
+  const { busPosition, RADAR_MAX_PROGRESS, BUS_METRES_PER_MINUTE } = await import("../public/js/bus-radar.js");
+  // Stops 1.1 km apart: each segment takes 1112 m at the average bus pace.
+  const wide = { stops: ids.map((id, i) => ({ id, lat: 35 + i * 0.01, lng: 135.7 })) };
+  const segment = 1111.95 / BUS_METRES_PER_MINUTE;
   const [bus] = radarBuses({
-    stop: timed.stops.get("d"),
-    data: live([{ route: "204", dest: "銀閣寺", stopsAway: 2, minutes: 6, source: "live" }]),
-    network: timed,
+    stop: network.stops.get("d"),
+    data: live([{ route: "204", dest: "銀閣寺", stopsAway: 2, minutes: segment * 1.5, source: "live" }]),
+    network,
+    geo: wide,
+    now: Date.parse(live([]).asOf),
+  });
+  // Two segments from 千本, one and a half left: halfway along 千本→堀川.
+  assert.ok(Math.abs(bus.progress - 0.5) < 0.01, String(bus.progress));
+  const later = busPosition(bus, bus.reportedAt + (segment / 4) * 60000);
+  assert.ok(Math.abs(later.along - 0.75) < 0.01, String(later.along));
+  // It never reaches the next stop before the operator reports it there.
+  assert.equal(busPosition(bus, bus.reportedAt + 3600000).along, RADAR_MAX_PROGRESS);
+});
+
+test("with no minutes reported a bus starts a quarter of the way along", async () => {
+  const { RADAR_UNKNOWN_START } = await import("../public/js/bus-radar.js");
+  const [bus] = radarBuses({
+    stop: network.stops.get("d"),
+    data: live([{ route: "204", dest: "銀閣寺", stopsAway: 2, source: "live" }]),
+    network,
     geo,
     now: Date.parse(live([]).asOf),
   });
-  // 8 scheduled minutes from 千本, 4 of them on the 千本→堀川 segment: 6 left is halfway.
-  assert.equal(bus.progress, 0.5);
-  assert.ok(Math.abs(bus.lat - (geo.stops[1].lat + geo.stops[2].lat) / 2) < 1e-9);
-  const later = busPosition(bus, bus.reportedAt + 60000);
-  assert.ok(Math.abs(later.along - 0.75) < 1e-9);
-  // It never reaches the next stop before the operator reports it there.
-  assert.equal(busPosition(bus, bus.reportedAt + 3600000).along, RADAR_MAX_PROGRESS);
+  assert.equal(bus.progress, RADAR_UNKNOWN_START);
+});
+
+test("on a loop the direction is the one that reaches the headsign soonest", async () => {
+  const { serviceFor } = await import("../public/js/bus-radar.js");
+  const names = { p: "九条車庫前", q: "東福寺", r: "祇園", x: "熊野神社前", y: "丸太町七本松", s: "円町", t: "西大路駅前" };
+  const loop = {
+    stops: new Map(Object.entries(names).map(([id, name]) => [id, { id, name }])),
+    services: [
+      { id: "cw", operator: "citybus", route: "202", stops: ["p", "q", "r", "x", "y", "s", "t", "p"] },
+      { id: "ccw", operator: "citybus", route: "202", stops: ["p", "t", "s", "y", "x", "r", "q", "p"] },
+    ],
+  };
+  assert.equal(serviceFor({ route: "202", dest: "祇園・熊野神社" }, "q", loop).service.id, "cw");
+  assert.equal(serviceFor({ route: "202", dest: "西大路駅・円町" }, "q", loop).service.id, "ccw");
 });
 
 test("a new report of the same bus never moves it backwards", async () => {

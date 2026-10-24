@@ -1,14 +1,16 @@
 // Live bus radar (RTM): buses approaching the city bus stop nearest the
 // rider, placed on the map from the official approach information. A bus
-// reported "n stops away" is drawn at the stop n places back along its
-// route, so nothing is shown that the operator did not report.
+// reported "n stops away" is drawn between the stop n places back along
+// its route and the next one, and moves on at the average bus pace.
 import { lineKind } from "./line-badge.js";
 import { isFresh } from "./realtime.js";
+import { loopRotation } from "./bus-direction.js";
 
 export const RADAR_RADIUS = 500;
 export const RADAR_MAX_STOPS = 8;
 // How far towards the next stop an estimate may go before the next report.
 export const RADAR_MAX_PROGRESS = 0.9;
+export const RADAR_UNKNOWN_START = 0.25;
 
 // Where a radar bus is at `now`: along the straight line from the stop it
 // was reported at towards the next one, advancing at the scheduled pace.
@@ -43,12 +45,21 @@ export function radarStop(nearby = [], radius = RADAR_RADIUS) {
   );
 }
 
+// Average city bus pace between stops (stops included): about 14 km/h.
+export const BUS_METRES_PER_MINUTE = 230;
+const metres = (a, b) => {
+  const r = Math.PI / 180,
+    x = (b.lng - a.lng) * r * Math.cos(((a.lat + b.lat) * r) / 2),
+    y = (b.lat - a.lat) * r;
+  return 6371000 * Math.hypot(x, y);
+};
+
 // The stops a bus on this service passes before reaching `stopId`, nearest
-// first, wrapping round on loop routes, with the scheduled minutes from each
-// of them to `stopId`.
-function stopsBefore(service, stopId) {
+// first, wrapping round on loop routes, with the minutes from each of them
+// to `stopId`. A segment's minutes come from its length at the average bus
+// pace (the catalog has no real segment times), else two minutes.
+function stopsBefore(service, stopId, located = new Map()) {
   const stops = service.stops ?? [],
-    offsets = service.offsets ?? [],
     circular = stops.length > 2 && stops[0] === stops.at(-1),
     cycle = circular ? stops.slice(0, -1) : stops,
     index = cycle.indexOf(stopId);
@@ -61,9 +72,9 @@ function stopsBefore(service, stopId) {
     if (at < 0 && !circular) break;
     const from = (at + cycle.length) % cycle.length,
       to = (from + 1) % cycle.length,
-      // Wrapping round a loop, the segment into the first stop is the last one.
-      segment = to === 0 ? offsets[cycle.length] - offsets[from] : offsets[to] - offsets[from];
-    total += Number.isFinite(segment) && segment > 0 ? segment : 2;
+      a = located.get(cycle[from]),
+      b = located.get(cycle[to]);
+    total += a && b ? Math.max(0.5, metres(a, b) / BUS_METRES_PER_MINUTE) : 2;
     before.push(cycle[from]);
     minutes.push(total);
   }
@@ -71,19 +82,25 @@ function stopsBefore(service, stopId) {
 }
 
 // Which of a route's services serves this approach row (by its headsign).
-function serviceFor(row, stopId, network) {
+// On a loop both directions pass every stop; the right one reaches the
+// places in the headsign soonest.
+export function serviceFor(row, stopId, network, located = new Map()) {
   const candidates = (network?.services ?? [])
     .filter((s) => s.operator === "citybus" && String(s.route) === String(row.route))
-    .map((service) => ({ service, path: stopsBefore(service, stopId) }))
+    .map((service) => ({ service, path: stopsBefore(service, stopId, located) }))
     .filter((c) => c.path && c.path.after.length);
   if (candidates.length <= 1) return candidates[0] ?? null;
   const words = headings(row.dest);
   const names = (ids) => ids.map((id) => normalize(network.stops.get(id)?.name));
-  return (
-    candidates.find((c) =>
-      words.some((w) => names(c.path.after).some((n) => n.includes(w) || w.includes(n))),
-    ) ?? null
-  );
+  const reach = (c) => {
+    const list = names(c.path.after),
+      at = list.findIndex((n) => words.some((w) => n.includes(w) || w.includes(n)));
+    return at < 0 ? Infinity : at;
+  };
+  const best = candidates
+    .map((c) => ({ c, at: reach(c) }))
+    .sort((a, b) => a.at - b.at)[0];
+  return best && best.at !== Infinity ? best.c : null;
 }
 
 // Buses to draw: fresh live rows with a stop count, each placed at the stop
@@ -98,7 +115,7 @@ export function radarBuses({ stop, data, network, geo, now = Date.now(), previou
     const away = Number(row?.stopsAway);
     if (row?.source !== "live" || !Number.isInteger(away) || away < 0 || away > RADAR_MAX_STOPS)
       continue;
-    const match = serviceFor(row, stop.id, network);
+    const match = serviceFor(row, stop.id, network, located);
     if (!match) continue;
     const atId = away === 0 ? stop.id : match.path.before[away - 1],
       towardId = away <= 1 ? stop.id : match.path.before[away - 2],
@@ -111,13 +128,15 @@ export function radarBuses({ stop, data, network, geo, now = Date.now(), previou
     // reaches the next stop before the operator reports it there.
     const remaining = away === 0 ? 0 : match.path.minutes[away - 1],
       ahead = away <= 1 ? 0 : match.path.minutes[away - 2],
-      segment = Math.max(1, remaining - ahead),
+      segment = Math.max(0.5, remaining - ahead),
       minutes = Number.isFinite(row.minutes) ? row.minutes : null,
       progress =
         away === 0 || !toward || toward === at
           ? 0
           : minutes === null
-            ? 0
+            ? // Reported once it passes a stop, so on average it is a
+              // quarter of the way along when the report is read.
+              RADAR_UNKNOWN_START
             : Math.max(0, Math.min(RADAR_MAX_PROGRESS, (remaining - minutes) / segment));
     out.push({
       key: `${row.route}|${row.dest}|${away}|${row.boarding ?? ""}`,
@@ -138,6 +157,7 @@ export function radarBuses({ stop, data, network, geo, now = Date.now(), previou
           ? (Math.atan2(toward.lng - at.lng, toward.lat - at.lat) * 180) / Math.PI
           : null,
       kind: lineKind({ operator: "citybus", route: row.route }),
+      rotation: loopRotation(match.service, located),
     });
   }
   // A bus still reported at the same stop keeps going from where it was

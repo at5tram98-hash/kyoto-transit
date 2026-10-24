@@ -2,6 +2,7 @@ import {
   transitEvidenceEngine,
   shouldOfferRideConfirmation,
 } from "./transit-evidence.js";
+import { withDirections, directionTagsHTML } from "./bus-direction-ui.js";
 import { groupNearbyPlaces } from "./transit-places.js";
 import { orderNearbyPlaces } from "./nearby-sort-b6.js";
 import { manualNearbyRows, manualReferenceOptions } from "./manual-nearby-b7.js";
@@ -245,7 +246,7 @@ function nearbyBusHTML(stop) {
   const data = state.busLive;
   if (data?.stop !== (stop.fullName ?? stop.name))
     return north3DepartureHTML(stop);
-  const rows = groupCityBusRows(normalizedBusSources(data))
+  const rows = withDirections(groupCityBusRows(normalizedBusSources(data)), stop.id)
     .filter((r) =>
       (r.arrivals ?? [r]).some(
         (a) => Number.isFinite(a.minutes) || Number.isFinite(a.stopsAway),
@@ -259,7 +260,7 @@ function nearbyBusHTML(stop) {
         rows.map((r) => ({
           key: r.dest,
           label: busDirectionLabel(r.route, r.dest),
-          html: `<div class="live-nearby-arrival" data-operator="citybus"><span>${lineBadge({ operator: "citybus", route: r.route }, { size: "small" })} ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(placeName(r.boarding))}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 2) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
+          html: `<div class="live-nearby-arrival" data-operator="citybus"><span>${lineBadge({ operator: "citybus", route: r.route }, { size: "small" })} ${esc(busDirectionLabel(r.route, r.dest))}<small>${directionTagsHTML(r)}${r.boarding ? esc(placeName(r.boarding)) : ""}</small></span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 2) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
         })),
       )
     : north3DepartureHTML(stop);
@@ -644,6 +645,7 @@ export function renderNow() {
                   .join("")}</section>`,
             )
             .join(""),
+          esc(ui(`b6_sort_${sortMode in { distance: 1, departure: 1, operator: 1 } ? sortMode : "distance"}`)),
         ])
       : "") + arrivalsEntry,
   );

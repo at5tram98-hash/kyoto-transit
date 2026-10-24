@@ -36,6 +36,7 @@ const icons = {
   pip: '<rect class="fillable" x="2.8" y="5" width="18.4" height="14" rx="2.4"/><rect class="knock-dot" x="11.4" y="11.6" width="7.4" height="5.4" rx="1.2"/>',
   shake: '<rect class="fillable" x="8" y="3.5" width="8" height="17" rx="2.2"/><path d="M4.2 8.5 2.8 12l1.4 3.5M19.8 8.5l1.4 3.5-1.4 3.5"/>',
   ats: '<path d="M4.2 16.8a8.6 8.6 0 1 1 15.6 0"/><path d="m12.4 13.2 4-4.6" stroke-width="2.2"/><circle class="solid" cx="12" cy="13.6" r="1.7"/><path d="M7.6 20h8.8"/>',
+  expand: '<path d="M14 4.5h5.5V10M10 19.5H4.5V14M19.5 4.5l-6.2 6.2M4.5 19.5l6.2-6.2"/>',
   auto: '<circle class="fillable" cx="12" cy="12" r="9"/><path class="knock" d="m8.4 16.2 3.6-8.6 3.6 8.6m-5.9-3h4.6"/>',
   motion: '<path d="M2.8 12h3l2.2-5.6 3.6 11.2 3.2-9 2 3.4h4.4"/>',
   signal: '<rect class="solid bar-1" x="3.4" y="15" width="3" height="5" rx="1"/><rect class="solid bar-2" x="8.4" y="11.5" width="3" height="8.5" rx="1"/><rect class="solid bar-3" x="13.4" y="8" width="3" height="12" rx="1"/><rect class="solid bar-4" x="18.4" y="4.5" width="3" height="15.5" rx="1"/>',
