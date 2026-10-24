@@ -295,7 +295,7 @@ export async function runCoordinateAudit({
           (document.documentElement.style.fontSize = `${16 * scale}px`),
         c.scale,
       );
-      await page.locator("[data-view=now] [data-live-plan]").waitFor();
+      await page.locator("[data-view=now] [data-live-full-map]").waitFor();
       await capture("now-home");
       await searchScreen(page);
       await page.locator("[data-search-date]").click();

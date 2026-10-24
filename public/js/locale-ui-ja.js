@@ -891,7 +891,7 @@ export default {
   timetable_ui_072: "その他の路線",
   timetable_ui_073: "すべての路線",
   live_home_001:
-    '<div class="now-status" role="group" aria-label="状況とATS"><button type="button" class="now-status-main" data-ats-open aria-haspopup="dialog"><span class="now-status-top"><time data-live-clock aria-label="現在時刻" aria-live="off"></time><span class="now-status-day" data-live-day></span><span class="status-icons" data-status-icons></span></span><span class="now-status-scene"><span class="now-scene-icon" data-scene-icon></span><span class="now-scene-copy" data-live-location><b data-scene-title></b><small data-live-location-detail></small></span><span class="chevron" aria-hidden="true">›</span></span></button><div class="now-status-actions" data-status-actions></div></div><button type="button" class="live-stop-search" data-live-stop-search>{0}<span>{1}</span></button><div class="live-map-host"></div><div class="live-map-actions"><button class="plain-action" type="button" data-live-full-map>{2}<span>{3}</span></button><button type="button" class="plain-action" data-live-plan>{4}<span>経路を検索</span></button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
+    '<div class="now-status" role="group" aria-label="状況とATS"><button type="button" class="now-status-main" data-ats-open aria-haspopup="dialog"><span class="now-status-top"><time data-live-clock aria-label="現在時刻" aria-live="off"></time><span class="now-status-day" data-live-day></span><span class="status-icons" data-status-icons></span></span><span class="now-status-scene"><span class="now-scene-icon" data-scene-icon></span><span class="now-scene-copy" data-live-location><b data-scene-title></b><small data-live-location-detail></small></span><span class="chevron" aria-hidden="true">›</span></span></button><div class="now-status-actions" data-status-actions></div></div><button type="button" class="live-stop-search" data-live-stop-search>{0}<span>{1}</span></button><div class="live-map-frame"><div class="live-map-host"></div><button type="button" class="map-expand" data-live-full-map aria-label="地図を大きく表示">{2}</button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
   live_home_002: "京都",
   live_home_003: "京都産大前",
   live_home_004: "国際会館",
@@ -1078,7 +1078,7 @@ export default {
   vnext_view_108:
     '<section class="section-block ride-choice-block"><div class="section-heading"><div><span class="section-label">乗車中の便</span><h3>{0}</h3></div></div><div class="ride-choice-list">{1}</div></section>',
   vnext_view_109:
-    '<section class="section-block nearby-guide"><div class="section-heading"><h2>付近の交通</h2><span class="source-caption">距離順</span></div>{0}</section>',
+    '<section class="section-block nearby-guide"><div class="section-heading"><h2>付近の交通</h2><span class="source-caption">{1}</span></div>{0}</section>',
   route_search_ui_087:
     '<details id="search-history-disclosure" class="search-history" {0}><summary tabindex="0">履歴・よく使う行き先</summary>{1}</details>',
   now_components_094:
@@ -1527,4 +1527,19 @@ export default {
   ats_sensor_ride: "乗車",
   ats_ride_active: "乗車案内中",
   ats_experimental: "実験的",
+  bus_rotation_cw: "時計回り",
+  bus_rotation_ccw: "反時計回り",
+  bus_heading_north: "北行き",
+  bus_heading_east: "東行き",
+  bus_heading_south: "南行き",
+  bus_heading_west: "西行き",
+  bus_poles_heading: "のりば（方向別）",
+  bus_poles_toward: "{0}方面",
+  bus_poles_note: "方向は停留所の位置と次の停留所から求めています。のりばの記号は公式接近情報に出たものです。",
+  place_here: "現在地",
+  place_home: "自宅",
+  place_group: "現在地・自宅",
+  place_meta: "徒歩で行ける駅・停留所から探します",
+  place_here_unavailable: "現在地を取得できません。位置情報を確認するか、駅・停留所を選んでください。",
+  place_home_unavailable: "自宅が設定されていません。ATSの設定から自宅を登録してください。",
 };

@@ -1,6 +1,8 @@
 import { ui, displayStopName, serviceDateLabel, userFacingError, userError, currentLocale } from "./locale.js";
 import { downloadRouteImage } from "./route-image.js";
-import { esc, icon } from "./vnext-state.js";
+import { esc, icon, state } from "./vnext-state.js";
+import { refreshVirtualPlaces, isVirtualPlace, HERE_ID } from "./virtual-places.js";
+import { readHome } from "./ats.js";
 import {
   routeHTML,
   operatorLabel,
@@ -1764,6 +1766,15 @@ export function mountRouteSearch({
     const slot = activeSlot();
     slot.job?.controller.abort();
     const controller = new AbortController();
+    // 現在地 and 自宅 are refreshed for every search.
+    const places = refreshVirtualPlaces(network, { fix: state.fix, geo: state.geo, home: readHome() });
+    for (const name of ["from", "to"]) {
+      const id = form.elements[`${name}Id`].value;
+      if (isVirtualPlace(id) && !(id === HERE_ID ? places.here : places.home)) {
+        inlineStatus.innerHTML = esc(ui(id === HERE_ID ? "place_here_unavailable" : "place_home_unavailable"));
+        return;
+      }
+    }
     const signal = controller.signal,
       endpoints = ["from", "to"].map((name) =>
         resolveStop(

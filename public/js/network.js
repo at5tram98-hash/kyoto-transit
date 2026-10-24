@@ -325,6 +325,7 @@ export function searchStops(network, query, type = "all") {
   return [...network.stops.values()]
     .filter(
       (s) =>
+        !s.virtual &&
         (type === "all" ||
           (type === "rail"
             ? ["subway", "kintetsu"].includes(s.type)

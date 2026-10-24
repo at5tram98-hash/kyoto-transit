@@ -901,7 +901,7 @@ export default {
   timetable_ui_072: "Other routes",
   timetable_ui_073: "All routes",
   live_home_001:
-    '<div class="now-status" role="group" aria-label="Situation and ATS"><button type="button" class="now-status-main" data-ats-open aria-haspopup="dialog"><span class="now-status-top"><time data-live-clock aria-label="Current time" aria-live="off"></time><span class="now-status-day" data-live-day></span><span class="status-icons" data-status-icons></span></span><span class="now-status-scene"><span class="now-scene-icon" data-scene-icon></span><span class="now-scene-copy" data-live-location><b data-scene-title></b><small data-live-location-detail></small></span><span class="chevron" aria-hidden="true">›</span></span></button><div class="now-status-actions" data-status-actions></div></div><button type="button" class="live-stop-search" data-live-stop-search>{0}<span>{1}</span></button><div class="live-map-host"></div><div class="live-map-actions"><button class="plain-action" type="button" data-live-full-map>{2}<span>{3}</span></button><button type="button" class="plain-action" data-live-plan>{4}<span>Plan a journey</span></button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
+    '<div class="now-status" role="group" aria-label="Situation and ATS"><button type="button" class="now-status-main" data-ats-open aria-haspopup="dialog"><span class="now-status-top"><time data-live-clock aria-label="Current time" aria-live="off"></time><span class="now-status-day" data-live-day></span><span class="status-icons" data-status-icons></span></span><span class="now-status-scene"><span class="now-scene-icon" data-scene-icon></span><span class="now-scene-copy" data-live-location><b data-scene-title></b><small data-live-location-detail></small></span><span class="chevron" aria-hidden="true">›</span></span></button><div class="now-status-actions" data-status-actions></div></div><button type="button" class="live-stop-search" data-live-stop-search>{0}<span>{1}</span></button><div class="live-map-frame"><div class="live-map-host"></div><button type="button" class="map-expand" data-live-full-map aria-label="Open full map">{2}</button></div><p class="live-update-status source-caption" role="status" data-live-update></p>',
   live_home_002: "京都",
   live_home_003: "京都産大前",
   live_home_004: "国際会館",
@@ -1088,7 +1088,7 @@ export default {
   vnext_view_108:
     '<section class="section-block ride-choice-block"><div class="section-heading"><div><span class="section-label">Current service</span><h3>{0}</h3></div></div><div class="ride-choice-list">{1}</div></section>',
   vnext_view_109:
-    '<section class="section-block nearby-guide"><div class="section-heading"><h2>Nearby transit</h2><span class="source-caption">By distance</span></div>{0}</section>',
+    '<section class="section-block nearby-guide"><div class="section-heading"><h2>Nearby transit</h2><span class="source-caption">{1}</span></div>{0}</section>',
   route_search_ui_087:
     '<details id="search-history-disclosure" class="search-history" {0}><summary tabindex="0">Recent・Favorite destinations</summary>{1}</details>',
   now_components_094:
@@ -1540,4 +1540,19 @@ export default {
   ats_sensor_ride: "Ride",
   ats_ride_active: "Ride guidance on",
   ats_experimental: "Experimental",
+  bus_rotation_cw: "Clockwise",
+  bus_rotation_ccw: "Counterclockwise",
+  bus_heading_north: "Northbound",
+  bus_heading_east: "Eastbound",
+  bus_heading_south: "Southbound",
+  bus_heading_west: "Westbound",
+  bus_poles_heading: "Stops by direction",
+  bus_poles_toward: "towards {0}",
+  bus_poles_note: "Directions come from the stop positions and the next stop; stand letters are those shown in official approach data.",
+  place_here: "Current location",
+  place_home: "Home",
+  place_group: "Current location and home",
+  place_meta: "Searched from the stations and stops within walking distance",
+  place_here_unavailable: "Current location is unavailable. Check location access or pick a station or stop.",
+  place_home_unavailable: "Home is not set. Set it in ATS settings.",
 };

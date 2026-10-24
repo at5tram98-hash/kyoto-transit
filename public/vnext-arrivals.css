@@ -707,3 +707,55 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   background: var(--line-color);
   color: var(--color-on-line);
 }
+
+/* Direction of a bus service: rotation on loop routes, heading of the pole. */
+.bus-dir {
+  display: inline-block;
+  margin-inline-end: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--fill-tertiary);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.bus-dir[data-rotation] {
+  background: var(--color-ats-soft);
+}
+.stop-poles {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  border-radius: var(--radius-row);
+  background: var(--separator);
+}
+.stop-pole {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  background: var(--surface-primary);
+}
+.stop-pole-dir {
+  display: grid;
+  min-width: 6.5rem;
+}
+.stop-pole-dir small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  overflow-wrap: anywhere;
+}
+.stop-pole-routes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+.stop-pole-board {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-weight: 700;
+}

@@ -24,7 +24,7 @@ export async function yahooScreenChecks({
           (s) => (document.documentElement.style.fontSize = `${s * 16}px`),
           scale,
         );
-        await page.locator("[data-live-plan]").waitFor();
+        await page.locator("[data-live-full-map]").waitFor();
         assert.equal(
           await page.locator("#now-search form").count(),
           0,

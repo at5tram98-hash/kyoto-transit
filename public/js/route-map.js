@@ -222,7 +222,7 @@ function mapDrawing(map, view) {
     .map((b, i) => {
       const at = b.to ? busPosition(b) : b,
         [x, y] = xy([at.lng, at.lat]),
-        label = String(b.route),
+        label = `${b.route}${b.rotation === "cw" ? "↻" : b.rotation === "ccw" ? "↺" : ""}`,
         away = b.stopsAway === 0 ? ui("radar_at_stop") : ui("radar_stops_away", [b.stopsAway]),
         w = Math.max(30, 12 + label.length * 9),
         total = w + 4 + away.length * (/[\u3040-\u9fff]/.test(away) ? 10 : 6),
@@ -242,7 +242,7 @@ function mapDrawing(map, view) {
       const bx = box.x - x,
         by = box.y - y,
         cx = bx + w / 2;
-      return `<g class="map-bus${b.stopsAway <= 1 ? " imminent" : ""}" data-bus-index="${i}" data-line="${esc(b.kind)}" style="transform:translate(${x.toFixed(1)}px,${y.toFixed(1)}px)" role="img" aria-label="${esc(ui("radar_bus_label", [label, b.dest, away]))}"><line class="map-bus-stem" x1="0" y1="0" x2="${cx}" y2="${by + 18}"/><circle class="map-bus-anchor" cx="0" cy="0" r="5"/><rect class="map-bus-plate" x="${bx}" y="${by}" width="${w}" height="18" rx="5"/><text class="map-bus-route" x="${cx}" y="${by + 13}" text-anchor="middle">${esc(label)}</text><text class="map-bus-away" x="${bx + w + 3}" y="${by + 13}">${esc(away)}</text></g>`;
+      return `<g class="map-bus${b.stopsAway <= 1 ? " imminent" : ""}" data-bus-index="${i}" data-line="${esc(b.kind)}" style="transform:translate(${x.toFixed(1)}px,${y.toFixed(1)}px)" role="img" aria-label="${esc(ui("radar_bus_label", [b.rotation ? `${b.route} ${ui(`bus_rotation_${b.rotation}`)}` : String(b.route), b.dest, away]))}"><line class="map-bus-stem" x1="0" y1="0" x2="${cx}" y2="${by + 18}"/><circle class="map-bus-anchor" cx="0" cy="0" r="5"/><rect class="map-bus-plate" x="${bx}" y="${by}" width="${w}" height="18" rx="5"/><text class="map-bus-route" x="${cx}" y="${by + 13}" text-anchor="middle">${esc(label)}</text><text class="map-bus-away" x="${bx + w + 3}" y="${by + 13}">${esc(away)}</text></g>`;
     })
     .join("");
   const radarRing = (() => {

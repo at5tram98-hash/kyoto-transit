@@ -2,12 +2,25 @@ import { ui, displayStopName } from "./locale.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { stopSuggestions, stopTypeLabel } from "./route-search-model.js";
 import { readSearchPairs } from "./search-history.js";
-import { icon, nearest } from "./vnext-state.js";
+import { icon, nearest, state } from "./vnext-state.js";
+import { refreshVirtualPlaces, HERE_ID, HOME_ID } from "./virtual-places.js";
+import { readHome } from "./ats.js";
 
+const PLACE_WORDS = {
+  [HERE_ID]: ["現在地", "げんざいち", "現在", "ここ", "current", "location", "here"],
+  [HOME_ID]: ["自宅", "じたく", "家", "いえ", "home"],
+};
+const placeMatches = (stop, q) => {
+  const query = String(q).normalize("NFKC").toLowerCase();
+  return PLACE_WORDS[stop.id].some((word) => word.startsWith(query) || query.startsWith(word));
+};
 // A single full-screen editor owns suggestions. Values commit to the existing
 // form; cancellation retains the original input and never creates a new store.
 export function mountStopAutocomplete({ container, list, network, onSelect }) {
   let active = null,
+    // Whether the rider has typed since the picker opened: until then the
+    // field's current value is not a query that should hide the places.
+    typed = false,
     rows = [],
     index = -1;
   const dialog = document.createElement("dialog");
@@ -59,11 +72,19 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
       pairs[key]
         .flatMap((p) => [p.toId, p.fromId])
         .map((id) => network.stops.get(id))
-        .filter(Boolean);
+        .filter((stop) => stop && !stop.virtual);
     const candidates = stopSuggestions(network, q);
-    const matches = (stop) => !q || candidates.some((s) => s.id === stop.id);
+    const matches = (stop) => !q || stop.virtual || candidates.some((s) => s.id === stop.id);
     const seen = new Set();
+    // Current location and home come first (with no query, or when the query
+    // names them): they are points, joined to the network with walks to the
+    // stops around them.
+    refreshVirtualPlaces(network, { fix: state.fix, geo: state.geo, home: readHome() });
+    const places = [HERE_ID, HOME_ID]
+      .map((id) => network.stops.get(id))
+      .filter((stop) => stop && (!q || !typed || placeMatches(stop, q)));
     const groups = [
+      [ui("place_group"), places],
       [ui("stop_autocomplete_004"), pairStops("history")],
       [
         ui("stop_autocomplete_005"),
@@ -123,12 +144,12 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
         button.setAttribute("aria-selected", "false");
         const symbol = document.createElement("span");
         symbol.className = "transport-icon";
-        symbol.innerHTML = icon(stop.type.includes("bus") ? "bus" : "train");
+        symbol.innerHTML = icon(stop.id === HERE_ID ? "location" : stop.id === HOME_ID ? "home" : stop.type.includes("bus") ? "bus" : "train");
         const copy = document.createElement("span"),
           name = document.createElement("b"),
           meta = document.createElement("small");
         name.textContent = displayStopName(stop);
-        meta.textContent = `${stop.facilityName ? ui("stop_autocomplete_009", [stop.facilityName]) : ""}${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
+        meta.textContent = stop.virtual ? ui("place_meta") : `${stop.facilityName ? ui("stop_autocomplete_009", [stop.facilityName]) : ""}${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
         copy.append(name, meta);
         button.append(symbol, copy);
         list.append(button);
@@ -144,7 +165,9 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     editor.setAttribute("aria-expanded", "true");
     editor.removeAttribute("aria-activedescendant");
   }
-  function show(input) {
+  function show(input, { typing = false } = {}) {
+    if (input !== active || !dialog.open) typed = false;
+    if (typing) typed = true;
     active = input;
     editor.value = input.value;
     if (!dialog.open) dialog.showModal();
@@ -168,13 +191,14 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
   container.addEventListener("input", (e) => {
     if (e.target.matches("[data-stop-input]") && !e.isComposing) {
       onSelect(e.target, null);
-      show(e.target);
+      show(e.target, { typing: true });
     }
   });
   container.addEventListener("compositionend", (e) => {
-    if (e.target.matches("[data-stop-input]")) show(e.target);
+    if (e.target.matches("[data-stop-input]")) show(e.target, { typing: true });
   });
   const draftChanged = () => {
+    typed = true;
     if (active) {
       active.value = editor.value;
       onSelect(active, null);
