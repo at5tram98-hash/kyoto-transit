@@ -6,6 +6,14 @@ import { icon, nearest, state } from "./vnext-state.js";
 import { refreshVirtualPlaces, HERE_ID, HOME_ID } from "./virtual-places.js";
 import { readHome } from "./ats.js";
 
+const PLACE_WORDS = {
+  [HERE_ID]: ["現在地", "げんざいち", "現在", "ここ", "current", "location", "here"],
+  [HOME_ID]: ["自宅", "じたく", "家", "いえ", "home"],
+};
+const placeMatches = (stop, q) => {
+  const query = String(q).normalize("NFKC").toLowerCase();
+  return PLACE_WORDS[stop.id].some((word) => word.startsWith(query) || query.startsWith(word));
+};
 // A single full-screen editor owns suggestions. Values commit to the existing
 // form; cancellation retains the original input and never creates a new store.
 export function mountStopAutocomplete({ container, list, network, onSelect }) {
@@ -61,12 +69,13 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
       pairs[key]
         .flatMap((p) => [p.toId, p.fromId])
         .map((id) => network.stops.get(id))
-        .filter(Boolean);
+        .filter((stop) => stop && (!q || placeMatches(stop, q)));
     const candidates = stopSuggestions(network, q);
     const matches = (stop) => !q || stop.virtual || candidates.some((s) => s.id === stop.id);
     const seen = new Set();
-    // Current location and home always come first: they are points, joined
-    // to the network with walks to the stops around them.
+    // Current location and home come first (with no query, or when the query
+    // names them): they are points, joined to the network with walks to the
+    // stops around them.
     refreshVirtualPlaces(network, { fix: state.fix, geo: state.geo, home: readHome() });
     const places = [HERE_ID, HOME_ID]
       .map((id) => network.stops.get(id))
