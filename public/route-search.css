@@ -863,7 +863,7 @@
   padding: 0 6px;
   border-radius: var(--radius-tiny);
   background: color-mix(in srgb, var(--line-citybus-loop) 14%, var(--surface-primary));
-  color: var(--line-citybus-loop);
+  color: color-mix(in srgb, var(--line-citybus-loop) 60%, var(--text));
   font-size: var(--type-caption);
   font-style: normal;
   font-weight: 700;
