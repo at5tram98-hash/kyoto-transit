@@ -413,7 +413,7 @@ export function mountRouteSearch({
   const dateSheet = makeSearchSheet(
     "search-date",
     ui("route_search_ui_009"),
-    ui("route_search_ui_010", [now.date, now.time]),
+    ui("route_search_ui_010", [now.date, now.time, icon("now")]),
   );
   const filter = makeSearchSheet(
     "search-filter",
@@ -452,6 +452,43 @@ export function mountRouteSearch({
   root
     .querySelector("[data-search-date]")
     .addEventListener("click", () => openDate());
+  // Quick controls in the date sheet: time type, day chips, Now and steps.
+  const setDateTime = (date, time) => {
+    form.elements.date.value = date;
+    form.elements.time.value = time;
+  };
+  const clockText = (minute) =>
+    `${String(Math.floor(minute / 60) % 24).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+  root.querySelector("[data-planner-now]").addEventListener("click", () => {
+    const today = tokyoNow();
+    setDateTime(today.date, today.time);
+    form.elements.timeMode.value = "departure";
+    dateChanged();
+    navigation.remember("search-input", captureInput());
+  });
+  dateSheet.addEventListener("click", (event) => {
+    const mode = event.target.closest("[data-time-mode]"),
+      offset = event.target.closest("[data-date-offset]"),
+      step = event.target.closest("[data-time-step]");
+    const today = tokyoNow();
+    if (mode) form.elements.timeMode.value = mode.dataset.timeMode;
+    else if (offset)
+      form.elements.date.value = shiftServiceDate(today.date, Number(offset.dataset.dateOffset));
+    else if (event.target.closest("[data-time-now]")) {
+      // "Now" means leaving now.
+      setDateTime(today.date, today.time);
+      form.elements.timeMode.value = "departure";
+    } else if (step) {
+      const current = minuteValue(form.elements.time.value) ?? today.minute,
+        total = current + Number(step.dataset.timeStep),
+        days = Math.floor(total / 1440);
+      setDateTime(
+        days ? shiftServiceDate(form.elements.date.value || today.date, days) : form.elements.date.value,
+        clockText(((total % 1440) + 1440) % 1440),
+      );
+    } else return;
+    dateChanged();
+  });
   dateSheet.addEventListener("mymap-search-sheet-result", () => {
     const confirmed =
       dateSheet.returnValue === "apply" &&
@@ -1622,12 +1659,47 @@ export function mountRouteSearch({
     ["first", "last"].includes(input.timeMode)
       ? timeModeLabel(input.timeMode)
       : `${input.time} ${timeModeLabel(input.timeMode)}`;
+  // "Today", "Tomorrow" or a short date such as 10月24日(土).
+  const dayLabel = (date) => {
+    const today = tokyoNow().date;
+    if (date === today) return ui("route_search_ui_063");
+    if (date === shiftServiceDate(today, 1)) return ui("search_tomorrow");
+    try {
+      return new Intl.DateTimeFormat(currentLocale() === "en" ? "en-GB" : "ja-JP", {
+        timeZone: "Asia/Tokyo",
+        month: currentLocale() === "en" ? "short" : "numeric",
+        day: "numeric",
+        weekday: "short",
+      }).format(new Date(`${date}T12:00:00+09:00`));
+    } catch {
+      return date;
+    }
+  };
   const dateChanged = () => {
     const serviceBoundary = ["first", "last"].includes(
       form.elements.timeMode.value,
     );
     form.elements.time.disabled = serviceBoundary;
-    form.elements.time.closest("label").hidden = serviceBoundary;
+    for (const block of dateSheet.querySelectorAll("[data-time-block]"))
+      block.hidden = serviceBoundary;
+    for (const button of dateSheet.querySelectorAll("[data-time-mode]"))
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.timeMode === form.elements.timeMode.value),
+      );
+    const today = tokyoNow().date;
+    // One tap back to "leave now" whenever another time is set.
+    const nowButton = root.querySelector("[data-planner-now]");
+    if (nowButton)
+      nowButton.hidden =
+        form.elements.timeMode.value === "departure" &&
+        form.elements.date.value === today &&
+        Math.abs((minuteValue(form.elements.time.value) ?? 0) - tokyoNow().minute) <= 1;
+    for (const button of dateSheet.querySelectorAll("[data-date-offset]"))
+      button.setAttribute(
+        "aria-pressed",
+        String(shiftServiceDate(today, Number(button.dataset.dateOffset)) === form.elements.date.value),
+      );
     if (serviceBoundary && !form.elements.time.value)
       form.elements.time.value = tokyoNow().time;
     const ops = form.elements.operators.value.split(",");
@@ -1644,7 +1716,7 @@ export function mountRouteSearch({
     filter.querySelector("[data-kintetsu-condition]").hidden = !relevant;
     if (!relevant) form.elements.trainType.value = "all";
     root.querySelector("#planner-date-summary").textContent =
-      `${form.elements.date.value === tokyoNow().date ? ui("route_search_ui_063") : form.elements.date.value} ${searchClockLabel(captureInput())}`;
+      `${dayLabel(form.elements.date.value)} ${searchClockLabel(captureInput())}`;
     root.querySelector("#planner-condition-summary").textContent = ui(
       "route_search_ui_085",
       [

@@ -1660,3 +1660,140 @@
 .search-slot[aria-current="true"] .search-slot-copy small {
   color: var(--label-on-fill);
 }
+
+/* Date and time: one tap to "now", day chips, time type and quick steps. */
+.planner-date-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+.planner-date-line .planner-date-entry {
+  flex: 1;
+  margin: 0;
+}
+.planner-now {
+  flex: none;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-option);
+  background: var(--surface-place-entry);
+  color: var(--color-link);
+  font: inherit;
+  font-size: var(--type-secondary);
+  font-weight: 650;
+}
+.date-sheet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding-bottom: 6px;
+}
+.date-mode {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-small);
+  background: var(--fill-tertiary);
+}
+.date-mode button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  border-radius: var(--radius-compact);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--type-secondary);
+  font-weight: 600;
+}
+.date-mode button[aria-pressed="true"] {
+  background: var(--surface-segment-selected);
+  box-shadow: var(--shadow-toggle);
+}
+.date-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.date-chips button,
+.time-steps button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--fill-tertiary);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--type-secondary);
+  font-weight: 600;
+}
+.date-chips button[aria-pressed="true"] {
+  background: var(--color-accent-strong);
+  color: var(--color-on-accent);
+}
+.date-pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.date-sheet .date-pick input {
+  width: 100%;
+  min-height: 44px;
+}
+.time-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.time-big {
+  flex: 1;
+  min-width: 0;
+}
+.date-sheet .time-big input {
+  width: 100%;
+  min-height: 64px;
+  font-size: 2rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.time-now {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  flex: none;
+  min-width: 76px;
+  min-height: 64px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-row);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--surface-primary));
+  color: var(--color-link);
+  font: inherit;
+  font-size: var(--type-caption);
+  font-weight: 700;
+}
+.time-now svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.time-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.time-steps button {
+  padding: 0 4px;
+  font-variant-numeric: tabular-nums;
+}
+.date-sheet input {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
