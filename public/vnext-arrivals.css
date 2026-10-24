@@ -759,3 +759,18 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   font-size: var(--type-caption);
   font-weight: 700;
 }
+
+/* Today's service has ended at this stop. */
+.service-ended {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-row);
+  background: var(--fill-tertiary);
+  color: var(--text);
+  font-size: var(--type-caption);
+}
+.service-ended small {
+  color: var(--muted);
+}

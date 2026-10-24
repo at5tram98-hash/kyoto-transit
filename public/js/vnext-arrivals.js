@@ -1,5 +1,6 @@
 import { lineBadge, lineKind } from "./line-badge.js";
 import { withDirections, directionTagsHTML } from "./bus-direction-ui.js";
+import { stopEndNote } from "./service-end.js";
 import { ui, placeName, userFacingError } from "./locale.js";
 import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
 import { getStaticFeed } from "./fast-data.js";
@@ -363,7 +364,11 @@ export function mountArrivals({ network }) {
     ensureBusSchedule(rows);
     applyNotice(root.querySelector("#bus-stale"), projected, opts);
     updateArrivalRows(busRoot(), withDirections(presented, stopId), busRow);
-    if (!rows.length) updateHTML(busRoot(), ui("vnext_arrivals_036"));
+    if (!rows.length) {
+      const stop = network.stops.get(stopId),
+        ended = stop ? stopEndNote(stop, stop.type, tokyoNow(), () => busData && active() && renderBus(busData)) : { html: "" };
+      updateHTML(busRoot(), ended.html || ui("vnext_arrivals_036"));
+    }
     setStatus("bus-update-status", projected);
     state.busLive = {
       ...projected,

@@ -18,6 +18,7 @@ import { navigation } from "./navigation.js";
 import { updateArrivalRows, updateHTML } from "./view-rendering.js";
 import { lineBadge, lineKind } from "./line-badge.js";
 import { withDirections, polesFor } from "./bus-direction-ui.js";
+import { stopEndNote } from "./service-end.js";
 
 // Kyoto Bus stops that 京都バスナビ resolves, and the onward stop that
 // selects each served direction (route 40 and the 臨時 line).
@@ -193,6 +194,12 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
   }
   // The stop's poles by direction: which routes leave which way, and the
   // stand letters the live data shows for them.
+  // After the day's last bus (by the timetable): say service has ended.
+  function endedHTML() {
+    return stopEndNote(stop, stop.type, tokyoNow(), () => {
+      if (shown && !disposed) render();
+    }).html;
+  }
   function polesHTML() {
     const poles = polesFor(stop.id, normalizedBusSources(data ?? {}));
     if (poles.length < 2) return "";
@@ -258,7 +265,7 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
               `<button type="button" class="${route === String(r) ? "active" : ""}" data-preview-route="${esc(r)}" aria-pressed="${route === String(r)}">${esc(r)}</button>`,
           )
           .join(""),
-        `${polesHTML()}${rows || `${navHTML()}${scheduleHTML({ updating, failed })}`}`,
+        `${endedHTML()}${polesHTML()}${rows || `${navHTML()}${scheduleHTML({ updating, failed })}`}`,
         updating && rows ? ui("bus_stop_preview_005") : "",
         data && !fresh ? ui("bus_stop_preview_006") : "",
         failed && city ? ui("bus_stop_preview_007") : "",

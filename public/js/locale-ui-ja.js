@@ -1542,4 +1542,8 @@ export default {
   place_meta: "徒歩で行ける駅・停留所から探します",
   place_here_unavailable: "現在地を取得できません。位置情報を確認するか、駅・停留所を選んでください。",
   place_home_unavailable: "自宅が設定されていません。ATSの設定から自宅を登録してください。",
+  service_ended: "本日の運行は終了しました",
+  service_first: "始発 {0}",
+  bus_side_kou: "甲 · 西方面",
+  bus_side_otsu: "乙 · 東方面",
 };

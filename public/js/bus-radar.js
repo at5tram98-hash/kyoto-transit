@@ -4,7 +4,7 @@
 // its route and the next one, and moves on at the average bus pace.
 import { lineKind } from "./line-badge.js";
 import { isFresh } from "./realtime.js";
-import { loopRotation } from "./bus-direction.js";
+import { loopRotation, lineSide } from "./bus-direction.js";
 
 export const RADAR_RADIUS = 500;
 export const RADAR_MAX_STOPS = 8;
@@ -112,7 +112,10 @@ export function radarBuses({ stop, data, network, geo, now = Date.now(), previou
     asOf = typeof data.asOf === "number" ? data.asOf : Date.parse(data.asOf);
   const out = [];
   for (const row of data.results ?? []) {
-    const away = Number(row?.stopsAway);
+    // Only a reported stop count places a bus. A row with none (接近なし,
+    // or after the day's last bus) must not read as 0, i.e. "at the stop".
+    if (typeof row?.stopsAway !== "number") continue;
+    const away = row.stopsAway;
     if (row?.source !== "live" || !Number.isInteger(away) || away < 0 || away > RADAR_MAX_STOPS)
       continue;
     const match = serviceFor(row, stop.id, network, located);
@@ -158,6 +161,7 @@ export function radarBuses({ stop, data, network, geo, now = Date.now(), previou
           : null,
       kind: lineKind({ operator: "citybus", route: row.route }),
       rotation: loopRotation(match.service, located),
+      side: lineSide(match.service, located),
     });
   }
   // A bus still reported at the same stop keeps going from where it was
