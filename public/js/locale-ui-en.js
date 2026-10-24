@@ -1433,7 +1433,7 @@ export default {
   radar_at_stop: "here",
   radar_stops_away: "{0} away",
   radar_bus_label: "Route {0} to {1} · {2}",
-  radar_caption: "{1} buses approaching {0} (official approach data)",
+  radar_caption: "{1} buses approaching {0} (positions estimated from official approach data)",
   radar_none: "No buses approaching {0} (official approach data)",
   radar_loading: "Loading approach data for {0}",
 };

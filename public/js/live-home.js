@@ -573,7 +573,7 @@ export function mountLiveHome(host, search) {
         stopId: row.id,
         stopName: row.stop.name,
         loaded: Boolean(data),
-        buses: radarBuses({ stop: row.stop, data, network: state.network, geo: state.geo }),
+        buses: radarBuses({ stop: row.stop, data, network: state.network, geo: state.geo, previous: radar?.stopId === row.id ? radar.buses : [] }),
       };
       // Redraw only when what the map shows has changed.
       if (JSON.stringify(next) === JSON.stringify(radar)) return;
