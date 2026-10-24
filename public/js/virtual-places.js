@@ -57,6 +57,7 @@ export function setVirtualPlace(network, id, point, geoStops) {
     type: "place",
     virtual: true,
     lines: [],
+    aliases: [],
     lat: point.lat,
     lng: point.lng,
   };
