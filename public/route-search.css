@@ -1639,3 +1639,16 @@
   stroke: currentColor;
   stroke-width: 2;
 }
+/* Desktop: the tab bar is a sidebar, so the search tabs float at the bottom
+   of the content column instead. */
+@media (min-width: 1024px) and (pointer: fine) {
+  .navigation-app[data-active-tab="search"] .search-slots {
+    --d2-gutter: max(24px, calc((100vw - var(--d2-rail-width, 248px) - 760px) / 2));
+    left: calc(var(--d2-rail-width, 248px) + var(--d2-gutter));
+    right: var(--d2-gutter);
+    bottom: 16px;
+  }
+  .navigation-app[data-active-tab="search"] :is(.navigation-screen, .view) {
+    padding-bottom: 96px;
+  }
+}
