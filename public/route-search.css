@@ -1534,7 +1534,7 @@
   text-align: left;
   transition: background-color 0.2s;
 }
-.search-slot[aria-selected="true"] {
+.search-slot[aria-current="true"] {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   padding-right: 38px;
 }
@@ -1550,7 +1550,7 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.search-slot[aria-selected="true"] .search-slot-index {
+.search-slot[aria-current="true"] .search-slot-index {
   background: var(--color-accent);
 }
 .search-slot[data-state="running"] .search-slot-index {
@@ -1567,8 +1567,8 @@
   white-space: nowrap;
   font-size: var(--type-caption);
 }
-.search-slot[aria-selected="true"] .search-slot-copy b {
-  color: var(--color-accent);
+.search-slot[aria-current="true"] .search-slot-copy b {
+  color: var(--blue);
 }
 .search-slot-copy small {
   overflow: hidden;
@@ -1651,4 +1651,12 @@
   .navigation-app[data-active-tab="search"] :is(.navigation-screen, .view) {
     padding-bottom: 96px;
   }
+}
+
+.planner-date-entry small,
+.planner-conditions small {
+  color: var(--label-on-fill);
+}
+.search-slot[aria-current="true"] .search-slot-copy small {
+  color: var(--label-on-fill);
 }

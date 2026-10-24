@@ -53,7 +53,7 @@ function mountWheel(wheel, count, onChange) {
       const first = index < 0;
       index = next;
       rows.forEach((row, i) => row.setAttribute("aria-selected", String(i === index)));
-      wheel.setAttribute("aria-activedescendant", rows[index]?.id ?? "");
+      track.setAttribute("aria-activedescendant", rows[index]?.id ?? "");
       if (!first) haptic();
       onChange(index);
     }
@@ -67,7 +67,7 @@ function mountWheel(wheel, count, onChange) {
     const row = event.target.closest("[data-wheel-index]");
     if (row) select(Number(row.dataset.wheelIndex));
   });
-  wheel.addEventListener("keydown", (event) => {
+  track.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown") select(index + 1);
     else if (event.key === "ArrowUp") select(index - 1);
     else return;
@@ -125,7 +125,7 @@ async function renderStop(stopId) {
     return;
   }
   confirm.disabled = false;
-  holder.innerHTML = `<div class="wheel-picker" role="listbox" tabindex="0" aria-label="${esc(ui("checkin_route"))}"><div class="wheel-track">${session.choices
+  holder.innerHTML = `<div class="wheel-picker"><div class="wheel-track" role="listbox" tabindex="0" aria-label="${esc(ui("checkin_route"))}">${session.choices
     .map(
       (choice, i) =>
         `<div class="wheel-row" role="option" id="checkin-option-${i}" data-wheel-index="${i}" aria-selected="false">${lineBadge(choice.ride, { size: "small" })}<span>${esc(choiceLabel(choice))}</span></div>`,

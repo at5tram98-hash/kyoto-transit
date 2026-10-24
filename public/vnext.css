@@ -49,12 +49,12 @@
   --color-link: #0064d8;
   --color-subway: #467b21;
   --color-kintetsu: #c44727;
-  --color-citybus: #ae5600;
+  --color-citybus: #9a4c00;
   --color-kyotobus: #1964b6;
   --color-through: #7751a8;
   /* Route plates: city loop (循環) orange, other city routes blue, Kyoto
      Bus route colours, Karasuma green, Kintetsu red. White text on each. */
-  --line-citybus-loop: #c95a00;
+  --line-citybus-loop: #b85000;
   --line-citybus: #0b5cb5;
   --line-kyotobus: #c6492a;
   --line-kyotobus-express: #c4231d;
@@ -69,8 +69,12 @@
   --color-warning: #a35b00;
   --color-danger: #c63032;
   --color-on-accent: #fff;
+  /* Accent fill that keeps white text at 4.5:1 or better. */
+  --color-accent-strong: #0062cc;
+  /* Secondary text that stays legible on grey fills. */
+  --label-on-fill: #5c5c61;
   --color-search-action: #e66e00;
-  --color-place-label: #13833f;
+  --color-place-label: #0f6e34;
   --surface-place-entry: #ececee;
   --surface-station-row: #f3f3f5;
   --color-rank-early: #bd5600;
@@ -167,6 +171,7 @@
     --muted: #98989d;
     --separator: rgba(174, 174, 180, 0.3);
     --color-link: #69b1ff;
+    --label-on-fill: #aeaeb2;
     --color-on-transport: #111114;
     --color-destination: var(--text);
     --surface-destination: var(--surface-secondary);
@@ -175,11 +180,11 @@
     --color-citybus: #ffb464;
     --color-kyotobus: #82bbff;
     --color-through: #c2a2f0;
-    --line-citybus-loop: #d96a0c;
+    --line-citybus-loop: #b85000;
     --line-citybus: #1a6fcf;
     --line-kyotobus: #d2573a;
     --line-kyotobus-express: #d23a2f;
-    --line-kyotobus-temp: #1a8a5f;
+    --line-kyotobus-temp: #127a52;
     --line-subway: #1c9a55;
     --line-kintetsu: #d8283f;
     --line-through: #7c5bb3;

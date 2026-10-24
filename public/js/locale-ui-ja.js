@@ -1078,7 +1078,7 @@ export default {
   vnext_view_108:
     '<section class="section-block ride-choice-block"><div class="section-heading"><div><span class="section-label">乗車中の便</span><h3>{0}</h3></div></div><div class="ride-choice-list">{1}</div></section>',
   vnext_view_109:
-    '<section class="section-block nearby-guide"><div class="section-heading"><h3>付近の交通</h3><span class="source-caption">距離順</span></div>{0}</section>',
+    '<section class="section-block nearby-guide"><div class="section-heading"><h2>付近の交通</h2><span class="source-caption">距離順</span></div>{0}</section>',
   route_search_ui_087:
     '<details id="search-history-disclosure" class="search-history" {0}><summary tabindex="0">履歴・よく使う行き先</summary>{1}</details>',
   now_components_094:

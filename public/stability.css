@@ -35,7 +35,7 @@ select {
 .view > * {
   max-width: 100%;
 }
-.section-heading h3,
+.section-heading :is(h2, h3),
 .service-title h2,
 .board-place {
   overflow-wrap: anywhere;
@@ -125,7 +125,7 @@ select {
   .section-heading {
     gap: 9px;
   }
-  .section-heading h3 {
+  .section-heading :is(h2, h3) {
     font-size: 1.25rem;
   }
   .service-title {

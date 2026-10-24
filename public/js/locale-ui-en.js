@@ -1088,7 +1088,7 @@ export default {
   vnext_view_108:
     '<section class="section-block ride-choice-block"><div class="section-heading"><div><span class="section-label">Current service</span><h3>{0}</h3></div></div><div class="ride-choice-list">{1}</div></section>',
   vnext_view_109:
-    '<section class="section-block nearby-guide"><div class="section-heading"><h3>Nearby transit</h3><span class="source-caption">By distance</span></div>{0}</section>',
+    '<section class="section-block nearby-guide"><div class="section-heading"><h2>Nearby transit</h2><span class="source-caption">By distance</span></div>{0}</section>',
   route_search_ui_087:
     '<details id="search-history-disclosure" class="search-history" {0}><summary tabindex="0">Recent・Favorite destinations</summary>{1}</details>',
   now_components_094:

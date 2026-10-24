@@ -1397,7 +1397,7 @@ export function mountRouteSearch({
       .map((slot, i) => {
         const [state, label] = slotState(slot),
           selected = slot === active;
-        return `<div class="search-slot-wrap"><button type="button" role="tab" class="search-slot" data-search-slot="${slot.id}" aria-selected="${selected}" data-state="${state}" aria-label="${esc(`${ui("search_slot_number", [i + 1])} ${slotTitle(slot)} ${label}`)}"><span class="search-slot-index" aria-hidden="true">${state === "running" ? '<i class="search-slot-spinner"></i>' : i + 1}</span><span class="search-slot-copy" aria-hidden="true"><b>${esc(slotTitle(slot))}</b><small>${esc(label)}</small></span></button>${selected && slots.length > 1 ? `<button type="button" class="search-slot-close" data-search-slot-close="${slot.id}" aria-label="${esc(ui("search_slot_close", [i + 1]))}"><span aria-hidden="true">×</span></button>` : ""}</div>`;
+        return `<div class="search-slot-wrap"><button type="button" class="search-slot" data-search-slot="${slot.id}" aria-current="${selected}" data-state="${state}" aria-label="${esc(`${ui("search_slot_number", [i + 1])} ${slotTitle(slot)} ${label}`)}"><span class="search-slot-index" aria-hidden="true">${state === "running" ? '<i class="search-slot-spinner"></i>' : i + 1}</span><span class="search-slot-copy" aria-hidden="true"><b>${esc(slotTitle(slot))}</b><small>${esc(label)}</small></span></button>${selected && slots.length > 1 ? `<button type="button" class="search-slot-close" data-search-slot-close="${slot.id}" aria-label="${esc(ui("search_slot_close", [i + 1]))}"><span aria-hidden="true">×</span></button>` : ""}</div>`;
       })
       .join("");
     const add =
@@ -1406,11 +1406,11 @@ export function mountRouteSearch({
         : "";
     updateHTML(
       slotStrip,
-      `<div class="search-slot-tabs" role="tablist">${tabs}${add}</div>`,
+      `<div class="search-slot-tabs" role="group" aria-label="${esc(ui("search_slot_tabs"))}">${tabs}${add}</div>`,
     );
     // Keep the selected tab in view within the strip (never scroll the page).
     const strip = slotStrip.querySelector(".search-slot-tabs"),
-      selected = strip?.querySelector('[aria-selected="true"]')?.parentElement;
+      selected = strip?.querySelector('[aria-current="true"]')?.parentElement;
     if (strip && selected) {
       const left = selected.offsetLeft - strip.offsetLeft,
         right = left + selected.offsetWidth;
@@ -1481,7 +1481,7 @@ export function mountRouteSearch({
       persistSlots();
       renderSlots();
       showSlot(activeSlot());
-      slotStrip.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
+      slotStrip.querySelector('[aria-current="true"]')?.focus({ preventScroll: true });
     }
   });
   form.addEventListener("input", () => renderSlots());

@@ -72,7 +72,7 @@
   box-shadow: none;
   padding: 14px;
 }
-.nearby-guide .section-heading h3 {
+.nearby-guide .section-heading :is(h2, h3) {
   font-size: 0.9375rem;
 }
 .nearby-row {
