@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { isFresh } from "./realtime.js";
 import { journeyClock, stopTime, reverseDirection } from "./journey-core.js";
 import { normalize } from "./network.js";
@@ -248,7 +249,7 @@ export function readJourney(storage, { now, at = Date.now(), network } = {}) {
       rideSource:
         typeof value.source === "string"
           ? value.source.slice(0, 180)
-          : "保存した乗車案内",
+          : ui("ride_source_saved"),
       rideConfidence: 0,
       rideRechecking: value.rechecking === true,
       rideStartedAt: value.startedAt,

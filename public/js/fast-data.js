@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { CAPTURE_API } from "./live.js";
 import { tokyoNow } from "./vnext-state.js";
 
@@ -119,7 +120,7 @@ export function readOperationsCache(maxAge = 10 * 60 * 1000) {
 export function renderCachedOperations(root) {
   const data = readOperationsCache();
   if (!root || !data?.lines?.length) return false;
-  root.innerHTML = `<div class="operations-head"><span>直前に取得した運行情報</span><span class="source-caption">更新中</span></div><div class="native-list">${data.lines
+  root.innerHTML = `<div class="operations-head"><span>${esc(ui("operations_cached"))}</span><span class="source-caption">${esc(ui("operations_updating"))}</span></div><div class="native-list">${data.lines
     .map(
       (line) =>
         `<button class="native-row" data-operation-id="${esc(line.id)}"><span><b>${esc(line.name)}</b><small>${esc(line.summary)}</small></span><span class="chevron">›</span></button>`,

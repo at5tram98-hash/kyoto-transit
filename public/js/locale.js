@@ -14,6 +14,7 @@ let activeLocale = (() => {
     return "ja";
   }
 })();
+export const currentLocale = () => activeLocale;
 export function setAppLocale(value) {
   activeLocale = value === "en" ? "en" : "ja";
   if (typeof document !== "undefined") {

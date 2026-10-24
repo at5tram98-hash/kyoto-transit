@@ -1,4 +1,4 @@
-import { ui, displayStopName, serviceDateLabel, userFacingError, userError } from "./locale.js";
+import { ui, displayStopName, serviceDateLabel, userFacingError, userError, currentLocale } from "./locale.js";
 import { downloadRouteImage } from "./route-image.js";
 import { esc, icon } from "./vnext-state.js";
 import {
@@ -196,6 +196,7 @@ async function planInWorker(base, feeds, request, passes, signal, extra = {}) {
       request,
       passes,
       nowEpoch: Date.now(),
+      locale: currentLocale(),
       ...extra,
     },
     id = ++plannerSequence;
@@ -227,7 +228,9 @@ async function planInWorker(base, feeds, request, passes, signal, extra = {}) {
       } else
         finish(
           reject,
-          Object.assign(Error(data.error ?? "planner"), { fallback: ui("route_search_ui_004") }),
+          data.userFacing
+            ? userFacingError(data.error)
+            : Object.assign(Error(data.error ?? "planner"), { fallback: ui("route_search_ui_004") }),
         );
     };
     worker.onerror = (event) => {
