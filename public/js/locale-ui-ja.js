@@ -1367,7 +1367,7 @@ export default {
   error_timeout: "応答に時間がかかっています。もう一度お試しください。",
   error_offline: "インターネットに接続できません。通信状態を確認してください。",
   error_busy: "アクセスが集中しています。少し待ってからもう一度お試しください。",
-  error_server: "公式データの提供元で問題が発生しています。時間をおいてもう一度お試しください。",
+  error_server: "公式データを取得できませんでした。提供元で問題が発生しています。時間をおいてもう一度お試しください。",
   operations_unavailable: "運行情報を取得できませんでした。",
   recovery_no_operators: "利用できる交通機関がありません。回避する路線か検索条件を変更してください。",
   route_search_data_missing: "<p class=\"planner-warning\">時刻データを取得できなかったため、経路を検索できませんでした（{0}）。通信状態を確認して、もう一度お試しください。</p><button type=\"button\" class=\"secondary-action\" data-retry-search>もう一度検索</button>",

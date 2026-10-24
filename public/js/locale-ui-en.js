@@ -1380,7 +1380,7 @@ export default {
   error_timeout: "The service is taking too long to respond. Please try again.",
   error_offline: "You're offline. Check your connection.",
   error_busy: "The service is busy. Please wait a moment and try again.",
-  error_server: "The official data source is having a problem. Please try again later.",
+  error_server: "Couldn't load the official data. The source is having a problem. Please try again later.",
   operations_unavailable: "Couldn't load service status.",
   recovery_no_operators: "No transit operators are left. Change the lines to avoid or the search conditions.",
   route_search_data_missing: "<p class=\"planner-warning\">Couldn't search because timetables could not be loaded ({0}). Check your connection and try again.</p><button type=\"button\" class=\"secondary-action\" data-retry-search>Search again</button>",
