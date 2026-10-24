@@ -207,19 +207,37 @@ function mapDrawing(map, view) {
       return `<g data-map-stop="${esc(s.id)}" data-operator="${esc(s.operator ?? "")}"${map.nearby ? ui("route_map_001", [esc(s.name)]) : ""}>${map.nearby ? `<circle cx="${x}" cy="${y}" r="26" fill="transparent"/>` : ""}<circle cx="${x}" cy="${y}" r="4" class="map-stop"/><text ${label ? "" : "hidden"} x="${Math.max(5, Math.min(WIDTH - 5, x))}" y="${Math.max(16, Math.min((view.height ?? HEIGHT) - 8, y - 10))}" text-anchor="${x < 80 ? "start" : x > WIDTH - 80 ? "end" : "middle"}">${esc(s.name.replace(/（[^）]+）/g, "").replace(ui("route_map_002"), "BT"))}</text></g>`;
     })
     .join("");
-  // RTM: each approaching bus as a route plate at its reported stop. Buses
-  // reported at the same stop are stacked so every plate stays readable.
-  const stacked = new Map();
+  // RTM: each approaching bus as a route plate at its reported stop. Plates
+  // are placed greedily so none overlaps another (busy terminals such as
+  // Kyoto Station report many buses at once); a stem joins plate and stop.
+  const placed = [];
+  const overlaps = (box) =>
+    placed.some(
+      (p) => box.x < p.x + p.w + 2 && p.x < box.x + box.w + 2 && box.y < p.y + p.h + 2 && p.y < box.y + box.h + 2,
+    );
   const buses = (map.buses ?? [])
     .map((b) => {
       const [x, y] = xy([b.lng, b.lat]),
-        slot = stacked.get(`${Math.round(x)}:${Math.round(y)}`) ?? 0;
-      stacked.set(`${Math.round(x)}:${Math.round(y)}`, slot + 1);
-      const by = y - 16 - slot * 24,
         label = String(b.route),
+        away = b.stopsAway === 0 ? ui("radar_at_stop") : ui("radar_stops_away", [b.stopsAway]),
         w = Math.max(30, 12 + label.length * 9),
-        away = b.stopsAway === 0 ? ui("radar_at_stop") : ui("radar_stops_away", [b.stopsAway]);
-      return `<g class="map-bus${b.stopsAway <= 1 ? " imminent" : ""}" data-line="${esc(b.kind)}" role="img" aria-label="${esc(ui("radar_bus_label", [label, b.dest, away]))}"><circle class="map-bus-anchor" cx="${x}" cy="${y}" r="5"/><line class="map-bus-stem" x1="${x}" y1="${y}" x2="${x}" y2="${by + 9}"/><rect class="map-bus-plate" x="${x - w / 2}" y="${by - 9}" width="${w}" height="18" rx="5"/><text class="map-bus-route" x="${x}" y="${by + 4}" text-anchor="middle">${esc(label)}</text><text class="map-bus-away" x="${x + w / 2 + 3}" y="${by + 4}">${esc(away)}</text></g>`;
+        total = w + 4 + away.length * (/[\u3040-\u9fff]/.test(away) ? 10 : 6),
+        offsets = [0, 1, 2, 3, 4, 5].flatMap((row) =>
+          [0, 1, -1].map((col) => [col * (total + 4), -16 - row * 22]),
+        );
+      let box = null;
+      for (const [dx, dy] of offsets) {
+        const candidate = { x: x + dx - w / 2, y: y + dy - 9, w: total, h: 18 };
+        if (!overlaps(candidate)) {
+          box = candidate;
+          break;
+        }
+      }
+      if (!box) return "";
+      placed.push(box);
+      const cx = box.x + w / 2,
+        by = box.y + 9;
+      return `<g class="map-bus${b.stopsAway <= 1 ? " imminent" : ""}" data-line="${esc(b.kind)}" role="img" aria-label="${esc(ui("radar_bus_label", [label, b.dest, away]))}"><line class="map-bus-stem" x1="${x}" y1="${y}" x2="${cx}" y2="${by + 9}"/><circle class="map-bus-anchor" cx="${x}" cy="${y}" r="5"/><rect class="map-bus-plate" x="${box.x}" y="${box.y}" width="${w}" height="18" rx="5"/><text class="map-bus-route" x="${cx}" y="${by + 4}" text-anchor="middle">${esc(label)}</text><text class="map-bus-away" x="${box.x + w + 3}" y="${by + 4}">${esc(away)}</text></g>`;
     })
     .join("");
   const radarRing = (() => {
