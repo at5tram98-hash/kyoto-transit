@@ -18,6 +18,9 @@ const placeMatches = (stop, q) => {
 // form; cancellation retains the original input and never creates a new store.
 export function mountStopAutocomplete({ container, list, network, onSelect }) {
   let active = null,
+    // Whether the rider has typed since the picker opened: until then the
+    // field's current value is not a query that should hide the places.
+    typed = false,
     rows = [],
     index = -1;
   const dialog = document.createElement("dialog");
@@ -69,7 +72,7 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
       pairs[key]
         .flatMap((p) => [p.toId, p.fromId])
         .map((id) => network.stops.get(id))
-        .filter((stop) => stop && (!q || placeMatches(stop, q)));
+        .filter((stop) => stop && !stop.virtual);
     const candidates = stopSuggestions(network, q);
     const matches = (stop) => !q || stop.virtual || candidates.some((s) => s.id === stop.id);
     const seen = new Set();
@@ -79,7 +82,7 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     refreshVirtualPlaces(network, { fix: state.fix, geo: state.geo, home: readHome() });
     const places = [HERE_ID, HOME_ID]
       .map((id) => network.stops.get(id))
-      .filter(Boolean);
+      .filter((stop) => stop && (!q || !typed || placeMatches(stop, q)));
     const groups = [
       [ui("place_group"), places],
       [ui("stop_autocomplete_004"), pairStops("history")],
@@ -162,7 +165,9 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     editor.setAttribute("aria-expanded", "true");
     editor.removeAttribute("aria-activedescendant");
   }
-  function show(input) {
+  function show(input, { typing = false } = {}) {
+    if (input !== active || !dialog.open) typed = false;
+    if (typing) typed = true;
     active = input;
     editor.value = input.value;
     if (!dialog.open) dialog.showModal();
@@ -186,13 +191,14 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
   container.addEventListener("input", (e) => {
     if (e.target.matches("[data-stop-input]") && !e.isComposing) {
       onSelect(e.target, null);
-      show(e.target);
+      show(e.target, { typing: true });
     }
   });
   container.addEventListener("compositionend", (e) => {
-    if (e.target.matches("[data-stop-input]")) show(e.target);
+    if (e.target.matches("[data-stop-input]")) show(e.target, { typing: true });
   });
   const draftChanged = () => {
+    typed = true;
     if (active) {
       active.value = editor.value;
       onSelect(active, null);
