@@ -104,6 +104,15 @@ export function getOperations() {
   return operationsJob;
 }
 
+export function saveOperationsCache(data) {
+  try {
+    localStorage.setItem(
+      OPERATIONS_CACHE_KEY,
+      JSON.stringify({ savedAt: Date.now(), data }),
+    );
+  } catch {}
+}
+
 export function readOperationsCache(maxAge = 10 * 60 * 1000) {
   try {
     const value = JSON.parse(

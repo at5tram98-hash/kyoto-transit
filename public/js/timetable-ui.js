@@ -1,3 +1,4 @@
+import { readOperationsCache, saveOperationsCache } from "./fast-data.js";
 import { icon } from "./icons.js";
 import { lineBadge } from "./line-badge.js";
 import { ui, placeName, userFacingError, userError } from "./locale.js";
@@ -674,7 +675,13 @@ export function mountOperations({
         : ui("timetable_ui_064"),
     ]);
   }
-  root.innerHTML = ui("timetable_ui_065");
+  // Show the last status at once (up to six hours old, with its time) while
+  // the latest is fetched, instead of a blank loading screen.
+  const cachedOperations = readOperationsCache(6 * 3600_000);
+  if (cachedOperations?.lines?.length) {
+    latest = cachedOperations;
+    queueMicrotask(() => renderOverview());
+  } else root.innerHTML = ui("timetable_ui_065");
   async function refresh(force = false) {
     if (pending) return pending;
     if (!force && latest && Date.now() - last < 60000) return;
@@ -684,6 +691,7 @@ export function mountOperations({
         const d = await officialData("/operations");
         last = Date.now();
         latest = d;
+        saveOperationsCache(d);
         renderOverview();
       } catch (e) {
         if (!latest) root.innerHTML = ui("timetable_ui_066", [esc(userError(e, "operations_unavailable"))]);
