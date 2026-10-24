@@ -26,6 +26,8 @@ import { north3Day } from "./north3-feed.js";
 import { popoverMenu, withProgress, actionSheet } from "./ios-ui.js";
 import { RUN_MODES, runMode, setRunMode, modeAllowsPip } from "./run-mode.js";
 import { pipSupported, pipActive, togglePip, preparePip } from "./pip.js";
+import { radarStop, radarBuses } from "./bus-radar.js";
+import { fetchRealtime } from "./realtime.js";
 
 // Live owns its screen, not a copy of the journey planner form or input store.
 export function mountLiveHome(host, search) {
@@ -535,6 +537,67 @@ export function mountLiveHome(host, search) {
     )
       timer = setInterval(tick, 1000);
   }
+  // RTM: poll the approach data of the nearest city bus stop (within 500 m)
+  // while the Now map is on screen, and place the approaching buses on it.
+  let radar = null,
+    radarBusy = false,
+    radarTimer = 0;
+  const mapVisible = () =>
+    !document.hidden &&
+    navigation.tab === "now" &&
+    (navigation.route.type === "root" ||
+      (navigation.route.type === "map" && navigation.route.params.nearby));
+  async function refreshRadar() {
+    if (radarBusy || !mapVisible() || state.locationStatus !== "active") return;
+    const row = radarStop(nearest().all);
+    if (!row) {
+      if (radar) {
+        radar = null;
+        render();
+      }
+      return;
+    }
+    const name = row.stop.fullName ?? row.stop.name;
+    radarBusy = true;
+    try {
+      const shared =
+        state.busLive?.stop === name && Date.now() - state.busLiveAt <= 20000
+          ? state.busLive
+          : null;
+      const data =
+        shared ??
+        (await fetchRealtime(`citybus:${name}`, "/api/citybus/arrivals", { stop: name }, { timeout: 8000 }).catch(
+          () => null,
+        ));
+      radar = {
+        stopId: row.id,
+        stopName: row.stop.name,
+        loaded: Boolean(data),
+        buses: radarBuses({ stop: row.stop, data, network: state.network, geo: state.geo }),
+      };
+    } finally {
+      radarBusy = false;
+    }
+    render();
+    if (navigation.route.type === "map") navigation.refresh();
+  }
+  function scheduleRadar() {
+    clearInterval(radarTimer);
+    radarTimer = setInterval(refreshRadar, runMode() === "lowpower" ? 60000 : 20000);
+  }
+  scheduleRadar();
+  document.addEventListener("mymap-run-mode", scheduleRadar);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void refreshRadar();
+  });
+  const radarCaption = () =>
+    !radar
+      ? ""
+      : radar.buses.length
+        ? ui("radar_caption", [radar.stopName, radar.buses.length])
+        : radar.loaded
+          ? ui("radar_none", [radar.stopName])
+          : "";
   function render() {
     const fullNearbyMap =
       navigation.route.type === "map" && navigation.route.params.nearby;
@@ -564,6 +627,7 @@ export function mountLiveHome(host, search) {
         near,
         active ? fix : null,
         state.network,
+        active ? radar : null,
       );
       return;
     }
@@ -616,6 +680,7 @@ export function mountLiveHome(host, search) {
       near,
       active ? state.fix : null,
       state.network,
+      active ? radar : null,
     );
     const mapHost = host.querySelector(".live-map-host");
     if (map) {
@@ -638,6 +703,22 @@ export function mountLiveHome(host, search) {
       );
     const caption = mapHost.querySelector(".route-map > p");
     if (caption) caption.dataset.liveMapCaption = "";
+    // RTM status under the map, and a first fetch when the nearest stop changes.
+    const radarRow = active ? radarStop(near.all) : null;
+    if (radarRow && radarRow.id !== radar?.stopId && !radarBusy) void refreshRadar();
+    let radarNote = mapHost.querySelector("[data-radar-caption]");
+    const radarText = active ? radarCaption() : "";
+    if (!radarNote && radarText) {
+      radarNote = document.createElement("p");
+      radarNote.className = "radar-caption";
+      radarNote.dataset.radarCaption = "";
+      radarNote.setAttribute("role", "status");
+      mapHost.append(radarNote);
+    }
+    if (radarNote) {
+      radarNote.hidden = !radarText;
+      if (radarNote.textContent !== radarText) radarNote.textContent = radarText;
+    }
     if (!refreshing && !navigator.onLine)
       host.querySelector("[data-live-update]").textContent = text("offline");
     syncClock();

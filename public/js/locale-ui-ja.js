@@ -1417,4 +1417,10 @@ export default {
   rail_time_unconfirmed: "時刻未確定",
   ride_source_saved: "保存した乗車案内",
   search_tomorrow: "明日",
+  radar_at_stop: "到着",
+  radar_stops_away: "{0}停前",
+  radar_bus_label: "{0}系統 {1} · {2}",
+  radar_caption: "{0}に接近中のバス {1}台（公式接近情報）",
+  radar_none: "{0}に接近中のバスはいません（公式接近情報）",
+  radar_loading: "{0}の接近情報を取得中",
 };

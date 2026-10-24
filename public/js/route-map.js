@@ -131,7 +131,7 @@ export function mapViewport(points, height = HEIGHT) {
   return { center, zoom, height };
 }
 // Actual catalog positions and line geometry; a default region is never a GPS fix.
-export function nearbyMapModel(geo, near, fix, network) {
+export function nearbyMapModel(geo, near, fix, network, radar = null) {
   if (!geo?.stops?.length) return null;
   const origin = fix ?? { lat: 35.01651, lng: 135.75949 };
   const rows = (
@@ -158,6 +158,9 @@ export function nearbyMapModel(geo, near, fix, network) {
       [center[0] + 0.006, center[1] + 0.0035],
     ],
     stops,
+    // Live buses approaching the nearest stop (RTM), and that stop.
+    buses: radar?.buses ?? [],
+    radarStopId: radar?.stopId ?? null,
     position: fix
       ? { lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy }
       : null,
@@ -204,6 +207,27 @@ function mapDrawing(map, view) {
       return `<g data-map-stop="${esc(s.id)}" data-operator="${esc(s.operator ?? "")}"${map.nearby ? ui("route_map_001", [esc(s.name)]) : ""}>${map.nearby ? `<circle cx="${x}" cy="${y}" r="26" fill="transparent"/>` : ""}<circle cx="${x}" cy="${y}" r="4" class="map-stop"/><text ${label ? "" : "hidden"} x="${Math.max(5, Math.min(WIDTH - 5, x))}" y="${Math.max(16, Math.min((view.height ?? HEIGHT) - 8, y - 10))}" text-anchor="${x < 80 ? "start" : x > WIDTH - 80 ? "end" : "middle"}">${esc(s.name.replace(/（[^）]+）/g, "").replace(ui("route_map_002"), "BT"))}</text></g>`;
     })
     .join("");
+  // RTM: each approaching bus as a route plate at its reported stop. Buses
+  // reported at the same stop are stacked so every plate stays readable.
+  const stacked = new Map();
+  const buses = (map.buses ?? [])
+    .map((b) => {
+      const [x, y] = xy([b.lng, b.lat]),
+        slot = stacked.get(`${Math.round(x)}:${Math.round(y)}`) ?? 0;
+      stacked.set(`${Math.round(x)}:${Math.round(y)}`, slot + 1);
+      const by = y - 16 - slot * 24,
+        label = String(b.route),
+        w = Math.max(30, 12 + label.length * 9),
+        away = b.stopsAway === 0 ? ui("radar_at_stop") : ui("radar_stops_away", [b.stopsAway]);
+      return `<g class="map-bus${b.stopsAway <= 1 ? " imminent" : ""}" data-line="${esc(b.kind)}" role="img" aria-label="${esc(ui("radar_bus_label", [label, b.dest, away]))}"><circle class="map-bus-anchor" cx="${x}" cy="${y}" r="5"/><line class="map-bus-stem" x1="${x}" y1="${y}" x2="${x}" y2="${by + 9}"/><rect class="map-bus-plate" x="${x - w / 2}" y="${by - 9}" width="${w}" height="18" rx="5"/><text class="map-bus-route" x="${x}" y="${by + 4}" text-anchor="middle">${esc(label)}</text><text class="map-bus-away" x="${x + w / 2 + 3}" y="${by + 4}">${esc(away)}</text></g>`;
+    })
+    .join("");
+  const radarRing = (() => {
+    const s = map.radarStopId && map.stops.find((x) => x.id === map.radarStopId);
+    if (!s) return "";
+    const [x, y] = xy([s.lng, s.lat]);
+    return `<circle class="map-radar-stop" cx="${x}" cy="${y}" r="9"/>`;
+  })();
   const accuracy =
     pos && map.position.accuracy > 0
       ? `<circle class="map-accuracy" cx="${pos[0]}" cy="${pos[1]}" r="${Math.min(2048, map.position.accuracy / ((156543.03392 * Math.cos((map.position.lat * Math.PI) / 180)) / factor))}"/>`
@@ -216,7 +240,7 @@ function mapDrawing(map, view) {
     .join("");
   return {
     tiles: tiles.join(""),
-    overlay: `${lines}${accuracy}${map.place ? "" : `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>`}${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}`,
+    overlay: `${lines}${accuracy}${map.place ? "" : `<polyline points="${map.points.map((p) => xy(p).join(",")).join(" ")}" class="map-path"/>`}${radarRing}${stops}${pos ? `<circle class="map-position" cx="${pos[0]}" cy="${pos[1]}" r="7"/>` : ""}${buses}`,
   };
 }
 const mapNote = (map) =>
