@@ -2,6 +2,7 @@ import {
   transitEvidenceEngine,
   shouldOfferRideConfirmation,
 } from "./transit-evidence.js";
+import { atsCardHTML } from "./ats-ui.js";
 import { groupNearbyPlaces } from "./transit-places.js";
 import { orderNearbyPlaces } from "./nearby-sort-b6.js";
 import { manualNearbyRows, manualReferenceOptions } from "./manual-nearby-b7.js";
@@ -549,7 +550,9 @@ export function renderNow() {
   const detectionStatus = `<p class="source-note detection-stage" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
   updateHTML(
     vehicle,
-    `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>${transferring ? "" : state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(placeName(state.armedJourney.ride.destination)), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    // ATS: one card for the situation, the detection state and the ways to
+    // start a ride by hand.
+    `${atsCardHTML(renderNow, `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>`)}${transferring ? "" : state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(placeName(state.armedJourney.ride.destination)), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;

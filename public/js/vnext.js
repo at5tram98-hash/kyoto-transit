@@ -1,6 +1,8 @@
 import { clearFalseRide, checkInRide } from "./vnext-detect.js";
 import { openCheckIn } from "./checkin-sheet.js";
-import { positionOptions, modeAllowsDetection, modeAllowsPip } from "./run-mode.js";
+import { positionOptions, modeAllowsPip } from "./run-mode.js";
+import { syncAtsDetection } from "./ats.js";
+import { openAtsSheet, homeRoute } from "./ats-ui.js";
 import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
@@ -303,6 +305,20 @@ function setupEvents() {
         haptic();
         renderNow();
       }
+    } else if (b.hasAttribute("data-ats-open")) {
+      openAtsSheet(renderNow);
+    } else if (b.dataset.atsArrivals) {
+      navigation.push("nearby", { stopId: b.dataset.atsArrivals });
+    } else if (b.hasAttribute("data-ats-choose")) {
+      openRideChooser();
+    } else if (b.hasAttribute("data-ats-checkin")) {
+      openCheckIn(checkInAndShow);
+    } else if (b.hasAttribute("data-ats-plan")) {
+      routeSearch?.open();
+    } else if (b.dataset.atsRoute !== undefined) {
+      const pair = homeRoute(Number(b.dataset.atsRoute)),
+        now = tokyoNow();
+      if (pair) routeSearch?.openInput({ ...pair, date: now.date, time: now.time, timeMode: "departure" });
     } else if (b.hasAttribute("data-choose-ride")) {
       openRideChooser();
     } else if (b.hasAttribute("data-checkin")) {
@@ -555,6 +571,7 @@ async function init() {
     renderSettings();
     setupSettings(renderNow, (input) => routeSearch.openInput(input));
     registerNowScreens({ arrivals, onFoldback: openFoldback });
+    syncAtsDetection();
     mountLiveHome($("#now-search"), routeSearch);
     initializeNavigation({ onTabChange: syncTab, validate: validNowScreen });
     syncPrimaryRootTitle();
@@ -626,12 +643,20 @@ async function init() {
     // A new mode restarts location with its accuracy and stops/starts
     // detection and Picture in Picture accordingly.
     document.addEventListener("mymap-run-mode", () => {
+      // The mode caps the ATS level; detection follows the level.
+      syncAtsDetection();
+      saveSettings();
       state.locationSession?.stop();
       if (!document.hidden) state.locationSession?.start({ retry: true });
-      if (!modeAllowsDetection()) resetRideDetection();
+      if (!settings.autoDetect) resetRideDetection();
       if (!modeAllowsPip()) stopPip();
       renderNow();
     });
+    document.addEventListener("mymap-ats-level", () => {
+      if (!settings.autoDetect) resetRideDetection();
+      renderNow();
+    });
+    document.addEventListener("mymap-ats-home", () => renderNow());
     document.addEventListener("mymap-motion-permission", () => renderNow());
     document.addEventListener("mymap-choose-ride", () => openRideChooser());
     document.addEventListener("mymap-checkin", () => openCheckIn(checkInAndShow));

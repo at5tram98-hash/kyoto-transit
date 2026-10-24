@@ -831,3 +831,345 @@ html[data-app-hidden="true"] .idle-status .idle-state::before {
   stroke: currentColor;
   stroke-width: 2;
 }
+
+/* ATS (Auto transportation system) Beta: the situation card on Now. */
+.ats-card {
+  margin: 0 0 12px;
+  padding: 4px 16px 12px;
+  border-radius: var(--radius-vehicle);
+  background: var(--surface-primary);
+}
+.ats-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+}
+.ats-head > svg {
+  width: 22px;
+  height: 22px;
+  color: var(--color-ats);
+}
+.ats-name {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.ats-beta {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--color-ats);
+  color: var(--color-on-accent);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+.ats-level {
+  padding: 1px 7px;
+  border-radius: var(--radius-capsule);
+  background: var(--color-ats-soft);
+  color: var(--text);
+  font-size: var(--type-caption);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ats-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-inline-start: auto;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.ats-mode-chip svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.ats-mode-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ats-head .chevron {
+  color: var(--muted);
+}
+.ats-scene {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 4px;
+}
+.ats-scene > svg {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: var(--radius-row);
+  background: var(--color-ats-soft);
+  color: var(--color-ats);
+}
+.ats-scene > span {
+  display: grid;
+  min-width: 0;
+}
+.ats-scene b {
+  overflow-wrap: anywhere;
+}
+.ats-scene small,
+.ats-note {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.ats-note {
+  margin: 6px 0 0;
+}
+.ats-actions,
+.ats-routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ats-action,
+.ats-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-capsule);
+  background: var(--fill-tertiary);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--type-caption);
+  font-weight: 700;
+}
+.ats-action svg,
+.ats-route svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--color-ats);
+}
+.ats-route span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ats-live {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ats-live li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ats-live li > span:not(.line-badge) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ats-live b {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The ATS sheet. */
+.ats-sheet-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ats-sheet-head > svg {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border-radius: var(--radius-row);
+  background: var(--color-ats);
+  color: var(--color-on-accent);
+}
+.ats-sheet-head h3 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+.ats-sheet-head p,
+.ats-status {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.ats-status {
+  margin: 12px 0 0;
+  color: var(--text);
+  font-weight: 700;
+}
+.ats-sheet-label {
+  margin: 18px 4px 6px;
+  color: var(--muted);
+  font-size: var(--type-caption);
+  font-weight: 600;
+}
+.ats-level-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: start;
+}
+.ats-level-row > span:nth-child(2) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.ats-level-row[disabled] {
+  opacity: 0.55;
+}
+.ats-level-badge {
+  flex: none;
+  min-width: 44px;
+  padding: 2px 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--color-ats-soft);
+  color: var(--text);
+  font-size: var(--type-caption);
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.ats-level-row[aria-checked="true"] .ats-level-badge {
+  background: var(--color-ats);
+  color: var(--color-on-accent);
+}
+.ats-dev {
+  margin-inline-start: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-capsule);
+  background: var(--fill-secondary);
+  font-size: 0.6875rem;
+  font-style: normal;
+}
+.ats-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.ats-mode {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-height: 84px;
+  padding: 10px 6px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-row);
+  background: var(--surface-primary);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+}
+.ats-mode svg {
+  width: 26px;
+  height: 26px;
+  color: var(--color-ats);
+}
+.ats-mode b {
+  font-size: var(--type-caption);
+  overflow-wrap: anywhere;
+}
+.ats-mode small {
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+.ats-mode[aria-checked="true"] {
+  border-color: var(--color-ats);
+}
+.ats-home-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ats-home-row > svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--color-ats);
+}
+.ats-home-row > span {
+  display: grid;
+  min-width: 0;
+}
+.run-mode-row,
+.ats-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: start;
+}
+.run-mode-row > span:nth-child(2),
+.ats-settings-row > span {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.run-mode-icon svg,
+.ats-settings-row > svg {
+  width: 24px;
+  height: 24px;
+  color: var(--color-ats);
+}
+:is(.ats-card, .ats-sheet, .ats-settings, .run-mode-row) svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+button.setting-row:is(.ats-level-row, .ats-settings-row),
+.ats-sheet button.setting-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+}
+.ats-sheet button.setting-row:last-child,
+button.setting-row.ats-settings-row:last-child {
+  border-bottom: 0;
+}
+.ats-sheet button.setting-row[data-ats-home-save] {
+  color: var(--blue);
+}
+.ats-sheet button.setting-row.destructive {
+  color: var(--color-danger);
+}
+.ats-level-row small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.ats-card > .detection-card {
+  margin: 10px -16px -12px;
+  border-top: 1px solid var(--separator);
+  border-radius: 0 0 var(--radius-vehicle) var(--radius-vehicle);
+  background: transparent;
+}

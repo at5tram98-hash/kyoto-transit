@@ -52,6 +52,8 @@
   --color-citybus: #9a4c00;
   --color-kyotobus: #1964b6;
   --color-through: #7751a8;
+  --color-ats: #5856d6;
+  --color-ats-soft: color-mix(in srgb, var(--color-ats) 14%, transparent);
   /* Route plates: city loop (循環) orange, other city routes blue, Kyoto
      Bus route colours, Karasuma green, Kintetsu red. White text on each. */
   --line-citybus-loop: #b85000;
@@ -180,6 +182,7 @@
     --color-citybus: #ffb464;
     --color-kyotobus: #82bbff;
     --color-through: #c2a2f0;
+    --color-ats: #4b49c9;
     --line-citybus-loop: #b85000;
     --line-citybus: #1a6fcf;
     --line-kyotobus: #d2573a;
