@@ -6,6 +6,7 @@ import {findMeeting,validateMeeting} from './meeting.js';
 import {LOCATION_URL,parseRailLocation} from './rail.js';
 import {timetableOptions,readTimetable,readOfficialTrip,officialFetcher} from './timetables.js';
 import {cachedOperationInformation} from './operations.js';
+import {fillCityBusBoards,BOARD_FILL_CRON} from './citybus-boards.js';
 import {riderCandidates} from './rider-candidates.js';
 import {decodeGtfsRealtime,filterKyotoBusVehicles} from './gtfs-rt.js';
 import {layoutChanged,requireRows,shouldExpectRail,fallbackDiagnostic} from './layout.js';
@@ -234,5 +235,8 @@ export default {
     }catch(e){console.error('transit fetch failed',e instanceof Error?e.message:'unknown');response=error(e instanceof Error?e.message:'データの取得に失敗しました。',502,e?.code??null);}
     return finalize(request,response,env);
   },
-  async scheduled(controller,env,ctx){ctx.waitUntil(refreshAll(env).catch(async e=>{console.error('static refresh failed',e);if(env.LIVE_KV)await env.LIVE_KV.put('static:last-error',JSON.stringify({at:new Date().toISOString(),error:String(e?.message??e)}),{expirationTtl:604800});}));}
+  async scheduled(controller,env,ctx){
+    // A second cron gathers per-stop city bus boards in its own invocation.
+    if(controller?.cron===BOARD_FILL_CRON){ctx.waitUntil(fillCityBusBoards(env,officialFetcher(env)).catch(e=>console.error('city bus board fill failed',e)));return;}
+    ctx.waitUntil(refreshAll(env).catch(async e=>{console.error('static refresh failed',e);if(env.LIVE_KV)await env.LIVE_KV.put('static:last-error',JSON.stringify({at:new Date().toISOString(),error:String(e?.message??e)}),{expirationTtl:604800});}));}
 };
