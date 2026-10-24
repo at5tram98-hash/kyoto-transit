@@ -52,7 +52,7 @@ const tab = async (name) => {
 };
 try {
   await page.goto(report.url, { waitUntil: "domcontentloaded" });
-  await page.locator(".live-quick-strip").waitFor({ timeout: 60000 });
+  await page.locator(".now-status").waitFor({ timeout: 60000 });
   report.versions.push(await version());
   await shot("01-live");
   await tab("search");

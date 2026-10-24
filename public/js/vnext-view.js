@@ -2,7 +2,6 @@ import {
   transitEvidenceEngine,
   shouldOfferRideConfirmation,
 } from "./transit-evidence.js";
-import { atsCardHTML } from "./ats-ui.js";
 import { groupNearbyPlaces } from "./transit-places.js";
 import { orderNearbyPlaces } from "./nearby-sort-b6.js";
 import { manualNearbyRows, manualReferenceOptions } from "./manual-nearby-b7.js";
@@ -350,15 +349,6 @@ function offeredCandidates() {
       ),
     );
 }
-function motionControlHTML() {
-  if (settings.autoDetect === false) return "";
-  const permission = motionPermissionState();
-  if (permission === "prompt")
-    return `<div class="motion-permission"><button type="button" class="plain-action" data-enable-motion>${icon("bolt")}<span>${esc(ui("motion_enable"))}</span></button><p class="source-note">${esc(ui("motion_enable_note"))}</p></div>`;
-  if (permission === "denied")
-    return `<div class="motion-permission"><button type="button" class="plain-action" data-enable-motion>${icon("bolt")}<span>${esc(ui("motion_retry"))}</span></button><p class="source-note">${esc(ui("motion_denied"))}</p></div>`;
-  return "";
-}
 export function rideChoiceRowsHTML(candidates) {
   return candidates
     .slice(0, 5)
@@ -375,21 +365,6 @@ export function rideChoiceRowsHTML(candidates) {
       ]),
     )
     .join("");
-}
-function chooseRideHTML() {
-  // Bus check-in is offered whenever a bus stop is close, in every mode:
-  // it is the reliable way to start a bus ride.
-  const near = nearest(),
-    checkIn =
-      near.bus && near.bus.meters <= 300
-        ? `<button type="button" class="choose-ride-action checkin-action" data-checkin>${icon("checkin")}<span>${esc(ui("checkin_entry"))}<small>${esc(ui("checkin_entry_hint", [displayStopName(near.bus.stop)]))}</small></span><span class="chevron">›</span></button>`
-        : "";
-  return (
-    checkIn +
-    (settings.autoDetect === false || offeredCandidates().length
-      ? ""
-      : `<button type="button" class="choose-ride-action" data-choose-ride>${icon("bus")}<span>${esc(ui("choose_ride"))}</span><span class="chevron">›</span></button>`)
-  );
 }
 function describeCandidate(candidate) {
   const ride = candidate.ride,
@@ -547,34 +522,16 @@ export function renderNow() {
   // Between rides of a planned journey the hero keeps guiding to the next
   // leg (walk, wait, next service, countdown) instead of the idle screen.
   const transferring = ["transfer", "walking"].includes(state.itinerary?.phase);
-  const detectionStatus = `<p class="source-note detection-stage" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
+  const detectionStatus = `<p class="sr-only" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
   updateHTML(
     vehicle,
-    // ATS: one card for the situation, the detection state and the ways to
-    // start a ride by hand.
-    `${atsCardHTML(renderNow, `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>`)}${transferring ? "" : state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(placeName(state.armedJourney.ride.destination)), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    // The situation, the sensors and the ways to start a ride by hand are in
+    // the ATS status at the top; the detection state is announced here.
+    `${detectionStatus}${transferring ? "" : state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(placeName(state.armedJourney.ride.destination)), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
-  const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
-  const locationNote =
-    state.locationStatus === "active"
-      ? ""
-      : state.locationStatus === "loading"
-        ? ui("vnext_view_052")
-        : ui("vnext_view_053");
-  if (transferring)
-    updateHTML(root, transferGuideHTML(state.itinerary, state.network, tokyoNow()));
-  else updateHTML(
-    root,
-    ui("vnext_view_102", [
-      moving
-        ? ui("vnext_view_054")
-        : locationNote ||
-          (near.all[0]?.meters <= 1000
-            ? ui("vnext_view_055", [esc(near.all[0].stop.name)])
-            : ui("vnext_view_056")),
-    ]),
-  );
+  // Idle, the ATS status above says where the rider is; the hero is empty.
+  updateHTML(root, transferring ? transferGuideHTML(state.itinerary, state.network, tokyoNow()) : "");
   const idleStatus = root.querySelector(".idle-status");
   if (idleStatus)
     idleStatus.dataset.detecting = String(

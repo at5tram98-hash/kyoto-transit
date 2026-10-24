@@ -122,7 +122,7 @@ if (process.env.AUDIT_STRESS === "1") {
   });
   const beforeHidden=calls;
   await page.waitForTimeout(2100);
-  phases.hidden = await page.evaluate(()=>({clockUnchanged:window.__auditClock===document.querySelector('[data-live-clock]').textContent,quickActive:document.querySelector('.live-quick-strip').dataset.active}));
+  phases.hidden = await page.evaluate(()=>({clockUnchanged:window.__auditClock===document.querySelector('[data-live-clock]').textContent,quickInToolbar:Boolean(document.querySelector('.live-navigation-capsule [data-quick-open]'))}));
   phases.hidden.networkRequests=calls-beforeHidden;
   await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
   const stop=Date.now()+60000;

@@ -9,16 +9,17 @@
 //          (position, motion, timetable, live data) agrees.
 //   LV.4 – automatic screen: the Now screen switches to the situation by
 //          itself, e.g. the live approach of the stop you are standing at.
-//   LV.5 – fully automatic guidance with no operation at all. In
-//          development; it cannot be chosen yet.
+//   LV.5 – experimental guidance with no operation (ats-pilot.js): the
+//          stop to get off at is predicted, and a single well-supported
+//          service is boarded without the tap. Auto mode only.
 // The operating mode caps the level: a lighter mode never runs more than
 // it allows (battery and data), whatever level was chosen.
 import { settings, saveSettings } from "./vnext-state.js";
 import { runMode, setRunMode } from "./run-mode.js";
 
 export const ATS_LEVELS = Object.freeze([0, 1, 2, 3, 4, 5]);
-export const ATS_SELECTABLE = 4;
-const MODE_CAP = Object.freeze({ fullauto: 4, auto: 2, lowpower: 1 });
+export const ATS_SELECTABLE = 5;
+const MODE_CAP = Object.freeze({ fullauto: 5, auto: 2, lowpower: 1 });
 
 export function atsChosenLevel(source = settings) {
   const level = Number(source.atsLevel);
@@ -34,6 +35,7 @@ export const atsReadsSituation = (level = atsLevel()) => level >= 1;
 export const atsSuggests = (level = atsLevel()) => level >= 2;
 export const atsBoardsAutomatically = (level = atsLevel()) => level >= 3;
 export const atsSwitchesScreen = (level = atsLevel()) => level >= 4;
+export const atsPilots = (level = atsLevel()) => level >= 5;
 
 // Ride detection runs from LV.2 (to offer candidates); the legacy flag
 // that the detection code reads follows it.

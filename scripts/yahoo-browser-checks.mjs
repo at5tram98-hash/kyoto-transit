@@ -61,8 +61,8 @@ export async function yahooScreenChecks({
         );
         await page.locator("[data-navigation-back]").click();
         await settleNavigation(page);
-        await page.locator(".live-quick-destinations").dispatchEvent("pointerdown");
-        await page.locator('.live-quick-group:not([aria-hidden]) [data-quick-destination=K01]').click();
+        await page.locator(".live-navigation-capsule [data-quick-open]").click();
+        await page.locator("#context-sheet[open] [data-quick-destination=K01]").click();
         await settleNavigation(page);
         assert.equal(
           await page.locator(".navigation-current").getAttribute("data-view"),

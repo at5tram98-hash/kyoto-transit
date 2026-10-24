@@ -135,35 +135,14 @@ export async function completionChecks({
           /Search stations/,
         );
         if (colorScheme === "light" && scale === 1) {
-          const quick = page.locator(".live-quick-destinations");
-          const track = quick.locator(".live-quick-track");
-          const running = await track.evaluate(el => el.getAnimations()[0]?.playState);
-          assert.equal(running, "running", "Quick uses a continuous compositor animation");
-          const before = await track.evaluate(el => getComputedStyle(el).transform);
-          await track.evaluate(el => { el.getAnimations()[0].currentTime = 2000; });
-          assert.notEqual(await track.evaluate(el => getComputedStyle(el).transform), before);
-          // A wheel with deltaX scrolls natively in WebKit after dispatch;
-          // pointerdown tests cancellation without requesting a manual scroll.
-          await quick.dispatchEvent("pointerdown", { pointerType: "touch" });
-          const stopped = await quick.evaluate((el) => el.scrollLeft);
-          await page.clock.fastForward(3000);
-          await page.waitForTimeout(100);
-          assert.equal(
-            await quick.evaluate((el) => el.scrollLeft),
-            stopped,
-            "interaction converts the marquee position into native horizontal scrolling",
-          );
-        }
-        if (colorScheme === "dark" && scale === 2) {
-          const quick = page.locator(".live-quick-destinations"),
-            before = await quick.evaluate((el) => el.scrollLeft);
-          await page.clock.fastForward(2000);
-          await page.waitForTimeout(100);
-          assert.equal(
-            await quick.evaluate((el) => el.scrollLeft),
-            before,
-            "Reduce Motion disables auto-scroll",
-          );
+          // Quick sits in the navigation bar and opens the destinations.
+          const quick = page.locator(".live-navigation-capsule [data-quick-open]");
+          assert.equal(await quick.count(), 1, "Quick is in the navigation bar");
+          await quick.click();
+          await page.locator("#context-sheet[open] [data-quick-destination]").first().waitFor();
+          await page.locator("#context-sheet [data-context-close]").click();
+          await settleNavigation(page);
+          assert.match(await page.locator(".now-status [data-live-location]").innerText(), /\S/);
         }
         await shot(page, `${prefix}-live`);
         await searchScreen(page);
