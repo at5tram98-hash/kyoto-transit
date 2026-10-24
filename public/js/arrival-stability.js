@@ -61,6 +61,8 @@ export function busDirectionLabel(route, dest = "") {
     if (/金閣寺|円町/.test(text)) return ui("bus_direction", ["金閣寺"]);
   }
   if (!text) return ui("bus_direction_unknown");
+  // "…まで" already names where the bus ends; "方面" would contradict it.
+  if (/まで$/.test(text)) return text;
   return ui("bus_direction", [text]);
 }
 export function busServiceLabel(row) {

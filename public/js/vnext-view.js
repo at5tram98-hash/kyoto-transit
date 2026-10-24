@@ -259,7 +259,7 @@ function nearbyBusHTML(stop) {
         rows.map((r) => ({
           key: r.dest,
           label: busDirectionLabel(r.route, r.dest),
-          html: `<div class="live-nearby-arrival" data-operator="citybus"><span>${lineBadge({ operator: "citybus", route: r.route }, { size: "small" })} ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(placeName(r.boarding))}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
+          html: `<div class="live-nearby-arrival" data-operator="citybus"><span>${lineBadge({ operator: "citybus", route: r.route }, { size: "small" })} ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(placeName(r.boarding))}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 2) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
         })),
       )
     : north3DepartureHTML(stop);
