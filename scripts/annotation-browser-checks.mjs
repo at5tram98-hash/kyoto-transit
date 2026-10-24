@@ -57,7 +57,7 @@ export async function annotationChecks({
         "none",
         "keyboard focus remains visible",
       );
-      const trigger = page.locator("[data-quick-open]");
+      const trigger = page.locator(".live-navigation-capsule [data-quick-open]");
       await trigger.click();
       await page.locator("#context-sheet[open]").waitFor();
       await page.locator("#context-sheet [data-context-close]").click();

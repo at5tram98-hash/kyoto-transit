@@ -99,38 +99,9 @@ export async function audit2Checks({
       assert.ok(
         (await page.locator(".live-map-host svg").boundingBox()).height >= 270,
       );
-      const track = page.locator(".live-quick-track");
-      assert.equal(
-        await track.evaluate((el) => getComputedStyle(el).animationName),
-        c.reducedMotion === "reduce" ? "none" : "quick-loop",
-      );
-      if (c.reducedMotion !== "reduce") {
-        const state = await track.evaluate((el) => {
-          const a = el.getAnimations()[0];
-          a.pause();
-          a.currentTime = 14000;
-          const matrix = new DOMMatrixReadOnly(getComputedStyle(el).transform);
-          return {
-            offset: -matrix.m41,
-            width: el.getBoundingClientRect().width,
-          };
-        });
-        assert.ok(
-          Math.abs(state.offset - state.width / 4) < 1,
-          "half cycle is one quarter of the repeated track",
-        );
-        await page
-          .locator(".live-quick-destinations")
-          .dispatchEvent("pointerdown");
-        assert.ok(
-          Math.abs(
-            (await page
-              .locator(".live-quick-destinations")
-              .evaluate((el) => el.scrollLeft)) - state.offset,
-          ) < 2,
-          "touch preserves visible marquee position",
-        );
-      }
+      // Quick is in the navigation bar; the status shows the sensors as icons.
+      assert.equal(await page.locator(".live-navigation-capsule [data-quick-open]").count(), 1);
+      assert.equal(await page.locator(".now-status .status-icon").count(), 5);
       await layout(page, prefix + " home");
       await page.screenshot({ path: resolve(artifacts, prefix + "-home.png") });
       for (const status of ["loading", "unavailable"]) {

@@ -26,7 +26,7 @@ import { north3Day } from "./north3-feed.js";
 import { popoverMenu, withProgress } from "./ios-ui.js";
 import { runMode, modeAllowsPip } from "./run-mode.js";
 import { atsLevel } from "./ats.js";
-import { openAtsSheet } from "./ats-ui.js";
+import { openAtsSheet, atsStatus } from "./ats-ui.js";
 import { pipSupported, pipActive, togglePip, preparePip } from "./pip.js";
 import { radarStop, radarBuses } from "./bus-radar.js";
 import { fetchRealtime } from "./realtime.js";
@@ -35,15 +35,15 @@ import { fetchRealtime } from "./realtime.js";
 export function mountLiveHome(host, search) {
   const text = (key) => message(key, settings);
   host.innerHTML = ui("live_home_001", [
-    icon("bolt"),
-    icon("location"),
     icon("search"),
     text("searchStop"),
     icon("map"),
     text("map"),
     icon("search"),
   ]);
-  const toolbar = `<div class="live-navigation-capsule"><button type="button" class="plain-action" data-live-refresh aria-label="${text("refresh")}">${icon("refresh")}<span data-refresh-label>${ui("audit_refresh")}</span></button><button type="button" class="plain-action" data-live-saved aria-label="${text("saved")}">${icon("bookmark")}</button><button type="button" class="plain-action" data-live-more aria-label="${text("more")}" aria-haspopup="dialog">${icon("more")}</button></div>`;
+  // Quick lives in the navigation bar: tap for the list, press and slide to
+  // pick a destination in one gesture.
+  const toolbar = `<div class="live-navigation-capsule"><button type="button" class="plain-action" data-quick-open aria-label="Quick" aria-haspopup="menu" aria-expanded="false" aria-controls="live-quick-popover">${icon("bolt")}</button><button type="button" class="plain-action" data-live-refresh aria-label="${text("refresh")}">${icon("refresh")}<span data-refresh-label>${ui("audit_refresh")}</span></button><button type="button" class="plain-action" data-live-saved aria-label="${text("saved")}">${icon("bookmark")}</button><button type="button" class="plain-action" data-live-more aria-label="${text("more")}" aria-haspopup="dialog">${icon("more")}</button></div>`;
   navigation.register("root:now", {
     toolbar,
     onToolbar: ({ event }) => handle(event),
@@ -56,26 +56,6 @@ export function mountLiveHome(host, search) {
     start = null,
     suppressClick = false,
     refreshing = false;
-  const quickStrip = host.querySelector(".live-quick-strip"),
-    quickDestinations = host.querySelector(".live-quick-destinations");
-  let quickSignature = "";
-  const stopQuickScroll = () => {
-    if (quickStrip.dataset.paused) return;
-    const track = quickDestinations.querySelector(".live-quick-track");
-    const offset = track
-      ? -new DOMMatrixReadOnly(getComputedStyle(track).transform).m41
-      : 0;
-    quickStrip.dataset.paused = "true";
-    quickDestinations.scrollLeft = offset;
-  };
-  for (const event of ["pointerdown", "wheel", "keydown", "focusin"])
-    quickStrip.addEventListener(event, stopQuickScroll, { passive: true });
-  matchMedia("(prefers-reduced-motion: reduce)").addEventListener(
-    "change",
-    (event) => {
-      if (event.matches) stopQuickScroll();
-    },
-  );
   const quickPlaces = () => {
     const ids = readSavedPlaces();
     if (!ids.length) {
@@ -346,7 +326,10 @@ export function mountLiveHome(host, search) {
     }
   });
   sheet.addEventListener("click", handle);
-  const trigger = host.querySelector("[data-quick-open]");
+  // The Quick button is drawn by the navigation bar and may be redrawn, so
+  // it is looked up each time and its gestures are delegated.
+  const quickTrigger = () => document.querySelector(".navigation-toolbar [data-quick-open], [data-quick-open]");
+  const fromTrigger = (event) => event.target.closest?.("[data-quick-open]");
   const menu = document.createElement("div");
   menu.className = "live-quick-popover";
   menu.id = "live-quick-popover";
@@ -354,13 +337,13 @@ export function mountLiveHome(host, search) {
   menu.setAttribute("role", "menu");
   menu.setAttribute("aria-label", text("quick"));
   document.body.append(menu);
-  trigger.setAttribute("aria-controls", menu.id);
   const closeMenu = () => {
     if (menu.matches(":popover-open")) menu.hidePopover();
-    trigger.setAttribute("aria-expanded", "false");
+    quickTrigger()?.setAttribute("aria-expanded", "false");
   };
   function showMenu({ focus = false } = {}) {
-    stopQuickScroll();
+    const trigger = quickTrigger();
+    if (!trigger) return;
     menu.innerHTML = quickPlaces()
       .map(
         (s) =>
@@ -402,52 +385,47 @@ export function mountLiveHome(host, search) {
     } else if (e.key === "Escape") {
       e.preventDefault();
       closeMenu();
-      trigger.focus();
+      quickTrigger()?.focus();
     } else if (e.key === "Tab") closeMenu();
   });
-  trigger.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowDown") {
+  document.addEventListener("keydown", (e) => {
+    if (fromTrigger(e) && e.key === "ArrowDown") {
       e.preventDefault();
       showMenu({ focus: true });
+    } else if (e.key === "Escape" && menu.matches(":popover-open")) {
+      closeMenu();
+      quickTrigger()?.focus();
     }
   });
   document.addEventListener(
     "pointerdown",
     (e) => {
-      if (!menu.contains(e.target) && !trigger.contains(e.target)) closeMenu();
+      if (!menu.contains(e.target) && !fromTrigger(e)) closeMenu();
     },
     { passive: true },
   );
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && menu.matches(":popover-open")) {
-      closeMenu();
-      trigger.focus();
-    }
-  });
   function cancelPress() {
     clearTimeout(pressTimer);
     pressing = false;
     start = null;
-    trigger?.setAttribute("aria-expanded", "false");
-    host.querySelector(".live-quick-strip").removeAttribute("data-selecting");
-    host
+    menu
       .querySelectorAll("[data-quick-destination]")
       .forEach((b) => b.classList.remove("quick-tracking"));
   }
-  trigger.addEventListener("pointerdown", (e) => {
-    if (e.button > 0) return;
+  document.addEventListener("pointerdown", (e) => {
+    const trigger = fromTrigger(e);
+    if (!trigger || e.button > 0) return;
     start = { x: e.clientX, y: e.clientY };
     suppressClick = false;
-    trigger.setPointerCapture(e.pointerId);
+    trigger.setPointerCapture?.(e.pointerId);
     pressTimer = setTimeout(() => {
       pressing = true;
       suppressClick = true;
       showMenu();
       haptic();
-      trigger.setAttribute("aria-expanded", "true");
     }, 420);
   });
-  trigger.addEventListener("pointermove", (e) => {
+  document.addEventListener("pointermove", (e) => {
     if (!start) return;
     if (
       !pressing &&
@@ -464,25 +442,22 @@ export function mountLiveHome(host, search) {
       .querySelectorAll("[data-quick-destination]")
       .forEach((b) => b.classList.toggle("quick-tracking", b === target));
   });
-  trigger.addEventListener("pointerup", (event) => {
+  document.addEventListener("pointerup", (event) => {
+    if (!start) return;
     const selected = menu.querySelector(".quick-tracking");
     const wasPressing = pressing;
     cancelPress();
-    trigger.setAttribute("aria-expanded", "false");
     if (selected) {
       closeMenu();
       choose(state.network.stops.get(selected.dataset.quickDestination));
     } else if (wasPressing) {
-      if (
-        trigger.contains(
-          document.elementFromPoint(event.clientX, event.clientY),
-        )
-      )
-        trigger.setAttribute("aria-expanded", "true");
-      else closeMenu();
+      const trigger = quickTrigger();
+      if (!trigger?.contains(document.elementFromPoint(event.clientX, event.clientY)))
+        closeMenu();
     }
   });
-  trigger.addEventListener("pointercancel", () => {
+  document.addEventListener("pointercancel", () => {
+    if (!start) return;
     cancelPress();
     closeMenu();
   });
@@ -515,13 +490,6 @@ export function mountLiveHome(host, search) {
   function syncClock() {
     clearInterval(timer);
     tick();
-    quickStrip.dataset.active = String(
-      !document.hidden &&
-        navigation.tab === "now" &&
-        navigation.route.type === "root" &&
-        !host.hidden &&
-        !document.querySelector("dialog[open]"),
-    );
     if (
       !document.hidden &&
       navigation.tab === "now" &&
@@ -627,50 +595,25 @@ export function mountLiveHome(host, search) {
       );
       return;
     }
-    const low = active && fix.accuracy > 50;
-    const dot = host.querySelector("[data-location-dot]");
-    dot.dataset.quality = active ? (low ? "low" : "available") : "missing";
-    const copy = active
-      ? low
-        ? ui("audit_location_low")
-        : closest && closest.meters <= 1000
-          ? closest.stop.name + ui("live_home_026")
-          : ui("live_home_022")
-      : ui(
-          state.locationStatus === "loading"
-            ? "audit_location_loading"
-            : state.locationStatus === "denied"
-              ? "audit_location_denied"
-              : "audit_location_missing",
-        );
-    const detail = active
-      ? ui(low ? "audit_location_low_detail" : "audit_location_ok_detail", [
-          Math.round(fix.accuracy),
-        ])
-      : ui(
-          state.locationStatus === "loading"
-            ? "audit_location_loading_detail"
-            : state.locationStatus === "denied"
-              ? "audit_location_denied_detail"
-              : "audit_location_missing_detail",
-        );
+    // ATS status: the status icons, then the situation in one line.
+    const status = atsStatus(() => {
+      if (!document.hidden) render();
+    });
+    const setHTML = (selector, value) => {
+      const node = host.querySelector(selector);
+      if (node) updateHTML(node, value);
+    };
     const setText = (selector, value) => {
       const node = host.querySelector(selector);
-      if (node.textContent !== value) node.textContent = value;
+      if (node && node.textContent !== value) node.textContent = value;
     };
-    setText("[data-live-location]", copy);
-    setText("[data-live-location-detail]", detail);
-    const quick = quickPlaces()
-      .map(
-        (s) =>
-          `<button type="button" data-quick-destination="${esc(s.id)}" data-quick-symbol="${quickPlaceSymbol(settings, s.id, s.type)}">${icon(quickPlaceSymbol(settings, s.id, s.type))}<span>${esc(s.name)}</span></button>`,
-      )
-      .join("");
-    if (quickSignature !== quick) {
-      quickSignature = quick;
-      quickDestinations.innerHTML = `<div class="live-quick-track"><div class="live-quick-group">${quick}</div><div class="live-quick-group" aria-hidden="true">${quick.replaceAll('<button type="button"', '<button type="button" tabindex="-1"')}</div></div>`;
-      delete quickStrip.dataset.paused;
-    }
+    host.querySelector(".now-status").dataset.atsScene = status.scene;
+    setHTML("[data-status-icons]", status.icons);
+    setHTML("[data-scene-icon]", icon(status.icon));
+    setText("[data-scene-title]", status.title);
+    setText("[data-live-location-detail]", status.detail);
+    setHTML("[data-status-actions]", status.actions);
+    host.querySelector("[data-status-actions]").hidden = !status.actions;
     const map = nearbyMapModel(
       state.geo,
       near,

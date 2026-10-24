@@ -2114,8 +2114,8 @@ try {
         const denied = await open({ scenario: { gps: "denied" } });
         try {
           assert.match(
-            await denied.page.locator("#now-hero").textContent(),
-            /未乗車/,
+            await denied.page.locator(".now-status [data-live-location]").textContent(),
+            /許可/,
           );
           assert.ok((await denied.page.locator(".arrival-line").count()) > 0);
           await layout(denied.page, "location permission denied");
@@ -2697,8 +2697,8 @@ try {
                 0,
               );
               assert.match(
-                await page.locator("#now-hero").textContent(),
-                /未乗車/,
+                await page.locator(".now-status [data-live-location]").textContent(),
+                gps === "denied" ? /許可/ : /\S/,
               );
               await layout(page, `C home ${colorScheme} ${scale}x ${gps}`);
               if (scale === 1)

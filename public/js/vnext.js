@@ -2,7 +2,7 @@ import { clearFalseRide, checkInRide } from "./vnext-detect.js";
 import { openCheckIn } from "./checkin-sheet.js";
 import { positionOptions, modeAllowsPip } from "./run-mode.js";
 import { syncAtsDetection } from "./ats.js";
-import { openAtsSheet, homeRoute } from "./ats-ui.js";
+import { openAtsSheet, homeRoute, runPilot } from "./ats-ui.js";
 import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
@@ -664,6 +664,12 @@ async function init() {
       renderNow();
       void autoDetectRide(true, renderNow);
     });
+    // ATS LV.5: the pilot takes its steps between detection cycles.
+    setInterval(() => {
+      if (document.hidden) return;
+      const steps = runPilot({ confirmCandidate: confirmRideCandidate, onChange: renderNow });
+      if (steps.some((step) => step.type === "destination")) persistJourney();
+    }, 5000);
     document.addEventListener("mymap-live-refresh", (event) => {
       void arrivals.show();
       event.detail?.waitUntil?.(Promise.all([arrivals.refreshBus(), arrivals.refreshRail()]));

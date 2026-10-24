@@ -1223,3 +1223,205 @@ button.setting-row.ats-settings-row:last-child {
 .ats-card > .detection-card > .choose-ride-action + .choose-ride-action {
   border-top: 0;
 }
+
+/* Now status: the clock, a row of status icons in the manner of the iPhone
+   status bar (location, ATS, motion sensor, live data, mode), and the
+   situation in one line. One tap opens ATS. */
+.now-status {
+  margin: 4px 0 12px;
+  border-radius: var(--radius-vehicle);
+  background: var(--surface-primary);
+}
+.now-status-main {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px 10px;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+}
+.now-status-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.now-status-top time {
+  font-size: var(--type-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.now-status-day {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  white-space: nowrap;
+}
+.status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-inline-start: auto;
+}
+.status-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: var(--text);
+}
+.status-icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.status-icon b {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* Location: solid when precise, outlined when coarse, faint when absent. */
+.status-icon[data-indicator="location"][data-state="precise"] {
+  color: var(--color-accent);
+}
+.status-icon[data-indicator="location"][data-state="precise"] svg path {
+  fill: currentColor;
+}
+.status-icon[data-indicator="location"]:is([data-state="missing"], [data-state="denied"], [data-state="stale"], [data-state="loading"]) {
+  color: var(--muted);
+  opacity: 0.55;
+}
+.status-icon[data-indicator="ats"] {
+  color: var(--color-ats);
+}
+.status-icon[data-indicator="ats"][data-level="0"] {
+  color: var(--muted);
+}
+.status-icon[data-indicator="ats"][data-scanning] svg {
+  animation: ats-scan 1.6s ease-in-out infinite;
+}
+@keyframes ats-scan {
+  50% {
+    opacity: 0.35;
+  }
+}
+.status-icon[data-indicator="motion"]:is([data-state="off"], [data-state="denied"], [data-state="idle"]) {
+  color: var(--muted);
+  opacity: 0.55;
+}
+.status-icon[data-indicator="live"] svg rect {
+  fill: currentColor;
+  stroke: none;
+}
+.status-icon[data-indicator="live"][data-level="0"] svg rect,
+.status-icon[data-indicator="live"][data-level="1"] svg :is(.bar-2, .bar-3, .bar-4),
+.status-icon[data-indicator="live"][data-level="2"] svg :is(.bar-3, .bar-4),
+.status-icon[data-indicator="live"][data-level="3"] svg .bar-4 {
+  opacity: 0.25;
+}
+.status-icon[data-indicator="mode"] {
+  color: var(--muted);
+}
+.now-status-scene {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 4px;
+}
+.now-scene-icon svg {
+  display: block;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  border-radius: var(--radius-row);
+  background: var(--color-ats-soft);
+  color: var(--color-ats);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.now-status[data-ats-scene="unknown"] .now-scene-icon svg,
+.now-status[data-ats-scene="off"] .now-scene-icon svg {
+  background: var(--fill-tertiary);
+  color: var(--muted);
+}
+.now-scene-copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+.now-scene-copy b {
+  overflow-wrap: anywhere;
+}
+.now-scene-copy small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+  overflow-wrap: anywhere;
+}
+.now-status-scene .chevron {
+  color: var(--muted);
+}
+.now-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.now-status-actions[hidden] {
+  display: none;
+}
+.now-status-actions svg,
+.ats-sensor-row svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ats-sensor-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ats-sensor-row > svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--color-ats);
+}
+.ats-sensor-row > span {
+  display: grid;
+  min-width: 0;
+}
+.ats-sensor-row small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-icon[data-indicator="ats"][data-scanning] svg {
+    animation: none;
+  }
+}
+.status-icon[data-location-dot] {
+  background: none;
+}
+.ats-sensor-row.setting-row {
+  justify-content: flex-start;
+}
+.ats-sensor-row > span {
+  flex: 1;
+  text-align: start;
+}
