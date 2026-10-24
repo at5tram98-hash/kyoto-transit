@@ -1536,4 +1536,10 @@ export default {
   bus_poles_heading: "のりば（方向別）",
   bus_poles_toward: "{0}方面",
   bus_poles_note: "方向は停留所の位置と次の停留所から求めています。のりばの記号は公式接近情報に出たものです。",
+  place_here: "現在地",
+  place_home: "自宅",
+  place_group: "現在地・自宅",
+  place_meta: "徒歩で行ける駅・停留所から探します",
+  place_here_unavailable: "現在地を取得できません。位置情報を確認するか、駅・停留所を選んでください。",
+  place_home_unavailable: "自宅が設定されていません。ATSの設定から自宅を登録してください。",
 };

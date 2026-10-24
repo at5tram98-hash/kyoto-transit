@@ -45,6 +45,7 @@ export function stopSuggestions(network, query, limit = 8) {
   const q = fold(String(query ?? "").trim());
   if (!q) return [];
   return [...network.stops.values()]
+    .filter((stop) => !stop.virtual)
     .map((stop) => {
       const values = terms(stop);
       const rank = values.includes(q)

@@ -1549,4 +1549,10 @@ export default {
   bus_poles_heading: "Stops by direction",
   bus_poles_toward: "towards {0}",
   bus_poles_note: "Directions come from the stop positions and the next stop; stand letters are those shown in official approach data.",
+  place_here: "Current location",
+  place_home: "Home",
+  place_group: "Current location and home",
+  place_meta: "Searched from the stations and stops within walking distance",
+  place_here_unavailable: "Current location is unavailable. Check location access or pick a station or stop.",
+  place_home_unavailable: "Home is not set. Set it in ATS settings.",
 };
