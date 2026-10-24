@@ -144,16 +144,14 @@ export function atsCardHTML(onUpdate, footer = "") {
   if (level === 0)
     return `<section class="ats-card" data-ats-scene="off">${head}<p class="ats-note">${esc(ui("ats_off_note"))}</p>${footer}</section>`;
   const result = currentScene();
+  // The situation's action sits at the end of its row to keep the card short.
+  const actions = atsSuggests(level) && result.scene !== "unknown" ? sceneActions(result) : [];
   const body = [
-    `<div class="ats-scene">${icon(SCENE_ICONS[result.scene] ?? "location")}<span><b>${esc(sceneTitle(result))}</b><small>${esc(ui(`ats_scene_${result.scene}_note`))}</small></span></div>`,
+    `<div class="ats-scene">${icon(SCENE_ICONS[result.scene] ?? "location")}<span><b>${esc(sceneTitle(result))}</b><small>${esc(ui(`ats_scene_${result.scene}_note`))}</small></span>${actions.join("")}</div>`,
   ];
   if (atsSwitchesScreen(level) && result.scene === "at_stop")
     body.push(liveRowsHTML(liveForStop(result.place, onUpdate)));
   if (atsSwitchesScreen(level) && result.scene === "home") body.push(homeRoutesHTML());
-  if (result.scene === "home" || (atsSuggests(level) && result.scene !== "unknown")) {
-    const actions = atsSuggests(level) ? sceneActions(result) : [];
-    if (actions.length) body.push(`<div class="ats-actions">${actions.join("")}</div>`);
-  }
   return `<section class="ats-card" data-ats-scene="${esc(result.scene)}" aria-label="${esc(ui("ats_card_label"))}">${head}${body.join("")}${footer}</section>`;
 }
 
