@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { railDestinationName } from "./rail-names.js";
 import {
   kintetsuIds,
@@ -62,7 +63,7 @@ export function buildRailArrivalRows(predicted, timetable, target, nowMinute) {
       dest: railDestinationName(t.dest ?? t.destination),
       key: t.key ?? `${t.direction}:${pos}:${t.dest}`,
       minutes,
-      status: matched ? null : "時刻未確定",
+      status: matched ? null : ui("rail_time_unconfirmed"),
       etaSource: matched ? "timetable" : null,
       tripId: matched?.tripId,
       serviceId: matched?.serviceId,

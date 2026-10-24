@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { isFresh, LIVE_MAX_AGE } from "./realtime.js";
 const railRideOperators = new Set(["kintetsu", "through"]);
 export function normalizedBusSources(
@@ -56,11 +57,11 @@ export function busDirectionLabel(route, dest = "") {
     .replace(/\s+/g, "")
     .replace(/方面$/, "");
   if (String(route) === "204") {
-    if (/銀閣寺|高野/.test(text)) return "高野・銀閣寺方面";
-    if (/金閣寺|円町/.test(text)) return "金閣寺方面";
+    if (/銀閣寺|高野/.test(text)) return ui("bus_direction", ["高野・銀閣寺"]);
+    if (/金閣寺|円町/.test(text)) return ui("bus_direction", ["金閣寺"]);
   }
-  if (!text) return "方面未確認";
-  return `${text}方面`;
+  if (!text) return ui("bus_direction_unknown");
+  return ui("bus_direction", [text]);
 }
 export function busServiceLabel(row) {
   const board = String(row?.boarding ?? "").trim();
@@ -141,11 +142,11 @@ export function groupCityBusRows(rows = []) {
 }
 function arrivalLabel(row) {
   if (Number.isFinite(row?.minutes))
-    return `あと${Math.max(0, Math.round(row.minutes))}分`;
+    return ui("arrival_in_minutes", [Math.max(0, Math.round(row.minutes))]);
   if (Number.isFinite(row?.stopsAway))
-    return `${Math.max(0, Math.round(row.stopsAway))}停留所前`;
+    return ui("arrival_stops_away", [Math.max(0, Math.round(row.stopsAway))]);
   if (Number.isFinite(row?.scheduledDeparture))
-    return `次の予定 ${String(Math.floor(row.scheduledDeparture / 60) % 24).padStart(2, "0")}:${String(row.scheduledDeparture % 60).padStart(2, "0")}`;
+    return `${ui("arrival_next_scheduled")} ${String(Math.floor(row.scheduledDeparture / 60) % 24).padStart(2, "0")}:${String(row.scheduledDeparture % 60).padStart(2, "0")}`;
   return row?.status ?? "";
 }
 // Absolute ETA must stay anchored to the observation, even if a cached row

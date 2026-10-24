@@ -53,7 +53,7 @@ function mountWheel(wheel, count, onChange) {
       const first = index < 0;
       index = next;
       rows.forEach((row, i) => row.setAttribute("aria-selected", String(i === index)));
-      wheel.setAttribute("aria-activedescendant", rows[index]?.id ?? "");
+      track.setAttribute("aria-activedescendant", rows[index]?.id ?? "");
       if (!first) haptic();
       onChange(index);
     }
@@ -67,7 +67,7 @@ function mountWheel(wheel, count, onChange) {
     const row = event.target.closest("[data-wheel-index]");
     if (row) select(Number(row.dataset.wheelIndex));
   });
-  wheel.addEventListener("keydown", (event) => {
+  track.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown") select(index + 1);
     else if (event.key === "ArrowUp") select(index - 1);
     else return;
@@ -96,6 +96,9 @@ async function renderStop(stopId) {
     section = body?.querySelector(".checkin");
   if (!section || !session) return;
   session.stopId = stopId;
+  // Nothing can be checked in until this stop's routes are listed.
+  session.choices = [];
+  section.querySelector("[data-checkin-confirm]").disabled = true;
   const row = session.stops.find((s) => s.id === stopId),
     now = tokyoNow();
   let kyotoFeed = null;
@@ -122,7 +125,7 @@ async function renderStop(stopId) {
     return;
   }
   confirm.disabled = false;
-  holder.innerHTML = `<div class="wheel-picker" role="listbox" tabindex="0" aria-label="${esc(ui("checkin_route"))}"><div class="wheel-track">${session.choices
+  holder.innerHTML = `<div class="wheel-picker"><div class="wheel-track" role="listbox" tabindex="0" aria-label="${esc(ui("checkin_route"))}">${session.choices
     .map(
       (choice, i) =>
         `<div class="wheel-row" role="option" id="checkin-option-${i}" data-wheel-index="${i}" aria-selected="false">${lineBadge(choice.ride, { size: "small" })}<span>${esc(choiceLabel(choice))}</span></div>`,
@@ -141,7 +144,9 @@ function stop() {
 }
 
 function checkIn(via) {
-  const choice = session?.choices?.[session.index];
+  // Gestures count only while this sheet is the one on screen.
+  if (!session?.section?.isConnected || !$("#context-sheet")?.open) return;
+  const choice = session.choices?.[session.index];
   if (!choice || !session.onCheckIn(choice.ride)) return;
   haptic();
   const ride = choice.ride;
@@ -191,6 +196,7 @@ export function openCheckIn(onCheckIn) {
     `<section class="checkin">${stopTabsHTML(stops, stops[0].id)}<div class="checkin-wheel" data-checkin-wheel></div>${gestureHTML()}<button type="button" class="primary-action" data-checkin-confirm>${icon("checkin")}<span>${esc(ui("checkin_button"))}</span></button><p class="source-caption">${esc(ui("checkin_note"))}</p></section>`,
   );
   const section = sheet.querySelector(".checkin");
+  session.section = section;
   section.addEventListener("click", (event) => {
     const stopButton = event.target.closest("[data-checkin-stop]");
     if (stopButton) void renderStop(stopButton.dataset.checkinStop);

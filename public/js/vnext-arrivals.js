@@ -1,5 +1,5 @@
 import { lineBadge, lineKind } from "./line-badge.js";
-import { ui } from "./locale.js";
+import { ui, placeName, userFacingError } from "./locale.js";
 import { scheduledArrivalFallbacks } from "./arrival-schedule.js";
 import { getStaticFeed } from "./fast-data.js";
 import { mergeTimetableFeeds } from "./search-core.js";
@@ -126,7 +126,7 @@ export function busRow(r) {
       { operator: r.operator ?? "citybus", route: r.route },
       { className: "arrival-route-badge", label: busServiceLabel(r) },
     ),
-    destination: `<b>${esc(r.dest || ui("vnext_arrivals_014"))}</b>`,
+    destination: `<b>${esc(placeName(r.dest) || ui("vnext_arrivals_014"))}</b>`,
     minutes: arrivalValue(primary),
     second: arrivals[1]
       ? ui("vnext_arrivals_015", [arrivalValue(arrivals[1])])
@@ -137,7 +137,7 @@ export function busRow(r) {
           esc(delayText(r.delay)),
         ])
       : "",
-    details: `${r.boarding ? `<span>${esc(r.boarding)}</span>` : ""}${congestion !== "—" ? `<span>${esc(congestion)}</span>` : ""}`,
+    details: `${r.boarding ? `<span>${esc(placeName(r.boarding))}</span>` : ""}${congestion !== "—" ? `<span>${esc(congestion)}</span>` : ""}`,
     source: `${source(primary)}${arrivals[1] && (arrivals[1].source !== primary.source || arrivals[1].asOf !== primary.asOf) ? ui("vnext_arrivals_017", [source(arrivals[1])]) : ""}`,
     // Animate only an observed stop count; never derive minutes from it.
     stopsAway: observed?.stopsAway,
@@ -152,7 +152,7 @@ function railRow(r) {
     operator: "kintetsu",
     delayed: r.delay > 0,
     service: `<b class="arrival-rail-badge">${esc(r.label ?? r.category ?? ui("vnext_arrivals_020"))}</b>`,
-    destination: `<b>${esc(r.dest ?? ui("vnext_arrivals_021"))}</b>`,
+    destination: `<b>${esc(placeName(r.dest) ?? ui("vnext_arrivals_021"))}</b>`,
     minutes: arrivalValue(r),
     delay: Number.isFinite(r.delay)
       ? ui("vnext_arrivals_022", [
@@ -224,7 +224,7 @@ export function compactBusHTML(data, { stopId } = {}) {
     return Number.isFinite(r.scheduledDeparture)
       ? ui("station_scheduled_at", [clock(r.scheduledDeparture)]) : busArrivalText(r);
   };
-  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}>${lineBadge({ operator: r.operator ?? "citybus", route: r.route }, { className: "arrival-route-badge" })}<span><b>${esc(r.dest)}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(r.boarding)}` : ""}</small></span><strong>${esc(arrival(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div><details class="source-caption"><summary>${ui("audit_freshness")}</summary>${rows.map((r) => `<p>${esc(r.route)} · ${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</p>`).join("")}</details>`;
+  return `<div class="arrival-compact">${rows.map((r) => `<${stopId ? `button type="button" data-bus-approach="${esc(busServiceKey(r))}" data-approach-stop="${esc(stopId)}"` : "div"}>${lineBadge({ operator: r.operator ?? "citybus", route: r.route }, { className: "arrival-route-badge" })}<span><b>${esc(placeName(r.dest))}</b><small>${sourceDot(r.source)}${sourceLabel(r.source)}${r.boarding ? ` · ${esc(placeName(r.boarding))}` : ""}</small></span><strong>${esc(arrival(r))}</strong></${stopId ? "button" : "div"}>`).join("")}</div><details class="source-caption"><summary>${ui("audit_freshness")}</summary>${rows.map((r) => `<p>${esc(r.route)} · ${sourceLabel(r.source)}${Number.isFinite(timestamp(r.asOf)) ? ui("vnext_arrivals_024", [updateTime.format(timestamp(r.asOf))]) : ""}</p>`).join("")}</details>`;
 }
 
 export function mountArrivals({ network }) {
@@ -473,7 +473,7 @@ export function mountArrivals({ network }) {
         signal: AbortSignal.timeout(7000),
         cache: "no-store",
       });
-      if (!r.ok) throw Error(ui("vnext_arrivals_040"));
+      if (!r.ok) throw userFacingError(ui("vnext_arrivals_040"));
       const d = await r.json();
       railSchedule = d;
       railScheduleDate = date;

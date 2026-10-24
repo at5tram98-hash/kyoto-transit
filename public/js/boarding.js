@@ -1,3 +1,4 @@
+import { ui, userFacingError } from "./locale.js";
 import { officialData } from "./timetable-ui.js";
 import { getStaticFeed } from "./fast-data.js";
 import { staticFoldbackJourney } from "./foldback-static.js";
@@ -55,12 +56,10 @@ export async function foldbackJourney(
     }
     const ride = scheduledBoarding(subwayFeed, { ...plan, depart }, network);
     if (ride) return ride;
-    throw Error(
-      "選んだ折り返し列車の全駅時刻が未取得です。駅時刻表から確認してください。",
-    );
+    throw userFacingError(ui("foldback_error_no_times"));
   }
   if (!plan.tripId)
-    throw Error("この列車の便詳細が未取得です。駅時刻表から確認してください。");
+    throw userFacingError(ui("foldback_error_no_trip"));
   const trip = await officialData(
     "/timetable/trip",
     {
@@ -75,7 +74,7 @@ export async function foldbackJourney(
     { ...trip, date: plan.date, boardStop: plan.stopId },
     network,
   );
-  if (!ride) throw Error("折り返し列車の停車時刻を確認できませんでした。");
+  if (!ride) throw userFacingError(ui("foldback_error_no_stops"));
   const index = ride.officialStops.findIndex((s) => s.id === plan.stopId),
     stop = ride.officialStops[index];
   if (
@@ -85,9 +84,7 @@ export async function foldbackJourney(
     reverseDirection(ride, plan.stopId) !==
       (plan.direction === "north" ? "south" : "north")
   )
-    throw Error(
-      "選んだ列車と便詳細が一致しません。駅時刻表から確認してください。",
-    );
+    throw userFacingError(ui("foldback_error_mismatch"));
   return {
     ...ride,
     from: plan.stopId,

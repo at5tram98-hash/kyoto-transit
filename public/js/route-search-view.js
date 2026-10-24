@@ -1,4 +1,4 @@
-import { ui, displayStopName, durationLabel } from "./locale.js";
+import { ui, displayStopName, durationLabel, placeName } from "./locale.js";
 import { esc, icon } from "./vnext-state.js";
 import { formatTime } from "./router.js";
 import { boardingAvailable } from "./journey-session.js";
@@ -189,7 +189,7 @@ export function routeHTML(
                   : ""
               ).replace(/^\s*·\s*/, ""),
             ),
-        esc(leg.destination ?? ui("route_search_view_027")),
+        esc(placeName(leg.destination) ?? ui("route_search_view_027")),
         leg.destination ? ui("route_search_view_028") : "",
         leg.through ? ui("route_search_view_029") : "",
         leg.platform ? ui("route_search_view_030", [esc(leg.platform)]) : "",

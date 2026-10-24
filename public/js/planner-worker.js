@@ -1,3 +1,4 @@
+import { setAppLocale } from "./locale.js";
 import {
   mergeTimetableFeeds,
   searchTimetable,
@@ -83,6 +84,8 @@ export function planWorkerJob({
 if (typeof self !== "undefined" && typeof self.postMessage === "function") {
   self.onmessage = (event) => {
     const id = event.data?.id;
+    // Messages built in the worker (trip choice reasons) follow the app.
+    setAppLocale(event.data?.locale);
     try {
       self.postMessage({ id, ok: true, ...planWorkerJob(event.data) });
     } catch (error) {
@@ -90,6 +93,7 @@ if (typeof self !== "undefined" && typeof self.postMessage === "function") {
         id,
         ok: false,
         error: String(error?.message ?? error),
+        userFacing: error?.userFacing === true,
       });
     }
   };

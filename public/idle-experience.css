@@ -349,7 +349,7 @@ html[data-reduce-motion="true"] .live-quick-group[aria-hidden] { display: none; 
   overflow-wrap: anywhere;
 }
 .live-direction-segments button[aria-pressed="true"] {
-  background: var(--blue);
+  background: var(--color-accent-strong);
   color: var(--color-on-accent);
 }
 .live-nearby-arrival .transport-badge {
@@ -708,12 +708,11 @@ html[data-app-hidden="true"] .idle-status .idle-state::before {
   font-weight: 400;
 }
 .checkin-stops button[aria-pressed="true"] {
-  background: var(--color-accent);
-  color: var(--surface-primary);
+  background: var(--color-accent-strong);
+  color: var(--color-on-accent);
 }
 .checkin-stops button[aria-pressed="true"] small {
   color: inherit;
-  opacity: 0.85;
 }
 .wheel-picker {
   position: relative;
@@ -724,7 +723,7 @@ html[data-app-hidden="true"] .idle-status .idle-state::before {
   perspective: 600px;
   outline: none;
 }
-.wheel-picker:focus-visible {
+.wheel-track:focus-visible {
   box-shadow: var(--shadow-focus);
 }
 .wheel-track {

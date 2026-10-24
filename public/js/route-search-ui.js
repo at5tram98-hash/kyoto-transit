@@ -1,4 +1,4 @@
-import { ui, displayStopName, serviceDateLabel } from "./locale.js";
+import { ui, displayStopName, serviceDateLabel, userFacingError, userError, currentLocale } from "./locale.js";
 import { downloadRouteImage } from "./route-image.js";
 import { esc, icon } from "./vnext-state.js";
 import {
@@ -80,7 +80,9 @@ async function api(path, params = {}, signal) {
       data = await r.json();
     } catch {}
     if (!r.ok)
-      throw Object.assign(Error(data?.error ?? ui("route_search_ui_001")), {
+      throw Object.assign(Error(`HTTP ${r.status}`), {
+        detail: data?.error,
+        fallback: ui("route_search_ui_001"),
         status: r.status,
         code: data?.code,
       });
@@ -194,6 +196,7 @@ async function planInWorker(base, feeds, request, passes, signal, extra = {}) {
       request,
       passes,
       nowEpoch: Date.now(),
+      locale: currentLocale(),
       ...extra,
     },
     id = ++plannerSequence;
@@ -222,7 +225,13 @@ async function planInWorker(base, feeds, request, passes, signal, extra = {}) {
       if (data.ok) {
         const { id: completedId, ok, ...result } = data;
         finish(resolve, result);
-      } else finish(reject, Error(data.error ?? ui("route_search_ui_004")));
+      } else
+        finish(
+          reject,
+          data.userFacing
+            ? userFacingError(data.error)
+            : Object.assign(Error(data.error ?? "planner"), { fallback: ui("route_search_ui_004") }),
+        );
     };
     worker.onerror = (event) => {
       // The owned promise reports genuine failures inline. Cancellation during
@@ -404,7 +413,7 @@ export function mountRouteSearch({
   const dateSheet = makeSearchSheet(
     "search-date",
     ui("route_search_ui_009"),
-    ui("route_search_ui_010", [now.date, now.time]),
+    ui("route_search_ui_010", [now.date, now.time, icon("now")]),
   );
   const filter = makeSearchSheet(
     "search-filter",
@@ -443,6 +452,43 @@ export function mountRouteSearch({
   root
     .querySelector("[data-search-date]")
     .addEventListener("click", () => openDate());
+  // Quick controls in the date sheet: time type, day chips, Now and steps.
+  const setDateTime = (date, time) => {
+    form.elements.date.value = date;
+    form.elements.time.value = time;
+  };
+  const clockText = (minute) =>
+    `${String(Math.floor(minute / 60) % 24).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+  root.querySelector("[data-planner-now]").addEventListener("click", () => {
+    const today = tokyoNow();
+    setDateTime(today.date, today.time);
+    form.elements.timeMode.value = "departure";
+    dateChanged();
+    navigation.remember("search-input", captureInput());
+  });
+  dateSheet.addEventListener("click", (event) => {
+    const mode = event.target.closest("[data-time-mode]"),
+      offset = event.target.closest("[data-date-offset]"),
+      step = event.target.closest("[data-time-step]");
+    const today = tokyoNow();
+    if (mode) form.elements.timeMode.value = mode.dataset.timeMode;
+    else if (offset)
+      form.elements.date.value = shiftServiceDate(today.date, Number(offset.dataset.dateOffset));
+    else if (event.target.closest("[data-time-now]")) {
+      // "Now" means leaving now.
+      setDateTime(today.date, today.time);
+      form.elements.timeMode.value = "departure";
+    } else if (step) {
+      const current = minuteValue(form.elements.time.value) ?? today.minute,
+        total = current + Number(step.dataset.timeStep),
+        days = Math.floor(total / 1440);
+      setDateTime(
+        days ? shiftServiceDate(form.elements.date.value || today.date, days) : form.elements.date.value,
+        clockText(((total % 1440) + 1440) % 1440),
+      );
+    } else return;
+    dateChanged();
+  });
   dateSheet.addEventListener("mymap-search-sheet-result", () => {
     const confirmed =
       dateSheet.returnValue === "apply" &&
@@ -645,6 +691,7 @@ export function mountRouteSearch({
           .map((row) => ({
             ...newSlot(row?.input && typeof row.input === "object" ? row.input : null),
             revision: Number.isSafeInteger(row?.revision) ? row.revision : null,
+            stack: Array.isArray(row?.stack) ? row.stack.slice(0, 6) : undefined,
           })),
       );
       activeSlotId = (slots[savedSlots.active] ?? slots[0]).id;
@@ -850,7 +897,7 @@ export function mountRouteSearch({
   function requestFor(data) {
     if (data.request) return data.request;
     const input = data.input;
-    if (!input) throw Error(ui("route_search_ui_021"));
+    if (!input) throw userFacingError(ui("route_search_ui_021"));
     return {
       from: resolveStop(network, input.from, input.fromId).stop?.id,
       to: resolveStop(network, input.to, input.toId).stop?.id,
@@ -873,7 +920,7 @@ export function mountRouteSearch({
     if (!context) {
       const loaded = await loadFeeds(request.date, signal, network);
       if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-      if (!loaded.feeds.length) throw Error(ui("route_search_ui_022"));
+      if (!loaded.feeds.length) throw userFacingError(ui("route_search_ui_022"));
       context = { feeds: loaded.feeds, request };
     }
     if (
@@ -1308,7 +1355,7 @@ export function mountRouteSearch({
             );
             feedback.textContent = ui("route_search_ui_046");
           } catch (error) {
-            feedback.textContent = error.message;
+            feedback.textContent = userError(error);
           } finally {
             if (button.isConnected) button.disabled = false;
           }
@@ -1362,7 +1409,7 @@ export function mountRouteSearch({
   function persistSlots() {
     navigation.remember("search-slots", {
       active: slots.indexOf(activeSlot()),
-      slots: slots.map(({ input, revision }) => ({ input, revision })),
+      slots: slots.map(({ input, revision, stack }) => ({ input, revision, stack })),
     });
   }
   function slotTitle(slot) {
@@ -1388,7 +1435,7 @@ export function mountRouteSearch({
       .map((slot, i) => {
         const [state, label] = slotState(slot),
           selected = slot === active;
-        return `<div class="search-slot-wrap"><button type="button" role="tab" class="search-slot" data-search-slot="${slot.id}" aria-selected="${selected}" data-state="${state}" aria-label="${esc(`${ui("search_slot_number", [i + 1])} ${slotTitle(slot)} ${label}`)}"><span class="search-slot-index" aria-hidden="true">${state === "running" ? '<i class="search-slot-spinner"></i>' : i + 1}</span><span class="search-slot-copy" aria-hidden="true"><b>${esc(slotTitle(slot))}</b><small>${esc(label)}</small></span></button>${selected && slots.length > 1 ? `<button type="button" class="search-slot-close" data-search-slot-close="${slot.id}" aria-label="${esc(ui("search_slot_close", [i + 1]))}"><span aria-hidden="true">×</span></button>` : ""}</div>`;
+        return `<div class="search-slot-wrap"><button type="button" class="search-slot" data-search-slot="${slot.id}" aria-current="${selected}" data-state="${state}" aria-label="${esc(`${ui("search_slot_number", [i + 1])} ${slotTitle(slot)} ${label}`)}"><span class="search-slot-index" aria-hidden="true">${state === "running" ? '<i class="search-slot-spinner"></i>' : i + 1}</span><span class="search-slot-copy" aria-hidden="true"><b>${esc(slotTitle(slot))}</b><small>${esc(label)}</small></span></button>${selected && slots.length > 1 ? `<button type="button" class="search-slot-close" data-search-slot-close="${slot.id}" aria-label="${esc(ui("search_slot_close", [i + 1]))}"><span aria-hidden="true">×</span></button>` : ""}</div>`;
       })
       .join("");
     const add =
@@ -1397,11 +1444,11 @@ export function mountRouteSearch({
         : "";
     updateHTML(
       slotStrip,
-      `<div class="search-slot-tabs" role="tablist">${tabs}${add}</div>`,
+      `<div class="search-slot-tabs" role="group" aria-label="${esc(ui("search_slot_tabs"))}">${tabs}${add}</div>`,
     );
     // Keep the selected tab in view within the strip (never scroll the page).
     const strip = slotStrip.querySelector(".search-slot-tabs"),
-      selected = strip?.querySelector('[aria-selected="true"]')?.parentElement;
+      selected = strip?.querySelector('[aria-current="true"]')?.parentElement;
     if (strip && selected) {
       const left = selected.offsetLeft - strip.offsetLeft,
         right = left + selected.offsetWidth;
@@ -1410,13 +1457,58 @@ export function mountRouteSearch({
         strip.scrollLeft = right - strip.clientWidth;
     }
   }
-  // Show a slot where it left off: its results when it has any, else the form.
-  function showSlot(slot) {
-    const revision = slot.revision;
-    navigation.root("search");
-    if (snapshots.get(revision) || slot.job)
-      queueMicrotask(() => navigation.push("results", { revision }));
+  // Each slot remembers the screens it had open (results, a route's
+  // detail, a stop opened from it), and switching back reopens that last
+  // screen rather than the results list.
+  let restoringSlot = false;
+  const RESULT_SCREENS = new Set(["results", "route"]);
+  const settled = (move) =>
+    new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        document.removeEventListener("mymap-navigation-change", done);
+        resolve();
+      };
+      const timer = setTimeout(done, 1500);
+      document.addEventListener("mymap-navigation-change", done);
+      if (move() === false) done();
+    });
+  function slotScreens(slot) {
+    const saved = Array.isArray(slot.stack)
+      ? slot.stack
+      : slot.revision != null
+        ? [{ type: "results", params: { revision: slot.revision } }]
+        : [];
+    const live = (entry) =>
+      !RESULT_SCREENS.has(entry?.type) ||
+      snapshots.has(entry.params?.revision) ||
+      (slot.job && entry.params?.revision === slot.revision);
+    const valid = [];
+    for (const entry of saved) {
+      if (!entry || typeof entry.type !== "string" || !live(entry)) break;
+      valid.push(entry);
+    }
+    return valid.slice(0, 6);
   }
+  async function showSlot(slot) {
+    const screens = slotScreens(slot);
+    restoringSlot = true;
+    try {
+      if (navigation.stack.length || navigation.tab !== "search")
+        await settled(() => navigation.root("search"));
+      for (const entry of screens)
+        await settled(() => navigation.push(entry.type, entry.params));
+    } finally {
+      restoringSlot = false;
+      rememberSlotScreens();
+    }
+  }
+  function rememberSlotScreens() {
+    if (restoringSlot || navigation.tab !== "search") return;
+    activeSlot().stack = navigation.stack;
+    persistSlots();
+  }
+  document.addEventListener("mymap-navigation-change", rememberSlotScreens);
   function blankInput() {
     const current = tokyoNow(),
       stop = onCurrentLocation?.({ silent: true });
@@ -1449,8 +1541,10 @@ export function mountRouteSearch({
     const tab = event.target.closest("[data-search-slot]");
     if (tab) {
       const id = Number(tab.dataset.searchSlot);
+      // The open slot stays where it is; another slot reopens its last screen.
+      if (id === activeSlotId && navigation.stack.length) return;
       if (id !== activeSlotId) selectSlot(id);
-      showSlot(activeSlot());
+      void showSlot(activeSlot());
       return;
     }
     if (event.target.closest("[data-search-slot-add]") && slots.length < MAX_SLOTS) {
@@ -1471,8 +1565,8 @@ export function mountRouteSearch({
       navigation.remember("search-input", captureInput());
       persistSlots();
       renderSlots();
-      showSlot(activeSlot());
-      slotStrip.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
+      void showSlot(activeSlot());
+      slotStrip.querySelector('[aria-current="true"]')?.focus({ preventScroll: true });
     }
   });
   form.addEventListener("input", () => renderSlots());
@@ -1565,12 +1659,47 @@ export function mountRouteSearch({
     ["first", "last"].includes(input.timeMode)
       ? timeModeLabel(input.timeMode)
       : `${input.time} ${timeModeLabel(input.timeMode)}`;
+  // "Today", "Tomorrow" or a short date such as 10月24日(土).
+  const dayLabel = (date) => {
+    const today = tokyoNow().date;
+    if (date === today) return ui("route_search_ui_063");
+    if (date === shiftServiceDate(today, 1)) return ui("search_tomorrow");
+    try {
+      return new Intl.DateTimeFormat(currentLocale() === "en" ? "en-GB" : "ja-JP", {
+        timeZone: "Asia/Tokyo",
+        month: currentLocale() === "en" ? "short" : "numeric",
+        day: "numeric",
+        weekday: "short",
+      }).format(new Date(`${date}T12:00:00+09:00`));
+    } catch {
+      return date;
+    }
+  };
   const dateChanged = () => {
     const serviceBoundary = ["first", "last"].includes(
       form.elements.timeMode.value,
     );
     form.elements.time.disabled = serviceBoundary;
-    form.elements.time.closest("label").hidden = serviceBoundary;
+    for (const block of dateSheet.querySelectorAll("[data-time-block]"))
+      block.hidden = serviceBoundary;
+    for (const button of dateSheet.querySelectorAll("[data-time-mode]"))
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.timeMode === form.elements.timeMode.value),
+      );
+    const today = tokyoNow().date;
+    // One tap back to "leave now" whenever another time is set.
+    const nowButton = root.querySelector("[data-planner-now]");
+    if (nowButton)
+      nowButton.hidden =
+        form.elements.timeMode.value === "departure" &&
+        form.elements.date.value === today &&
+        Math.abs((minuteValue(form.elements.time.value) ?? 0) - tokyoNow().minute) <= 1;
+    for (const button of dateSheet.querySelectorAll("[data-date-offset]"))
+      button.setAttribute(
+        "aria-pressed",
+        String(shiftServiceDate(today, Number(button.dataset.dateOffset)) === form.elements.date.value),
+      );
     if (serviceBoundary && !form.elements.time.value)
       form.elements.time.value = tokyoNow().time;
     const ops = form.elements.operators.value.split(",");
@@ -1587,7 +1716,7 @@ export function mountRouteSearch({
     filter.querySelector("[data-kintetsu-condition]").hidden = !relevant;
     if (!relevant) form.elements.trainType.value = "all";
     root.querySelector("#planner-date-summary").textContent =
-      `${form.elements.date.value === tokyoNow().date ? ui("route_search_ui_063") : form.elements.date.value} ${searchClockLabel(captureInput())}`;
+      `${dayLabel(form.elements.date.value)} ${searchClockLabel(captureInput())}`;
     root.querySelector("#planner-condition-summary").textContent = ui(
       "route_search_ui_085",
       [
@@ -1756,7 +1885,7 @@ export function mountRouteSearch({
         feeds.push(...next.feeds);
       }
       if (signal.aborted) return;
-      if (!feeds.length) throw Error(ui("route_search_ui_070"));
+      if (!feeds.length) throw userFacingError(ui("route_search_ui_070"));
       feedContexts.set(job.revision, {
         feeds,
         request,
@@ -1797,9 +1926,19 @@ export function mountRouteSearch({
         const actions = searchRecoveryOptions(requestInput)
           .map(option => `<button type="button" class="secondary-action" data-c6-recovery="${esc(option.id)}">${esc(ui(`c6_recovery_${option.id}`))}</button>`)
           .join("");
-        status.innerHTML = ui("route_search_ui_086", [
-          missingNote + `<div class="c6-search-recovery" role="group" aria-label="${esc(ui("c6_recovery_title"))}">${actions}</div>`,
-        ]);
+        // Missing timetables, not the conditions, are why nothing was found:
+        // offer to try again first.
+        status.innerHTML = relevantMissing.length
+          ? ui("route_search_data_missing", [
+              esc(
+                relevantMissing
+                  .map((x) => operatorLabel[x.operator] ?? x.operator)
+                  .join("・"),
+              ),
+            ])
+          : ui("route_search_ui_086", [
+              missingNote + `<div class="c6-search-recovery" role="group" aria-label="${esc(ui("c6_recovery_title"))}">${actions}</div>`,
+            ]);
         return;
       }
       const mapped = mergeTimetableFeeds(network, feeds, {
@@ -1869,7 +2008,7 @@ export function mountRouteSearch({
       persistSnapshots();
     } catch (err) {
       if (!signal.aborted)
-        status.innerHTML = ui("route_search_ui_076", [esc(err.message)]);
+        status.innerHTML = ui("route_search_ui_076", [esc(userError(err))]);
     } finally {
       runningJobs.delete(job);
       if (slot.job === job) slot.job = null;
@@ -1932,7 +2071,7 @@ export function mountRouteSearch({
       }
     } catch (error) {
       navigation.root("search");
-      inlineStatus.innerHTML = `<p class="planner-warning" role="status">${esc(error.message)}</p>`;
+      inlineStatus.innerHTML = `<p class="planner-warning" role="status">${esc(userError(error))}</p>`;
     }
   }
   dateChanged();

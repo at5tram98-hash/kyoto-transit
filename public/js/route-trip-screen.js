@@ -1,4 +1,4 @@
-import { ui } from "./locale.js";
+import { ui, placeName, userError } from "./locale.js";
 import { setupSheetGestures } from "./context-sheet.js";
 import { navigation } from "./navigation.js";
 import { esc, icon } from "./vnext-state.js";
@@ -93,7 +93,7 @@ export function registerTripChoice({
                 : l.category === "local"
                   ? ui("route_trip_screen_007")
                   : "",
-              esc(l.destination ?? ui("route_trip_screen_008")),
+              esc(placeName(l.destination) ?? ui("route_trip_screen_008")),
               l.destination ? ui("route_trip_screen_009") : "",
               l.platform ? ui("route_trip_screen_010", [esc(l.platform)]) : "",
               esc(selectedDate(l)),
@@ -185,7 +185,7 @@ export function registerTripChoice({
         sheet.close();
       }
     } catch (error) {
-      if (!controller.signal.aborted) view.error = error.message;
+      if (!controller.signal.aborted) view.error = userError(error);
     } finally {
       if (!controller.signal.aborted) {
         view.busy = false;
@@ -263,7 +263,7 @@ export function registerTripChoice({
       if (!view.controller.signal.aborted)
         element.querySelector(".trip-choice-list").innerHTML = ui(
           "route_trip_screen_024",
-          [esc(error.message)],
+          [esc(userError(error))],
         );
     } finally {
       view.loading = false;

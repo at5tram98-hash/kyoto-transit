@@ -1,3 +1,4 @@
+import { ui } from "./locale.js";
 import { CAPTURE_API } from './live.js';
 
 export const ARRIVAL_INTERVAL = 20000;
@@ -26,7 +27,7 @@ export function freshnessNotice(
     t = typeof raw === 'number' ? raw : Date.parse(raw),
     age = Number.isFinite(t) ? Math.max(0, now - t) : null;
   if (Number.isFinite(age) && age > warnAge)
-    return { show: true, text: 'データが古くなっています' };
+    return { show: true, text: ui('data_stale') };
   return { show: false, text: '' };
 }
 export function predictedMinutes(eta, now = Date.now()) {
@@ -190,9 +191,10 @@ async function requestRealtime(key, path, params = {}, options = {}) {
     }
     const data = await r.json().catch(() => ({}));
     if (!r.ok)
-      throw Object.assign(Error(data.error ?? `HTTP ${r.status}`), {
+      throw Object.assign(Error(`HTTP ${r.status}`), {
         status: r.status,
         code: data.code,
+        detail: data.error,
       });
     const saved = { data, etag: r.headers.get('ETag'), savedAt: Date.now() };
     await putCached(key, saved);

@@ -42,6 +42,8 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     list.hidden = true;
   });
   function bind(input) {
+    // A field that opens the stop picker: a combobox with a dialog popup.
+    input.setAttribute("role", "combobox");
     input.setAttribute("aria-haspopup", "dialog");
     input.setAttribute("aria-controls", dialog.id);
     input.setAttribute("aria-expanded", "false");

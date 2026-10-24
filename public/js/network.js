@@ -1,4 +1,5 @@
 import { stationEnglish } from "./station-names.js";
+import { registerPlaceName } from "./locale.js";
 // 駅・停留所カタログと、リアルタイム取得に失敗した場合の補助経路データ。
 // 発車間隔・所要時間は補助値であり、経路検索では静的ダイヤを優先する。
 export const SUBWAY_NAMES =
@@ -65,6 +66,7 @@ export function createNetwork(catalog) {
     const english = stationEnglish[stop.id];
     if (english) {
       stop.en = english;
+      registerPlaceName(stop.name, english);
       stop.aliases.push(
         english,
         english.replaceAll("-", " "),

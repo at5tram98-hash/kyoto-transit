@@ -1,3 +1,4 @@
+import { ui, userFacingError } from "./locale.js";
 import { planRoutes, allowedService } from "./router.js";
 
 export const ITINERARY_KEY = "mymap-itinerary-v1";
@@ -22,7 +23,7 @@ const clone = (value) => structuredClone(value);
 // remains separate, including a previous service day's 24:xx departure.
 export function tripOptions(network, request, journey, legIndex) {
   const original = journey.legs[legIndex];
-  if (!isRide(original ?? {})) throw Error("乗車区間を選択してください。");
+  if (!isRide(original ?? {})) throw userFacingError(ui("trip_error_select_leg"));
   const prefix = journey.legs.slice(0, legIndex),
     priorRides = prefix.filter(isRide).length,
     ready = Math.max(
@@ -74,13 +75,13 @@ export function tripOptions(network, request, journey, legIndex) {
           pendingVia[0].stop !== original.to &&
           path.slice(1, -1).includes(pendingVia[0].stop),
         reason = !known
-          ? "到着時刻を取得できません"
+          ? ui("trip_reason_no_arrival")
           : variant && (variant.suspended || variant.verified !== true)
-            ? "この便の運行区間を確認できません"
+            ? ui("trip_reason_unverified")
             : depart < ready
-              ? "前の区間から乗換に間に合いません"
+              ? ui("trip_reason_missed")
               : viaSkipped
-                ? "経由地での滞在を保てません"
+                ? ui("trip_reason_via")
                 : "";
       const leg = {
         kind: "ride",
@@ -145,8 +146,8 @@ export function replaceJourneyLeg(
     (x) => x.key === key,
   );
   if (!chosen)
-    throw Error("便の情報が更新されています。候補を開き直してください。");
-  if (!chosen.available) throw Error(chosen.reason);
+    throw userFacingError(ui("trip_error_stale"));
+  if (!chosen.available) throw userFacingError(chosen.reason);
   const leg = clone(chosen.leg),
     prefix = clone(journey.legs.slice(0, legIndex)),
     priorRides = prefix.filter(isRide).length;
@@ -162,9 +163,7 @@ export function replaceJourneyLeg(
       item.arrive += shift;
     }
     if (start < 0)
-      throw Error(
-        "前日の徒歩・滞在を含む便です。出発日を変更して検索してください。",
-      );
+      throw userFacingError(ui("trip_error_previous_day"));
   }
   const legs = [...prefix, leg],
     usedWalk = prefix
@@ -192,10 +191,10 @@ export function replaceJourneyLeg(
     ),
     updated = candidates[0];
   if (!updated)
-    throw Error("この便から先の接続がありません。別の便を選んでください。");
+    throw userFacingError(ui("trip_error_no_connection"));
   return {
     ...updated,
-    optionLabel: journey.optionLabel ?? "選択便",
+    optionLabel: journey.optionLabel ?? ui("trip_selected"),
     realtimeSource: updated.legs.some((l) => l.realtime?.source === "live")
       ? "live"
       : updated.legs.some((l) => l.realtime)

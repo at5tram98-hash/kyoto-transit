@@ -14,6 +14,7 @@ let activeLocale = (() => {
     return "ja";
   }
 })();
+export const currentLocale = () => activeLocale;
 export function setAppLocale(value) {
   activeLocale = value === "en" ? "en" : "ja";
   if (typeof document !== "undefined") {
@@ -32,6 +33,40 @@ export function ui(key, values = []) {
 }
 export const displayStopName = (stop) =>
   activeLocale === "en" ? (stop?.en ?? stop?.name ?? "") : (stop?.name ?? "");
+// Free-text place names from timetables (headsigns such as "国際会館") in
+// English: rail stations have official spellings; other names stay as given.
+const placeNames = new Map();
+export function registerPlaceName(name, english) {
+  if (name && english) placeNames.set(String(name).replace(/駅$/, ""), english);
+}
+export const placeNameEntries = () => [...placeNames.entries()];
+export const placeName = (text) => {
+  if (activeLocale !== "en" || typeof text !== "string") return text;
+  const pole = text.trim().match(/^([A-Za-z0-9Ａ-Ｚ０-９]+)\s*のりば$/);
+  if (pole) return `Stop ${pole[1].normalize("NFKC")}`;
+  const plain = text.trim().replace(/駅$/, "");
+  return placeNames.get(plain) ?? placeNames.get(plain.replace(/^(近鉄|地下鉄)/, "")) ?? text;
+};
+// What the rider is told when something fails. Messages the app wrote for
+// riders (marked userFacing) are kept; raw errors from the network, the
+// browser or the server are never shown verbatim.
+export const userFacingError = (message, extra = {}) =>
+  Object.assign(Error(message), { userFacing: true }, extra);
+export function userError(error, fallbackKey = "error_generic") {
+  if (error?.userFacing && error.message) return error.message;
+  const name = error?.name,
+    text = String(error?.message ?? "");
+  if (name === "AbortError" || name === "TimeoutError" || /timeout|timed out/i.test(text))
+    return ui("error_timeout");
+  if (
+    (typeof navigator !== "undefined" && navigator.onLine === false) ||
+    (name === "TypeError" && /fetch|network|load/i.test(text))
+  )
+    return ui("error_offline");
+  if (error?.status === 429) return ui("error_busy");
+  if (error?.status >= 500) return ui("error_server");
+  return error?.fallback ?? ui(fallbackKey);
+}
 export const transitTimeZone = "Asia/Tokyo";
 export function serviceDateLabel(date) {
   return new Intl.DateTimeFormat(activeLocale === "en" ? "en-GB" : "ja-JP", {

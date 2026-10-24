@@ -8,7 +8,7 @@ import { manualNearbyRows, manualReferenceOptions } from "./manual-nearby-b7.js"
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
 import { createAlightingNotifier } from "./alighting-notifier-b4.js";
-import { ui, displayStopName } from "./locale.js";
+import { ui, displayStopName, placeName } from "./locale.js";
 import { transferGuideHTML } from "./transfer-guide.js";
 import {
   groupCityBusRows,
@@ -142,7 +142,7 @@ function kintetsuDepartureHTML(stop) {
           e.category === "express"
             ? ui("vnext_view_002")
             : ui("vnext_view_003"),
-          e.destination ? ui("vnext_view_004", [esc(e.destination)]) : "",
+          e.destination ? ui("vnext_view_004", [esc(placeName(e.destination))]) : "",
           formatMinute(e.depart),
           Math.round(e.depart - now.minute),
           nearbyRailFeed.meta?.stale
@@ -259,7 +259,7 @@ function nearbyBusHTML(stop) {
         rows.map((r) => ({
           key: r.dest,
           label: busDirectionLabel(r.route, r.dest),
-          html: `<div class="live-nearby-arrival" data-operator="citybus"><span>${lineBadge({ operator: "citybus", route: r.route }, { size: "small" })} ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(r.boarding)}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
+          html: `<div class="live-nearby-arrival" data-operator="citybus"><span>${lineBadge({ operator: "citybus", route: r.route }, { size: "small" })} ${esc(busDirectionLabel(r.route, r.dest))}${r.boarding ? `<small>${esc(placeName(r.boarding))}</small>` : ""}</span><b class="${observed && r.source === "live" && r.arrivals?.[0]?.stopsAway === 1 ? "live-arrival-imminent" : ""}">${esc(busArrivalText({ ...r, arrivals: r.arrivals?.slice(0, 1) }))}<small>${!navigator.onLine ? ui("vnext_view_021") : r.source === "schedule" ? ui("vnext_view_022") : observed && r.source === "live" ? ui("vnext_view_023") : ui("vnext_view_024")}</small></b></div>`,
         })),
       )
     : north3DepartureHTML(stop);
@@ -298,7 +298,7 @@ function departureHTML(stopId, expanded = false) {
     groups
       .map(
         (g) =>
-          `<div><span>${g.direction === "north" ? ui("vnext_view_032") : ui("vnext_view_033")}</span>${g.entries.length ? (expanded ? g.entries : g.entries.slice(0, 1)).map((e) => ui("vnext_view_099", [formatMinute(e.depart), esc(e.destination ?? ui("vnext_view_034"))])).join("") : ui("vnext_view_035")}</div>`,
+          `<div><span>${g.direction === "north" ? ui("vnext_view_032") : ui("vnext_view_033")}</span>${g.entries.length ? (expanded ? g.entries : g.entries.slice(0, 1)).map((e) => ui("vnext_view_099", [formatMinute(e.depart), esc(placeName(e.destination) ?? ui("vnext_view_034"))])).join("") : ui("vnext_view_035")}</div>`,
       )
       .join(""),
     feed.cached ? ui("vnext_view_036") : ui("vnext_view_037"),
@@ -367,7 +367,7 @@ export function rideChoiceRowsHTML(candidates) {
         modeClass(c.ride),
         icon(["citybus", "kyotobus"].includes(c.ride.operator) ? "bus" : "train"),
         esc(serviceName(c.ride)),
-        esc(c.ride.destination ?? ui("vnext_view_049")),
+        esc(placeName(c.ride.destination) ?? ui("vnext_view_049")),
         Number.isFinite(c.ride.depart)
           ? ui("vnext_view_050", [formatMinute(c.ride.depart)])
           : "",
@@ -453,7 +453,7 @@ function candidateHTML() {
             ["citybus", "kyotobus"].includes(c.ride.operator) ? "bus" : "train",
           ),
           esc(serviceName(c.ride)),
-          esc(c.ride.destination ?? ui("vnext_view_049")),
+          esc(placeName(c.ride.destination) ?? ui("vnext_view_049")),
           Number.isFinite(c.ride.depart)
             ? ui("vnext_view_050", [formatMinute(c.ride.depart)])
             : "",
@@ -549,7 +549,7 @@ export function renderNow() {
   const detectionStatus = `<p class="source-note detection-stage" role="status" aria-live="polite" data-detection-status data-detection-phase="${detectionPhase}">${esc(ui(`b3_status_${detectionPhase}`))}</p>`;
   updateHTML(
     vehicle,
-    `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>${transferring ? "" : state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(state.armedJourney.ride.destination), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
+    `<div class="detection-card">${detectionStatus}${motionControlHTML()}${chooseRideHTML()}</div>${transferring ? "" : state.armedJourney ? ui("vnext_view_101", [esc(serviceName(state.armedJourney.ride)), esc(placeName(state.armedJourney.ride.destination)), esc(state.armedJourney.ride.userDestination?.name ?? ui("vnext_view_051")), itinerarySummary(state.itinerary, state.network)]) : state.itinerary ? itinerarySummary(state.itinerary, state.network) : ""}${candidateHTML()}`,
   );
   updateHTML(networkPanel, "");
   const moving = Number.isFinite(motion.speed) && motion.speed >= 2.8;
@@ -861,7 +861,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
       vehicle,
       ui("vnext_view_104", [
         bus ? ui("vnext_view_069") : ui("vnext_view_070"),
-        esc(ride.destination ?? stops.at(-1)?.name ?? ui("vnext_view_071")),
+        esc(placeName(ride.destination) ?? stops.at(-1)?.name ?? ui("vnext_view_071")),
         !bus ? ui("vnext_view_072", [icon("fold")]) : "",
         bus ? ui("vnext_view_073") : ui("vnext_view_074"),
         timeline(tableStops, tableProgress, now.minute, shift, bus, ride),
@@ -1221,7 +1221,7 @@ function foldbackPlanHTML(ride, now) {
     icon("fold"),
     esc(stop?.name ?? plan.stopId),
     formatMinute(plan.depart),
-    esc(plan.destination),
+    esc(placeName(plan.destination)),
     esc(text),
   ]);
 }

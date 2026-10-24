@@ -46,13 +46,18 @@
     const hero = document.getElementById("now-hero");
     const message = document.createElement("p");
     message.className = "hero-card";
-    message.textContent =
-      "アプリを更新できませんでした。通信を確認し、再読み込みしてください。";
+    let english = false;
+    try {
+      english = JSON.parse(localStorage.getItem("mymap-vnext-settings") ?? "{}").locale === "en";
+    } catch {}
+    message.textContent = english
+      ? "The app could not be updated. Check your connection and reload."
+      : "アプリを更新できませんでした。通信を確認し、再読み込みしてください。";
     const retry = document.createElement("button");
     retry.type = "button";
     retry.style.minHeight = "44px";
     retry.style.maxWidth = "100%";
-    retry.textContent = "再読み込み";
+    retry.textContent = english ? "Reload" : "再読み込み";
     retry.addEventListener("click", () => location.reload());
     message.append(document.createElement("br"), retry);
     hero.replaceChildren(message);

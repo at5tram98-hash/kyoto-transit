@@ -226,12 +226,23 @@ function ensureSource() {
   if (video?.paused) video.play().catch(() => {});
 }
 // Prepare the stream ahead of the tap so the request can be made at once.
+// If the rider does not start PiP soon, stop painting and pause the stream
+// so an unused source does not keep the phone busy.
+let idleStop = 0;
+function idleSource() {
+  if (active) return;
+  clearInterval(timer);
+  timer = null;
+  video?.pause();
+}
 export function preparePip() {
   if (!pipSupported()) return;
   try {
     ensureSource();
     clearInterval(timer);
     timer = setInterval(refreshPip, 1000);
+    clearTimeout(idleStop);
+    idleStop = setTimeout(idleSource, 30000);
   } catch {}
 }
 function markActive() {
@@ -288,6 +299,7 @@ async function documentPip() {
 export function stopPip() {
   if (!active) return;
   active = false;
+  idleSource();
   try {
     if (document.pictureInPictureElement) void document.exitPictureInPicture();
     else if (video?.webkitPresentationMode === "picture-in-picture")
