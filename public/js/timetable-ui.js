@@ -722,13 +722,22 @@ export function mountOperations({
   }
   // The refresh button says it is working (and cannot be pressed twice)
   // until the official pages answer, then returns to "Refresh".
+  // The label only changes when the answer takes longer than 250 ms, so a
+  // cached reply does not make the button text flicker.
+  let refreshLabelTimer = 0;
   function setRefreshing(on) {
+    clearTimeout(refreshLabelTimer);
     const button = root.querySelector("[data-operations-refresh]");
     if (!button) return;
-    if (on) {
-      button.dataset.label ??= button.textContent;
-      button.textContent = ui("operations_refreshing");
-    } else if (button.dataset.label) {
+    if (on)
+      refreshLabelTimer = setTimeout(() => {
+        const current = root.querySelector("[data-operations-refresh]");
+        if (!pending || !current) return;
+        current.dataset.label ??= current.textContent;
+        current.textContent = ui("operations_refreshing");
+        current.disabled = true;
+      }, 250);
+    else if (button.dataset.label) {
       button.textContent = button.dataset.label;
       delete button.dataset.label;
     }
