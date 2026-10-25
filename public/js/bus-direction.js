@@ -149,9 +149,7 @@ export function annotateRows(rows, stopId, network, located, serviceFor) {
   return rows.map((row) => {
     const match = serviceFor(row, stopId, network, located);
     if (!match) return row;
-    // Only 甲/乙 is shown for a service's direction (by request).
-    const side = lineSide(match.service, located, network),
-      degrees = departureHeading(match.service, stopId, located);
-    return { ...row, side, heading: degrees === null ? null : compass(degrees) };
+    // Only 甲/乙 is used for a service's direction (by request).
+    return { ...row, side: lineSide(match.service, located, network) };
   });
 }

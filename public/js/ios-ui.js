@@ -128,16 +128,20 @@ export function popoverMenu(anchor, items, onChoose) {
     menu.setAttribute("popover", "auto");
     menu.setAttribute("role", "menu");
     document.body.append(menu);
+    // The handler and anchor of the latest opening are used: the same
+    // menu element is reused, so its listeners must not keep the first ones.
     menu.addEventListener("click", (event) => {
       const item = event.target.closest("[data-menu-choice]");
       if (!item) return;
       menu.hidePopover();
-      onChoose?.(item.dataset.menuChoice, item);
+      menu._onChoose?.(item.dataset.menuChoice, item);
     });
     menu.addEventListener("toggle", (event) =>
-      anchor.setAttribute("aria-expanded", String(event.newState === "open")),
+      menu._anchor?.setAttribute("aria-expanded", String(event.newState === "open")),
     );
   }
+  menu._onChoose = onChoose;
+  menu._anchor = anchor;
   menu.innerHTML = items
     .map(
       (item) =>

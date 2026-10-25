@@ -299,7 +299,8 @@ export function mountLiveHome(host, search) {
             // Called inside the tap: PiP must be requested synchronously.
             else
               void togglePip().then((ok) => {
-                if (ok === false && !pipActive()) toast(ui("pip_failed"));
+                if (ok === "retry") toast(ui("pip_retry"));
+                else if (ok === false && !pipActive()) toast(ui("pip_failed"));
               });
           }
           else if (choice === "plan") search.open();
@@ -317,6 +318,15 @@ export function mountLiveHome(host, search) {
     }
   }
   host.addEventListener("click", handle);
+  // Warm the PiP source as soon as the menu button is touched, so the
+  // request made in the menu tap finds the stream ready.
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (event.target.closest?.("[data-live-more]") && modeAllowsPip()) preparePip();
+    },
+    { passive: true },
+  );
   host.addEventListener("keydown", (event) => {
     const marker = event.target.closest("[data-map-stop]");
     if (marker && ["Enter", " "].includes(event.key)) {

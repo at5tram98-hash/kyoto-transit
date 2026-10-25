@@ -243,7 +243,13 @@ function directionRowsHTML(id, entries) {
     .join("")}</div>`;
 }
 function nearbyBusHTML(stop) {
-  if (stop.type !== "citybus") return north3DepartureHTML(stop);
+  if (stop.type !== "citybus") {
+    // Kyoto Bus: after its last bus, say today's service has ended.
+    const ended = stop.type === "kyotobus"
+      ? stopEndNote(stop, "kyotobus", tokyoNow(), () => { if (!state.ride) renderNow(); })
+      : { state: null };
+    return ended.state ? ended.html : north3DepartureHTML(stop);
+  }
   const data = state.busLive;
   if (data?.stop !== (stop.fullName ?? stop.name)) {
     const ended = stopEndNote(stop, "citybus", tokyoNow(), () => { if (!state.ride) renderNow(); });

@@ -10,6 +10,7 @@ import {
   disruptedOperators,
 } from "./operation-status.js";
 import { updateHTML } from "./view-rendering.js";
+import { serviceEndHTML, serviceEndState } from "./service-end.js";
 import { navigation } from "./navigation.js";
 import { CAPTURE_API } from "./live.js";
 import { searchStops } from "./network.js";
@@ -139,6 +140,16 @@ export function stopTable(
     })
     .join("")}</ol>`;
 }
+// Today's board after its last departure (or in the small hours before the
+// first): today's service has ended.
+function endBanner(board, today, minute) {
+  if (!today || !board?.entries?.length) return "";
+  const departs = board.entries.map((e) => e.depart).filter(Number.isFinite);
+  if (!departs.length) return "";
+  const day = { first: Math.min(...departs), last: Math.max(...departs) };
+  return serviceEndHTML(serviceEndState(day, minute), day);
+}
+
 export function mountTimetables({
   network,
   getState,
@@ -412,7 +423,7 @@ export function mountTimetables({
         board.platform ? ui("timetable_ui_043", [esc(board.platform)]) : "",
         esc(board.effective ?? ""),
         hours.size
-          ? `<div class="hour-table">${[...hours].map(([h, entries]) => ui("timetable_ui_076", [h % 24, entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(placeName(e.destination))} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.originating === true || /当駅始発|この駅始発/.test(e.note ?? "") ? ui("timetable_ui_044") : ""}${e.platform ? ui("timetable_ui_045", [esc(e.platform)]) : ""}${e.destination ? `<span>${esc(placeName(e.destination))}</span>` : ""}${e.operatingCompany === "kyotobus" ? ui("timetable_ui_046") : ""}</button>`).join("")])).join("")}</div>`
+          ? `${endBanner(board, boardForToday, now().minute)}<div class="hour-table">${[...hours].map(([h, entries]) => ui("timetable_ui_076", [h % 24, entries.map((e) => `<button class="minute-cell ${e.category === "express" ? "express" : ""}${boardForToday && e.depart < now().minute ? " passed" : ""}" ${e.tripId || (options.operator === "subway" && boardForToday) ? `data-timetable-entry="${board.entries.indexOf(e)}"` : "disabled"} aria-label="${formatTime(e.depart)} ${esc(placeName(e.destination))} ${esc(kind(e))}"><b>${String(e.depart % 60).padStart(2, "0")}</b>${e.category || e.route ? `<small>${esc(kind(e))}</small>` : ""}${e.originating === true || /当駅始発|この駅始発/.test(e.note ?? "") ? ui("timetable_ui_044") : ""}${e.platform ? ui("timetable_ui_045", [esc(e.platform)]) : ""}${e.destination ? `<span>${esc(placeName(e.destination))}</span>` : ""}${e.operatingCompany === "kyotobus" ? ui("timetable_ui_046") : ""}</button>`).join("")])).join("")}</div>`
           : ui("timetable_ui_047"),
         board.cached ? ui("timetable_ui_048") : ui("timetable_ui_049"),
         new Date(board.fetchedAt).toLocaleTimeString("ja-JP", {

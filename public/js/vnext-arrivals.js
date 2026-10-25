@@ -399,8 +399,12 @@ export function mountArrivals({ network }) {
     const view = normalizeRail(recovered, railSchedule, tokyoNow().minute);
     applyNotice(root.querySelector("#rail-stale"), view, opts);
     updateArrivalRows(railRoot(), view?.results ?? [], railRow);
-    if (view && !view.results.length)
-      updateHTML(railRoot(), ui("vnext_arrivals_038"));
+    if (view && !view.results.length) {
+      // After the last train at the station: today's service has ended.
+      const target = view.target ? network.stops.get(view.target) : null,
+        ended = target && railSchedule ? stopEndNote(target, [railSchedule], tokyoNow()) : { html: "" };
+      updateHTML(railRoot(), ended.html || ui("vnext_arrivals_038"));
+    }
     setStatus("rail-update-status", view);
     state.railFeed = {
       ...recovered,

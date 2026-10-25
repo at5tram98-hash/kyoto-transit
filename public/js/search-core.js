@@ -2,6 +2,7 @@ import { normalize } from "./network.js";
 import { planRoutes, walkingMinutes, allowedService } from "./router.js";
 import { replaceJourneyLeg, tripChoiceKey } from "./journey-plan.js";
 import { isFresh } from "./realtime.js";
+import { cityBusLegRealtime } from "./bus-live-leg.js";
 
 const aliases = (s) =>
   [s.name, s.fullName, ...(s.aliases ?? [])].filter(Boolean).map(normalize);
@@ -277,8 +278,16 @@ const clampDelay = (n) =>
 export function realtimeDelayForLeg(
   leg,
   realtime,
-  { nowMinute, nowEpoch = Date.now() } = {},
+  { nowMinute, nowEpoch = Date.now(), network = null } = {},
 ) {
+  // City bus: the approach data of this leg's own boarding stop.
+  if (leg.operator === "citybus" && realtime?.citybusByStop)
+    return cityBusLegRealtime(leg, realtime.citybusByStop[leg.from], {
+      network,
+      nowMinute,
+      nowEpoch,
+      isFresh,
+    });
   const feed = ["kintetsu", "through"].includes(leg.operator)
       ? realtime?.rail
       : realtime?.[leg.operator],
@@ -378,8 +387,12 @@ export function networkWithObservations(
   journey,
   nowEpoch = Date.now(),
 ) {
+  // Exact trip observations, and city-bus positions (the leg's bus as seen
+  // in its stop's approach data): both move that trip's times.
   const observations = journey.legs.filter(
-    (l) => l.realtime?.exact && isFresh(l.realtime.asOf, 90000, nowEpoch),
+    (l) =>
+      (l.realtime?.exact || Number.isFinite(l.realtime?.eta)) &&
+      isFresh(l.realtime.asOf, 90000, nowEpoch),
   );
   if (!observations.length) return network;
   return {
@@ -420,9 +433,12 @@ export function reconcileRealtime(
 ) {
   const annotated = applyRealtime(journey, realtime, {
       ...context,
+      network,
       buffer: request.buffer,
     }),
-    first = annotated.legs.findIndex((l) => l.realtime?.exact),
+    first = annotated.legs.findIndex(
+      (l) => l.realtime?.exact || (Number.isFinite(l.realtime?.eta) && l.realtime.delay !== 0),
+    ),
     adjusted = networkWithObservations(network, annotated, context.nowEpoch);
   if (first < 0) return annotated;
   try {

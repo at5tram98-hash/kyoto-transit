@@ -6,6 +6,7 @@ import { openAtsSheet, homeRoute, runPilot } from "./ats-ui.js";
 import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { setMicBlocked } from "./mic-policy.js";
+import { rideAlightOptions } from "./ride-start.js";
 import { openArrivalSheet, arrivalChoice } from "./arrival-sheet.js";
 import { getKintetsuFeed } from "./fast-data.js";
 import { autoSpeechAssist } from "./motion-assist.js";
@@ -330,6 +331,18 @@ function setupEvents() {
       openRideChooser();
     } else if (b.hasAttribute("data-checkin")) {
       openCheckIn(checkInAndShow);
+    } else if (b.hasAttribute("data-ride-plan-onward")) {
+      // Plan onward from where the rider will get off this ride.
+      const ride = state.ride;
+      if (ride) {
+        const options = rideAlightOptions(ride, {
+            minute: tokyoNow().minute,
+            shift: state.rideShiftKnown ? state.rideShift : 0,
+            nextId: state.rideObservation?.progress?.next?.id ?? null,
+          }),
+          chosen = options.find((o) => o.id === ride.userDestination?.id) ?? null;
+        routeSearch?.openFromRide(chosen);
+      }
     } else if (b.hasAttribute("data-enable-mic")) {
       // Started inside the tap so the browser lets it ask for the microphone.
       setMicBlocked(false);

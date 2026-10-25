@@ -40,7 +40,9 @@ import {
   updateItineraryRoute,
 } from "./journey-plan.js";
 import { mergeTimetableFeeds } from "./search-core.js";
-import { searchRecoveryOptions, recoveryAction } from "./search-recovery-c6.js";
+import { searchRecoveryOptions, recoveryAction, lateNight, firstServiceInput } from "./search-recovery-c6.js";
+import { serviceEndHTML } from "./service-end.js";
+import { rideStartInput, rideClock } from "./ride-start.js";
 import { routeComparison, transferRisk, routeFacts } from "./route-comparison-c2-c5.js";
 import { getCached, putCached } from "./realtime.js";
 import { relevantMissingOperators } from "./arrival-stability.js";
@@ -156,7 +158,24 @@ async function loadFeeds(date, signal, network) {
   }
   return { feeds, missing, cached };
 }
-async function loadRealtime(network, request, signal) {
+// City-bus approach data for the boarding stop of every bus leg leaving
+// soon (at most four stops), so each leg is matched at its own stop.
+export function liveBusStops(routes, nowMinute, network, limit = 4) {
+  const ids = [];
+  for (const route of routes ?? [])
+    for (const leg of route.legs ?? [])
+      if (
+        leg.kind === "ride" &&
+        leg.operator === "citybus" &&
+        leg.depart >= nowMinute - 10 &&
+        leg.depart <= nowMinute + 30 &&
+        network.stops.get(leg.from) &&
+        !ids.includes(leg.from)
+      )
+        ids.push(leg.from);
+  return ids.slice(0, limit);
+}
+async function loadRealtime(network, request, signal, planned = [], nowMinute = null) {
   const result = {},
     tasks = [
       api("/api/rail/live", {}, signal)
@@ -179,6 +198,18 @@ async function loadRealtime(network, request, signal) {
         .then((x) => (result.citybus = x))
         .catch(() => {}),
     );
+  const busStops = Number.isFinite(nowMinute) ? liveBusStops(planned, nowMinute, network) : [];
+  if (busStops.length) {
+    result.citybusByStop = {};
+    for (const id of busStops) {
+      const stop = network.stops.get(id);
+      tasks.push(
+        api("/api/citybus/arrivals", { stop: stop.fullName ?? stop.name }, signal)
+          .then((x) => (result.citybusByStop[id] = x))
+          .catch(() => {}),
+      );
+    }
+  }
   await Promise.all(tasks);
   return result;
 }
@@ -527,14 +558,27 @@ export function mountRouteSearch({
     navigation.remember("search-input", captureInput());
   });
   setupSheetGestures();
-  let draftVia = [];
+  let draftVia = [],
+    // Set when the departure is the ride in progress (see ride-start.js).
+    rideStart = null;
   const autocomplete = mountStopAutocomplete({
     container: form,
     list: form.querySelector("#planner-suggestions"),
     network,
-    onSelect(input, stop) {
+    onSelect(input, stop, extra) {
       if (["from", "to"].includes(input.name))
         form.elements[`${input.name}Id`].value = stop?.id ?? "";
+      // Departing from the ride the rider is on: start at the chosen stop
+      // when the ride gets there.
+      if (input.name === "from") {
+        rideStart = null;
+        if (extra?.rideAlight && getCurrentRide?.()) {
+          const start = rideStartInput(getCurrentRide(), extra.rideAlight, tokyoNow());
+          rideStart = start.rideStart;
+          for (const name of ["date", "time", "timeMode"]) form.elements[name].value = start[name];
+          dateChanged();
+        }
+      }
       else {
         const row = draftVia[Number(input.dataset.viaIndex)];
         if (row) {
@@ -601,10 +645,15 @@ export function mountRouteSearch({
         ].map((n) => [n, form.elements[n].value]),
       ),
       via: draftVia.map((v) => ({ ...v })),
+      ...(rideStart && rideStart.alightId === form.elements.fromId.value ? { rideStart: { ...rideStart } } : {}),
     };
   }
   function applyInput(input) {
     if (!input) return;
+    rideStart =
+      input.rideStart && typeof input.rideStart === "object" && input.rideStart.alightId === input.fromId
+        ? { ...input.rideStart }
+        : null;
     for (const name of [
       "from",
       "to",
@@ -735,6 +784,16 @@ export function mountRouteSearch({
       snapshots.delete(oldest);
     }
   }
+  // The ride the search starts from: "乗車中の205系統で 四条河原町 まで
+  // （10:12着予定）· ここからの経路".
+  function rideStartBanner(start) {
+    if (!start) return "";
+    const service =
+      start.route && ["citybus", "kyotobus"].includes(start.operator)
+        ? ui("ride_start_bus", [start.route, start.destination ?? ""])
+        : ui("ride_start_rail", [start.destination ?? ""]);
+    return `<p class="ride-start-banner" role="note">${icon("checkin")}<span><b>${esc(ui("ride_start_banner", [service, start.alightName ?? ""]))}</b><small>${esc(Number.isFinite(start.arrive) ? ui("ride_start_banner_time", [rideClock(start.arrive)]) : ui("ride_start_banner_untimed"))}</small></span></p>`;
+  }
   function renderResults() {
     if (!resultFrame) return;
     const revision = Number(resultFrame.dataset.searchRevision),
@@ -743,7 +802,7 @@ export function mountRouteSearch({
       data?.description ?? "";
     updateHTML(
       resultFrame.querySelector("[data-planner-status]"),
-      data?.status ?? ui("route_search_ui_018"),
+      rideStartBanner(data?.input?.rideStart) + (data?.status ?? ui("route_search_ui_018")),
     );
     const orderRoot = resultFrame.querySelector(".result-order");
     if (orderRoot && !orderRoot.querySelector('[data-result-order="walking"]')) {
@@ -1250,6 +1309,11 @@ export function mountRouteSearch({
           const kind = recoveryAction(recovery.dataset.c6Recovery);
           if (!kind) return;
           if (data?.input) applyInput(data.input);
+          if (kind === "first" && data?.input) {
+            applyInput(firstServiceInput(data.input));
+            form.requestSubmit();
+            return;
+          }
           if (kind === "date") openDate(data?.input);
           else if (kind === "filters") openFilter();
           else navigation.root("search");
@@ -1881,6 +1945,9 @@ export function mountRouteSearch({
       walkSpeed: form.elements.walkSpeed.value,
     };
     if (previousDeparture) request.previousDeparture = true;
+    // Starting from the ride in progress: that trip is not offered again.
+    const startTrip = rideStart?.alightId === from.id ? rideStart.tripId : null;
+    if (startTrip) request.excludeTrips = [startTrip];
     job.request = request;
     status.innerHTML = ui("route_search_ui_069");
     document.dispatchEvent(new Event("mymap-search-started"));
@@ -1947,7 +2014,8 @@ export function mountRouteSearch({
                   .join("・"),
               ),
             ])
-          : ui("route_search_ui_086", [
+          : (lateNight(requestInput) ? serviceEndHTML("ended") : "") +
+            ui("route_search_ui_086", [
               missingNote + `<div class="c6-search-recovery" role="group" aria-label="${esc(ui("c6_recovery_title"))}">${actions}</div>`,
             ]);
         return;
@@ -1973,7 +2041,7 @@ export function mountRouteSearch({
       status.innerHTML = ui("route_search_ui_074");
       const live =
         request.date === tokyoNow().date
-          ? await loadRealtime(network, request, signal)
+          ? await loadRealtime(network, request, signal, planned, tokyoNow().minute)
           : {};
       if (signal.aborted) return;
       const current = tokyoNow(),
@@ -2108,6 +2176,22 @@ export function mountRouteSearch({
       navigation.remember("search-input", captureInput());
       incomingInput = input;
       navigation.root("search");
+    },
+    // From the ride in progress: with a chosen stop, start there at the
+    // ride's arrival; otherwise open the departure picker on the ride's stops.
+    openFromRide(option) {
+      const ride = getCurrentRide?.();
+      if (!ride) return;
+      restoreSearch();
+      if (option) {
+        applyInput({ ...captureInput(), ...rideStartInput(ride, option, tokyoNow()), to: "", toId: "" });
+        navigation.remember("search-input", captureInput());
+        navigation.root("search");
+        requestAnimationFrame(() => autocomplete.show(form.elements.to));
+        return;
+      }
+      navigation.root("search");
+      requestAnimationFrame(() => autocomplete.show(form.elements.from));
     },
     open(to) {
       restoreSearch();

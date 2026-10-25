@@ -255,6 +255,8 @@ export function route(
         continue;
       const ready = s.time + (s.boardings ? buffer : 0);
       for (const trip of nextTrips(service, i, ready, date)) {
+        // The ride the rider is getting off is not boarded again.
+        if (request.excludeTrips?.includes(trip.tripId)) continue;
         if (
           s.boardings === 0 &&
           Number.isFinite(request.firstDepartureAt) &&
