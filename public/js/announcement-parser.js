@@ -22,6 +22,7 @@ export function parseAnnouncement(transcript, stops = []) {
       route: null,
       destination: null,
       nextStop: null,
+      arrival: null,
       trainType: null,
     };
   if (/烏丸線|からすません|地下鉄烏丸|karasumaline|地下鉄をご利用|地下鉄線をご利用/.test(text))
@@ -103,7 +104,9 @@ export function parseAnnouncement(transcript, stops = []) {
       }
       // 「四条、四条です」 / "This is Takeda": the train is arriving here.
       if (
-        (after.startsWith(name) && /^(?:です|でございます|に到着)/.test(after.slice(name.length))) ||
+        (!nextPrefix.test(before) &&
+          after.startsWith(name) &&
+          /^(?:です|でございます|に到着)/.test(after.slice(name.length))) ||
         /thisis$/.test(before)
       ) {
         result.arrival ??= stop.id;

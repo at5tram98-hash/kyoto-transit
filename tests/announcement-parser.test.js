@@ -12,6 +12,8 @@ test("烏丸線の次駅放送：次は四条、四条です／乗換案内つ�
   const p = parseAnnouncement("次は四条、四条です。阪急線はお乗り換えです。この電車は国際会館行きです。", stops);
   assert.equal(p.nextStop, "K09");
   assert.equal(p.destination, "K01");
+  // 「次は四条、四条です」 is the next station, not an arrival.
+  assert.equal(p.arrival, null);
 });
 
 test("到着放送：駅名を2回言って「です」は到着駅", () => {
