@@ -406,6 +406,7 @@ function stopRecognition() {
   } catch {}
 }
 
+let quickEnds = 0;
 function startRecognitionPass() {
   if (!recognitionCanContinue()) {
     stopRecognition();
@@ -430,8 +431,17 @@ function startRecognitionPass() {
       document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
     }
   };
+  const startedAt = Date.now();
   recognition.onend = () => {
     if (activeRecognition !== recognition) return;
+    // A recognizer that keeps ending at once (no device, a service error)
+    // is not restarted in a tight loop.
+    quickEnds = Date.now() - startedAt < 1000 ? quickEnds + 1 : 0;
+    if (quickEnds >= 3) {
+      quickEnds = 0;
+      stopRecognition();
+      return;
+    }
     activeRecognition = null;
     if (!recognitionCanContinue()) {
       stopRecognition();

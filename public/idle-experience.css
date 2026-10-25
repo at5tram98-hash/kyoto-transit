@@ -1429,11 +1429,6 @@ button.setting-row.ats-settings-row:last-child {
 
 /* ATS in motion (ats-motion.js). Springs follow UIKit's default spring
    (a slight overshoot that settles); everything stops under reduced motion. */
-@property --ats-ring {
-  syntax: "<number>";
-  inherits: false;
-  initial-value: 0;
-}
 .now-status {
   --ats-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ats-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -1454,18 +1449,18 @@ button.setting-row.ats-settings-row:last-child {
   transition: background-color 0.4s var(--ats-ease), color 0.4s var(--ats-ease);
 }
 /* Confidence ring: a rounded square outline that fills clockwise. */
+/* (No registered custom property is animated: WebKit can crash on it.) */
 .now-scene-icon::before {
-  --ats-ring: var(--ats-confidence, 0);
   content: "";
   position: absolute;
   inset: -3px;
   padding: 2px;
   border-radius: var(--radius-control);
-  background: conic-gradient(var(--color-ats) calc(var(--ats-ring) * 1%), color-mix(in srgb, var(--color-ats) 14%, transparent) 0);
+  background: conic-gradient(var(--color-ats) calc(var(--ats-confidence, 0) * 1%), color-mix(in srgb, var(--color-ats) 14%, transparent) 0);
   -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0);
-  transition: --ats-ring 0.9s var(--ats-ease);
+  transition: opacity 0.4s var(--ats-ease);
 }
 .now-status:is([data-ats-scene="unknown"], [data-ats-scene="off"]) .now-scene-icon::before {
   opacity: 0;
@@ -1534,11 +1529,12 @@ button.setting-row.ats-settings-row:last-child {
 }
 @keyframes ats-lock-ring {
   0% {
-    --ats-ring: 0;
+    opacity: 0;
+    transform: scale(0.8);
   }
-  60%,
-  100% {
-    --ats-ring: 100;
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
   }
 }
 /* The hold before a new scene takes over. */

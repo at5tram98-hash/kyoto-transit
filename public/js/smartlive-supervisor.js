@@ -197,6 +197,7 @@ function transcriptResult(event) {
   return true;
 }
 
+let quickEnds = 0;
 function startPreRecognitionPass() {
   if (!preRecognitionCanContinue()) {
     stopPreRecognition();
@@ -221,8 +222,17 @@ function startPreRecognitionPass() {
       document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
     }
   };
+  const startedAt = Date.now();
   recognition.onend = () => {
     if (preRecognition !== recognition) return;
+    // A recognizer that keeps ending at once (no device, a service error)
+    // is not restarted in a tight loop.
+    quickEnds = Date.now() - startedAt < 1000 ? quickEnds + 1 : 0;
+    if (quickEnds >= 3) {
+      quickEnds = 0;
+      stopPreRecognition();
+      return;
+    }
     preRecognition = null;
     if (!preRecognitionCanContinue()) {
       stopPreRecognition();
