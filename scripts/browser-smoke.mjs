@@ -1814,10 +1814,13 @@ try {
                   await page.locator("#ride-foldback").count(),
                   operator.includes("bus") ? 0 : 1,
                 );
-                assert.match(
-                  await page.locator(".journey-stop-list").textContent(),
-                  known ? /予定/ : /時刻未取得/,
-                );
+                // A bus ride known only by its stops is timed from the
+                // official timetable when a trip fits (ride-timing.js);
+                // otherwise its stops stay "時刻未取得".
+                const stopList = await page.locator(".journey-stop-list").textContent();
+                if (known) assert.match(stopList, /予定/);
+                else if (!/時刻未取得/.test(stopList))
+                  assert.equal(await page.locator(".trip-found").count(), 1, "untimed ride was timed from the timetable");
                 if (
                   width === 390 &&
                   ["subway", "citybus"].includes(operator) &&

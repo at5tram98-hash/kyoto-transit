@@ -222,7 +222,7 @@ export function nextStationHero(model, ride, progress) {
         ])
       : model.minutes === null
         ? !model.timesPublished
-          ? ui(model.timing === "missing" ? "ride_times_missing" : "ride_times_looking")
+          ? ui(model.timing === "missing" ? "ride_times_missing" : model.timing === "unavailable" ? "ride_times_unavailable" : "ride_times_looking")
           : ui("now_components_033")
         : model.minutes === 0
           ? ui("now_components_034")

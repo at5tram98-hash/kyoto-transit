@@ -1,4 +1,4 @@
-import { ui, displayStopName, serviceDateLabel, userFacingError, userError, currentLocale } from "./locale.js";
+import { ui, displayStopName, placeName, serviceDateLabel, userFacingError, userError, currentLocale } from "./locale.js";
 import { downloadRouteImage } from "./route-image.js";
 import { esc, icon, state } from "./vnext-state.js";
 import { refreshVirtualPlaces, isVirtualPlace, HERE_ID } from "./virtual-places.js";
@@ -790,9 +790,10 @@ export function mountRouteSearch({
     if (!start) return "";
     const service =
       start.route && ["citybus", "kyotobus"].includes(start.operator)
-        ? ui("ride_start_bus", [start.route, start.destination ?? ""])
-        : ui("ride_start_rail", [start.destination ?? ""]);
-    return `<p class="ride-start-banner" role="note">${icon("checkin")}<span><b>${esc(ui("ride_start_banner", [service, start.alightName ?? ""]))}</b><small>${esc(Number.isFinite(start.arrive) ? ui("ride_start_banner_time", [rideClock(start.arrive)]) : ui("ride_start_banner_untimed"))}</small></span></p>`;
+        ? ui("ride_start_bus", [start.route, placeName(start.destination) ?? ""])
+        : ui("ride_start_rail", [placeName(start.destination) ?? ""]);
+    const alight = displayStopName(network.stops.get(start.alightId)) || start.alightName || "";
+    return `<p class="ride-start-banner" role="note">${icon("checkin")}<span><b>${esc(ui("ride_start_banner", [service, alight]))}</b><small>${esc(Number.isFinite(start.arrive) ? ui("ride_start_banner_time", [rideClock(start.arrive)]) : ui("ride_start_banner_untimed"))}</small></span></p>`;
   }
   function renderResults() {
     if (!resultFrame) return;

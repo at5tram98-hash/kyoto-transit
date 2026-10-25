@@ -585,6 +585,10 @@ function mergeCandidates(...groups) {
 }
 
 function applyRide(candidate) {
+  // Every ride carries its service date, so it survives a reload (the saved
+  // journey is only restored with one) and its clock is right after midnight.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate.ride?.serviceDate ?? ""))
+    candidate = { ...candidate, ride: { ...candidate.ride, serviceDate: tokyoNow().date } };
   const rechecking = rideDetectionSession.snapshot().phase === "rechecking";
   const corrected = rideDetectionSession.confirm(candidate.ride, Date.now(), {
     manual: candidate.manual === true,
@@ -663,7 +667,8 @@ export async function resolveRideTimes(ride, now = tokyoNow()) {
       .find(Boolean);
     if (rideKey(state.ride) !== key || !rideNeedsTiming(state.ride)) return false;
     if (!timed) {
-      state.rideTiming = { key, status: "missing" };
+      // No timetable reached (offline) is not "no such trip".
+      state.rideTiming = { key, status: feeds.some(Boolean) ? "missing" : "unavailable" };
       document.dispatchEvent(new CustomEvent("mymap-ride-prediction"));
       return false;
     }
@@ -833,7 +838,14 @@ export function detectionInterval(now = Date.now()) {
     return 4000;
   return 12000;
 }
+// A detection cycle waiting on the network can never hold ATS forever: after
+// 20 seconds the busy flag is released and the stale cycle discarded.
+const DETECT_WATCHDOG_MS = 20000;
 export async function autoDetectRide(force = false, onChange = () => {}) {
+  if (state.detectBusy && Date.now() - (state.detectBusySince ?? 0) > DETECT_WATCHDOG_MS) {
+    detectionGeneration++;
+    state.detectBusy = false;
+  }
   if (
     !settings.autoDetect ||
     state.detectBusy ||
@@ -909,7 +921,9 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
         motionEvidence.rms >= 0.12);
   if (fixFresh) updateBusTrail(near.bus?.id, near.bus?.meters ?? Infinity);
   state.detectBusy = true;
-  const generation = detectionGeneration;
+  state.detectBusySince = Date.now();
+  const cycle = (state.detectCycle = {}),
+    generation = detectionGeneration;
   state.lastDetectAt = Date.now();
   onChange();
   try {
@@ -1172,7 +1186,8 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       if (selected) applyRide(selected);
     }
   } finally {
-    state.detectBusy = false;
+    // A cycle released by the watchdog does not clear a newer one's flag.
+    if (state.detectCycle === cycle) state.detectBusy = false;
     onChange();
   }
 }
@@ -1335,10 +1350,24 @@ function anchorUndergroundFromMotion(ride, now) {
   state.undergroundAnchor = { stopId: station.id, at: Date.now(), runs: motion.completedRuns };
 }
 
+// A ride long past its end (the rider forgot to end it, or left without
+// the arrival being seen) is closed: 45 minutes after the timetable's last
+// stop (delay included), or 3 hours after an untimed ride began.
+export function rideOverdue(ride, { minute, shift = 0, startedAt = null, at = Date.now() } = {}) {
+  const end = stopTime(ride?.officialStops?.at(-1));
+  if (Number.isFinite(end)) return minute > end + (Number.isFinite(shift) ? Math.max(0, shift) : 0) + 45;
+  // An unknown start (0 / missing) never counts as old.
+  return Number.isFinite(startedAt) && startedAt > 0 && at - startedAt > 3 * 3600000;
+}
 export function updateRideAnchor() {
   let ride = state.ride;
   if (!ride) return;
   const now = journeyClock(ride, tokyoNow());
+  if (rideOverdue(ride, { minute: now.minute, shift: state.rideShift, startedAt: state.rideStartedAt })) {
+    finishCurrentRide({ keepItinerary: false });
+    toast(ui("ride_overdue_finished"));
+    return;
+  }
   const extended =
     findThroughContinuation(
       ride,

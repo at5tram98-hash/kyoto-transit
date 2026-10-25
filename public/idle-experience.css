@@ -1729,12 +1729,12 @@ button.setting-row.ats-settings-row:last-child {
 
 /* Riding: plan onward from the stop the rider gets off at. */
 .ride-plan-onward {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   width: 100%;
-  min-height: 44px;
+  min-height: 48px;
   margin-top: 8px;
 }
 .ride-plan-onward svg {

@@ -1578,4 +1578,7 @@ export default {
   ride_start_banner_time: "{0}着予定（遅れを反映）から検索しています",
   ride_start_banner_untimed: "到着時刻が未確定のため、今の時刻から検索しています",
   ride_plan_onward: "降りる停留所から先を検索",
+  ride_overdue_finished: "到着予定を大きく過ぎたため、乗車案内を終了しました",
+  ride_times_unavailable: "時刻表を取得できません（通信を確認）· 停留所の順に案内中",
+  arrival_connect_offline: "通信できないため、近くの駅の発車を確認できません。",
 };
