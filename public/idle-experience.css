@@ -1726,3 +1726,23 @@ button.setting-row.ats-settings-row:last-child {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* Riding: plan onward from the stop the rider gets off at. */
+.ride-plan-onward {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+}
+.ride-plan-onward svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

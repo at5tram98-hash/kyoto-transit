@@ -206,7 +206,7 @@ export function mountBusStopPreview(host, stop, { serviceKey = null } = {}) {
     return `<h3 class="stop-section-heading">${esc(ui("bus_poles_heading"))}</h3><div class="stop-poles">${poles
       .map(
         (p) =>
-          `<div class="stop-pole" data-heading="${esc(p.heading)}"><span class="stop-pole-dir"><b>${esc(ui(`bus_heading_${p.heading}`))}</b><small>${esc(p.toward ? ui("bus_poles_toward", [p.toward]) : "")}</small></span><span class="stop-pole-routes">${p.routes
+          `<div class="stop-pole" data-side="${esc(p.side)}"><span class="stop-pole-dir"><b>${esc(ui(`bus_side_${p.side}`))}</b><small>${esc(p.toward ? ui("bus_poles_toward", [p.toward]) : "")}</small></span><span class="stop-pole-routes">${p.routes
             .map((r) => lineBadge({ operator: stop.type, route: r }, { size: "small" }))
             .join("")}</span>${p.boardings.length ? `<span class="stop-pole-board">${esc(p.boardings.join("・"))}</span>` : ""}</div>`,
       )

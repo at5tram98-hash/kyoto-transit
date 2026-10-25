@@ -1,11 +1,12 @@
 import { clearFalseRide, checkInRide } from "./vnext-detect.js";
 import { openCheckIn } from "./checkin-sheet.js";
-import { positionOptions, modeAllowsPip } from "./run-mode.js";
+import { positionOptions, modeAllowsPip, runMode } from "./run-mode.js";
 import { syncAtsDetection } from "./ats.js";
 import { openAtsSheet, homeRoute, runPilot } from "./ats-ui.js";
 import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
 import { setMicBlocked } from "./mic-policy.js";
+import { rideAlightOptions } from "./ride-start.js";
 import { openArrivalSheet, arrivalChoice } from "./arrival-sheet.js";
 import { getKintetsuFeed } from "./fast-data.js";
 import { autoSpeechAssist } from "./motion-assist.js";
@@ -330,6 +331,18 @@ function setupEvents() {
       openRideChooser();
     } else if (b.hasAttribute("data-checkin")) {
       openCheckIn(checkInAndShow);
+    } else if (b.hasAttribute("data-ride-plan-onward")) {
+      // Plan onward from where the rider will get off this ride.
+      const ride = state.ride;
+      if (ride) {
+        const options = rideAlightOptions(ride, {
+            minute: tokyoNow().minute,
+            shift: state.rideShiftKnown ? state.rideShift : 0,
+            nextId: state.rideObservation?.progress?.next?.id ?? null,
+          }),
+          chosen = options.find((o) => o.id === ride.userDestination?.id) ?? null;
+        routeSearch?.openFromRide(chosen);
+      }
     } else if (b.hasAttribute("data-enable-mic")) {
       // Started inside the tap so the browser lets it ask for the microphone.
       setMicBlocked(false);
@@ -705,9 +718,19 @@ async function init() {
     });
     document.addEventListener("mymap-choose-ride", () => openRideChooser());
     document.addEventListener("mymap-checkin", () => openCheckIn(checkInAndShow));
+    // New evidence often arrives in bursts (an announcement, a late live
+    // reply, a recheck): one render and one detection per burst.
+    let evidenceTimer = 0,
+      lastForced = 0;
     document.addEventListener("mymap-transit-evidence", () => {
-      renderNow();
-      void autoDetectRide(true, renderNow);
+      if (evidenceTimer) return;
+      evidenceTimer = setTimeout(() => {
+        evidenceTimer = 0;
+        renderNow();
+        const force = Date.now() - lastForced >= 2000;
+        if (force) lastForced = Date.now();
+        void autoDetectRide(force, renderNow);
+      }, 250);
     });
     // ATS LV.5: the pilot takes its steps between detection cycles.
     setInterval(() => {
@@ -733,8 +756,13 @@ async function init() {
     arrivals.show();
     // Underground no GPS fixes arrive to drive detection; poll briefly so
     // accelerometer and announcement evidence are evaluated (gated inside).
+    // Low-power mode keeps this to every 15 seconds.
+    let undergroundPollAt = 0;
     setInterval(() => {
-      if (!document.hidden && !state.ride) autoDetectRide(false, renderNow);
+      if (document.hidden || state.ride) return;
+      if (runMode() === "lowpower" && Date.now() - undergroundPollAt < 15000) return;
+      undergroundPollAt = Date.now();
+      autoDetectRide(false, renderNow);
     }, 5000);
     setInterval(() => {
       if (document.hidden) return;

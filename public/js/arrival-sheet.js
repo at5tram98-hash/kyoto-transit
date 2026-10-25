@@ -115,11 +115,13 @@ export async function openArrivalSheet({ stop, loadFeed }) {
     body(stations.length ? `<h4 class="ats-sheet-label">${esc(ui("arrival_connect_title"))}</h4><p class="source-caption" role="status">${esc(ui("arrival_connect_loading"))}</p>` : ""),
   );
   if (!stations.length) return;
+  let reached = 0;
   const groups = await Promise.all(
     stations.map(async ({ stop: station, meters }) => {
-      const feed = await loadFeed(station.type).catch(() => null),
-        // Only trains the rider can still walk to.
-        walk = walkMinutes(meters);
+      const feed = await loadFeed(station.type).catch(() => null);
+      if (feed) reached++;
+      // Only trains the rider can still walk to.
+      const walk = walkMinutes(meters);
       return { station, meters, rides: departuresFrom(feed, station.id, { minute: now.minute + walk, network: state.network }) };
     }),
   );
@@ -140,6 +142,10 @@ export async function openArrivalSheet({ stop, loadFeed }) {
     .join("");
   openContextSheet(
     ui("arrival_sheet_title"),
-    body(html ? `<p class="source-caption">${esc(ui("arrival_connect_intro"))}</p>${html}` : `<p class="source-caption">${esc(ui("arrival_connect_none"))}</p>`),
+    body(
+      html
+        ? `<p class="source-caption">${esc(ui("arrival_connect_intro"))}</p>${html}`
+        : `<p class="source-caption">${esc(ui(reached ? "arrival_connect_none" : "arrival_connect_offline"))}</p>`,
+    ),
   );
 }

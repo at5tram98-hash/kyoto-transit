@@ -9,6 +9,7 @@ import {
 } from "./rail-arrivals-core.js";
 import { updateArrivalRows, updateHTML } from "./view-rendering.js";
 import { lineBadge } from "./line-badge.js";
+import { stopEndNote } from "./service-end.js";
 
 // A station screen owns only its visible subscription. Static requests remain
 // deduplicated by fast-data; returning to the screen keeps its existing rows.
@@ -153,16 +154,23 @@ export function mountStationArrivals(host, stop) {
         }),
       );
     }
+    // After the last train (or before the first): say today's service has
+    // ended, from the same timetables the board is drawn from.
+    const ended =
+      !rows.length && feed && !failed
+        ? stopEndNote(stop, [serviceDate === now.date ? feed : null, connected && subwayDate === now.date ? subwayFeed : null].filter(Boolean), now).html
+        : "";
     if (!rows.length)
       updateHTML(
         root,
-        `<p class="source-note">${
-          failed
-            ? ui("station_load_failed")
-            : feed
-              ? ui("station_no_services")
-              : ui("station_loading")
-        }</p>`,
+        ended ||
+          `<p class="source-note">${
+            failed
+              ? ui("station_load_failed")
+              : feed
+                ? ui("station_no_services")
+                : ui("station_loading")
+          }</p>`,
       );
     host.querySelector("[data-station-source]").textContent =
       navigator.onLine === false

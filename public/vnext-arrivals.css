@@ -708,7 +708,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   color: var(--color-on-line);
 }
 
-/* Direction of a bus service: rotation on loop routes, heading of the pole. */
+/* Direction of a bus service: 甲 or 乙 only. */
 .bus-dir {
   display: inline-block;
   margin-inline-end: 6px;
@@ -721,7 +721,7 @@ html[data-app-hidden="true"] .arrival-line.imminent .arrival-minutes span {
   line-height: 1.5;
   white-space: nowrap;
 }
-.bus-dir[data-rotation] {
+.bus-dir[data-side="kou"] {
   background: var(--color-ats-soft);
 }
 .stop-poles {

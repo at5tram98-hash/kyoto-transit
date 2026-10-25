@@ -58,6 +58,9 @@ function fit(ctx, text, max, size, weight = 700) {
   } while (ctx.measureText(text).width > max && s > 14);
 }
 
+const clockText = (minute) =>
+  `${String(Math.floor(minute / 60) % 24).padStart(2, "0")}:${String(Math.floor(minute) % 60).padStart(2, "0")}`;
+
 // What to show: the ride when riding, else the nearest stop's approaches.
 export function pipContent(now = tokyoNow()) {
   const ride = state.ride,
@@ -74,9 +77,13 @@ export function pipContent(now = tokyoNow()) {
           : token("--line-subway", "#138a48"),
       title: displayStopName(model.nextStation) || "—",
       label: ui(model.nextIsDestination ? "pip_next_alight" : "pip_next"),
-      detail: Number.isFinite(model.minutes)
-        ? ui("pip_minutes", [model.minutes])
-        : ui("pip_time_unknown"),
+      // Counted from the estimated arrival minute, so the countdown keeps
+      // going between redraws of the Now screen.
+      detail: Number.isFinite(model.arrivalEstimate)
+        ? ui("pip_minutes", [Math.max(0, Math.ceil(model.arrivalEstimate - now.minute))])
+        : Number.isFinite(model.minutes)
+          ? ui("pip_minutes", [model.minutes])
+          : ui("pip_time_unknown"),
       footer: model.nextIsDestination
         ? ui(bus ? "pip_press_stop" : "pip_get_off")
         : model.userDestination
@@ -86,6 +93,7 @@ export function pipContent(now = tokyoNow()) {
             ])
           : ui("pip_bound", [ride.destination ?? ""]),
       alert: Boolean(model.nextIsDestination),
+      clock: clockText(now.minute),
     };
   }
   // Between rides of a planned journey: the next service and its countdown.
@@ -118,6 +126,7 @@ export function pipContent(now = tokyoNow()) {
         ? ui("transfer_ride", [next.destination])
         : ui("transfer_ride_to", [displayStopName(state.network?.stops.get(next.to)) || next.to]),
       alert: remaining != null && remaining <= 2,
+      clock: clockText(now.minute),
     };
   }
   const live = state.busLive;
@@ -140,7 +149,7 @@ export function pipContent(now = tokyoNow()) {
     kind: "approach",
     title: live?.stop ?? ui("pip_no_stop"),
     rows,
-    clock: `${String(Math.floor(now.minute / 60) % 24).padStart(2, "0")}:${String(now.minute % 60).padStart(2, "0")}`,
+    clock: clockText(now.minute),
   };
 }
 
@@ -155,6 +164,14 @@ export function paintPip(ctx, content) {
     ctx.font = '700 26px -apple-system, "Hiragino Sans", sans-serif';
     ctx.textBaseline = "middle";
     ctx.fillText(content.label, 28 + pw + 18, 61);
+    if (content.clock) {
+      // The time of this picture: the page may be paused in the background.
+      ctx.fillStyle = "#8c939e";
+      ctx.font = '600 22px -apple-system, "Hiragino Sans", sans-serif';
+      ctx.textAlign = "right";
+      ctx.fillText(content.clock, W - 28, 61);
+      ctx.textAlign = "left";
+    }
     ctx.fillStyle = "#f6f7f9";
     fit(ctx, content.title, W - 56, 84, 800);
     ctx.textBaseline = "alphabetic";
@@ -259,19 +276,22 @@ export function startPip() {
   refreshPip();
   if (video) {
     try {
-      if (document.pictureInPictureEnabled && video.requestPictureInPicture) {
-        const request = video.readyState >= 1
-          ? video.requestPictureInPicture()
-          : video.play().then(() => video.requestPictureInPicture());
-        return request.then(
-          () => (markActive(), true),
-          () => documentPip(),
-        );
-      }
-      if (video.webkitSupportsPresentationMode?.("picture-in-picture")) {
+      // The request must be made in the same tap: no waiting before it.
+      // play() is started (not awaited) so the window shows a live stream.
+      video.play().catch(() => {});
+      if (video.webkitSupportsPresentationMode?.("picture-in-picture") && !(document.pictureInPictureEnabled && video.readyState >= 1)) {
+        // Safari: presentation mode works even before metadata is loaded.
         video.webkitSetPresentationMode("picture-in-picture");
         return Promise.resolve(true);
       }
+      if (document.pictureInPictureEnabled && video.requestPictureInPicture && video.readyState >= 1)
+        return video.requestPictureInPicture().then(
+          () => (markActive(), true),
+          () => documentPip(),
+        );
+      // Not ready yet (first tap): the source is warming up; ask to try again.
+      if (document.pictureInPictureEnabled && video.requestPictureInPicture)
+        return documentPip().then((ok) => ok || "retry");
     } catch {}
   }
   return documentPip();

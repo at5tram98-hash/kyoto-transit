@@ -2,14 +2,21 @@ import { ui, displayStopName } from "./locale.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { stopSuggestions, stopTypeLabel } from "./route-search-model.js";
 import { readSearchPairs } from "./search-history.js";
-import { icon, nearest, state } from "./vnext-state.js";
+import { icon, nearest, state, tokyoNow } from "./vnext-state.js";
 import { refreshVirtualPlaces, HERE_ID, HOME_ID } from "./virtual-places.js";
 import { readHome } from "./ats.js";
+import { rideAlightOptions, rideClock } from "./ride-start.js";
 
 const PLACE_WORDS = {
   [HERE_ID]: ["現在地", "げんざいち", "現在", "ここ", "current", "location", "here"],
   [HOME_ID]: ["自宅", "じたく", "家", "いえ", "home"],
 };
+const rideLabel = (ride) =>
+  ride
+    ? ride.route && ["citybus", "kyotobus"].includes(ride.operator)
+      ? ui("ride_start_bus", [ride.route, ride.destination ?? ""])
+      : ui("ride_start_rail", [ride.destination ?? ""])
+    : "";
 const placeMatches = (stop, q) => {
   const query = String(q).normalize("NFKC").toLowerCase();
   return PLACE_WORDS[stop.id].some((word) => word.startsWith(query) || query.startsWith(word));
@@ -22,7 +29,8 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     // field's current value is not a query that should hide the places.
     typed = false,
     rows = [],
-    index = -1;
+    index = -1,
+    rideOptions = new Map();
   const dialog = document.createElement("dialog");
   dialog.className = "sheet suggestion-screen";
   dialog.id = `${list.id}-screen`;
@@ -74,7 +82,8 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
         .map((id) => network.stops.get(id))
         .filter((stop) => stop && !stop.virtual);
     const candidates = stopSuggestions(network, q);
-    const matches = (stop) => !q || stop.virtual || candidates.some((s) => s.id === stop.id);
+    const matches = (stop) =>
+      !q || stop.virtual || (stop.rideAlight && !typed) || candidates.some((s) => s.id === stop.id);
     const seen = new Set();
     // Current location and home come first (with no query, or when the query
     // names them): they are points, joined to the network with walks to the
@@ -83,7 +92,22 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     const places = [HERE_ID, HOME_ID]
       .map((id) => network.stops.get(id))
       .filter((stop) => stop && (!q || !typed || placeMatches(stop, q)));
+    // Riding: the departure can be the ride itself, getting off at one of
+    // the stops still ahead (the search then starts there on arrival).
+    rideOptions = new Map();
+    const riding =
+      active?.name === "from" && state.ride
+        ? rideAlightOptions(state.ride, {
+            minute: tokyoNow().minute,
+            shift: state.rideShiftKnown ? state.rideShift : 0,
+            nextId: state.rideObservation?.progress?.next?.id ?? null,
+          })
+            .filter((o) => network.stops.get(o.id) && (!q || !typed || matches(network.stops.get(o.id))))
+            .slice(0, 30)
+        : [];
+    for (const option of riding) rideOptions.set(option.id, option);
     const groups = [
+      [ui("ride_start_group", [rideLabel(state.ride)]), riding.map((o) => ({ ...network.stops.get(o.id), rideAlight: o }))],
       [ui("place_group"), places],
       [ui("stop_autocomplete_004"), pairStops("history")],
       [
@@ -140,16 +164,21 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
         button.role = "option";
         button.tabIndex = -1;
         button.dataset.stopId = stop.id;
+        if (stop.rideAlight) button.dataset.rideAlight = "1";
         button.dataset.operator = stop.type;
         button.setAttribute("aria-selected", "false");
         const symbol = document.createElement("span");
         symbol.className = "transport-icon";
-        symbol.innerHTML = icon(stop.id === HERE_ID ? "location" : stop.id === HOME_ID ? "home" : stop.type.includes("bus") ? "bus" : "train");
+        symbol.innerHTML = icon(stop.rideAlight ? "checkin" : stop.id === HERE_ID ? "location" : stop.id === HOME_ID ? "home" : stop.type.includes("bus") ? "bus" : "train");
         const copy = document.createElement("span"),
           name = document.createElement("b"),
           meta = document.createElement("small");
         name.textContent = displayStopName(stop);
-        meta.textContent = stop.virtual ? ui("place_meta") : `${stop.facilityName ? ui("stop_autocomplete_009", [stop.facilityName]) : ""}${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
+        meta.textContent = stop.rideAlight
+          ? Number.isFinite(stop.rideAlight.arrive)
+            ? ui(stop.rideAlight.estimated ? "ride_start_meta_estimated" : "ride_start_meta", [rideClock(stop.rideAlight.arrive)])
+            : ui("ride_start_meta_untimed")
+          : stop.virtual ? ui("place_meta") : `${stop.facilityName ? ui("stop_autocomplete_009", [stop.facilityName]) : ""}${stopTypeLabel(stop)} · ${(stop.lines ?? []).join("・")}${/^[KBA]\d+$/.test(stop.id) ? ` · ${stop.id}` : ""}`;
         copy.append(name, meta);
         button.append(symbol, copy);
         list.append(button);
@@ -176,11 +205,11 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
     editor.focus({ preventScroll: true });
     editor.select();
   }
-  function choose(stop) {
+  function choose(stop, rideAlight = null) {
     if (!active || !stop) return;
     const input = active;
     input.value = displayStopName(stop);
-    onSelect(input, stop);
+    onSelect(input, stop, rideAlight ? { rideAlight } : undefined);
     close();
     input.focus({ preventScroll: true });
     input.dispatchEvent(new Event("change", { bubbles: true }));
@@ -240,18 +269,18 @@ export function mountStopAutocomplete({ container, list, network, onSelect }) {
       selected.scrollIntoView({ block: "nearest" });
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (index >= 0) choose(rows[index]);
-      else if (rows.length === 1) choose(rows[0]);
+      const row = index >= 0 ? rows[index] : rows.length === 1 ? rows[0] : null;
+      if (row) choose(network.stops.get(row.id) ?? row, row.rideAlight ?? null);
     }
   });
   list.addEventListener("pointerdown", (e) => {
     if (e.target.closest("[data-stop-id]")) e.preventDefault();
   });
-  list.addEventListener("click", (e) =>
-    choose(
-      network.stops.get(e.target.closest("[data-stop-id]")?.dataset.stopId),
-    ),
-  );
+  list.addEventListener("click", (e) => {
+    const button = e.target.closest("[data-stop-id]"),
+      id = button?.dataset.stopId;
+    choose(network.stops.get(id), button?.dataset.rideAlight ? rideOptions.get(id) : null);
+  });
   return {
     bind,
     show,

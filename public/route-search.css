@@ -1798,3 +1798,34 @@
   min-width: 0;
   max-width: 100%;
 }
+
+/* The search starts from the ride in progress. */
+.ride-start-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-row);
+  background: var(--color-ats-soft);
+  color: var(--text);
+}
+.ride-start-banner svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--color-ats);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ride-start-banner span {
+  display: grid;
+  min-width: 0;
+}
+.ride-start-banner small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}

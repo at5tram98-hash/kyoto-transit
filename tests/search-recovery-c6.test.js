@@ -17,3 +17,12 @@ test("C-6: unknown recovery operations are rejected",()=>{
  assert.equal(recoveryAction("via"),"search");
  assert.equal(recoveryAction("unexpected"),null);
 });
+test("深夜（終電・終バス後）は翌朝の始発で検索する選択肢を出す",async()=>{
+ const {firstServiceInput,lateNight}=await import("../public/js/search-recovery-c6.js");
+ assert.deepEqual(searchRecoveryOptions({date:"2026-10-25",time:"23:40",via:[]}).map(x=>x.id),["first","date","filters"]);
+ assert.equal(lateNight({time:"12:00"}),false);
+ assert.equal(lateNight({time:"23:40",timeMode:"arrival"}),false);
+ assert.deepEqual(firstServiceInput({date:"2026-10-25",time:"23:40"}),{date:"2026-10-26",time:"05:00",timeMode:"departure"});
+ assert.deepEqual(firstServiceInput({date:"2026-10-26",time:"01:10"}),{date:"2026-10-26",time:"05:00",timeMode:"departure"});
+ assert.equal(recoveryAction("first"),"first");
+});

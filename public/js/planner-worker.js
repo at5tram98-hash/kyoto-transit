@@ -57,6 +57,7 @@ export function planWorkerJob({
     if (realtime) {
       const annotated = applyRealtime(updated, realtime, {
         ...realtimeContext,
+        network,
         buffer: request.buffer,
       });
       const observed = networkWithObservations(merged, annotated, nowEpoch);

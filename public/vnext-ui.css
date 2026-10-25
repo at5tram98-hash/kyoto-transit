@@ -767,3 +767,8 @@ summary:focus-visible {
   opacity: 0.02;
   pointer-events: none;
 }
+
+/* Today's timetable: departures already gone are dimmed. */
+.minute-cell.passed {
+  opacity: 0.42;
+}

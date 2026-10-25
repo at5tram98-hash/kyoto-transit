@@ -77,3 +77,15 @@ test("時刻表で選んだ便（発車時刻あり）は照会し直さない",
   assert.equal(rideNeedsTiming(untimed(["b", "c"], { depart: 616 })), false);
   assert.equal(rideNeedsTiming(timeRideFromFeed(untimed(["b", "c"]), { services: [line] }, { minute: 616 })), false);
 });
+
+test("到着予定を45分過ぎた乗車・開始から3時間たった時刻なしの乗車は終了する", async () => {
+  const { rideOverdue } = await import("../public/js/vnext-detect.js");
+  const timed = { officialStops: [{ id: "a", time: 600 }, { id: "b", time: 630 }] };
+  assert.equal(rideOverdue(timed, { minute: 670 }), false);
+  assert.equal(rideOverdue(timed, { minute: 676 }), true);
+  assert.equal(rideOverdue(timed, { minute: 676, shift: 10 }), false);
+  const untimed = { officialStops: [{ id: "a" }, { id: "b" }] };
+  assert.equal(rideOverdue(untimed, { minute: 900, startedAt: 1, at: 2 * 3600000 }), false);
+  assert.equal(rideOverdue(untimed, { minute: 900, startedAt: 0, at: 9 * 3600000 }), false);
+  assert.equal(rideOverdue(untimed, { minute: 900, startedAt: 1, at: 4 * 3600000 }), true);
+});

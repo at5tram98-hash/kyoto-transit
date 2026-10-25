@@ -106,6 +106,7 @@ export function timeRideFromFeed(ride, feed, { minute, date = null } = {}) {
     ...ride,
     officialStops,
     scheduledDepart: chosen.depart,
+    serviceDate: ride.serviceDate ?? date ?? trip.date ?? null,
     tripId: trip.id ?? ride.tripId ?? null,
     timedFrom: {
       serviceId: service.id,
