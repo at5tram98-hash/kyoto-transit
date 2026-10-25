@@ -433,9 +433,29 @@
   background: transparent;
   font-size: 1rem;
 }
-.native-search span {
-  color: var(--muted);
-  font-size: 1.25rem;
+/* Same 22px line magnifier as the "Now" search field (icons.js "search"),
+   drawn as a mask so the glyph markup in the templates stays unchanged and
+   the colour follows the theme. */
+.native-search > span:first-child {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  font-size: 0;
+  color: transparent;
+  background: var(--muted);
+  -webkit-mask: var(--search-glyph) center / 22px 22px no-repeat;
+  mask: var(--search-glyph) center / 22px 22px no-repeat;
+}
+.native-search {
+  --search-glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='10.6' cy='10.6' r='6.6'/%3E%3Cpath d='m15.4 15.4 5.1 5.1' stroke-width='2.2'/%3E%3C/svg%3E");
+  min-height: 48px;
+  gap: 10px;
+}
+@media (forced-colors: active) {
+  .native-search > span:first-child {
+    background: CanvasText;
+  }
 }
 .native-section-label {
   font-size: 0.8125rem;

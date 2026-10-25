@@ -244,8 +244,27 @@ export function renderSettings(
       permissions: "info",
       places: "bookmark",
     };
+    // iOS Settings-style tiles: each category gets a colour by meaning
+    // (fares green, alerts red, automatic detection indigo, places pink…)
+    // instead of one uniform accent, so the list scans at a glance.
+    const tiles = {
+      pass: "green",
+      distance: "teal",
+      notifications: "red",
+      auto: "indigo",
+      location: "blue",
+      display: "indigo",
+      accessibility: "blue",
+      routes: "orange",
+      info: "gray",
+      privacy: "blue",
+      terms: "gray",
+      advanced: "gray",
+      permissions: "gray",
+      places: "pink",
+    };
     const row = (id, title, saved = false) =>
-      `<button class="native-row settings-menu-row" ${saved ? "data-saved-page" : "data-setting-page"}="${id}"><span class="settings-menu-symbol">${icon(saved && id === "routes" ? "map" : (symbols[id] ?? "map"))}</span><span>${title}</span><span class="chevron">›</span></button>`;
+      `<button class="native-row settings-menu-row" ${saved ? "data-saved-page" : "data-setting-page"}="${id}"><span class="settings-menu-symbol icon-filled" data-tile="${saved && id === "routes" ? "purple" : (tiles[id] ?? "gray")}">${icon(saved && id === "routes" ? "map" : (symbols[id] ?? "map"))}</span><span>${title}</span><span class="chevron">›</span></button>`;
     const entries = [
       ["pass", row("pass", ui("vnext_network_view_029"))],
       ["distance", row("distance", ui("vnext_network_view_030"))],

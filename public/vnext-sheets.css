@@ -111,6 +111,22 @@
   color: var(--muted);
   font-size: 0.75rem;
 }
+.operations-updated {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.operations-updated::before {
+  content: "·";
+  margin-right: 6px;
+}
+.operations-updated[data-stale] {
+  color: var(--warning);
+  font-weight: 600;
+}
+.operations-head [data-operations-refresh]:disabled {
+  color: var(--muted);
+  opacity: 1;
+}
 .operation-card {
   padding: 16px;
   margin-bottom: 12px;
@@ -174,18 +190,62 @@
   margin: 0 8px 8px;
 }
 .settings-menu-row {
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  /* The tile grows modestly with Dynamic Type, as in iOS Settings. */
+  --tile-size: clamp(30px, 1.76em, 42px);
+  position: relative;
+  grid-template-columns: var(--tile-size) minmax(0, 1fr) auto;
+  gap: 14px;
+  border-bottom: 0;
+}
+/* Inset separator that starts at the title, as in iOS grouped lists. */
+.settings-menu-row + .settings-menu-row::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: calc(16px + var(--tile-size) + 14px) 0;
+  height: 1px;
+  background: var(--separator);
+  pointer-events: none;
 }
 .settings-menu-symbol {
+  --tile: var(--tile-gray);
+  --knock: var(--tile);
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  color: var(--accent);
+  width: var(--tile-size);
+  height: var(--tile-size);
+  border-radius: var(--radius-marker);
+  background: var(--tile);
+  color: var(--tile-glyph);
+  box-shadow: var(--shadow-tile);
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.settings-menu-row:active .settings-menu-symbol {
+  transform: scale(0.9);
+  transition-duration: 0.12s;
+  transition-timing-function: ease-out;
+}
+.settings-menu-symbol[data-tile="green"] { --tile: var(--tile-green); }
+.settings-menu-symbol[data-tile="teal"] { --tile: var(--tile-teal); }
+.settings-menu-symbol[data-tile="red"] { --tile: var(--tile-red); }
+.settings-menu-symbol[data-tile="indigo"] { --tile: var(--tile-indigo); }
+.settings-menu-symbol[data-tile="blue"] { --tile: var(--tile-blue); }
+.settings-menu-symbol[data-tile="orange"] { --tile: var(--tile-orange); }
+.settings-menu-symbol[data-tile="pink"] { --tile: var(--tile-pink); }
+.settings-menu-symbol[data-tile="purple"] { --tile: var(--tile-purple); }
+html[data-high-contrast="true"] .settings-menu-row + .settings-menu-row::before {
+  background: var(--text);
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-menu-symbol,
+  .settings-menu-row:active .settings-menu-symbol {
+    transition: none;
+    transform: none;
+  }
 }
 .settings-menu-symbol svg {
-  width: 23px;
-  height: 23px;
+  width: 64%;
+  height: 64%;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;

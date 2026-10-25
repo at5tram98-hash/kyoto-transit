@@ -54,6 +54,18 @@
   --color-through: #7751a8;
   --color-ats: #5856d6;
   --color-ats-soft: color-mix(in srgb, var(--color-ats) 14%, transparent);
+  /* Settings icon tiles (iOS system colours) */
+  --tile-glyph: #fff;
+  --tile-green: #34c759;
+  --tile-teal: #30b0c7;
+  --tile-red: #ff3b30;
+  --tile-indigo: #5856d6;
+  --tile-blue: #007aff;
+  --tile-orange: #ff9500;
+  --tile-pink: #ff2d55;
+  --tile-purple: #af52de;
+  --tile-gray: #8e8e93;
+  --shadow-tile: inset 0 0 0 0.5px rgba(0, 0, 0, 0.06);
   /* Route plates: city loop (循環) orange, other city routes blue, Kyoto
      Bus route colours, Karasuma green, Kintetsu red. White text on each. */
   --line-citybus-loop: #b85000;
@@ -183,6 +195,16 @@
     --color-kyotobus: #82bbff;
     --color-through: #c2a2f0;
     --color-ats: #4b49c9;
+    --tile-green: #30d158;
+    --tile-teal: #40c8e0;
+    --tile-red: #ff453a;
+    --tile-indigo: #5e5ce6;
+    --tile-blue: #0a84ff;
+    --tile-orange: #ff9f0a;
+    --tile-pink: #ff375f;
+    --tile-purple: #bf5af2;
+    --tile-gray: #8e8e93;
+    --shadow-tile: inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
     --line-citybus-loop: #b85000;
     --line-citybus: #1a6fcf;
     --line-kyotobus: #d2573a;

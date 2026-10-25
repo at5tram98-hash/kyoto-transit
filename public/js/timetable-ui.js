@@ -4,6 +4,7 @@ import { lineBadge } from "./line-badge.js";
 import { ui, placeName, userFacingError, userError } from "./locale.js";
 import {
   operationStatus,
+  operationsFreshness,
   journeyOperationStatus,
   operationIds,
   operationGroups,
@@ -697,6 +698,7 @@ export function mountOperations({
     if (pending) return pending;
     if (!force && latest && Date.now() - last < 60000) return;
     root.setAttribute("aria-busy", "true");
+    setRefreshing(true);
     pending = (async () => {
       try {
         const d = await officialData("/operations");
@@ -713,9 +715,40 @@ export function mountOperations({
       } finally {
         pending = null;
         root.removeAttribute("aria-busy");
+        setRefreshing(false);
       }
     })();
     return pending;
+  }
+  // The refresh button says it is working (and cannot be pressed twice)
+  // until the official pages answer, then returns to "Refresh".
+  // The label only changes when the answer takes longer than 250 ms, so a
+  // cached reply does not make the button text flicker.
+  let refreshLabelTimer = 0;
+  function setRefreshing(on) {
+    clearTimeout(refreshLabelTimer);
+    const button = root.querySelector("[data-operations-refresh]");
+    if (!button) return;
+    if (on)
+      refreshLabelTimer = setTimeout(() => {
+        const current = root.querySelector("[data-operations-refresh]");
+        if (!pending || !current) return;
+        current.dataset.label ??= current.textContent;
+        current.textContent = ui("operations_refreshing");
+        current.disabled = true;
+      }, 250);
+    else if (button.dataset.label) {
+      button.textContent = button.dataset.label;
+      delete button.dataset.label;
+    }
+    button.disabled = on;
+    button.toggleAttribute("aria-busy", on);
+  }
+  function freshnessHTML() {
+    const fresh = operationsFreshness(latest);
+    return fresh
+      ? `<time class="operations-updated" datetime="${new Date(fresh.fetchedAt).toISOString()}"${fresh.stale ? ' data-stale="true"' : ""}>${esc(fresh.label)}</time>`
+      : "";
   }
   function renderOverview() {
     if (!latest) return;
@@ -756,6 +789,7 @@ export function mountOperations({
           : ui("timetable_ui_073"),
         list(others),
         esc(latest.notice),
+        freshnessHTML(),
       ]),
     );
   }

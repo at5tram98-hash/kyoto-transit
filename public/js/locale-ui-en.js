@@ -438,7 +438,7 @@ export default {
   vnext_arrivals_023: " Updated {0}",
   vnext_arrivals_024: " · Updated {0}",
   vnext_arrivals_025:
-    '<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">Kyoto City Bus</span><h3>Arrivals</h3></div></div><button class="arrival-stop" data-arrival-change><span><small>Stop</small><b id="arrival-stop-name">Choose a stop</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span>⌕</span><input id="arrival-stop-search" type="search" placeholder="Search stops and routes" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>Route and direction</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">Kintetsu Kyoto Line</span><h3>Arrivals</h3></div><button class="round-action" data-rail-refresh aria-label="Refresh">{1}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>Type</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>',
+    '<section class="section-block arrival-card"><div class="section-heading"><div><span class="section-label">Kyoto City Bus</span><h3>Arrivals</h3></div></div><button class="arrival-stop" data-arrival-change><span><small>Stop</small><b id="arrival-stop-name">Choose a stop</b></span><span class="chevron">›</span></button><div id="arrival-stop-picker" hidden><div class="native-search"><span aria-hidden="true">⌕</span><input id="arrival-stop-search" type="search" placeholder="Search stops and routes" autocomplete="off"></div><div id="arrival-stop-results"></div></div><p class="stale-warning" id="bus-stale" hidden></p><div class="arrival-columns"><span>Route and direction</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-live" aria-live="polite"></div></section><section class="section-block arrival-card" id="kintetsu-arrival-card" hidden><div class="section-heading"><div><span class="section-label">Kintetsu Kyoto Line</span><h3>Arrivals</h3></div><button class="round-action" data-rail-refresh aria-label="Refresh">{1}</button></div><p class="stale-warning" id="rail-stale" hidden></p><div class="arrival-columns"><span>Type</span><span>Destination</span><span>Arrival</span></div><div class="arrival-lines" id="arrival-rail" aria-live="polite"></div></section>',
   vnext_arrivals_026: "Search stops and routes",
   vnext_arrivals_027: "Updating",
   vnext_arrivals_028: "Offline · Previously retrieved information",
@@ -1070,7 +1070,7 @@ export default {
   timetable_ui_077:
     '<p class="trip-heading">{0}</p>{1}{2}<p class="source-caption">Official timetable · Scheduled time{3}</p>',
   timetable_ui_078:
-    '<section class="operation-summary" data-status="{0}"><p class="native-section-label">Current journey</p><h2>{1}{2}</h2><p>{3}</p>{4}</section><div class="operations-head"><span>Official information</span><button class="plain-action" data-operations-refresh>Refresh</button></div>{5}{6}<h3 class="native-section-label">{7}</h3>{8}<div class="native-list"><button class="native-row" data-operations-arrivals><span>Bus and train arrivals</span><span class="chevron">›</span></button></div><p class="source-caption">{9}</p>',
+    '<section class="operation-summary" data-status="{0}"><p class="native-section-label">Current journey</p><h2>{1}{2}</h2><p>{3}</p>{4}</section><div class="operations-head"><span>Official information{10}</span><button class="plain-action" data-operations-refresh>Refresh</button></div>{5}{6}<h3 class="native-section-label">{7}</h3>{8}<div class="native-list"><button class="native-row" data-operations-arrivals><span>Bus and train arrivals</span><span class="chevron">›</span></button></div><p class="source-caption">{9}</p>',
   live_home_024:
     '{0}<button type="button" class="plain-action" data-live-refresh>Retry</button>',
   live_home_025:
@@ -1594,4 +1594,8 @@ export default {
   ride_overdue_finished: "Ride guidance ended: well past its arrival time",
   ride_times_unavailable: "Timetable unavailable (check connection) · Guiding by stop order",
   arrival_connect_offline: "Can't check nearby departures while offline.",
+  operations_as_of: "As of {0}",
+  operations_stale_age: "{0} min old",
+  operations_stale_hours: "{0} h old",
+  operations_refreshing: "Updating…",
 };
