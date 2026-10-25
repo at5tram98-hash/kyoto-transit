@@ -2,11 +2,8 @@ import { currentMotionEvidence } from "./motion-assist.js";
 import { clearFalseRide } from "./vnext-detect.js";
 import { segmentDistance } from "./mobility.js";
 import { observeAudioSequence } from "./audio-sequence.js";
-import {
-  acquireAudioWindow,
-  releaseAudioWindow,
-  microphoneAlreadyGranted,
-} from "./audio-window.js";
+import { acquireAudioWindow, releaseAudioWindow } from "./audio-window.js";
+import { micAllowed, setMicBlocked, speechCtor, markListening } from "./mic-policy.js";
 import { realtimeRideEvidence } from "./realtime-evidence.js";
 import { getKyotoBusRT, getBusAll } from "./live.js";
 import { ensureRailFeed } from "./vnext-state.js";
@@ -21,7 +18,7 @@ import {
 import { freshFix } from "./riding.js";
 import { assessBoardingMovement } from "./auto-boarding-evidence.js";
 import { boardingAvailable } from "./journey-session.js";
-import { state, settings, tokyoNow, nearest } from "./vnext-state.js";
+import { state, settings, tokyoNow } from "./vnext-state.js";
 import {
   tenSecondMovement,
   movementAgainstStops,
@@ -32,7 +29,8 @@ import {
 
 const AUDIO_TTL_MS = 70000,
   AUDIO_SESSION_MS = 60000,
-  AUDIO_COOLDOWN_MS = 30000,
+  // While the fix stays poor, listening resumes almost at once.
+  AUDIO_COOLDOWN_MS = 2000,
   AUDIO_RESTART_DELAY_MS = 250,
   VERIFY_INTERVAL_MS = 4000;
 
@@ -46,27 +44,20 @@ let pendingAnnouncement = null,
   lastDirectionEvidenceAt = 0,
   interval = null;
 
-function speechCtor() {
-  return (
-    globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition || null
-  );
-}
-
+// Listening before a ride is known: only while the GPS fix is poor
+// (mic-policy.js), where the announcement is the main evidence.
 function preRecognitionCanContinue() {
   return Boolean(
     preRecognitionActive &&
       Date.now() < preRecognitionDeadline &&
-      !document.hidden &&
-      settings.autoDetect !== false &&
-      settings.audioAssist !== false &&
       !state.ride &&
       state.network &&
-      speechCtor() &&
-      nearbyBoardingContext(),
+      micAllowed(),
   );
 }
 
 function stopPreRecognition() {
+  markListening("candidate", false);
   const wasActive = preRecognitionActive,
     active = preRecognition;
   releaseAudioWindow("candidate");
@@ -79,37 +70,6 @@ function stopPreRecognition() {
   try {
     active?.abort();
   } catch {}
-}
-
-function nearbyBoardingContext(now = Date.now()) {
-  if (
-    state.armedJourney?.ride &&
-    boardingAvailable(state.armedJourney.ride, tokyoNow())
-  )
-    return true;
-  if (transitEvidenceEngine.stationContext(now)) return true;
-  // Underground at a subway station (GPS lost there): announcements are the
-  // main identity evidence, so keep listening for up to 15 minutes.
-  if (
-    !freshFix(state.fix, now) &&
-    transitEvidenceEngine.stationContext(now, 15 * 60000)?.station?.stop?.type === "subway"
-  )
-    return true;
-  if ((state.busTrail ?? []).some((row) => now - row.at <= 120000)) return true;
-  if (!freshFix(state.fix, now) || !state.network || !state.geo) return false;
-  try {
-    const near = nearest();
-    return Boolean(
-      (near.rail &&
-        near.rail.meters <= Math.max(180, state.fix.accuracy * 1.8)) ||
-        (near.bus &&
-          near.bus.meters <= Math.max(140, state.fix.accuracy * 2)) ||
-        (near.kyotoBus &&
-          near.kyotoBus.meters <= Math.max(170, state.fix.accuracy * 2.2)),
-    );
-  } catch {
-    return false;
-  }
 }
 
 function specificity(parsed) {
@@ -165,6 +125,8 @@ function ingestAnnouncementForCandidate(candidate, minute, now = Date.now()) {
     observedAt: pendingAnnouncement.at,
     metadata: {
       directionVerified: true,
+      // Two stations heard in order on this train: it is being ridden.
+      sequenceValidated: sequence.status === "supportive" && sequence.confidence >= 0.9,
       nextStop: pendingAnnouncement.parsed.nextStop,
       destination: pendingAnnouncement.parsed.destination,
       route: pendingAnnouncement.parsed.route,
@@ -253,8 +215,11 @@ function startPreRecognitionPass() {
   };
   recognition.onerror = (event) => {
     if (preRecognition !== recognition) return;
-    if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event?.error))
+    if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event?.error)) {
+      setMicBlocked(true);
       stopPreRecognition();
+      document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
+    }
   };
   recognition.onend = () => {
     if (preRecognition !== recognition) return;
@@ -276,40 +241,25 @@ function startPreRecognitionPass() {
   }
 }
 
-async function maybeStartPreCandidateAudio() {
+export function maybeStartPreCandidateAudio(now = Date.now(), { force = false } = {}) {
+  // Candidates on screen do not stop it: an announcement tells them apart.
   if (
-    settings.autoDetect === false ||
-    settings.audioAssist === false ||
-    document.hidden ||
     state.ride ||
-    (state.rideCandidates ?? []).length ||
     preRecognitionActive ||
     !state.network ||
-    !speechCtor() ||
-    !nearbyBoardingContext()
+    !micAllowed(now)
   )
-    return;
-  const now = Date.now();
-  if (now - lastPreRecognitionAt < AUDIO_COOLDOWN_MS) return;
-  if (!(await microphoneAlreadyGranted())) return;
-  if (
-    document.hidden ||
-    settings.autoDetect === false ||
-    settings.audioAssist === false ||
-    preRecognitionActive ||
-    state.ride ||
-    (state.rideCandidates ?? []).length ||
-    !nearbyBoardingContext()
-  )
-    return;
-
-  if (!acquireAudioWindow("candidate")) return;
+    return false;
+  if (!force && now - lastPreRecognitionAt < AUDIO_COOLDOWN_MS) return false;
+  if (!acquireAudioWindow("candidate")) return false;
   preRecognitionActive = true;
+  markListening("candidate", true);
   preRecognitionDeadline = now + AUDIO_SESSION_MS;
   lastPreRecognitionAt = now;
   clearTimeout(preRecognitionTimer);
   preRecognitionTimer = setTimeout(stopPreRecognition, AUDIO_SESSION_MS + 250);
   startPreRecognitionPass();
+  return true;
 }
 
 function geoStop(id) {
@@ -553,7 +503,7 @@ function cycle() {
   if (document.hidden || settings.autoDetect === false || !state.network)
     return;
   applyPendingAnnouncement();
-  if (state.ride) stopPreRecognition();
+  if (state.ride || !micAllowed()) stopPreRecognition();
   if (state.ride) {
     void refreshRideRealtime();
     verifyCurrentRideDirection();
@@ -563,7 +513,7 @@ function cycle() {
     candidateDirectionEvidence();
     if (rideDetectionSession.snapshot().intensified)
       document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
-    void maybeStartPreCandidateAudio();
+    maybeStartPreCandidateAudio();
   }
 }
 

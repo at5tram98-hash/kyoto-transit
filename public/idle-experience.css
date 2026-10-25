@@ -1151,7 +1151,8 @@ html[data-app-hidden="true"] .idle-status .idle-state::before {
   stroke-linejoin: round;
 }
 button.setting-row:is(.ats-level-row, .ats-settings-row),
-.ats-sheet button.setting-row {
+.ats-sheet button.setting-row,
+.arrival-sheet button.setting-row {
   width: 100%;
   border: 0;
   border-bottom: 1px solid var(--separator);
@@ -1161,6 +1162,7 @@ button.setting-row:is(.ats-level-row, .ats-settings-row),
   text-align: start;
 }
 .ats-sheet button.setting-row:last-child,
+.arrival-sheet button.setting-row:last-child,
 button.setting-row.ats-settings-row:last-child {
   border-bottom: 0;
 }
@@ -1322,6 +1324,13 @@ button.setting-row.ats-settings-row:last-child {
 }
 .status-icon[data-indicator="mode"] {
   color: var(--muted);
+}
+/* The microphone in use: orange, as iOS marks it. */
+.status-icon[data-indicator="mic"] {
+  color: var(--color-warning);
+}
+.status-icon[data-indicator="mic"] svg .fillable {
+  fill: currentColor;
 }
 .now-status-scene {
   display: flex;
@@ -1635,6 +1644,61 @@ button.setting-row.ats-settings-row:last-child {
   }
   .ats-hold {
     display: none;
+  }
+}
+
+/* Arrival sheet: a check (or home) that springs in, then the next leg. */
+.arrival-hero {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 0 16px;
+  text-align: center;
+}
+.arrival-hero > svg {
+  width: 56px;
+  height: 56px;
+  padding: 12px;
+  border-radius: var(--radius-round);
+  background: var(--color-ats-soft);
+  color: var(--color-ats);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: ats-icon-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.arrival-hero h3 {
+  margin: 0;
+  font-size: var(--type-title3, 1.25rem);
+}
+.arrival-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+.arrival-connection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: start;
+}
+.arrival-connection > span:not(.line-badge):not(.chevron) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.arrival-connection small {
+  color: var(--muted);
+  font-size: var(--type-caption);
+}
+.arrival-sheet .screen-action-group {
+  margin-top: 16px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .arrival-hero > svg {
+    animation: none;
   }
 }
 

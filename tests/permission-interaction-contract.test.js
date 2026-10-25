@@ -6,14 +6,17 @@ const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const executableSource = (source) =>
   source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
-test("自動アナウンス補助はマイク許可ダイアログを起動しない", () => {
-  const source =
-      read("../public/js/motion-assist.js") +
-      read("../public/js/smartlive-supervisor.js") +
-      read("../public/js/audio-window.js"),
-    executable = executableSource(source);
-  assert.match(source, /permissions\??\.query\(\{ name: "microphone" \}\)/);
-  assert.match(source, /status\.state === "granted"/);
+test("マイク（音声認識）はGPS精度が低いときだけ起動し、録音APIは使わない", () => {
+  const assist = executableSource(read("../public/js/motion-assist.js")),
+    supervisor = executableSource(read("../public/js/smartlive-supervisor.js")),
+    executable = assist + supervisor + executableSource(read("../public/js/audio-window.js"));
+  // Every recognition start and continuation is gated by mic-policy.
+  for (const source of [assist, supervisor]) {
+    assert.match(source, /micAllowed\(\)/);
+    assert.doesNotMatch(source, /microphoneAlreadyGranted/);
+  }
+  assert.equal((assist.match(/\.start\(\)/g) ?? []).length, 1);
+  assert.equal((supervisor.match(/\.start\(\)/g) ?? []).length, 1);
   assert.doesNotMatch(executable, /getUserMedia\s*\(/);
   assert.doesNotMatch(executable, /requestPermission\s*\(/);
   assert.doesNotMatch(executable, /Notification\.requestPermission\s*\(/);

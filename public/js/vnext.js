@@ -5,6 +5,11 @@ import { syncAtsDetection } from "./ats.js";
 import { openAtsSheet, homeRoute, runPilot } from "./ats-ui.js";
 import { stopPip, togglePip, pipSupported, refreshPip } from "./pip.js";
 import { requestMotionPermission, restoreMotionPermission } from "./motion-permission.js";
+import { setMicBlocked } from "./mic-policy.js";
+import { openArrivalSheet, arrivalChoice } from "./arrival-sheet.js";
+import { getKintetsuFeed } from "./fast-data.js";
+import { autoSpeechAssist } from "./motion-assist.js";
+import { maybeStartPreCandidateAudio } from "./smartlive-supervisor.js";
 import { actionSheet, startProgress, endProgress } from "./ios-ui.js";
 import { beginRideRecheck } from "./ride-rechecking.js";
 import { ui, placeName, appLocale, userFacingError, userError } from "./locale.js";
@@ -38,6 +43,7 @@ import {
   restoreJourney,
   rideKey,
   toast,
+  haptic,
   serviceName,
 } from "./vnext-state.js";
 import {
@@ -324,6 +330,12 @@ function setupEvents() {
       openRideChooser();
     } else if (b.hasAttribute("data-checkin")) {
       openCheckIn(checkInAndShow);
+    } else if (b.hasAttribute("data-enable-mic")) {
+      // Started inside the tap so the browser lets it ask for the microphone.
+      setMicBlocked(false);
+      if (!(state.ride ? autoSpeechAssist({ force: true }) : maybeStartPreCandidateAudio(Date.now(), { force: true })))
+        toast(ui("ats_mic_unavailable"));
+      renderNow();
     } else if (b.hasAttribute("data-enable-motion")) {
       void requestMotionPermission().then(() => renderNow());
     } else if (b.hasAttribute("data-not-riding")) {
@@ -661,6 +673,36 @@ async function init() {
     });
     document.addEventListener("mymap-ats-home", () => renderNow());
     document.addEventListener("mymap-motion-permission", () => renderNow());
+    document.addEventListener("mymap-mic-change", () => renderNow());
+    document.addEventListener("mymap-ride-arrived", (event) => {
+      void openArrivalSheet({
+        stop: event.detail?.stop,
+        loadFeed: (type) => (type === "kintetsu" ? getKintetsuFeed(tokyoNow().date) : ensureSubwayFeed()),
+      });
+    });
+    $("#context-sheet").addEventListener("click", (event) => {
+      const b = event.target.closest("[data-arrival-arm],[data-arrival-search],[data-arrival-close]");
+      if (!b) return;
+      const sheet = $("#context-sheet");
+      if (b.dataset.arrivalArm !== undefined) {
+        const ride = arrivalChoice(b.dataset.arrivalArm);
+        if (!ride) return;
+        // The next leg: ATS watches for boarding it, as with a planned route.
+        state.itinerary = null;
+        state.armedJourney = { ride, selectedAt: Date.now() };
+        persistJourney(true);
+        sheet.close();
+        navigation.root("now");
+        renderNow();
+        haptic();
+        toast(ui("arrival_armed", [formatMinute(ride.depart), ride.destination]));
+      } else if (b.dataset.arrivalSearch) {
+        const stop = state.network.stops.get(b.dataset.arrivalSearch),
+          now = tokyoNow();
+        sheet.close();
+        routeSearch?.openInput({ from: stop?.name ?? "", fromId: stop?.id ?? "", date: now.date, time: now.time, timeMode: "departure" });
+      } else sheet.close();
+    });
     document.addEventListener("mymap-choose-ride", () => openRideChooser());
     document.addEventListener("mymap-checkin", () => openCheckIn(checkInAndShow));
     document.addEventListener("mymap-transit-evidence", () => {

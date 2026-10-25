@@ -39,6 +39,7 @@ const icons = {
   expand: '<path d="M14 4.5h5.5V10M10 19.5H4.5V14M19.5 4.5l-6.2 6.2M4.5 19.5l6.2-6.2"/>',
   auto: '<circle class="fillable" cx="12" cy="12" r="9"/><path class="knock" d="m8.4 16.2 3.6-8.6 3.6 8.6m-5.9-3h4.6"/>',
   motion: '<path d="M2.8 12h3l2.2-5.6 3.6 11.2 3.2-9 2 3.4h4.4"/>',
+  mic: '<rect class="fillable" x="9" y="3" width="6" height="11.5" rx="3"/><path d="M5.6 11.2a6.4 6.4 0 0 0 12.8 0"/><path d="M12 17.6V21"/>',
   signal: '<rect class="solid bar-1" x="3.4" y="15" width="3" height="5" rx="1"/><rect class="solid bar-2" x="8.4" y="11.5" width="3" height="8.5" rx="1"/><rect class="solid bar-3" x="13.4" y="8" width="3" height="12" rx="1"/><rect class="solid bar-4" x="18.4" y="4.5" width="3" height="15.5" rx="1"/>',
   home: '<path class="fillable" d="M4 10.6 12 4l8 6.6V19a1.5 1.5 0 0 1-1.5 1.5H15v-5.2H9v5.2H5.5A1.5 1.5 0 0 1 4 19Z"/>',
   leaf: '<path class="fillable" d="M19.5 4.5c-8.6-.4-14.6 3.4-14.6 9.8 0 1.5.4 2.8 1 3.8 6.6.4 12.5-3.4 13.6-13.6Z"/><path class="knock" d="M4.6 20.5c2.4-4.4 5.9-7.8 10.2-10.2"/>',

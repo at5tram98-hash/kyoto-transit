@@ -979,7 +979,7 @@ export default {
   vnext_network_view_086:
     '<h2 class="native-section-label">保存</h2><div class="native-list">{12}{13}</div><h2 class="native-section-label">交通</h2><div class="native-list">{0}{1}{2}{3}{4}</div><h2 class="native-section-label">アプリ</h2><div class="native-list">{5}{6}{7}{8}{9}{10}</div><h2 class="native-section-label">状態</h2><div class="native-list">{11}</div>',
   vnext_network_view_087:
-    '<div class="settings-card"><div class="setting-row"><span>位置情報</span><span data-permission="geolocation">{0}</span></div><div class="setting-row"><span>マイク</span><span data-permission="microphone">確認中</span></div><div class="setting-row"><span>通知</span><span>{1}</span></div><label class="setting-row"><span>許可済みマイクのアナウンス補助</span><input type="checkbox" data-setting="audioAssist" {2}></label><div class="setting-row"><span>音声認識</span><span>{3}</span></div><div class="setting-row"><span>Version</span><span>{4}</span></div></div><p class="source-note">権限の変更は端末・ブラウザー設定で行えます。ここから権限を自動要求しません。Privacyで通信・保存の詳細を確認できます。</p>',
+    '<div class="settings-card"><div class="setting-row"><span>位置情報</span><span data-permission="geolocation">{0}</span></div><div class="setting-row"><span>マイク</span><span data-permission="microphone">確認中</span></div><div class="setting-row"><span>通知</span><span>{1}</span></div><label class="setting-row"><span>GPS精度が低いとき（地下など）だけマイクで車内放送を聞く</span><input type="checkbox" data-setting="audioAssist" {2}></label><div class="setting-row"><span>音声認識</span><span>{3}</span></div><div class="setting-row"><span>Version</span><span>{4}</span></div></div><p class="source-note">権限の変更は端末・ブラウザー設定で行えます。マイクはGPS精度が低いときだけ起動します（初回はブラウザーが許可を確認します）。Privacyで通信・保存の詳細を確認できます。</p>',
   vnext_network_view_088:
     '<div class="saved-row"><button class="native-row" data-saved-route="{0}"><span><b>{1} → {2}</b>{3}</span><span class="chevron">›</span></button><button class="plain-action" data-remove-route="{4}" aria-label="{5}への保存経路を削除">削除</button></div>',
   vnext_foldback_051:
@@ -1549,4 +1549,27 @@ export default {
   ride_times_looking: "時刻表から乗車便を特定中…",
   ride_times_missing: "該当する便が時刻表にありません · 停留所の順に案内中",
   ride_trip_found: "時刻表で乗車便を特定 · {0} {1}発",
+  ats_ind_mic_on: "マイク：車内放送を聞いています（GPS精度が低いときだけ）",
+  ats_action_mic: "車内放送を聞く",
+  ats_mic_unavailable: "いまはマイクを使えません（GPS精度が低いときだけ使います）",
+  ats_sensor_mic: "マイク（車内放送）",
+  ats_mic_listening: "聞いています · GPS精度が低いため",
+  ats_mic_ready: "まもなく聞き始めます · GPS精度が低いため",
+  ats_mic_blocked: "許可が必要です · 今画面の「車内放送を聞く」をタップ",
+  ats_mic_idle: "使っていません · GPS精度が低いとき（地下など）だけ使います",
+  arrival_sheet_title: "到着",
+  arrival_title: "{0}に到着しました",
+  arrival_note: "{0} 到着 · おつかれさまでした",
+  arrival_home_title: "自宅に到着しました",
+  arrival_home_note: "おかえりなさい。今回の移動はここまでです。",
+  arrival_close: "閉じる",
+  arrival_search: "ここから行き先を決めて検索",
+  arrival_connect_title: "ここから乗り継ぐ",
+  arrival_connect_loading: "近くの駅の発車を調べています…",
+  arrival_connect_intro: "選ぶと次の乗車として設定し、ATSが乗車を見守ります。",
+  arrival_connect_none: "近くの駅で40分以内の発車はありません。",
+  arrival_station: "{0}（{1}m）",
+  arrival_connection: "{0}発 {1}行き",
+  arrival_connection_note: "あと{0}分 · 徒歩約{1}分",
+  arrival_armed: "乗り継ぎを設定しました：{0}発 {1}行き",
 };

@@ -338,10 +338,13 @@ export function inferRailDirection(fromId, operator = "auto") {
           : state.network.stops.get(fromId)?.type === "subway"
             ? subwayIds
             : kintetsuIds,
-    i = ids.indexOf(fromId);
-  if (i < 0 || state.samples.length < 2) return null;
-  const first = state.samples[0],
-    last = state.samples.at(-1),
+    i = ids.indexOf(fromId),
+    // Poor fixes (over 50 m, typical underground) wander more than a train
+    // moves between them; they would invent a direction.
+    good = (state.samples ?? []).filter((f) => Number.isFinite(f?.accuracy) && f.accuracy <= 50);
+  if (i < 0 || good.length < 2) return null;
+  const first = good[0],
+    last = good.at(-1),
     get = (id) => state.geo.stops.find((s) => s.id === id),
     south = get(ids[i + 1]),
     north = get(ids[i - 1]),
