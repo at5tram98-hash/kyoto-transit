@@ -134,6 +134,20 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}${scope}`;
+// The origin "goes away" by no longer listening: new connections are
+// refused, as when the site cannot be reached. (Destroying sockets mid-request
+// instead can make WebKit's network process fail and lose the test context's
+// in-memory site data, which is a fixture artefact, not app behaviour.)
+const originPort = server.address().port;
+async function setOriginUnavailable(unavailable) {
+  originUnavailable = unavailable;
+  if (unavailable) {
+    await new Promise((resolve) => {
+      server.close(() => resolve());
+      server.closeAllConnections();
+    });
+  } else await new Promise((resolve) => server.listen(originPort, "127.0.0.1", resolve));
+}
 allowedOrigins.add(new URL(base).origin);
 const engine = process.env.BROWSER_ENGINE === "webkit" ? webkit : chromium;
 const browser = await engine.launch(
@@ -284,7 +298,7 @@ try {
   assert.equal(oldModule, "mymap-active-journey-v1");
   // Simulate the same real connection failure in Chromium and WebKit;
   // protocol offline emulation can prevent WebKit's cached SW responses.
-  originUnavailable = true;
+  await setOriginUnavailable(true);
   assert.equal(
     await page.evaluate(async (base) => {
       try {
@@ -361,7 +375,7 @@ try {
     await readFile(resolve(dist, "vnext.css"), "utf8"),
     "The active worker must still serve cached assets after rejecting an expired release",
   );
-  originUnavailable = false;
+  await setOriginUnavailable(false);
   assert.deepEqual(
     await unavailableVersion(),
     { status: 410, ok: false, body: "This app version is unavailable" },
