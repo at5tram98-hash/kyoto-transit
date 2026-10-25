@@ -111,6 +111,22 @@
   color: var(--muted);
   font-size: 0.75rem;
 }
+.operations-updated {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.operations-updated::before {
+  content: "·";
+  margin-right: 6px;
+}
+.operations-updated[data-stale] {
+  color: var(--warning);
+  font-weight: 600;
+}
+.operations-head [data-operations-refresh]:disabled {
+  color: var(--muted);
+  opacity: 1;
+}
 .operation-card {
   padding: 16px;
   margin-bottom: 12px;

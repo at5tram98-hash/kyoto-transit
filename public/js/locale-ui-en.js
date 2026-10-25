@@ -1070,7 +1070,7 @@ export default {
   timetable_ui_077:
     '<p class="trip-heading">{0}</p>{1}{2}<p class="source-caption">Official timetable · Scheduled time{3}</p>',
   timetable_ui_078:
-    '<section class="operation-summary" data-status="{0}"><p class="native-section-label">Current journey</p><h2>{1}{2}</h2><p>{3}</p>{4}</section><div class="operations-head"><span>Official information</span><button class="plain-action" data-operations-refresh>Refresh</button></div>{5}{6}<h3 class="native-section-label">{7}</h3>{8}<div class="native-list"><button class="native-row" data-operations-arrivals><span>Bus and train arrivals</span><span class="chevron">›</span></button></div><p class="source-caption">{9}</p>',
+    '<section class="operation-summary" data-status="{0}"><p class="native-section-label">Current journey</p><h2>{1}{2}</h2><p>{3}</p>{4}</section><div class="operations-head"><span>Official information{10}</span><button class="plain-action" data-operations-refresh>Refresh</button></div>{5}{6}<h3 class="native-section-label">{7}</h3>{8}<div class="native-list"><button class="native-row" data-operations-arrivals><span>Bus and train arrivals</span><span class="chevron">›</span></button></div><p class="source-caption">{9}</p>',
   live_home_024:
     '{0}<button type="button" class="plain-action" data-live-refresh>Retry</button>',
   live_home_025:
@@ -1594,4 +1594,8 @@ export default {
   ride_overdue_finished: "Ride guidance ended: well past its arrival time",
   ride_times_unavailable: "Timetable unavailable (check connection) · Guiding by stop order",
   arrival_connect_offline: "Can't check nearby departures while offline.",
+  operations_as_of: "As of {0}",
+  operations_stale_age: "{0} min old",
+  operations_stale_hours: "{0} h old",
+  operations_refreshing: "Updating…",
 };

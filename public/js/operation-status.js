@@ -127,3 +127,37 @@ export function disruptedOperators(lines, ids, options) {
     )
     .map((line) => line.id);
 }
+
+// When the official status shown was retrieved. The snapshot time is used
+// (the edge may serve one up to six hours old while refreshing), falling back
+// to the newest line. Older than ten minutes is called out so a cached
+// "normal" is not read as the current state.
+export function operationsFreshness(
+  snapshot,
+  { now = Date.now(), staleAfter = 10 * 60 * 1000 } = {},
+) {
+  const times = [snapshot?.fetchedAt, ...(snapshot?.lines ?? []).map((l) => l?.fetchedAt)]
+    .map((t) => Date.parse(t ?? ""))
+    .filter(Number.isFinite);
+  const at = Date.parse(snapshot?.fetchedAt ?? "");
+  const fetchedAt = Number.isFinite(at) ? at : times.length ? Math.max(...times) : NaN;
+  if (!Number.isFinite(fetchedAt)) return null;
+  const age = Math.max(0, now - fetchedAt);
+  const time = new Date(fetchedAt).toLocaleTimeString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const stale = age > staleAfter;
+  const minutes = Math.floor(age / 60000);
+  return {
+    fetchedAt,
+    time,
+    stale,
+    label: !stale
+      ? ui("operations_as_of", [time])
+      : minutes < 120
+        ? ui("operations_stale_age", [minutes])
+        : ui("operations_stale_hours", [Math.floor(minutes / 60)]),
+  };
+}
