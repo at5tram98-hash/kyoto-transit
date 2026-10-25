@@ -1,11 +1,10 @@
 // Which way a bus service runs, and which side of the road its stop pole is.
 //
 // Loop routes (202, 204, 205, 206, 208) run both ways round the same loop.
-// The operator distinguishes them only by destination text; the internal
-// 甲/乙 labels are not published and are defined differently per route, so
-// they are not shown. The direction round the loop is computed from the
-// stops' positions (signed area): clockwise or counterclockwise.
-// Other routes are named by the terminus they head for.
+// The operator's internal 甲/乙 labels are not published, so the app names
+// every bus service 甲 or 乙 by one rule (lineSide). The direction round a
+// loop (clockwise or counterclockwise) is still computed (loopRotation) for
+// matching, but not shown.
 //
 // A stop name stands for poles on both sides of the road (and sometimes
 // more). Each service leaves the stop towards its next stop; that compass
@@ -36,14 +35,38 @@ export function loopRotation(service, located) {
   return Math.abs(area) < 1e-9 ? null : area > 0 ? "ccw" : "cw";
 }
 
-// Non-loop routes are told apart the way the app names them (by request):
-// a service whose terminus lies west of its start (towards 千本) is 甲, one
-// heading east (towards 河原町) is 乙. Taken from the overall east-west
-// run from first to last stop.
-export function lineSide(service, located) {
-  if (!service || isLoop(service)) return null;
+// Every bus service is named 甲 or 乙 (by request), from the way it runs
+// east-west: a service heading west (towards 千本) is 甲, one heading east
+// (towards 河原町) is 乙.
+//   · other routes: the overall run from first to last stop
+//   · loop routes: the way the loop leaves 北大路バスターミナル (the
+//     reference point); a loop that does not pass it is read at its
+//     northernmost stop
+export const LOOP_REFERENCE = /北大路バスターミナル|北大路BT/;
+export function lineSide(service, located, network = null) {
+  if (!service) return null;
+  const stops = service.stops ?? [];
+  if (isLoop(service)) {
+    let index = network
+      ? stops.slice(0, -1).findIndex((id) => LOOP_REFERENCE.test(network.stops.get(id)?.name ?? ""))
+      : -1;
+    if (index < 0) {
+      let north = -Infinity;
+      stops.slice(0, -1).forEach((id, i) => {
+        const p = located.get(id);
+        if (p && p.lat > north) {
+          north = p.lat;
+          index = i;
+        }
+      });
+    }
+    if (index < 0) return null;
+    const degrees = departureHeading(service, stops[index], located, index);
+    if (degrees === null || degrees % 180 === 0) return null;
+    return degrees > 180 ? "kou" : "otsu";
+  }
   // The first and last stops that have a position (a terminus may not).
-  const points = (service.stops ?? []).map((id) => located.get(id)).filter(Boolean),
+  const points = stops.map((id) => located.get(id)).filter(Boolean),
     a = points[0],
     b = points.at(-1);
   if (!a || !b) return null;
@@ -126,9 +149,9 @@ export function annotateRows(rows, stopId, network, located, serviceFor) {
   return rows.map((row) => {
     const match = serviceFor(row, stopId, network, located);
     if (!match) return row;
-    const rotation = loopRotation(match.service, located),
-      side = lineSide(match.service, located),
+    // Only 甲/乙 is shown for a service's direction (by request).
+    const side = lineSide(match.service, located, network),
       degrees = departureHeading(match.service, stopId, located);
-    return { ...row, rotation, side, heading: degrees === null ? null : compass(degrees) };
+    return { ...row, side, heading: degrees === null ? null : compass(degrees) };
   });
 }

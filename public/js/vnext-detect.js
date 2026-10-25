@@ -8,7 +8,7 @@ import {
   orderedStopEvidence,
 } from "./transit-evidence.js";
 import { matchArmedJourney } from "./ride-state-resolver.js";
-import { kintetsuIds } from "./network.js";
+import { kintetsuIds, subwayIds } from "./network.js";
 import { distance, segmentDistance } from "./mobility.js";
 import {
   trajectory,
@@ -39,7 +39,8 @@ import {
   kyotoBusStaticCandidates,
   formatMinute,
 } from "./vnext-core.js";
-import { getStaticFeed } from "./fast-data.js";
+import { getStaticFeed, getKintetsuFeed } from "./fast-data.js";
+import { rideNeedsTiming, timeRideFromFeed } from "./ride-timing.js";
 import { journeyClock, stopTime } from "./journey-core.js";
 import { observeJourney } from "./journey-observation.js";
 import { boardingAvailable, selectedRideShift } from "./journey-session.js";
@@ -66,6 +67,26 @@ import {
   persistJourney,
 } from "./vnext-state.js";
 
+const LOW_FIX_ACCURACY = 50;
+// The station an announcement names. Underground (or with a poor fix) a
+// station is preferred over a bus stop of the same name.
+export function announcementStop(parsed, network, preferRail = false) {
+  const ids = [parsed?.arrival, ...(parsed?.nextStopIds ?? []), parsed?.nextStop].filter(Boolean),
+    stops = ids.map((id) => network?.stops.get(id)).filter(Boolean);
+  return (
+    (preferRail ? stops.find((stop) => ["subway", "kintetsu"].includes(stop.type)) : null) ??
+    network?.stops.get(parsed?.nextStop) ??
+    stops[0] ??
+    null
+  );
+}
+// The train still has the heard station ahead of it (or is at it): its
+// time there is not more than two minutes past.
+export function heardOnRide(ride, stationId, minute) {
+  const stop = (ride?.officialStops ?? []).find((s) => s.id === stationId),
+    time = stop ? stopTime(stop) : null;
+  return Number.isFinite(time) && time >= minute - 2;
+}
 let lastNextAlertKey = null,
   detectionGeneration = 0;
 const scoreClamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
@@ -608,6 +629,53 @@ function applyRide(candidate) {
     );
   }
   persistJourney();
+  if (rideNeedsTiming(candidate.ride)) void resolveRideTimes(candidate.ride);
+}
+
+// A ride known by its stops but not its trip: look the trip up in the
+// official timetable and fill in its times, as long as the rider is still
+// on that ride when the timetable arrives.
+// state.rideTiming tells the screen: "looking" while the lookup runs,
+// "missing" when no trip fitted (tried again after a minute).
+const timingJobs = new Set(),
+  timingTried = new Map();
+export async function resolveRideTimes(ride, now = tokyoNow()) {
+  const key = rideKey(ride);
+  if (!rideNeedsTiming(ride) || timingJobs.has(key)) return false;
+  if (Date.now() - (timingTried.get(key) ?? 0) < 60000) return false;
+  timingJobs.add(key);
+  timingTried.set(key, Date.now());
+  while (timingTried.size > 8) timingTried.delete(timingTried.keys().next().value);
+  state.rideTiming = { key, status: "looking" };
+  try {
+    const minute = Number.isFinite(ride.observedMinute) ? ride.observedMinute : now.minute;
+    const feeds = ["citybus", "kyotobus"].includes(ride.operator)
+      ? [
+          ride.route === "北3" ? await north3TimetableFeed(now.date) : null,
+          await getStaticFeed(ride.operator, now.date).catch(() => null),
+        ]
+      : ride.operator === "kintetsu"
+        ? [await getKintetsuFeed(now.date).catch(() => null)]
+        : [await ensureSubwayFeed().catch(() => null)];
+    const timed = feeds
+      .filter(Boolean)
+      .map((feed) => timeRideFromFeed(ride, feed, { minute, date: now.date }))
+      .find(Boolean);
+    if (rideKey(state.ride) !== key || !rideNeedsTiming(state.ride)) return false;
+    if (!timed) {
+      state.rideTiming = { key, status: "missing" };
+      document.dispatchEvent(new CustomEvent("mymap-ride-prediction"));
+      return false;
+    }
+    state.rideTiming = { key, status: "found", headsign: timed.timedFrom?.headsign ?? null };
+    state.ride = timed;
+    consensus.lock(timed);
+    persistJourney(true);
+    document.dispatchEvent(new CustomEvent("mymap-ride-prediction"));
+    return true;
+  } finally {
+    timingJobs.delete(key);
+  }
 }
 export function finishCurrentRide({ keepItinerary = false } = {}) {
   const changed =
@@ -780,11 +848,16 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
   )
     return;
   const fixFresh = freshFix(state.fix),
-    freshNear = nearest();
+    freshNear = nearest(),
+    // "GPS精度：低" (over 50 m): in Kyoto almost always underground. The
+    // fix is then too loose to name a station; the last good station, the
+    // announcements and the accelerometer are used instead.
+    lowFix =
+      fixFresh && Number.isFinite(state.fix.accuracy) && state.fix.accuracy > LOW_FIX_ACCURACY;
   if (fixFresh) consensus.observeStation(freshNear.rail, state.fix);
-  // Underground: the last fix was at a subway station and GPS is gone. Keep
-  // that station for up to 15 minutes (waiting on the platform included).
-  const subwayContext = !fixFresh
+  // Underground: the last fix was at a subway station and GPS is gone (or
+  // poor). Keep that station for up to 15 minutes (platform wait included).
+  const subwayContext = !fixFresh || lowFix
       ? consensus.stationContext(Date.now(), 15 * 60000)
       : null,
     underground =
@@ -796,18 +869,24 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
   const announcement = state.smartLiveAnnouncement;
   const audioStop =
     announcement && Date.now() - announcement.at <= 75000
-      ? state.network.stops.get(announcement.parsed.nextStop)
-      : null;
-  const near = fixFresh
-    ? freshNear
-    : { ...freshNear, rail: stationContext?.station ?? null };
-  if (
-    !fixFresh &&
-    !stationContext &&
-    audioStop &&
-    ["subway", "kintetsu"].includes(audioStop.type)
-  )
-    near.rail = { id: audioStop.id, stop: audioStop, meters: 0 };
+      ? announcementStop(announcement.parsed, state.network, !fixFresh || lowFix)
+      : null,
+    audioRail = audioStop && ["subway", "kintetsu"].includes(audioStop.type) ? audioStop : null;
+  const near =
+    fixFresh && !lowFix
+      ? freshNear
+      : {
+          ...freshNear,
+          rail:
+            stationContext?.station ??
+            // Poor fix, no station seen: the nearest station within its reach.
+            (lowFix && freshNear.rail && freshNear.rail.meters <= Math.max(150, state.fix.accuracy)
+              ? freshNear.rail
+              : null),
+        };
+  // A heard station outweighs a poor or missing fix.
+  if ((!fixFresh || lowFix) && audioRail && (!stationContext || announcement.at > stationContext.at))
+    near.rail = { id: audioRail.id, stop: audioRail, meters: 0 };
   if (
     !fixFresh &&
     !stationContext &&
@@ -846,8 +925,10 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
       railProbeAllowed =
         railMovement ||
         Boolean(underground && railMotion?.available && !railMotion.walking) ||
+        // Poor fix at a station and not walking: likely on a train.
+        Boolean(lowFix && near.rail && !(railMotion?.walking || motionEvidence.walkingLikely)) ||
         Boolean(state.armedJourney?.ride) ||
-        Boolean(audioStop && ["subway", "kintetsu"].includes(audioStop.type)),
+        Boolean(audioRail),
       recentBusTrail = state.busTrail.some((x) => Date.now() - x.at < 180000),
       busClose =
         near.bus &&
@@ -910,19 +991,20 @@ export async function autoDetectRide(force = false, onChange = () => {}) {
                   : {},
               ).catch(() => []);
     }
-    if (!fixFresh && !stationContext && audioStop?.type === "subway") {
-      const feed = await ensureSubwayFeed();
-      const preceding = [
-        ...new Set(
-          (feed?.services ?? []).flatMap((service) => {
-            const i = service.stops.indexOf(audioStop.id);
-            return i > 0 ? [service.stops[i - 1]] : [];
-          }),
-        ),
-      ].slice(0, 4);
-      const audioCandidates = await Promise.all(
-        preceding.map((id) => detectSubway(id).catch(() => [])),
-      );
+    // A heard station ("次は四条" or "四条、四条です"): the trains that just
+    // left the station before it, in either direction, and those at it.
+    if ((!fixFresh || lowFix) && audioRail) {
+      const line = audioRail.type === "subway" ? subwayIds : kintetsuIds,
+        i = line.indexOf(audioRail.id),
+        around = [line[i - 1], line[i + 1], audioRail.id].filter(Boolean),
+        probe = (id) =>
+          audioRail.type === "subway" || id === "K15"
+            ? detectSubway(id, { windowBefore: 6 }).catch(() => [])
+            : detectKintetsu(id).catch(() => []);
+      const minute = tokyoNow().minute,
+        audioCandidates = (await Promise.all(around.map(probe))).map((rows) =>
+          rows.filter((row) => heardOnRide(row.ride, audioRail.id, minute)),
+        );
       candidates = mergeCandidates(candidates, ...audioCandidates);
     }
     if (
@@ -1313,6 +1395,7 @@ export function updateRideAnchor() {
   state.rideShift = observation.shift;
   if (Number.isInteger(observation.anchorIndex)) state.rideShiftKnown = true;
   refreshKyotoBusPrediction(ride);
+  if (rideNeedsTiming(ride)) void resolveRideTimes(ride);
   const official = kyotoBusPredictionFor(ride);
   if (official && !Number.isInteger(observation.anchorIndex)) {
     state.rideShift = official.trip.delay;
@@ -1336,8 +1419,13 @@ export function updateRideAnchor() {
   const transfer =
     state.foldbackPlan && state.foldbackPlan.depart >= now.minute - 5;
   if (observation.arrived && !transfer) {
+    const arrivedAt = state.network.stops.get(ride.userDestination?.id ?? ride.to) ?? null;
     finishCurrentRide({ keepItinerary: Boolean(state.itinerary) });
-    if (state.itinerary?.phase !== "transfer") toast(ui("ride_arrival_confirmed"));
+    if (state.itinerary?.phase !== "transfer") {
+      toast(ui("ride_arrival_confirmed"));
+      // The arrival sheet (and, away from home, the next leg from here).
+      document.dispatchEvent(new CustomEvent("mymap-ride-arrived", { detail: { stop: arrivedAt } }));
+    }
   }
   persistJourney();
 }

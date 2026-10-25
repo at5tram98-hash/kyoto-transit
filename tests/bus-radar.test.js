@@ -131,5 +131,20 @@ test("loop-less routes are 甲 heading west and 乙 heading east", async () => {
   const located = new Map([["w", { lat: 35, lng: 135.70 }], ["e", { lat: 35, lng: 135.78 }]]);
   assert.equal(lineSide({ stops: ["e", "w"] }, located), "kou");
   assert.equal(lineSide({ stops: ["w", "e"] }, located), "otsu");
-  assert.equal(lineSide({ stops: ["w", "e", "x", "w"] }, located), null);
+});
+
+test("循環系統も甲乙：北大路バスターミナルを出る向きが西なら甲、東なら乙", async () => {
+  const { lineSide } = await import("../public/js/bus-direction.js");
+  const located = new Map([
+    ["bt", { lat: 35.044, lng: 135.758 }],
+    ["west", { lat: 35.044, lng: 135.749 }],
+    ["south", { lat: 35.0, lng: 135.755 }],
+    ["east", { lat: 35.044, lng: 135.768 }],
+  ]);
+  const network = { stops: new Map([["bt", { name: "北大路バスターミナル" }], ["west", { name: "北大路新町" }], ["south", { name: "四条烏丸" }], ["east", { name: "烏丸北大路" }]]) };
+  // The loop is read where it leaves the terminal, wherever it starts.
+  assert.equal(lineSide({ stops: ["south", "east", "bt", "west", "south"] }, located, network), "kou");
+  assert.equal(lineSide({ stops: ["south", "west", "bt", "east", "south"] }, located, network), "otsu");
+  // Not passing the terminal: read at the northernmost stop.
+  assert.equal(lineSide({ stops: ["south", "east", "west", "south"] }, located, null), "kou");
 });

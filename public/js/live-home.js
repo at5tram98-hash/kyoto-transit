@@ -1,3 +1,4 @@
+import { animateAtsStatus } from "./ats-motion.js";
 import { ui } from "./locale.js";
 import { readSearchPairs } from "./search-history.js";
 import {
@@ -605,11 +606,11 @@ export function mountLiveHome(host, search) {
       const node = host.querySelector(selector);
       if (node && node.textContent !== value) node.textContent = value;
     };
-    host.querySelector(".now-status").dataset.atsScene = status.scene;
     setHTML("[data-status-icons]", status.icons);
     setHTML("[data-scene-icon]", icon(status.icon));
     setText("[data-scene-title]", status.title);
     setText("[data-live-location-detail]", status.detail);
+    animateAtsStatus(host.querySelector(".now-status"), status);
     setHTML("[data-status-actions]", status.actions);
     host.querySelector("[data-status-actions]").hidden = !status.actions;
     const map = nearbyMapModel(

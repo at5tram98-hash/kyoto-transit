@@ -1,9 +1,6 @@
 import { observeAudioSequence } from "./audio-sequence.js";
-import {
-  acquireAudioWindow,
-  releaseAudioWindow,
-  microphoneAlreadyGranted,
-} from "./audio-window.js";
+import { acquireAudioWindow, releaseAudioWindow } from "./audio-window.js";
+import { micAllowed, setMicBlocked, speechCtor, markListening } from "./mic-policy.js";
 import { rideDetectionSession } from "./ride-detection-session.js";
 import { recordRideContradiction as recordContradiction } from "./ride-rechecking.js";
 import { contradictionDecision } from "./smartlive-evidence.js";
@@ -17,8 +14,7 @@ import { freshFix } from "./riding.js";
 import { state, settings, tokyoNow } from "./vnext-state.js";
 import { railMotionSummary } from "./rail-motion.js";
 
-const RETRY_MS = 16000,
-  MOTION_WINDOW_MS = 15000,
+const MOTION_WINDOW_MS = 15000,
   SENSOR_LIMIT = 180,
   VERIFY_INTERVAL_MS = 8000,
   SPEECH_SESSION_MS = 60000,
@@ -35,20 +31,10 @@ const motionSamples = [],
   // Ten minutes at ~10 Hz for underground run/stop counting.
   railSamples = [];
 
-function speechCtor() {
-  return (
-    globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition || null
-  );
-}
-function uncertainCandidates() {
-  const candidates = state.rideCandidates ?? [];
-  if (!candidates.length) return false;
-  const top = candidates[0]?.score ?? 0,
-    second = candidates[1]?.score ?? 0;
-  return top < 72 || (candidates.length > 1 && top - second < 14);
-}
+// During a ride only. Before one (candidates included), the supervisor
+// listens and keeps the announcement for detection.
 function speechNeeded() {
-  return Boolean(state.ride) || uncertainCandidates();
+  return Boolean(state.ride);
 }
 
 function finiteNumber(value) {
@@ -393,20 +379,19 @@ function confirmFromTranscript(event) {
   return false;
 }
 
+// Only while the GPS fix is poor (mic-policy.js).
 function recognitionCanContinue() {
   return Boolean(
     recognitionActive &&
       Date.now() < recognitionDeadline &&
-      settings.autoDetect !== false &&
-      settings.audioAssist !== false &&
-      !document.hidden &&
       state.network &&
       speechNeeded() &&
-      speechCtor(),
+      micAllowed(),
   );
 }
 
 function stopRecognition() {
+  markListening("ride", false);
   const wasActive = recognitionActive,
     current = activeRecognition;
   releaseAudioWindow("ride");
@@ -421,6 +406,7 @@ function stopRecognition() {
   } catch {}
 }
 
+let quickEnds = 0;
 function startRecognitionPass() {
   if (!recognitionCanContinue()) {
     stopRecognition();
@@ -439,11 +425,23 @@ function startRecognitionPass() {
   };
   recognition.onerror = (event) => {
     if (activeRecognition !== recognition) return;
-    if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event?.error))
+    if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event?.error)) {
+      setMicBlocked(true);
       stopRecognition();
+      document.dispatchEvent(new CustomEvent("mymap-transit-evidence"));
+    }
   };
+  const startedAt = Date.now();
   recognition.onend = () => {
     if (activeRecognition !== recognition) return;
+    // A recognizer that keeps ending at once (no device, a service error)
+    // is not restarted in a tight loop.
+    quickEnds = Date.now() - startedAt < 1000 ? quickEnds + 1 : 0;
+    if (quickEnds >= 3) {
+      quickEnds = 0;
+      stopRecognition();
+      return;
+    }
     activeRecognition = null;
     if (!recognitionCanContinue()) {
       stopRecognition();
@@ -462,54 +460,35 @@ function startRecognitionPass() {
   }
 }
 
-async function autoSpeechAssist() {
-  if (
-    settings.autoDetect === false ||
-    settings.audioAssist === false ||
-    recognitionActive ||
-    document.hidden ||
-    !state.network ||
-    !speechNeeded() ||
-    !speechCtor()
-  )
-    return;
-
+export function autoSpeechAssist({ force = false } = {}) {
+  if (recognitionActive || !state.network || !speechNeeded() || !micAllowed())
+    return false;
   const now = Date.now();
-  if (
-    now - lastAttemptAt <
-    (rideDetectionSession.snapshot().intensified ? RETRY_MS : 45000)
-  )
-    return;
-  if (!(await microphoneAlreadyGranted())) return;
-  if (
-    recognitionActive ||
-    settings.autoDetect === false ||
-    settings.audioAssist === false ||
-    document.hidden ||
-    !speechNeeded()
-  )
-    return;
-
-  if (!acquireAudioWindow("ride")) return;
+  // Poor fix: listen again almost at once.
+  if (!force && now - lastAttemptAt < 2000) return false;
+  if (!acquireAudioWindow("ride")) return false;
   recognitionActive = true;
+  markListening("ride", true);
   recognitionDeadline = now + SPEECH_SESSION_MS;
   lastAttemptAt = now;
   clearTimeout(recognitionTimer);
   recognitionTimer = setTimeout(stopRecognition, SPEECH_SESSION_MS + 250);
   startRecognitionPass();
+  return true;
 }
 
 function runVerificationCycle() {
+  if (recognitionActive && !micAllowed()) stopRecognition();
   if (document.hidden || settings.autoDetect === false) return;
   verifyCurrentBusPattern();
-  void autoSpeechAssist();
+  autoSpeechAssist();
 }
 
 export function installMotionAssist() {
   installDeviceMotion();
   const panel = document.querySelector("#vehicle-panel");
   if (!panel) return;
-  const observer = new MutationObserver(() => void autoSpeechAssist());
+  const observer = new MutationObserver(() => autoSpeechAssist());
   observer.observe(panel, { childList: true, subtree: true });
   if (!assistInterval)
     assistInterval = setInterval(runVerificationCycle, VERIFY_INTERVAL_MS);
@@ -525,7 +504,7 @@ export function installMotionAssist() {
   window.addEventListener("pagehide", stopRecognition);
   document.addEventListener("mymap-navigation-change", () => {
     if (settings.audioAssist === false || !speechNeeded()) stopRecognition();
-    else void autoSpeechAssist();
+    else autoSpeechAssist();
   });
   runVerificationCycle();
 }

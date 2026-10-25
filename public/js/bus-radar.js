@@ -4,7 +4,7 @@
 // its route and the next one, and moves on at the average bus pace.
 import { lineKind } from "./line-badge.js";
 import { isFresh } from "./realtime.js";
-import { loopRotation, lineSide } from "./bus-direction.js";
+import { lineSide } from "./bus-direction.js";
 
 export const RADAR_RADIUS = 500;
 export const RADAR_MAX_STOPS = 8;
@@ -160,8 +160,7 @@ export function radarBuses({ stop, data, network, geo, now = Date.now(), previou
           ? (Math.atan2(toward.lng - at.lng, toward.lat - at.lat) * 180) / Math.PI
           : null,
       kind: lineKind({ operator: "citybus", route: row.route }),
-      rotation: loopRotation(match.service, located),
-      side: lineSide(match.service, located),
+      side: lineSide(match.service, located, network),
     });
   }
   // A bus still reported at the same stop keeps going from where it was

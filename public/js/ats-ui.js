@@ -10,6 +10,7 @@ import { readSearchPairs } from "./search-history.js";
 import { readSavedPlaces } from "./saved-places.js";
 import { fetchRealtime, isFresh } from "./realtime.js";
 import { motionPermissionState } from "./motion-permission.js";
+import { micBlocked, micListening, micWanted } from "./mic-policy.js";
 import { RUN_MODES, runMode, setRunMode } from "./run-mode.js";
 import {
   ATS_LEVELS,
@@ -23,7 +24,7 @@ import {
   saveHome,
   clearHome,
 } from "./ats.js";
-import { assessScene } from "./ats-scene.js";
+import { assessScene, SCENE_HOLD_MS } from "./ats-scene.js";
 import { senseNow } from "./ats-sensors.js";
 import { pilotSteps } from "./ats-pilot.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
@@ -137,6 +138,9 @@ export function statusIcons(snapshot, level) {
     item("motion", "motion", `data-state="${motion}"`, ui(`ats_ind_motion_${motion}`)),
     item("live", "signal", `data-level="${signal}"`, ui(signal ? `ats_ind_live_${signal}` : "ats_ind_live_0")),
     item("mode", MODE_ICONS[mode], `data-mode="${mode}"`, ui(`mode_${mode}`)),
+    // Listening for announcements (poor GPS only): an orange microphone,
+    // as iOS marks a microphone in use.
+    micListening() ? item("mic", "mic", `data-state="on"`, ui("ats_ind_mic_on")) : "",
   ].join("");
 }
 
@@ -208,6 +212,9 @@ export function sceneActions(assessment, level) {
   }
   if (level >= 2 && motionPermissionState() === "prompt")
     out.push(chip("data-enable-motion", "motion", "ats_action_motion"));
+  // Poor GPS (underground): the browser needs a tap before it will listen.
+  if (level >= 2 && micBlocked() && micWanted() && !micListening())
+    out.unshift(chip("data-enable-mic", "mic", "ats_action_mic"));
   return out.slice(0, 3).join("");
 }
 
@@ -224,6 +231,18 @@ export function atsStatus(onUpdate) {
     title: copy.title,
     detail: copy.detail,
     actions: sceneActions(assessment, level),
+    // For the animation (ats-motion.js): how sure, what is being sensed,
+    // and a scene waiting out its hold.
+    confidence: level === 0 ? 0 : (assessment.confidence ?? 0),
+    scanning:
+      level >= 2 &&
+      !state.ride &&
+      (["moving", "candidate", "confirming", "rechecking"].includes(assessment.snapshot.ride.phase) ||
+        ["vehicle", "checking"].includes(assessment.scene)),
+    pending: level === 0 ? null : (assessment.pending ?? null),
+    pendingLeft: assessment.pending
+      ? Math.max(0, SCENE_HOLD_MS - (assessment.snapshot.at - (assessment.memory?.pending?.since ?? assessment.snapshot.at)))
+      : 0,
   };
 }
 
@@ -258,8 +277,9 @@ export function runPilot({ confirmCandidate, onChange } = {}) {
 
 // ── The ATS sheet ───────────────────────────────────────────────────────
 function sensorRows(snapshot, level) {
+  let order = 0;
   const row = (glyph, name, value, attrs = "") =>
-    `<div class="setting-row ats-sensor-row" ${attrs}>${icon(glyph)}<span><b>${esc(name)}</b><small>${esc(value)}</small></span></div>`;
+    `<div class="setting-row ats-sensor-row" style="--i:${order++}" ${attrs}>${icon(glyph)}<span><b>${esc(name)}</b><small>${esc(value)}</small></span></div>`;
   const location = snapshot.location,
     speed = snapshot.speed.value;
   const assessment = atsAssessment();
@@ -268,6 +288,7 @@ function sensorRows(snapshot, level) {
     row("location", ui("ats_sensor_location"), `${ui(`ats_ind_location_${location.quality}`)}${location.accuracy !== null ? ` · ${ui("ats_accuracy", [Math.round(location.accuracy)])}` : ""}`),
     row("walk", ui("ats_sensor_speed"), speed === null ? ui("ats_unknown") : `${Math.round(speed * 3.6)} km/h (${ui(`ats_speed_${snapshot.speed.source}`)})`),
     row("motion", ui("ats_sensor_motion"), `${ui(`ats_ind_motion_${motionState(snapshot)}`)} · ${ui(`ats_activity_${snapshot.motion.activity}`)}`),
+    row("mic", ui("ats_sensor_mic"), ui(micListening() ? "ats_mic_listening" : micWanted() ? (micBlocked() ? "ats_mic_blocked" : "ats_mic_ready") : "ats_mic_idle")),
     row("signal", ui("ats_sensor_live"), ui(liveLevel(snapshot) ? `ats_ind_live_${liveLevel(snapshot)}` : "ats_ind_live_0")),
     row("checkin", ui("ats_sensor_ride"), state.ride ? ui("ats_ride_active") : ui(`b3_status_${detectionDisplayState({ phase: snapshot.ride.phase, locationStatus: state.locationStatus, autoDetect: level >= 2, hidden: document.hidden, candidates: snapshot.ride.candidates, moving: (speed ?? 0) >= 2.8 })}`)),
   ].join("");

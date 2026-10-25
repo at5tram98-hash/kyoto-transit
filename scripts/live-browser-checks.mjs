@@ -303,52 +303,70 @@ export async function liveInteractionChecks({
           .querySelector("#vehicle-panel")
           .append(document.createElement("span"));
       });
-      await page.waitForTimeout(80);
+      // The microphone is used only while the GPS fix is poor (mic-policy).
+      const fix = (accuracy) =>
+        page.evaluate((accuracy) => {
+          const { state } = window.__state;
+          state.locationStatus = "active";
+          state.fix = { lat: 35.0168, lng: 135.7594, accuracy, timestamp: Date.now(), speed: null, heading: null };
+        }, accuracy);
+      await page.clock.fastForward(4100);
       assert.equal(
         await page.evaluate(() => window.__speechStarts),
         0,
-        "prompt permission never starts automatic speech",
+        "no location (denied): automatic speech never starts",
       );
       await page.evaluate(() => {
         window.__microphoneState = "granted";
-        document
-          .querySelector("#vehicle-panel")
-          .append(document.createElement("span"));
       });
+      await fix(12);
+      await page.clock.fastForward(4100);
+      assert.equal(
+        await page.evaluate(() => window.__speechStarts),
+        0,
+        "a good GPS fix never starts the microphone, even when granted",
+      );
+      await fix(180);
+      await page.clock.fastForward(4100);
       await page.waitForFunction(() => window.__speechStarts === 1);
+      await fix(180);
       await page.clock.fastForward(60300);
       assert.equal(
         await page.evaluate(() => window.__speechStops),
         1,
-        "candidate recognition stops at the 60 second session limit",
+        "recognition stops at the 60 second session limit",
       );
-      await page.clock.fastForward(31000);
-      await page.evaluate(() =>
-        document
-          .querySelector("#vehicle-panel")
-          .append(document.createElement("span")),
-      );
+      await fix(180);
+      await page.clock.fastForward(4100);
       await page.waitForFunction(() => window.__speechStarts === 2);
+      await fix(12);
+      await page.clock.fastForward(4100);
+      assert.equal(
+        await page.evaluate(() => window.__speechStops),
+        2,
+        "a good fix again stops listening",
+      );
+      await fix(180);
+      await page.clock.fastForward(4100);
+      await page.waitForFunction(() => window.__speechStarts === 3);
       await page.evaluate(() => {
         window.__state.settings.audioAssist = false;
         document.dispatchEvent(new CustomEvent("mymap-settings-change"));
       });
       assert.equal(
         await page.evaluate(() => window.__speechStops),
-        2,
+        3,
         "disabling assist stops the current session immediately",
       );
       await page.evaluate(() => {
         window.__state.settings.audioAssist = true;
         window.__state.settings.autoDetect = false;
-        document
-          .querySelector("#vehicle-panel")
-          .append(document.createElement("span"));
       });
-      await page.waitForTimeout(80);
+      await fix(180);
+      await page.clock.fastForward(4100);
       assert.equal(
         await page.evaluate(() => window.__speechStarts),
-        2,
+        3,
         "automatic recognition remains off when auto detection is disabled",
       );
       assert.deepEqual(audio.errors, []);
@@ -357,6 +375,6 @@ export async function liveInteractionChecks({
     }
   }
   summary.checks.push(
-    "Live interactions: dedicated nearby map zoom/pan and quick tracking preserve viewport; denied location never fabricates a current-position marker; microphone prompt never auto-starts, granted sessions stop at the 60-second limit, cooldown applies, disabling audio assist aborts immediately, and auto-detect off prevents restart",
+    "Live interactions: dedicated nearby map zoom/pan and quick tracking preserve viewport; denied location never fabricates a current-position marker; the microphone listens only while the GPS fix is poor (never with a good fix or no location), sessions stop at the 60-second limit, a good fix stops listening, disabling audio assist aborts immediately, and auto-detect off prevents restart",
   );
 }

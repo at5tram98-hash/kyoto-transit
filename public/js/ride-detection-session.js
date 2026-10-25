@@ -255,13 +255,21 @@ export function createRideDetectionSession() {
                   i > previous.index &&
                   i - previous.index <= Math.min(2, Math.ceil(cycle / 3)),
               )
-          : indices.find((i) => i > previous.index && i - previous.index <= 2);
+          : (() => {
+              // Rides for the same train may start at different stations
+              // (underground they are found from the heard station), so the
+              // previous station is located on this ride's own stop list;
+              // before its first stop counts as just before index 0.
+              const before = stops.findIndex((s) => s.id === previous.stopId),
+                base = before >= 0 ? before : previous.ride === key ? previous.index : -1;
+              return indices.find((i) => i > base && i - base <= 2);
+            })();
         if (index === undefined)
           return { status: "contradictory", confidence: 0.92 };
       }
       if (index === undefined)
         return { status: "contradictory", confidence: 0.9 };
-      lastAudio.set(key, { stopId, index, at });
+      lastAudio.set(key, { stopId, index, at, ride: key });
       if (lastAudio.size > 20) lastAudio.delete(lastAudio.keys().next().value);
       return {
         status: "supportive",

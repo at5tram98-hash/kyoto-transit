@@ -272,10 +272,16 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
         hasAudio = sources.includes("audio"),
         hasRealtime = sources.includes("realtime"),
         transportSpecific = hasAudio || hasRealtime || orderedRoute,
+        // Underground (no GPS, no live positions): the announcements heard
+        // in order on the train, or one heard while the accelerometer shows
+        // a moving train.
+        undergroundIdentity =
+          verifiedAudioSequence || (audioDirection && movingMotion),
         multimodalIdentity =
           (routeProgressGps && (hasAudio || hasRealtime)) ||
           (orderedRoute && movingMotion) ||
-          (verifiedAudioSequence && hasRealtime && movingMotion);
+          (verifiedAudioSequence && hasRealtime && movingMotion) ||
+          undergroundIdentity;
       const confirmed =
         transportSpecific &&
         multimodalIdentity &&
@@ -286,7 +292,7 @@ export function createTransitEvidenceEngine({ minMargin = 8 } = {}) {
         !ambiguous &&
         contextual &&
         top.evidenceScore >= 55 &&
-        sources.length >= 2;
+        (sources.length >= 2 || verifiedAudioSequence);
       return {
         confirmed: confirmed ? top.ride : null,
         candidates: rows.slice(0, 3).map((candidate) => ({

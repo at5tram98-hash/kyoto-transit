@@ -748,6 +748,7 @@ function renderRide(root, vehicle, networkPanel, nearPanel, now) {
   model.officialPrediction =
     ride.operator === "kyotobus" && Boolean(kyotoBusPredictionFeed(ride));
   state.heroObservation = model.observed;
+  model.timing = state.rideTiming?.key === rideKey(ride) ? state.rideTiming.status : null;
   state.heroModel = model;
   if (
     state.rideShiftKnown &&
