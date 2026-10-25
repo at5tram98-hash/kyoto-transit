@@ -85,8 +85,13 @@ test("時刻のないバスは確認中と表示し続けず、時刻のある�
   const ride = { operator: "citybus", route: "204", officialStops: stops };
   const progress = { stops };
   const untimed = nextStationHero({ ...base, minutes: null, timesPublished: false, terminalArrival: null }, ride, progress);
-  assert.match(untimed, /時刻データなし/);
-  assert.doesNotMatch(untimed, /到着時刻を確認中/);
+  // Untimed: the trip is being looked up in the timetable, not "no data".
+  assert.match(untimed, /時刻表から乗車便を特定中/);
+  assert.doesNotMatch(untimed, /時刻データなし|到着時刻を確認中/);
+  const missing = nextStationHero({ ...base, minutes: null, timesPublished: false, terminalArrival: null, timing: "missing" }, ride, progress);
+  assert.match(missing, /停留所の順に案内中/);
+  const found = nextStationHero({ ...base, minutes: 4, timesPublished: true, terminalArrival: 619 }, { ...ride, timedFrom: { serviceId: "x" }, scheduledDepart: 612 }, progress);
+  assert.match(found, /時刻表で乗車便を特定 · 北大路バスターミナル 10:12発/);
   const timed = nextStationHero({ ...base, minutes: 4, timesPublished: true, terminalArrival: 619, delayMinutes: 2 }, ride, progress);
   assert.match(timed, /終点「建勲神社前」10:19着（推定）/);
   const official = nextStationHero({ ...base, minutes: 4, timesPublished: true, terminalArrival: 619, officialPrediction: true }, ride, progress);

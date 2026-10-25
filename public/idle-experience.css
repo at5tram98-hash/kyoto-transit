@@ -1306,14 +1306,6 @@ button.setting-row.ats-settings-row:last-child {
 .status-icon[data-indicator="ats"][data-level="0"] {
   color: var(--muted);
 }
-.status-icon[data-indicator="ats"][data-scanning] svg {
-  animation: ats-scan 1.6s ease-in-out infinite;
-}
-@keyframes ats-scan {
-  50% {
-    opacity: 0.35;
-  }
-}
 .status-icon[data-indicator="motion"]:is([data-state="off"], [data-state="denied"], [data-state="idle"]) {
   color: var(--muted);
   opacity: 0.55;
@@ -1424,6 +1416,226 @@ button.setting-row.ats-settings-row:last-child {
 .ats-sensor-row > span {
   flex: 1;
   text-align: start;
+}
+
+/* ATS in motion (ats-motion.js). Springs follow UIKit's default spring
+   (a slight overshoot that settles); everything stops under reduced motion. */
+@property --ats-ring {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+.now-status {
+  --ats-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ats-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.now-status-main {
+  position: relative;
+  overflow: hidden;
+}
+.now-scene-icon {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+}
+.now-scene-icon svg {
+  position: relative;
+  z-index: 1;
+  transition: background-color 0.4s var(--ats-ease), color 0.4s var(--ats-ease);
+}
+/* Confidence ring: a rounded square outline that fills clockwise. */
+.now-scene-icon::before {
+  --ats-ring: var(--ats-confidence, 0);
+  content: "";
+  position: absolute;
+  inset: -3px;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background: conic-gradient(var(--color-ats) calc(var(--ats-ring) * 1%), color-mix(in srgb, var(--color-ats) 14%, transparent) 0);
+  -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0);
+  transition: --ats-ring 0.9s var(--ats-ease);
+}
+.now-status:is([data-ats-scene="unknown"], [data-ats-scene="off"]) .now-scene-icon::before {
+  opacity: 0;
+}
+/* Sensing: rings ripple out from the icon, as AirDrop does. */
+.now-scene-icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--color-ats);
+  border-radius: var(--radius-row);
+  opacity: 0;
+  pointer-events: none;
+}
+.now-status[data-ats-scanning] .now-scene-icon::after {
+  animation: ats-ripple 1.8s var(--ats-ease) infinite;
+}
+.now-status[data-ats-scanning] .now-scene-icon svg {
+  animation: ats-breathe 1.8s ease-in-out infinite;
+}
+@keyframes ats-ripple {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+@keyframes ats-breathe {
+  50% {
+    transform: scale(0.9);
+  }
+}
+/* A new scene: the icon pops in, the copy rises out of a blur. */
+.now-status-scene.ats-scene-enter .now-scene-icon svg {
+  animation: ats-icon-in 0.55s var(--ats-spring) both;
+}
+.now-status-scene.ats-scene-enter .now-scene-copy {
+  animation: ats-copy-in 0.45s var(--ats-ease) both;
+}
+.now-status-scene.ats-scene-enter .now-scene-copy small {
+  animation: ats-copy-in 0.45s 0.06s var(--ats-ease) both;
+}
+@keyframes ats-icon-in {
+  from {
+    opacity: 0;
+    transform: scale(0.55) rotate(-12deg);
+  }
+}
+@keyframes ats-copy-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+    filter: blur(4px);
+  }
+}
+/* A ride locks in: the ring flashes full and a glow spreads. */
+.now-status-scene.ats-scene-enter[data-enter="lock"] .now-scene-icon::before {
+  animation: ats-lock-ring 0.9s var(--ats-ease);
+}
+.now-status-scene.ats-scene-enter[data-enter="lock"] .now-scene-icon::after {
+  border-width: 3px;
+  animation: ats-ripple 0.9s 0.1s var(--ats-ease) 1;
+}
+@keyframes ats-lock-ring {
+  0% {
+    --ats-ring: 0;
+  }
+  60%,
+  100% {
+    --ats-ring: 100;
+  }
+}
+/* The hold before a new scene takes over. */
+.ats-hold {
+  position: absolute;
+  inset-inline: 16px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: var(--radius-tiny);
+  background: var(--color-ats);
+  opacity: 0.45;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.ats-hold.run {
+  animation: ats-hold linear forwards;
+}
+@keyframes ats-hold {
+  to {
+    transform: scaleX(1);
+  }
+}
+/* A status icon that changed bounces once; signal bars light in turn. */
+.status-icon.ats-pop svg {
+  animation: ats-pop 0.5s var(--ats-spring);
+}
+.status-icon[data-indicator="live"].ats-pop svg rect {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: ats-bar 0.4s var(--ats-ease) both;
+}
+.status-icon[data-indicator="live"].ats-pop svg .bar-2 {
+  animation-delay: 0.06s;
+}
+.status-icon[data-indicator="live"].ats-pop svg .bar-3 {
+  animation-delay: 0.12s;
+}
+.status-icon[data-indicator="live"].ats-pop svg .bar-4 {
+  animation-delay: 0.18s;
+}
+@keyframes ats-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+}
+@keyframes ats-bar {
+  from {
+    transform: scaleY(0.2);
+  }
+}
+/* The ATS glyph in the status bar: a soft sweep instead of a blink. */
+.status-icon[data-indicator="ats"][data-scanning] svg {
+  animation: ats-sweep 1.6s ease-in-out infinite;
+}
+@keyframes ats-sweep {
+  0%,
+  100% {
+    opacity: 1;
+    transform: rotate(0);
+  }
+  50% {
+    opacity: 0.45;
+    transform: rotate(-14deg) scale(0.92);
+  }
+}
+/* The ATS sheet: sensor rows arrive one after another. */
+.ats-sheet .ats-sensor-row {
+  animation: ats-row-in 0.4s calc(var(--i, 0) * 45ms) var(--ats-ease, ease) both;
+}
+@keyframes ats-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.ats-level-row .ats-level-badge,
+.ats-mode svg {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ats-level-row[aria-checked="true"] .ats-level-badge,
+.ats-mode[aria-checked="true"] svg {
+  transform: scale(1.08);
+}
+.ats-level-row:active .ats-level-badge,
+.ats-mode:active svg {
+  transform: scale(0.92);
+}
+/* Riding: the trip the timetable identified fades in under the hero. */
+.trip-found {
+  animation: ats-copy-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .now-status *,
+  .now-status *::before,
+  .now-status *::after,
+  .ats-sheet .ats-sensor-row,
+  .trip-found {
+    animation: none !important;
+    transition: none !important;
+  }
+  .ats-hold {
+    display: none;
+  }
 }
 
 /* The map's own expand button, top right as in Apple Maps. */

@@ -49,6 +49,7 @@ import {
   finishCurrentRide,
   chooseRideCandidates,
   confirmThroughContinuation,
+  resolveRideTimes,
 } from "./vnext-detect.js";
 import { renderNow, setupNowInteractions, rideChoiceRowsHTML } from "./vnext-view.js";
 import {
@@ -482,6 +483,8 @@ async function init() {
     state.geo = geo;
     augmentKyotoBusGeometry();
     restoreJourney();
+    // A ride saved before its trip was looked up gets its times now.
+    if (state.ride) void resolveRideTimes(state.ride);
     timetables = mountTimetables({
       network: state.network,
       getState: () => ({ favorites: savedTransitStopIds() }),

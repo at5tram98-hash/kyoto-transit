@@ -1559,4 +1559,7 @@ export default {
   service_first: "First departure {0}",
   bus_side_kou: "甲 · westward",
   bus_side_otsu: "乙 · eastward",
+  ride_times_looking: "Finding your trip in the timetable…",
+  ride_times_missing: "No matching trip in the timetable · Guiding by stop order",
+  ride_trip_found: "Trip found in the timetable · {0} dep. {1}",
 };

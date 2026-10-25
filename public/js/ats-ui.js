@@ -23,7 +23,7 @@ import {
   saveHome,
   clearHome,
 } from "./ats.js";
-import { assessScene } from "./ats-scene.js";
+import { assessScene, SCENE_HOLD_MS } from "./ats-scene.js";
 import { senseNow } from "./ats-sensors.js";
 import { pilotSteps } from "./ats-pilot.js";
 import { detectionDisplayState } from "./detection-status-b3.js";
@@ -224,6 +224,18 @@ export function atsStatus(onUpdate) {
     title: copy.title,
     detail: copy.detail,
     actions: sceneActions(assessment, level),
+    // For the animation (ats-motion.js): how sure, what is being sensed,
+    // and a scene waiting out its hold.
+    confidence: level === 0 ? 0 : (assessment.confidence ?? 0),
+    scanning:
+      level >= 2 &&
+      !state.ride &&
+      (["moving", "candidate", "confirming", "rechecking"].includes(assessment.snapshot.ride.phase) ||
+        ["vehicle", "checking"].includes(assessment.scene)),
+    pending: level === 0 ? null : (assessment.pending ?? null),
+    pendingLeft: assessment.pending
+      ? Math.max(0, SCENE_HOLD_MS - (assessment.snapshot.at - (assessment.memory?.pending?.since ?? assessment.snapshot.at)))
+      : 0,
   };
 }
 
@@ -258,8 +270,9 @@ export function runPilot({ confirmCandidate, onChange } = {}) {
 
 // ── The ATS sheet ───────────────────────────────────────────────────────
 function sensorRows(snapshot, level) {
+  let order = 0;
   const row = (glyph, name, value, attrs = "") =>
-    `<div class="setting-row ats-sensor-row" ${attrs}>${icon(glyph)}<span><b>${esc(name)}</b><small>${esc(value)}</small></span></div>`;
+    `<div class="setting-row ats-sensor-row" style="--i:${order++}" ${attrs}>${icon(glyph)}<span><b>${esc(name)}</b><small>${esc(value)}</small></span></div>`;
   const location = snapshot.location,
     speed = snapshot.speed.value;
   const assessment = atsAssessment();

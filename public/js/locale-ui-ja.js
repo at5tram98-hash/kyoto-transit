@@ -1546,4 +1546,7 @@ export default {
   service_first: "始発 {0}",
   bus_side_kou: "甲 · 西方面",
   bus_side_otsu: "乙 · 東方面",
+  ride_times_looking: "時刻表から乗車便を特定中…",
+  ride_times_missing: "該当する便が時刻表にありません · 停留所の順に案内中",
+  ride_trip_found: "時刻表で乗車便を特定 · {0} {1}発",
 };

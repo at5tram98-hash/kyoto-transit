@@ -39,7 +39,8 @@ import {
   kyotoBusStaticCandidates,
   formatMinute,
 } from "./vnext-core.js";
-import { getStaticFeed } from "./fast-data.js";
+import { getStaticFeed, getKintetsuFeed } from "./fast-data.js";
+import { rideNeedsTiming, timeRideFromFeed } from "./ride-timing.js";
 import { journeyClock, stopTime } from "./journey-core.js";
 import { observeJourney } from "./journey-observation.js";
 import { boardingAvailable, selectedRideShift } from "./journey-session.js";
@@ -608,6 +609,53 @@ function applyRide(candidate) {
     );
   }
   persistJourney();
+  if (rideNeedsTiming(candidate.ride)) void resolveRideTimes(candidate.ride);
+}
+
+// A ride known by its stops but not its trip: look the trip up in the
+// official timetable and fill in its times, as long as the rider is still
+// on that ride when the timetable arrives.
+// state.rideTiming tells the screen: "looking" while the lookup runs,
+// "missing" when no trip fitted (tried again after a minute).
+const timingJobs = new Set(),
+  timingTried = new Map();
+export async function resolveRideTimes(ride, now = tokyoNow()) {
+  const key = rideKey(ride);
+  if (!rideNeedsTiming(ride) || timingJobs.has(key)) return false;
+  if (Date.now() - (timingTried.get(key) ?? 0) < 60000) return false;
+  timingJobs.add(key);
+  timingTried.set(key, Date.now());
+  while (timingTried.size > 8) timingTried.delete(timingTried.keys().next().value);
+  state.rideTiming = { key, status: "looking" };
+  try {
+    const minute = Number.isFinite(ride.observedMinute) ? ride.observedMinute : now.minute;
+    const feeds = ["citybus", "kyotobus"].includes(ride.operator)
+      ? [
+          ride.route === "北3" ? await north3TimetableFeed(now.date) : null,
+          await getStaticFeed(ride.operator, now.date).catch(() => null),
+        ]
+      : ride.operator === "kintetsu"
+        ? [await getKintetsuFeed(now.date).catch(() => null)]
+        : [await ensureSubwayFeed().catch(() => null)];
+    const timed = feeds
+      .filter(Boolean)
+      .map((feed) => timeRideFromFeed(ride, feed, { minute, date: now.date }))
+      .find(Boolean);
+    if (rideKey(state.ride) !== key || !rideNeedsTiming(state.ride)) return false;
+    if (!timed) {
+      state.rideTiming = { key, status: "missing" };
+      document.dispatchEvent(new CustomEvent("mymap-ride-prediction"));
+      return false;
+    }
+    state.rideTiming = { key, status: "found", headsign: timed.timedFrom?.headsign ?? null };
+    state.ride = timed;
+    consensus.lock(timed);
+    persistJourney(true);
+    document.dispatchEvent(new CustomEvent("mymap-ride-prediction"));
+    return true;
+  } finally {
+    timingJobs.delete(key);
+  }
 }
 export function finishCurrentRide({ keepItinerary = false } = {}) {
   const changed =
@@ -1313,6 +1361,7 @@ export function updateRideAnchor() {
   state.rideShift = observation.shift;
   if (Number.isInteger(observation.anchorIndex)) state.rideShiftKnown = true;
   refreshKyotoBusPrediction(ride);
+  if (rideNeedsTiming(ride)) void resolveRideTimes(ride);
   const official = kyotoBusPredictionFor(ride);
   if (official && !Number.isInteger(observation.anchorIndex)) {
     state.rideShift = official.trip.delay;
