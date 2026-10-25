@@ -1,6 +1,5 @@
-// Direction tags for approach rows on screen: "時計回り" / "反時計回り" for
-// loop routes, 甲 (westward) / 乙 (eastward) for the others, and the
-// heading of the pole ("北行き").
+// The direction tag for a bus approach row: 甲 or 乙 only, for every bus
+// route (loop routes included). Subway and Kintetsu rows carry none.
 import { ui } from "./locale.js";
 import { esc, state } from "./vnext-state.js";
 import { annotateRows, stopPoles } from "./bus-direction.js";
@@ -17,13 +16,9 @@ export const withDirections = (rows, stopId) =>
   stopId ? annotateRows(rows, stopId, state.network, locatedStops(), serviceFor) : rows;
 
 export function directionTagsHTML(row) {
-  const tags = [];
-  if (row?.rotation)
-    tags.push(`<span class="bus-dir" data-rotation="${row.rotation}">${row.rotation === "cw" ? "↻" : "↺"} ${esc(ui(`bus_rotation_${row.rotation}`))}</span>`);
-  if (row?.side)
-    tags.push(`<span class="bus-dir" data-side="${row.side}">${esc(ui(`bus_side_${row.side}`))}</span>`);
-  if (row?.heading) tags.push(`<span class="bus-dir" data-heading="${row.heading}">${esc(ui(`bus_heading_${row.heading}`))}</span>`);
-  return tags.join("");
+  return row?.side
+    ? `<span class="bus-dir" data-side="${row.side}">${esc(ui(`bus_side_${row.side}`))}</span>`
+    : "";
 }
 
 // The poles of a stop for the stop screen: heading, the next stop that way,
