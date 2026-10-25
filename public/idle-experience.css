@@ -1446,6 +1446,8 @@ button.setting-row.ats-settings-row:last-child {
 .now-scene-icon svg {
   position: relative;
   z-index: 1;
+  /* Opaque, so the ring behind shows only as a rim (no masks: WebKit). */
+  background: color-mix(in srgb, var(--color-ats) 12%, var(--surface-primary));
   transition: background-color 0.4s var(--ats-ease), color 0.4s var(--ats-ease);
 }
 /* Confidence ring: a rounded square outline that fills clockwise. */
@@ -1454,12 +1456,8 @@ button.setting-row.ats-settings-row:last-child {
   content: "";
   position: absolute;
   inset: -3px;
-  padding: 2px;
   border-radius: var(--radius-control);
   background: conic-gradient(var(--color-ats) calc(var(--ats-confidence, 0) * 1%), color-mix(in srgb, var(--color-ats) 14%, transparent) 0);
-  -webkit-mask: linear-gradient(black 0 0) content-box, linear-gradient(black 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(black 0 0) content-box exclude, linear-gradient(black 0 0);
   transition: opacity 0.4s var(--ats-ease);
 }
 .now-status:is([data-ats-scene="unknown"], [data-ats-scene="off"]) .now-scene-icon::before {
@@ -1516,7 +1514,6 @@ button.setting-row.ats-settings-row:last-child {
   from {
     opacity: 0;
     transform: translateY(7px);
-    filter: blur(4px);
   }
 }
 /* A ride locks in: the ring flashes full and a glow spreads. */
