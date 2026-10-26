@@ -338,7 +338,12 @@ export function railTimetableEta(
   if (targetAxis < 0 || targetAxis > 25 || position < -0.5 || position > 25.5)
     return null;
   const direction = train.direction === "north" ? "north" : "south",
-    delay = Number.isFinite(train.delay) ? train.delay : 0,
+    // Exact seconds when the official page gave them.
+    delay = Number.isFinite(train.delaySeconds)
+      ? train.delaySeconds / 60
+      : Number.isFinite(train.delay)
+        ? train.delay
+        : 0,
     candidates = [];
   for (const service of feed.services) {
     if (

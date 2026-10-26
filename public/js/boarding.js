@@ -66,6 +66,7 @@ export async function foldbackJourney(
       stop: plan.stopId,
       direction: plan.direction,
       day: plan.day,
+      date: plan.date,
       trip: plan.tripId,
     },
     signal,

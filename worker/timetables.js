@@ -213,8 +213,9 @@ export async function readTimetable(id,key,day,fetcher=fetch,date=null){
   }else {data=parseHyperdia(await officialText(sourceURL,fetcher));data.entries=data.days[day]??[];}
   return {kind:'timetable',...options,boards:undefined,...board,...data,day,date,calendarSource:options.operator==='kyotobus'?CALENDAR_SOURCE:null,sourceURL,fetchedAt:new Date().toISOString()};
 }
-export async function readOfficialTrip(id,key,day,tripId,fetcher=fetch){
-  const board=await readTimetable(id,key,day,fetcher),entry=board.entries.find(e=>e.tripId===tripId);if(!entry)throw Error('指定の便は公式時刻表で確認できませんでした。');
+// day 'auto' reads the official calendar for date (Tokyo today when absent).
+export async function readOfficialTrip(id,key,day,tripId,fetcher=fetch,date=null){
+  const board=await readTimetable(id,key,day,fetcher,date),entry=board.entries.find(e=>e.tripId===tripId);if(!entry)throw Error('指定の便は公式時刻表で確認できませんでした。');
   if(board.operator==='kintetsu')return {...parseKintetsuTrip(await officialText(entry.tripURL,fetcher),entry.tripURL),operator:'kintetsu',fetchedAt:board.fetchedAt};
   if(board.operator!=='kyotobus'||!board.fareURL)throw Error('この便の終点までの公式時刻は未取得です。');
   const raw=JSON.parse(await officialText(board.fareURL,fetcher));if(!Array.isArray(raw))throw Error('京都バスの便詳細の形式が変わりました。');

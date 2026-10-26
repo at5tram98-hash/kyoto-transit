@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { heroModel } from "../public/js/now-model.js";
 import { operationStatus } from "../public/js/operation-status.js";
 import { nextStationHero } from "../public/js/now-components.js";
-import { parseRailDelay } from "../worker/rail.js";
+import { parseRailDelay, parseRailDelaySeconds } from "../worker/rail.js";
 
 test("fresh GPS away from the scheduled station cannot become STOPPED from timetable alone", () => {
   const at = 100000;
@@ -38,8 +38,14 @@ test("fresh GPS away from the scheduled station cannot become STOPPED from timet
   assert.notEqual(model.phase, "STOPPED");
 });
 
-test("Kintetsu delay parser accepts official unsigned and signed minute values", () => {
-  assert.equal(parseRailDelay("10"), 10);
+test("近鉄の遅れ：公式ページの数字は秒、+付き・分付きは分として読む", () => {
+  // The page's own script: "遅延時間(秒)", 0–59 s shows nothing, 60 s is +01.
+  assert.equal(parseRailDelay("10"), 0);
+  assert.equal(parseRailDelay("45"), 0);
+  assert.equal(parseRailDelay("90"), 1);
+  assert.equal(parseRailDelay("125"), 2);
+  assert.equal(parseRailDelaySeconds("125"), 125);
+  assert.equal(parseRailDelaySeconds("+02"), 120);
   assert.equal(parseRailDelay("+25"), 25);
   assert.equal(parseRailDelay("10分"), 10);
   assert.equal(parseRailDelay("+10分遅れ"), 10);
