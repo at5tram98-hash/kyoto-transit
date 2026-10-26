@@ -31,6 +31,7 @@ import { getKyotoBusRT } from "./live.js";
 import { fetchRealtime, getCached } from "./realtime.js";
 import { loadNorth3Snapshot, north3Feed } from "./north3-feed.js";
 import { officialTripLeg } from "./vehicle.js";
+import { kintetsuStaticTrips, mergeKintetsuTrips, kintetsuTripComplete } from "./kintetsu-candidates.js";
 import {
   subwayRideCandidates,
   cityBusRideCandidates,
@@ -115,15 +116,44 @@ function onRailCorridor(fix, type) {
     );
 }
 
+// The official trips from a Kintetsu station, read once a minute however
+// many cycles ask. A failed or slow read (the official site can be slow or
+// refuse a burst) keeps the last good list for the station for a few
+// minutes: the trips in it are still matched against the clock and the fix.
+const KINTETSU_LAST_GOOD_MS = 180000;
+const kintetsuLastGood = new Map();
+async function kintetsuOfficialTrips(stopId, now) {
+  const data = await boundedLive(
+    `rider:kintetsu:${stopId}:${now.date}:${now.minute}`,
+    () => official("/rider/candidates", { stop: stopId, date: now.date, minute: now.minute }),
+    { wait: 3000, maxAge: 60000, retryAfter: 15000 },
+  );
+  if (Array.isArray(data?.trips)) {
+    kintetsuLastGood.set(stopId, { data, date: now.date, at: Date.now() });
+    return data;
+  }
+  const last = kintetsuLastGood.get(stopId);
+  return last && last.date === now.date && Date.now() - last.at <= KINTETSU_LAST_GOOD_MS ? last.data : null;
+}
+
 async function detectKintetsu(stopId) {
   const now = tokyoNow(),
-    feed = await ensureRailFeed(),
-    data = await official("/rider/candidates", {
-      stop: stopId,
-      date: now.date,
-      minute: now.minute,
+    // The train positions page is slow; a cycle uses the last snapshot
+    // rather than wait on a new one (it lands for the next cycle).
+    feedJob = Promise.race([ensureRailFeed(), sleep(2500).then(() => state.railFeed)]),
+    staticFeed = await boundedLive(`static:kintetsu:${now.date}`, () => getStaticFeed("kintetsu", now.date), {
+      wait: 2500,
+      maxAge: 30 * 60000,
+      retryAfter: 60000,
     }),
-    legs = data.trips
+    fromStatic = kintetsuStaticTrips(staticFeed, stopId, { minute: now.minute, date: now.date, network: state.network }),
+    // The official per-station reading is heavy for the server; it is asked
+    // for only when the timetable has nothing here, or a trip in it stops
+    // short of its terminus (Kyoto-bound trains end at Toji in the feed).
+    needOfficial = !fromStatic.length || fromStatic.some((t) => !kintetsuTripComplete(t)),
+    [feed, data] = await Promise.all([feedJob, needOfficial ? kintetsuOfficialTrips(stopId, now) : null]),
+    trips = mergeKintetsuTrips(data?.trips ?? [], fromStatic),
+    legs = trips
       .map((t) => officialTripLeg(t, state.network))
       .filter(Boolean);
   if (!legs.length) return [];
@@ -231,6 +261,7 @@ export async function boundedLive(
   return known?.value ?? null;
 }
 export function resetBoundedLive() {
+  kintetsuLastGood.clear();
   liveJobs.clear();
   liveValues.clear();
   lateKeys.clear();
@@ -1250,6 +1281,7 @@ function prefetchThroughEvidence(ride) {
           stop: ride.from,
           direction: "north",
           day: "auto",
+          date,
           trip: ride.tripId,
         }),
       { wait: 0, maxAge: 6 * 3600000, retryAfter: 60000 },
@@ -1260,6 +1292,42 @@ function prefetchThroughEvidence(ride) {
       throughTripJob = null;
     });
   }
+}
+// A ride taken from the static timetable can stop short of its terminus
+// (the feed covers the Kyoto line only; Kyoto-bound trains end at Toji).
+// The official page for that one trip completes it: same train, same
+// boarding, so it stays the same ride. Asked once; until it lands (or when
+// it fails) the ride keeps the stops it has.
+function completeStaticKintetsuRide(ride) {
+  const trip = ride?.officialTrip;
+  if (trip?.source !== "static" || !trip.tripId || kintetsuTripComplete(trip)) return null;
+  const date = ride.serviceDate ?? tokyoNow().date,
+    direction = kintetsuIds.indexOf(ride.to) > kintetsuIds.indexOf(ride.from) ? "south" : "north";
+  // Settles on a later cycle: boundedLive keeps the answer (and retries a
+  // failure after two minutes); this cycle reads what is already known.
+  const key = `kintetsu-trip:${trip.tripId}:${date}:${ride.from}`;
+  void boundedLive(
+    key,
+    () => official("/timetable/trip", { stop: ride.from, direction, day: "auto", date, trip: trip.tripId }),
+    { wait: 0, maxAge: 6 * 3600000, retryAfter: 120000 },
+  );
+  const found = liveValues.get(key)?.value;
+  if (!found?.stops?.length) return null;
+  const leg = officialTripLeg({ ...found, operator: "kintetsu", boardStop: ride.from, date }, state.network);
+  if (!leg || leg.from !== ride.from || leg.depart !== ride.depart) return null;
+  return {
+    ...ride,
+    operator: leg.operator,
+    label: leg.label,
+    destination: leg.destination,
+    to: leg.to,
+    arrive: leg.arrive,
+    minutes: leg.minutes,
+    intermediate: leg.intermediate,
+    officialStops: leg.officialStops,
+    officialTrip: { ...leg.officialTrip, tripId: trip.tripId },
+    fullTerminus: true,
+  };
 }
 function heardDestinations() {
   const a = state.smartLiveAnnouncement;
@@ -1367,6 +1435,11 @@ export function updateRideAnchor() {
     finishCurrentRide({ keepItinerary: false });
     toast(ui("ride_overdue_finished"));
     return;
+  }
+  const completed = completeStaticKintetsuRide(ride);
+  if (completed) {
+    ride = completed;
+    adoptThroughRide(completed);
   }
   const extended =
     findThroughContinuation(

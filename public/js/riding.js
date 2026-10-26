@@ -17,11 +17,25 @@ export function nearbyStops(f,geo,network,limit=3,now=Date.now()){
 }
 const simple=s=>normalize(String(s??'').replace(/行き?$|方面$/g,'').replace(/\([^)]*\)|（[^）]*）|駅前$/g,'').replaceAll('近鉄奈良','奈良').replaceAll('大和西大寺','西大寺'));
 function onRailShape(fix,geo,operator){return (geo?.lines??[]).filter(l=>operator==='subway'?l.line==='烏丸線':operator==='through'?['烏丸線','京都線','奈良線'].includes(l.line):['京都線','奈良線'].includes(l.line)).some(l=>l.points.some((p,i)=>i&&segmentDistance(fix,{lng:l.points[i-1][0],lat:l.points[i-1][1]},{lng:p[0],lat:p[1]})<=Math.max(100,fix.accuracy*2)));}
+// A train's delay in minutes: the exact seconds when the official page gave
+// them, else the whole minutes.
+export const trainDelayMinutes=t=>Number.isFinite(t?.delaySeconds)?t.delaySeconds/60:Number.isFinite(t?.delay)?t.delay:0;
+// A rail trip can only be where its timetable puts it, give or take a late
+// running: it has not left a stop more than a few minutes early, and is not
+// more than RAIL_LATE minutes behind the stop after (a train running later
+// than that is still found by its official position, which overrides this).
+export const RAIL_LATE=6;
+export function railScheduleDistance(segments,fix,minute){
+  const plausible=segments.filter(s=>Number.isFinite(s.a.time)&&Number.isFinite(s.b.time)&&s.a.time-3<=minute&&s.b.time+RAIL_LATE>=minute);
+  return plausible.length?Math.min(...plausible.map(s=>segmentDistance(fix,s.ga,s.gb))):Infinity;
+}
 export function matchRail(leg,feed,network,minute,fix,geo,now=Date.now()){
   if(!['kintetsu','through'].includes(leg.operator)||!feed||now-Date.parse(feed.sourceUpdatedAt)>120000||now-Date.parse(feed.capturedAt)>120000||Date.parse(feed.sourceUpdatedAt)>now+60000)return [];
   const stops=timedStops(leg,network),railStops=stops.filter(s=>kintetsuIds.includes(s.id)),start=kintetsuIds.indexOf(railStops[0]?.id),end=kintetsuIds.indexOf(railStops.at(-1)?.id);if(start<0||end<0||start===end)return [];
   return feed.trains.filter(t=>t.category===leg.category&&simple(t.destination)===simple(leg.destination)&&t.direction===(end>start?'south':'north')).filter(t=>{
-    const sourceMinute=minute-(now-Date.parse(feed.sourceUpdatedAt))/60000,delay=t.delay??0,before=[...stops].reverse().find(s=>s.time<=sourceMinute-delay),after=stops.find(s=>s.time>=sourceMinute-delay);
+    const sourceMinute=minute-(now-Date.parse(feed.sourceUpdatedAt))/60000,delay=trainDelayMinutes(t),at=sourceMinute-delay,
+      // Not yet left the first stop: waiting there (or pulling in) counts as at it.
+      before=[...stops].reverse().find(s=>s.time<=at)??(at>=stops[0].time-2?stops[0]:null),after=stops.find(s=>s.time>=at);
     if(!before||!after)return false;
     const ids=[before.id,after.id].map(id=>kintetsuIds.indexOf(id));const pos=(t.position-1)/2;if(pos<Math.min(...ids)-.5||pos>Math.max(...ids)+.5)return false;
     if(freshFix(fix,now)&&geo){const a=geo.stops.find(s=>s.id===t.from),b=geo.stops.find(s=>s.id===t.to);if(!a||!b||segmentDistance(fix,a,b)>Math.max(350,fix.accuracy*2))return false;}
@@ -35,13 +49,19 @@ export function rankRides(legs,{network,geo,samples=[],minute,railFeed,busFeed,n
     if(minute<leg.depart-2||minute>leg.arrive+10)return null;
     add('時刻表の乗車時間帯',minute>=leg.depart&&minute<=leg.arrive?20:5);
     const segments=stops.slice(1).map((b,i)=>({a:stops[i],b,ga:geo?.stops.find(s=>s.id===stops[i].id),gb:geo?.stops.find(s=>s.id===b.id)})).filter(s=>s.ga&&s.gb);
-    let near=null,geometry=false;if(fix&&segments.length){near=segments.map(s=>({...s,meters:segmentDistance(fix,s.ga,s.gb)})).sort((a,b)=>Math.abs(a.meters-b.meters)>5?a.meters-b.meters:Number(b.a.time<=minute&&b.b.time>minute)-Number(a.a.time<=minute&&a.b.time>minute))[0];geometry=isBus(leg)?near.meters<=Math.max(150,fix.accuracy*2):near.meters<=2500&&onRailShape(fix,geo,leg.operator);if(geometry){add(isBus(leg)?'停留所の並び付近（道路形状は未取得）':'実際の線路形状・停車駅の区間付近',25);
+    let near=null,geometry=false,scheduleFar=false;if(fix&&segments.length){near=segments.map(s=>({...s,meters:segmentDistance(fix,s.ga,s.gb)})).sort((a,b)=>Math.abs(a.meters-b.meters)>5?a.meters-b.meters:Number(b.a.time<=minute&&b.b.time>minute)-Number(a.a.time<=minute&&a.b.time>minute))[0];geometry=isBus(leg)?near.meters<=Math.max(150,fix.accuracy*2):near.meters<=2500&&onRailShape(fix,geo,leg.operator);if(geometry){add(isBus(leg)?'停留所の並び付近（道路形状は未取得）':'実際の線路形状・停車駅の区間付近',25);
       const points=motion.points,previous=points.length>1?points[0]:null;if(previous&&distance(previous,fix)>60){if(distance(previous,near.gb)-distance(fix,near.gb)>30)add('次の停車地点へ進行',15);else if(distance(fix,near.gb)-distance(previous,near.gb)>30)add('進行方向が逆',-30);}
       if(points.length>=3&&motion.span>=20&&points.every(p=>segments.some(s=>segmentDistance(p,s.ga,s.gb)<(isBus(leg)?Math.max(180,p.accuracy*2):2500))&&(isBus(leg)||onRailShape(p,geo,leg.operator))))add('20秒以上、路線に沿う軌跡',10);
+      // Next to the line but nowhere near where this trip runs now (it left
+      // here a quarter of an hour ago): another train.
+      if(!isBus(leg))scheduleFar=railScheduleDistance(segments,fix,minute)>Math.max(600,fix.accuracy*3);
       if(Number.isFinite(motion.heading)&&motion.speed>=3.5){const bearing=(Math.atan2((near.gb.lng-near.ga.lng)*Math.cos(fix.lat*Math.PI/180),near.gb.lat-near.ga.lat)*180/Math.PI+360)%360,diff=Math.abs((motion.heading-bearing+540)%360-180);if(diff<=60)add('GPSの方位が路線方向と一致',5);else if(diff>=120)add('GPSの方位が逆',-15);}
     }}
     const matches=matchRail(leg,railFeed,network,minute,fix,geo,now);
-    if(matches.length===1)add('近鉄公式の種別・行先・駅間と一致',25);else if(matches.length>1)add('近鉄公式に同条件の複数便',10);
+    if(matches.length===1)add('近鉄公式の種別・行先・駅間と一致',25);
+    else if(scheduleFar)add('時刻表上の列車位置と現在地が離れている',-30);
+    // The official positions place this very trip elsewhere on the line.
+    else if(fix&&geometry&&!isBus(leg)&&matchRail(leg,railFeed,network,minute,null,geo,now).length===1)add('近鉄公式の列車位置と現在地が離れている',-30);else if(matches.length>1)add('近鉄公式に同条件の複数便',10);
     const reportedStop=busFeed?stops.find(s=>simple(busFeed.stop)===simple(network.stops.get(s.id)?.fullName??s.name)):null;
     if(isBus(leg)&&busFeed&&now-Date.parse(busFeed.capturedAt)<=120000&&Date.parse(busFeed.capturedAt)<=now+5000&&Number.isFinite(reportedStop?.time)&&busFeed.route===leg.route&&simple(busFeed.destination)===simple(leg.destination)&&Math.abs(minute-reportedStop.time)<=3&&busFeed.buses?.some(b=>b.stopsAway<=1))add('停車地点の接近表示と一致（車両IDなし）',10);
     const score=Math.max(0,Math.min(100,evidence.reduce((n,e)=>n+e.points,0)));
